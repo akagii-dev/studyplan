@@ -11,6 +11,7 @@ import {
 import {
   approve,
   capacityForDate,
+  capacityForWeek,
   generatePlan,
   mergeIntervals,
   propose,
@@ -71,13 +72,17 @@ function entry(count: number, id = 'r', date = from): Progress {
 }
 function assertPlan(state: AppState) {
   const plan = generatePlan(state, from);
+  for (const date of plan.capacities.map((c) => c.date)) {
+    const w = capacityForWeek(state.settings, date, plan.sessions);
+    expect(w.used).toBeLessThanOrEqual(w.limit + 1e-6);
+  }
   for (const c of plan.capacities) {
     const sessions = plan.sessions.filter((s) => s.date === c.date);
     expect(sessions.reduce((n, s) => n + s.end - s.start, 0)).toBeLessThanOrEqual(
       c.allocatable + 1e-6,
     );
     for (const [a, b] of c.blocks ?? []) expect(b - a).toBeLessThanOrEqual(state.settings.block);
-    expect(c.allocatable).toBeLessThanOrEqual(c.focus * (1 - state.settings.buffer) + 1e-6);
+    expect(c.allocatable).toBe(c.focus);
     for (let i = 0; i < sessions.length; i++) {
       expect(c.slots.some(([a, b]) => sessions[i].start >= a && sessions[i].end <= b + 1e-6)).toBe(
         true,
@@ -113,12 +118,12 @@ describe('時間枠と集中量', () => {
         [90, 100],
       ]),
     ).toEqual([[10, 100]]));
-  it('空き枠、集中・休憩後、余裕後を区別する', () => {
+  it('日ごとには休憩だけを除き、余裕率で時間枠を減らさない', () => {
     const s = fixture();
     const c = capacityForDate(s.settings, from);
     expect(c.free).toBe(180);
     expect(c.focus).toBe(150);
-    expect(c.allocatable).toBe(120);
+    expect(c.allocatable).toBe(150);
   });
   it('終日予定と時間帯予定を差し引く', () => {
     const s = fixture();
@@ -160,7 +165,7 @@ describe('時間枠と集中量', () => {
     s.settings.buffer = 0.3;
     const c = capacityForDate(s.settings, from);
     expect(c.focus).toBe(150);
-    expect(c.allocatable).toBe(105);
+    expect(c.allocatable).toBe(150);
   });
 });
 describe('統合計画', () => {

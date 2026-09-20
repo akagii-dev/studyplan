@@ -98,11 +98,7 @@ export function fixedTimeIssue(
       'focus',
       1,
     );
-  return result(
-    `${timeRanges(missing(session, capacity.slots))}は余裕として残す時間です（余裕率：${Math.round(settings.buffer * 100)}%）。`,
-    'focus',
-    3,
-  );
+  return result('学習可能な時間帯に収まりません。現在の条件で案を作り直してください。', 'study');
 }
 export const fixedIssueMessage = (session: Session, issue: ConstraintIssue) =>
   `${session.date} ${clock(session.start)}〜${clock(session.end)}の固定予定：${issue.message}`;

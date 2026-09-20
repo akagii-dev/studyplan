@@ -2,7 +2,7 @@ import { Settings, Interval, weekday } from './model';
 import { capacityForDate, mergeIntervals } from './planner';
 import { unavailableEvents } from './planAudit';
 export type TimeKind =
-  'meal' | 'commute' | 'mealCommute' | 'busy' | 'available' | 'buffer' | 'rest' | 'outside';
+  'meal' | 'commute' | 'mealCommute' | 'busy' | 'available' | 'rest' | 'outside';
 export interface TimeSegment {
   start: number;
   end: number;
@@ -10,7 +10,7 @@ export interface TimeSegment {
   commuteNames: string[];
 }
 export interface OverviewSegment extends Omit<TimeSegment, 'kind'> {
-  kind: Exclude<TimeKind, 'available' | 'buffer' | 'rest'> | 'studyWindow';
+  kind: Exclude<TimeKind, 'available' | 'rest'> | 'studyWindow';
 }
 export function dailyTime(settings: Settings, date: string) {
   const capacity = capacityForDate(settings, date);
@@ -65,9 +65,7 @@ export function dailyTime(settings: Settings, date: string) {
                 ? 'outside'
                 : contains(capacity.slots, mid)
                   ? 'available'
-                  : contains(capacity.blocks ?? [], mid)
-                    ? 'buffer'
-                    : 'rest';
+                  : 'rest';
     const last = segments.at(-1);
     if (last?.kind === kind && last.commuteNames.join('/') === commuteNames.join('/'))
       last.end = end;
@@ -79,15 +77,13 @@ export function dailyTime(settings: Settings, date: string) {
     meal: 0,
     busy: 0,
     available: 0,
-    buffer: 0,
     rest: 0,
     outside: 0,
   };
   for (const s of segments) totals[s.kind] += s.end - s.start;
   const overview: OverviewSegment[] = [];
   for (const s of segments) {
-    const kind =
-      s.kind === 'available' || s.kind === 'buffer' || s.kind === 'rest' ? 'studyWindow' : s.kind;
+    const kind = s.kind === 'available' || s.kind === 'rest' ? 'studyWindow' : s.kind;
     const last = overview.at(-1);
     if (last?.kind === kind && last.commuteNames.join('/') === s.commuteNames.join('/'))
       last.end = s.end;

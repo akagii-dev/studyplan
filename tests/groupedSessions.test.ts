@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { initialState, addDays, AppState } from '../src/domain/model';
-import { generatePlan, capacityForDate } from '../src/domain/planner';
+import { generatePlan, capacityForDate, capacityForWeek } from '../src/domain/planner';
 import { overlapsBusy } from '../src/domain/planAudit';
 import { resetSetup, restoreReset } from '../src/domain/reset';
 import { sessionPolicy, sessionUnitCount } from '../src/domain/sessionPolicy';
@@ -251,6 +251,10 @@ describe('まとまりを優先する学習計画', () => {
         end: 597,
       });
       const p = invariant(s);
+      for (const c of p.capacities) {
+        const w = capacityForWeek(s.settings, c.date, p.sessions);
+        expect(w.used).toBeLessThanOrEqual(w.limit + 1e-6);
+      }
       const prev = p.sessions.filter((x) => x.materialId === 'm').at(-1),
         next = p.sessions.find((x) => x.materialId === 'later');
       if (prev && next)

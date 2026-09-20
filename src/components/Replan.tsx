@@ -151,7 +151,7 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
     ...(plan && plan.calculationVersion !== PLAN_CALCULATION_VERSION
       ? [
           {
-            text: '授業間10分以下の移動時間などを除く、現在の計算方式で案を作り直してください。',
+            text: '余裕率を週全体の割当上限に適用する方式で案を作り直してください。',
             action: '時間を基準に案を更新する',
             run: () => void act((s) => refreshProposal(s)),
           },

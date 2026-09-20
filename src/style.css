@@ -1819,9 +1819,6 @@ progress::-webkit-progress-value {
 .time-available {
   background: var(--accent);
 }
-.time-buffer {
-  background: var(--ring);
-}
 .time-rest {
   background: var(--art);
 }

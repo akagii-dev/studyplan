@@ -928,7 +928,9 @@ export function Buffer({ state, update }: Props) {
     <section className="card narrow">
       <div className="eyebrow">STEP 05 · ROOM TO BREATHE</div>
       <h2>どのくらい余裕を残しますか？</h2>
-      <p>計画に割り当てずに残す割合を選んでください。</p>
+      <p>
+        週全体（月〜日）の学習可能時間から、計画に割り当てずに残す割合です。曜日ごとの余裕時間は予約しません。
+      </p>
       <div className="choices large">
         {[0.1, 0.2, 0.3].map((b) => (
           <button

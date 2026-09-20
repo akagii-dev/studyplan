@@ -12,6 +12,7 @@ import {
   weekday,
 } from '../domain/model';
 import { datesBetween, capacityForDate } from '../domain/planner';
+import { weeklyCapacities } from '../domain/weeklyCapacity';
 import { blockingEvents, overlapsBusy } from '../domain/planAudit';
 import { moveCalendarDate, startOfWeek } from '../domain/calendar';
 import { DailyTime } from './DailyTime';
@@ -496,13 +497,19 @@ export function Calendar({
         </div>
         <details>
           <summary>日ごとの内訳を見る</summary>
+          <p>
+            週の割当上限：
+            {weekly.length
+              ? duration(weeklyCapacities(weekly, state.settings.buffer)[0].limit)
+              : '設定を確認'}
+            。余裕率は週全体に適用し、日ごとの予約はしません。
+          </p>
           <table>
             <thead>
               <tr>
                 <th>日付</th>
                 <th>空き枠</th>
                 <th>学習可能量</th>
-                <th>割当可能量</th>
               </tr>
             </thead>
             <tbody>
@@ -511,7 +518,6 @@ export function Calendar({
                   <td>{c.date}</td>
                   <td>{duration(c.free)}</td>
                   <td>{duration(c.focus)}</td>
-                  <td>{duration(c.allocatable)}</td>
                 </tr>
               ))}
             </tbody>

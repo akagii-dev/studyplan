@@ -95,7 +95,7 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
         },
       });
     add({
-      label: '余裕を何％残しますか？',
+      label: '週全体で余裕を何％残しますか？',
 
       value: Math.round(d.settings.buffer * 100),
       type: 'number',

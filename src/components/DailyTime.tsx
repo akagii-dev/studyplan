@@ -7,8 +7,7 @@ const labels: Record<TimeKind, string> = {
   commute: '通学',
   mealCommute: '食事・通学（重複）',
   busy: '授業・予定・移動',
-  available: '計画を入れられる時間',
-  buffer: '余裕として残す時間',
+  available: '学習可能時間',
   rest: '学習の合間の休憩',
   outside: '学習対象外・未設定',
 };
@@ -16,7 +15,7 @@ const segmentLabel = (s: TimeSegment | OverviewSegment) =>
   s.commuteNames.length
     ? `${s.kind === 'mealCommute' ? '食事・' : ''}${s.commuteNames.join('・')}`
     : s.kind === 'studyWindow'
-      ? '学習可能枠（休憩・余裕を含む）'
+      ? '学習可能枠（休憩を含む）'
       : labels[s.kind];
 export function DailyTime({ settings, date }: { settings: Settings; date: string }) {
   let day;
@@ -36,8 +35,8 @@ export function DailyTime({ settings, date }: { settings: Settings; date: string
         <small>{date} · 現在の設定</small>
       </div>
       <p>
-        勉強に使える空き時間 <strong>{duration(day.capacity.free)}</strong> ／ 休憩・余裕を残すと{' '}
-        <strong>{duration(day.capacity.allocatable)}</strong>
+        勉強に使える空き時間 <strong>{duration(day.capacity.free)}</strong> ／ 休憩を除くと{' '}
+        <strong>{duration(day.capacity.focus)}</strong>
       </p>
       {day.commutes.length > 0 && (
         <div className="daily-commute" aria-label="通学の往復内訳">

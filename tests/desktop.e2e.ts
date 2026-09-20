@@ -11,7 +11,7 @@ import {
 } from 'node:fs';
 import { resolve } from 'node:path';
 import { addDays, today, weekday, AppState, initialState } from '../src/domain/model';
-import { generatePlan } from '../src/domain/planner';
+import { generatePlan, capacityForWeek } from '../src/domain/planner';
 import { overlapsBusy } from '../src/domain/planAudit';
 import { proposeSettings } from '../src/domain/planner';
 import ICAL from 'ical.js';
@@ -819,7 +819,7 @@ test('実機：ホームで昼食と重なる復路を隠さず往復100分を�
   await expect(card.getByText('13:20〜13:30：食事', { exact: true })).toBeVisible();
   await expect(card.getByText('09:00〜12:30：授業・予定・移動', { exact: true })).toBeVisible();
   await expect(
-    card.getByText('13:30〜21:30：学習可能枠（休憩・余裕を含む）', { exact: true }),
+    card.getByText('13:30〜21:30：学習可能枠（休憩を含む）', { exact: true }),
   ).toBeVisible();
   await expect(card.locator('details li').filter({ hasText: '学習の合間の休憩' })).toHaveCount(0);
   for (const appearance of ['light', 'dark']) {
@@ -840,6 +840,99 @@ test('実機：ホームで昼食と重なる復路を隠さず往復100分を�
   }
   await card.screenshot({ path: 'test-results/home-commute-overlap.png' });
   expect((await storedState()).settings).toEqual(s.settings);
+});
+
+test('実機：日別バッファーなし・週の割当上限・旧計画からの承認と再起動', async () => {
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/weekly-limit-'));
+  await launch();
+  const monday = addDays(startOfWeek(today()), 7);
+  const s = initialState();
+  s.settings.block = 120;
+  s.settings.rest = 10;
+  s.settings.buffer = 0.2;
+  s.settings.exams = [
+    {
+      id: 'e',
+      name: '週上限の試験',
+      start: monday,
+      target: addDays(monday, 6),
+      priority: 1,
+      color: '#287569',
+      reviewDays: 0,
+    },
+  ];
+  s.settings.materials = [
+    {
+      id: 'm',
+      examId: 'e',
+      name: '教材',
+      total: 4000,
+      order: 1,
+      rounds: [{ completed: 0, minutes: 1 }],
+    },
+  ];
+  s.settings.windows = [
+    {
+      id: 'w',
+      name: '平日',
+      kind: 'study',
+      from: monday,
+      to: addDays(monday, 6),
+      weekdays: [1, 2, 3, 4, 5],
+      start: 540,
+      end: 920,
+    },
+  ];
+  s.records = [
+    {
+      id: 'zero',
+      date: today(),
+      materialId: 'm',
+      round: 0,
+      count: 0,
+      cancelled: false,
+      createdAt: 'now',
+      updatedAt: 'now',
+    },
+  ];
+  s.plan = generatePlan(s, monday, false, 0, 'earliest');
+  s.plan.calculationVersion = 6;
+  await seedState(s, 'weekly-limit-seed');
+  await expect(page.locator('.daily-time .time-buffer')).toHaveCount(0);
+  await expect(page.locator('.daily-time')).not.toContainText('余裕として残す時間');
+  await nav('再計画の確認');
+  await page.getByRole('button', { name: '設定を変えずに再計画', exact: true }).click();
+  await saved();
+  expect((await storedState()).plan).toEqual(s.plan);
+  await page.getByText('週全体の割当上限を確認', { exact: true }).click();
+  const row = page
+    .locator('.plan-insights tr')
+    .filter({ hasText: `${monday}〜${addDays(monday, 6)}` });
+  await expect(row).toContainText('30時間');
+  await expect(row).toContainText('24時間');
+  await expect(row.getByRole('cell', { name: '6時間', exact: true })).toBeVisible();
+  await page.screenshot({ path: 'test-results/weekly-limit-preview.png', fullPage: true });
+  await page.getByRole('button', { name: 'この計画を承認する', exact: true }).click();
+  await saved();
+  const approved = await storedState();
+  expect(approved.plan!.calculationVersion).toBe(PLAN_CALCULATION_VERSION);
+  expect(capacityForWeek(approved.settings, monday, approved.plan!.sessions).used).toBe(1440);
+  expect(
+    approved
+      .plan!.capacities.filter((c) => c.date >= monday && c.date < addDays(monday, 5))
+      .every((c) => c.allocatable === 360),
+  ).toBe(true);
+  await close();
+  await launch();
+  expect((await storedState()).plan).toEqual(approved.plan);
+  expect((await storedState()).records).toEqual(s.records);
+  await nav('再計画の確認');
+  await page.getByRole('button', { name: '前の計画へ戻す', exact: true }).click();
+  await page.getByRole('button', { name: '計画を戻す', exact: true }).click();
+  await saved();
+  expect((await storedState()).plan).toEqual(s.plan);
+  expect((await storedState()).records).toEqual(s.records);
 });
 
 test('実機：週間レポートの全体比較・Markdown保存・取消・保存失敗', async () => {
@@ -1382,10 +1475,10 @@ test('実機：重複の表示 → 既存設定を対話で修正 → 破棄・�
   }, seed);
   await page.reload();
   await nav('学習カレンダー');
-  await expect(page.getByText('授業・予定と重なる学習予定が2件あります')).toBeVisible();
+  await expect(page.getByText('授業・予定と重なる学習予定が3件あります')).toBeVisible();
   await page.getByRole('button', { name: `${date}を表示` }).click();
   const panel = page.locator('.day-panel');
-  await expect(panel.getByText('学習予定と授業・予定が重複')).toHaveCount(2);
+  await expect(panel.getByText('学習予定と授業・予定が重複')).toHaveCount(3);
   await expect(panel.locator('.busy-event').first()).toContainText('開始 09:00 ／ 終了 10:40');
   const order = await panel
     .locator(':scope > .busy-event, :scope > .session-detail')

@@ -75,14 +75,14 @@ it('授業間の移動に重なる固定予定を保持し、時間割の修正�
   expect(p.sessions).toContainEqual(fixed);
   expect(p.conflicts.join('')).toContain('授業間の移動');
 });
-it('授業・食事・枠の外・連続上限・休憩・余裕率を区別する', () => {
+it('授業・食事・枠の外・連続上限・休憩を区別し、以前の日別余裕時間も使える', () => {
   const s = fixture();
   const issue = (a: number, b: number) =>
     fixedTimeIssue(s.settings, session(a, b), capacityForDate(s.settings, date))!;
   expect(issue(500, 520)).toMatchObject({ topic: 'study' });
   expect(issue(540, 610).message).toContain('上限は50分');
   expect(issue(585, 600)).toMatchObject({ topic: 'focus', index: 1 });
-  expect(issue(665, 685)).toMatchObject({ topic: 'focus', index: 3 });
+  expect(issue(665, 685)).toBeNull();
   s.settings.windows.push({
     ...s.settings.windows[0],
     id: 'c',

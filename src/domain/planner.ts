@@ -19,6 +19,8 @@ import { requirePlanningInputs } from './setupIssues';
 import { overlapsBusy, sameSettings, unavailableEvents } from './planAudit';
 import { validateRevisedSettings, sameRevisionBase } from './revision';
 import { fixedTimeIssue, fixedIssueMessage } from './planConstraints';
+import { startOfWeek } from './calendar';
+import { weeklyCapacities } from './weeklyCapacity';
 export function mergeIntervals(intervals: Interval[]): Interval[] {
   const out: Interval[] = [];
   for (const [start, end] of [...intervals].sort((a, b) => a[0] - b[0])) {
@@ -76,13 +78,7 @@ export function capacityForDate(settings: Settings, date: string): Capacity {
     }
   }
   const focus = blocks.reduce((n, [s, e]) => n + e - s, 0);
-  let budget = Math.floor(focus * (1 - settings.buffer) + EPS);
-  const slots: Interval[] = [];
-  for (const [s, e] of blocks) {
-    const length = Math.min(budget, e - s);
-    if (length > 0) slots.push([s, s + length]);
-    budget -= length;
-  }
+  const slots = blocks.map(([a, b]): Interval => [a, b]);
   return {
     date,
     blocks,
@@ -91,6 +87,14 @@ export function capacityForDate(settings: Settings, date: string): Capacity {
     allocatable: slots.reduce((n, [s, e]) => n + e - s, 0),
     slots,
   };
+}
+export function capacityForWeek(settings: Settings, date: string, sessions: Session[] = []) {
+  const from = startOfWeek(date);
+  return weeklyCapacities(
+    Array.from({ length: 7 }, (_, i) => capacityForDate(settings, addDays(from, i))),
+    settings.buffer,
+    sessions,
+  )[0];
 }
 export function datesBetween(from: string, to: string): string[] {
   const dates: string[] = [];
@@ -206,13 +210,23 @@ export function generatePlan(
   if (errors.length) throw new Error(errors.join('\n'));
   if (!s.exams.length || !s.materials.length) throw new Error('試験と教材を登録してください。');
   const to = s.exams.reduce((d, e) => (e.target > d ? e.target : d), from);
-  const capacities = datesBetween(from, to).map((d) => capacityForDate(s, d));
+  const weekDays = datesBetween(startOfWeek(from), addDays(startOfWeek(to), 6)).map((d) =>
+    capacityForDate(s, d),
+  );
+  const capacities = weekDays.filter((c) => c.date >= from && c.date <= to);
   const kept = preserve
     ? (state.plan?.sessions.filter(
         (x) => x.date < from || (x.date === from && x.start < notBefore) || x.fixed,
       ) ?? [])
     : [];
   const sessions: Session[] = kept.map((x) => ({ ...x }));
+  const weeks = new Map(weeklyCapacities(weekDays, s.buffer, kept).map((w) => [w.from, w]));
+  const weekFor = (date: string) => weeks.get(startOfWeek(date))!;
+  const weeklyRoom = (date: string) => Math.max(0, weekFor(date).limit - weekFor(date).used);
+  const assign = (session: Session) => {
+    sessions.push(session);
+    weekFor(session.date).used += session.end - session.start;
+  };
   const conflicts: string[] = [];
   const tasks = s.materials.flatMap((m) =>
     m.rounds.map((r, round) => ({
@@ -271,9 +285,9 @@ export function generatePlan(
       let left = share;
       for (const [start, end] of available) {
         if (left <= EPS) break;
-        const length = Math.min(Math.max(policy.minimum, left), end - start);
+        const length = Math.min(Math.max(policy.minimum, left), end - start, weeklyRoom(cap.date));
         if (length < policy.minimum) continue;
-        sessions.push({
+        assign({
           id: uid(),
           date: cap.date,
           start,
@@ -370,8 +384,11 @@ export function generatePlan(
           (t) =>
             t.left > 0 &&
             eligible(t, cap.date) &&
-            normalCount(t, end - cursor, (quota.get(t.exam.id) || 0) - (used.get(t.exam.id) || 0)) >
-              0 &&
+            normalCount(
+              t,
+              Math.min(end - cursor, weeklyRoom(cap.date)),
+              (quota.get(t.exam.id) || 0) - (used.get(t.exam.id) || 0),
+            ) > 0 &&
             (used.get(t.exam.id) || 0) < (quota.get(t.exam.id) || 0) - EPS &&
             canStart(t, cap.date, cursor),
         );
@@ -393,12 +410,12 @@ export function generatePlan(
         if (!t) break;
         const count = normalCount(
           t,
-          end - cursor,
+          Math.min(end - cursor, weeklyRoom(cap.date)),
           (quota.get(t.exam.id) || 0) - (used.get(t.exam.id) || 0),
         );
         if (count <= 0) break;
         const length = count * t.minutes;
-        sessions.push({
+        assign({
           id: uid(),
           date: cap.date,
           start: cursor,
@@ -429,13 +446,14 @@ export function generatePlan(
       ]);
       let index = 0;
       for (const [start, end] of rest) {
-        if (end - start < policy.minimum) continue;
+        const length = Math.min(end - start, weeklyRoom(cap.date));
+        if (length < policy.minimum) continue;
         const exam = reviewExams[index++ % reviewExams.length];
-        sessions.push({
+        assign({
           id: uid(),
           date: cap.date,
           start,
-          end,
+          end: start + length,
           examId: exam.id,
           materialId: '',
           round: 0,
@@ -461,9 +479,13 @@ export function generatePlan(
               t.left > 0 &&
               eligible(t, cap.date) &&
               canStart(t, cap.date, cursor) &&
-              t.minutes <= end - cursor + EPS &&
+              t.minutes <= Math.min(end - cursor, weeklyRoom(cap.date)) + EPS &&
               (allowShort ||
-                Math.min(t.left, Math.floor((end - cursor + EPS) / t.minutes)) * t.minutes >=
+                Math.min(
+                  t.left,
+                  Math.floor((Math.min(end - cursor, weeklyRoom(cap.date)) + EPS) / t.minutes),
+                ) *
+                  t.minutes >=
                   policy.minimum - EPS),
           );
           candidates.sort(
@@ -471,11 +493,11 @@ export function generatePlan(
           );
           const t = candidates[0];
           if (!t) break;
-          const fits = Math.floor((end - cursor + EPS) / t.minutes);
+          const fits = Math.floor((Math.min(end - cursor, weeklyRoom(cap.date)) + EPS) / t.minutes);
           const count = Math.min(t.left, fits);
           const length = count * t.minutes;
           const small = length < policy.minimum - EPS;
-          sessions.push({
+          assign({
             id: uid(),
             date: cap.date,
             start: cursor,
@@ -537,6 +559,11 @@ export function generatePlan(
       const task = tasks.find((t) => t.m.id === target.materialId && t.round === target.round)!;
       const fit = options.find(
         ({ date, start: a, end: b }) =>
+          weekFor(date).used -
+            (startOfWeek(target.date) === startOfWeek(date) ? target.end - target.start : 0) -
+            (startOfWeek(donor.date) === startOfWeek(date) ? length : 0) +
+            combined <=
+            weekFor(date).limit + EPS &&
           capacities
             .find((c) => c.date === date)
             ?.slots.some(([lo, hi]) => a >= lo - EPS && b <= hi + EPS) &&
@@ -561,6 +588,9 @@ export function generatePlan(
           }),
       );
       if (!fit) continue;
+      weekFor(target.date).used -= target.end - target.start;
+      weekFor(donor.date).used -= length;
+      weekFor(fit.date).used += combined;
       target.date = fit.date;
       target.start = fit.start;
       target.end = fit.end;
@@ -577,6 +607,18 @@ export function generatePlan(
     if (!sessions.some((x) => x.examId === e.id && x.kind === 'review' && x.date >= from))
       conflicts.push(
         `${e.name}：残りの復習期間に復習枠を確保できません。学習可能枠を見直してください。`,
+      );
+  for (const week of weeks.values())
+    if (
+      week.used > week.limit + EPS &&
+      sessions.some(
+        (x) =>
+          startOfWeek(x.date) === week.from &&
+          (x.date > from || (x.date === from && x.start >= notBefore)),
+      )
+    )
+      conflicts.push(
+        `${week.from}〜${week.to}の週の割当上限${week.limit}分を、固定・保持予定が${Math.ceil(week.used - week.limit)}分超えています。固定予定または週の学習可能枠・余裕率を見直してください。`,
       );
   return {
     id: uid(),
@@ -599,7 +641,7 @@ export function generatePlan(
         round: t.round,
         count: t.left,
         minutes: t.left * t.minutes,
-        reason: '期限までの割当可能枠・集中ブロック・教材順序の条件に収まりません。',
+        reason: '期限までの学習枠・週の割当上限・集中ブロック・教材順序の条件に収まりません。',
       })),
   };
 }
@@ -668,7 +710,7 @@ export function approve(state: AppState, acknowledge = false): AppState {
   if (!p) throw new Error('再計画案がありません。');
   if (p.plan.calculationVersion !== PLAN_CALCULATION_VERSION)
     throw new Error(
-      '計算方式が更新されました。通学時間などを含む現在の条件で案を作り直してください。',
+      '計算方式が更新されました。週単位の余裕率を使う現在の条件で案を作り直してください。',
     );
   if (p.basedOn !== (state.plan?.id ?? null))
     throw new Error('計画が変更されました。案を作り直してください。');
@@ -692,7 +734,19 @@ export function approve(state: AppState, acknowledge = false): AppState {
     )
   )
     throw new Error('授業・予定と重複しています。固定予定や設定を確認して案を作り直してください。');
-  if (p.plan.conflicts.length) throw new Error('固定予定または復習枠の競合を解消してください。');
+  for (const weekDate of new Set(
+    p.plan.sessions
+      .filter((x) => x.date > today() || (x.date === today() && x.start >= minute))
+      .map((x) => startOfWeek(x.date)),
+  )) {
+    const week = capacityForWeek(settings, weekDate, p.plan.sessions);
+    if (week.used > week.limit + EPS)
+      throw new Error(
+        `${week.from}〜${week.to}の週の割当上限を超えています。案を作り直してください。`,
+      );
+  }
+  if (p.plan.conflicts.length)
+    throw new Error('固定予定・週の割当上限・復習枠の競合を解消してください。');
   if (p.unreported.length && !acknowledge) throw new Error('未報告の扱いを確認してください。');
   return {
     ...state,

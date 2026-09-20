@@ -3,6 +3,7 @@ import { CommuteSettings } from './components/CommuteSettings';
 import { Bus, BellOff } from 'lucide-react';
 import { AnimatedProgress } from './components/AnimatedProgress';
 import { todayProgress } from './domain/todayProgress';
+import { weeklyCapacities } from './domain/weeklyCapacity';
 import { Meals } from './components/Meals';
 import { DailyTime } from './components/DailyTime';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -745,6 +746,13 @@ function Dashboard({
             </div>
           ))}
           <small>現在の設定から算出・授業と予定を除外済み</small>
+          <div className="capacity-row">
+            <span>週の割当上限</span>
+            <b>{caps ? duration(weeklyCapacities(caps, s.buffer)[0]?.limit ?? 0) : '設定を確認'}</b>
+          </div>
+          <small>
+            余裕率{Math.round(s.buffer * 100)}%は週全体に適用。日ごとの予約はありません。
+          </small>
         </section>
       </div>
       {state.plan?.shortfalls.length ? (

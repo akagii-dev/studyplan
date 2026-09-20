@@ -53,11 +53,11 @@ function fixture() {
   return s;
 }
 describe('食事・連続学習・1日の可処分時間', () => {
-  it('時刻の内訳は学習・休憩・余裕をまとめ、予定をまたいで結合しない', () => {
+  it('時刻の内訳は学習・休憩をまとめ、予定をまたいで結合しない', () => {
     const s = fixture();
     const d = dailyTime(s.settings, date);
     expect(d.overview.filter((x) => x.kind === 'studyWindow').length).toBeLessThan(
-      d.segments.filter((x) => ['available', 'buffer', 'rest'].includes(x.kind)).length,
+      d.segments.filter((x) => ['available', 'rest'].includes(x.kind)).length,
     );
     expect(
       d.overview.filter((x) => x.kind === 'studyWindow').reduce((n, x) => n + x.end - x.start, 0),
@@ -128,7 +128,7 @@ describe('食事・連続学習・1日の可処分時間', () => {
       [840, 960],
     ]);
     expect(c.focus).toBe(360);
-    expect(c.allocatable).toBe(288);
+    expect(c.allocatable).toBe(360);
   });
   it('日付をまたぐ食事を翌日の学習枠からも除く', () => {
     const s = fixture();
@@ -138,15 +138,15 @@ describe('食事・連続学習・1日の可処分時間', () => {
     expect(freeIntervalsForDate(s.settings, date)).toEqual([[45, 1425]]);
     expect(dailyTime(s.settings, date).totals.meal).toBe(60);
   });
-  it('24時間の内訳の合計と可処分・休憩・余裕の関係が一致する', () => {
+  it('24時間の内訳に日別余裕を作らず、可処分・休憩の関係が一致する', () => {
     const s = fixture();
     s.settings.windows.push({ ...s.settings.windows[0], id: 'duplicate' });
     s.settings.exceptions = [{ id: 'x', name: '昼の外出', date, start: 710, end: 770 }];
     const d = dailyTime(s.settings, date);
     expect(Object.values(d.totals).reduce((n, x) => n + x, 0)).toBe(1440);
-    expect(d.totals.available + d.totals.buffer + d.totals.rest).toBe(d.capacity.free);
+    expect(d.totals.available + d.totals.rest).toBe(d.capacity.free);
     expect(d.totals.available).toBe(d.capacity.allocatable);
-    expect(d.totals.available + d.totals.buffer).toBe(d.capacity.focus);
+    expect(d.totals.available).toBe(d.capacity.focus);
     for (let i = 1; i < d.segments.length; i++)
       expect(d.segments[i].start).toBe(d.segments[i - 1].end);
   });

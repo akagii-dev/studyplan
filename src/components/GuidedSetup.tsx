@@ -1229,6 +1229,7 @@ export function GuidedSetup({
       title = 'どのくらい余裕を残しますか？';
       content = (
         <>
+          <p>週全体（月〜日）の割当上限に適用します。日ごとの余裕時間は予約しません。</p>
           <div className="choices large">
             {[0.1, 0.2, 0.3].map((b) =>
               choice(

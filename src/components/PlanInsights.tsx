@@ -1,7 +1,8 @@
 import { Warning } from './Warnings';
 import { useMemo } from 'react';
 import { AppState, Plan, addDays, remaining, today } from '../domain/model';
-import { datesBetween, generatePlan } from '../domain/planner';
+import { datesBetween, generatePlan, capacityForWeek } from '../domain/planner';
+import { startOfWeek } from '../domain/calendar';
 import { dateTime } from '../domain/planAudit';
 import { duration } from './common';
 import { PLAN_CALCULATION_VERSION, sessionPolicy } from '../domain/sessionPolicy';
@@ -35,6 +36,12 @@ export function PlanInsights({
   }, [preview, settings, plan.id, state.records, state.plan]);
   const last = plan.capacities.at(-1)?.date ?? plan.from;
   const days = datesBetween(plan.from, last);
+  const weeks = useMemo(() => {
+    if (!settings || (plan.calculationVersion ?? 0) < 7) return [];
+    return [...new Set(days.map(startOfWeek))].map((date) =>
+      capacityForWeek(settings, date, plan.sessions),
+    );
+  }, [plan, settings]);
   return (
     <section className="card plan-insights" aria-label="計画の条件と一日の問題数">
       <h3>計画の条件</h3>
@@ -52,10 +59,46 @@ export function PlanInsights({
         <>
           <div className="note">
             連続で最長 {duration(settings.block)} ／ 休憩 {duration(settings.rest)} ／ 授業前後 各
-            {duration(settings.classTransition ?? 0)} ／ 余裕率 {Math.round(settings.buffer * 100)}%
+            {duration(settings.classTransition ?? 0)} ／{' '}
+            {(plan.calculationVersion ?? 0) >= 7 ? '週の余裕率' : '余裕率'}{' '}
+            {Math.round(settings.buffer * 100)}%
             {(plan.calculationVersion ?? 0) >= 6 && ' ／ 授業間10分以下は移動時間'}
           </div>
           <p>計画開始：{plan.from}。目標日当日は通常教材を割り当てません。</p>
+          {weeks.length > 0 && (
+            <details>
+              <summary>週全体の割当上限を確認</summary>
+              <p>
+                月〜日の学習可能時間に余裕率を適用します。固定・保持予定と復習も含めて共有し、日ごとの余裕時間は予約しません。
+              </p>
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>週</th>
+                      <th>学習可能時間</th>
+                      <th>割当上限</th>
+                      <th>予定済み</th>
+                      <th>未割当容量</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {weeks.map((w) => (
+                      <tr key={w.from}>
+                        <td>
+                          {w.from}〜{w.to}
+                        </td>
+                        <td>{duration(w.focus)}</td>
+                        <td>{duration(w.limit)}</td>
+                        <td>{duration(w.used)}</td>
+                        <td>{duration(w.unallocated)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          )}
           {settings.commute?.enabled && (
             <p>
               通学：{settings.commute.from}〜{settings.commute.to} ／{' '}

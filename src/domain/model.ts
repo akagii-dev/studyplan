@@ -114,6 +114,7 @@ export interface Capacity {
   date: DateKey;
   free: number;
   focus: number;
+  /** Daily physical capacity after breaks. Weekly buffer ceilings are calculated separately. */
   allocatable: number;
   slots: Interval[];
 }

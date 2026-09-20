@@ -75,7 +75,7 @@ export function TimetablePreview({
           </dd>
         </div>
       </dl>
-      <small>このあと連続学習の長さ・休憩・余裕率を適用します。</small>
+      <small>このあと連続学習の長さ・休憩を適用します。余裕率は週全体の割当上限に適用します。</small>
     </section>
   );
 }

@@ -1260,7 +1260,7 @@ export function GuidedSetup({
       valid = state.settings.buffer >= 0 && state.settings.buffer < 1;
       break;
     case 'finish':
-      title = 'おつかれさまです。計画を作りましょう。';
+      title = '設定の確認';
       content = (
         <>
           <div className="answer-summary">

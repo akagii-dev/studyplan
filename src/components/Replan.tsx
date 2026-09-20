@@ -205,6 +205,57 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
     );
   return (
     <>
+      {p && plan && (
+        <section className="card replan-approval" aria-label="計画案の承認">
+          <div className="row">
+            <h2>計画案の承認</h2>
+            <div className="actions">
+              <button
+                data-submit
+                ref={approveButton}
+                className="primary"
+                aria-describedby={approvalBlocks.length ? approvalStatusId : undefined}
+                disabled={acting || approvalBlocks.length > 0}
+                onClick={() =>
+                  act((s) => approve(s, ack), '計画を承認し、カレンダーに反映しました')
+                }
+              >
+                この計画を承認する
+              </button>
+              <button
+                disabled={acting}
+                onClick={() =>
+                  act(
+                    (s) => ({ ...s, proposal: null }),
+                    '計画案を破棄しました。登録内容と現在の計画はそのままです。',
+                  )
+                }
+              >
+                案を破棄する
+              </button>
+            </div>
+          </div>
+          {plan.shortfalls.length > 0 && (
+            <p className="hint">
+              未配置 {plan.shortfalls.reduce((n, s) => n + s.count, 0)}
+              問は、この計画に含まれません。
+            </p>
+          )}
+          {approvalBlocks.length > 0 && (
+            <section className="approval-blockers" aria-label="承認前の確認">
+              <h3 id={approvalStatusId}>承認には、次の確認が必要です</h3>
+              <ul>
+                {approvalBlocks.map((block) => (
+                  <li key={block.action}>
+                    <span>{block.text}</span>
+                    <button onClick={block.run}>{block.action}</button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </section>
+      )}
       <div className="row">
         <p>変更案を確認してから、計画へ反映します。</p>
         <div className="actions">
@@ -293,7 +344,7 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
         <>
           <section className="card">
             <div className="eyebrow">PLAN PREVIEW · 承認待ち</div>
-            <h2>{state.plan ? 'これからの計画を整えましょう。' : '最初の計画ができました。'}</h2>
+            <h2>計画案</h2>
             <p>{p.reason}</p>
             {!p.settingsBase && (
               <div className="registration-status">
@@ -526,44 +577,6 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
                 </tbody>
               </table>
             </details>
-            {approvalBlocks.length > 0 && (
-              <section className="approval-blockers" aria-label="承認前の確認">
-                <h3 id={approvalStatusId}>承認には、次の確認が必要です</h3>
-                <ul>
-                  {approvalBlocks.map((block) => (
-                    <li key={block.action}>
-                      <span>{block.text}</span>
-                      <button onClick={block.run}>{block.action}</button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-            <div className="actions">
-              <button
-                data-submit
-                ref={approveButton}
-                className="primary"
-                aria-describedby={approvalBlocks.length ? approvalStatusId : undefined}
-                disabled={acting || approvalBlocks.length > 0}
-                onClick={() =>
-                  act((s) => approve(s, ack), '計画を承認し、カレンダーに反映しました')
-                }
-              >
-                この計画を承認する
-              </button>
-              <button
-                disabled={acting}
-                onClick={() =>
-                  act(
-                    (s) => ({ ...s, proposal: null }),
-                    '計画案を破棄しました。登録内容と現在の計画はそのままです。',
-                  )
-                }
-              >
-                案を破棄する
-              </button>
-            </div>
           </section>
         </>
       )}

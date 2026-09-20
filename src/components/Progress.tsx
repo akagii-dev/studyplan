@@ -112,7 +112,7 @@ export function Progress({ state, update }: Props) {
     <div className="split">
       <section className="card">
         <div className="eyebrow">DAILY CHECK-IN</div>
-        <h2>今日の一歩を、記録しましょう。</h2>
+        <h2>進捗の記録</h2>
         <Field label="① 記録対象日">
           <input
             type="date"

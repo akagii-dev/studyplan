@@ -334,7 +334,6 @@ export default function App() {
               StudyPlan<small>学びの計画室</small>
             </span>
           </a>
-          <div className="workspace-label">MY STUDY SPACE</div>
           <nav>
             {navigation.map((n) => (
               <button
@@ -369,11 +368,6 @@ export default function App() {
               この端末に保存
             </div>
             <small>StudyPlan v{version}</small>
-            <p>
-              あなたのペースで、
-              <br />
-              目標までの道のりを。
-            </p>
           </div>
         </aside>
         <main>
@@ -394,13 +388,9 @@ export default function App() {
           <div className="main-content">
             <div className="page-heading">
               <div>
-                <div className="eyebrow">
-                  {page === 'dashboard' ? 'MAKE ROOM FOR LEARNING' : 'YOUR STUDY PLAN'}
-                </div>
                 <h1 ref={pageHeading} tabIndex={-1}>
-                  {page === 'dashboard' ? '学びを、日々の暮らしに。' : active.name}
+                  {active.name}
                 </h1>
-                {page === 'dashboard' && <p>目標は大きく、一歩は自分のペースで。</p>}
               </div>
               <span className="today-label">
                 {today().replaceAll('-', ' / ')}（
@@ -575,33 +565,11 @@ function Dashboard({
   })();
   return (
     <>
-      <div className="hero">
-        <div>
-          <span className="pill">
-            <Leaf size={14} /> CONTINUE AT YOUR OWN PACE
-          </span>
-          <h2>
-            {s.exams.length ? '目標までの道のりを、少しずつ。' : 'あなたに合う計画を、ここから。'}
-          </h2>
-          <p>
-            {s.exams.length
-              ? '今日の学習と、これからの余裕を確かめましょう。'
-              : '試験、使う教材、勉強できる時間。質問に答えるだけで、無理のない計画を組み立てます。'}
-          </p>
-          <button className="primary" onClick={() => navigate(state.plan ? 'progress' : 'setup')}>
-            {state.plan ? '今日の進捗を記録' : '質問に答えて計画をつくる'}
-            <ChevronRight size={17} />
-          </button>
-        </div>
-        <div className="hero-art" aria-hidden="true">
-          <div className="orbit" />
-          <BookOpen size={70} strokeWidth={1} />
-          <span className="art-star one">✧</span>
-          <span className="art-star two">✦</span>
-          <span className="art-caption">ONE STEP AT A TIME</span>
-        </div>
-      </div>
       <div className="actions addition-actions">
+        <button className="primary" onClick={() => navigate(state.plan ? 'progress' : 'setup')}>
+          {state.plan ? '今日の進捗を記録' : '質問に答えて計画をつくる'}
+          <ChevronRight size={17} />
+        </button>
         <button onClick={() => onAdd('addExam')}>
           <GraduationCap size={17} />
           試験を追加
@@ -621,7 +589,6 @@ function Dashboard({
             {s.exams.length}
             <small>つ</small>
           </strong>
-          <p>一つの計画で、まとめて管理</p>
         </div>
         <div className="metric-card">
           <span>
@@ -659,8 +626,7 @@ function Dashboard({
           {!s.exams.length ? (
             <div className="empty">
               <GraduationCap size={28} />
-              <h3>最初の目標を決めましょう</h3>
-              <p>複数の試験も、あとから追加できます。</p>
+              <h3>試験は未登録です</h3>
             </div>
           ) : (
             s.exams.map((e) => {
@@ -724,10 +690,6 @@ function Dashboard({
           <p>目標日や時間枠を見直し、再計画画面で不足を確認してください。</p>
         </div>
       ) : null}
-      <div className="help-line">
-        <CircleHelp size={16} />
-        <span>計画はいつでも見直せます。進捗を記録すると、残りの学習を組み直す案が届きます。</span>
-      </div>
     </>
   );
 }

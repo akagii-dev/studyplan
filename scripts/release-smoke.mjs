@@ -31,7 +31,7 @@ try {
     if (page && page.url() !== 'about:blank') break;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  await expect(page.getByRole('heading', { name: '学びを、日々の暮らしに。' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'ホーム' })).toBeVisible();
   if (page.url().includes(':1420')) throw new Error('Release is using the development server.');
   await page.locator('nav').getByRole('button', { name: '対話式の初期設定', exact: true }).click();
   await expect(page.locator('.question-card')).toBeVisible();

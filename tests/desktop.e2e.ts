@@ -20,7 +20,7 @@ let child: ChildProcess;
 let browser: Browser;
 let page: Page;
 let dataDir: string;
-async function launch(readyHeading = '学びを、日々の暮らしに。') {
+async function launch(readyHeading = 'ホーム') {
   await close();
   browser = undefined!;
   const webviewDir = mkdtempSync(resolve('.test-data/native-webview-'));
@@ -181,6 +181,15 @@ test('実機：3テーマの読みやすさ・入力ラベル・小さい画面�
       '週間レポート',
     ]) {
       await nav(screen);
+      if (screen === 'ホーム') {
+        await expect(page.getByRole('heading', { name: 'ホーム', exact: true })).toBeVisible();
+        await expect(page.locator('.hero')).toHaveCount(0);
+      }
+      if (screen === '再計画の確認') {
+        await expect(
+          page.getByRole('button', { name: 'この計画を承認する', exact: true }),
+        ).toBeInViewport({ ratio: 1 });
+      }
       const result = await new AxeBuilder({ page })
         // WebView2 exposes one native window, not a browser that can open aggregation tabs.
         .setLegacyMode()
@@ -683,6 +692,9 @@ test('実機：固定エラーの理由・該当設定への修正・固定解�
   expect(seed.proposal!.plan.conflicts).toHaveLength(1);
   await seedState(seed, 'constraint-seed');
   await nav('再計画の確認');
+  await expect(
+    page.getByRole('button', { name: 'この計画を承認する', exact: true }),
+  ).toBeInViewport({ ratio: 1 });
   const errors = page.getByRole('region', { name: '計画エラーの修正' });
   await expect(errors).toContainText('経済学（09:00〜10:40）と重なっています');
   await expect(page.getByRole('button', { name: 'この計画を承認する' })).toBeDisabled();
@@ -1100,7 +1112,7 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   ).toBeVisible();
   await expect(page.getByText('授業以外の定期予定：あとで設定', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: '計画案を作成する' }).click();
-  await expect(page.getByRole('heading', { name: '最初の計画ができました。' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '計画案', exact: true })).toBeVisible();
   await expect(
     page.getByRole('heading', { name: 'バッファーなし（余裕率0%）なら、いつ終わる？' }),
   ).toBeVisible();
@@ -2013,7 +2025,7 @@ test('実機：起動時の保存先エラーから再試行・保存内容の�
   await page.screenshot({ path: 'test-results/startup-retry.png' });
   rmdirSync(path);
   await page.getByRole('button', { name: 'もう一度読み込む', exact: true }).dblclick();
-  await expect(page.getByRole('heading', { name: '学びを、日々の暮らしに。' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'ホーム' })).toBeVisible();
   await nav('対話式の初期設定');
   await page.getByLabel('試験名', { exact: true }).fill('読み込み失敗でも残す回答');
   await saved();

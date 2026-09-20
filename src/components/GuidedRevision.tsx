@@ -21,7 +21,7 @@ import {
   validateRevisedSettings,
   minimumRetainedRounds,
 } from '../domain/revision';
-import { proposeSettings, validateSettings } from '../domain/planner';
+import { proposeSettings, validateSettings } from '../domain/planning';
 import { Field, Props, weekdays } from './common';
 import { NumericDraftProvider } from './NumberInput';
 import { TimetablePreview } from './TimetablePreview';
@@ -430,6 +430,13 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
       <section className="card question-card revision-wizard" aria-label="対話式の再計画">
         <div className="eyebrow">今の設定を引き継いで、必要なところだけ</div>
         <p>変更は、最後に承認すると反映されます。</p>
+        {d.stage !== 'review' && !(d.stage === 'question' && d.topic === 'commute') && (
+          <div className="wizard-skip">
+            <button data-submit disabled={stale} onClick={review}>
+              残りを一括スキップして確認
+            </button>
+          </div>
+        )}
         {stale && (
           <Warning
             id="guidedrevision-0"
@@ -498,6 +505,23 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
             update={update}
             value={d.settings.commute}
             draftKey={d.id}
+            onSkipRemaining={async (commute) => {
+              await update((s) => {
+                const current = s.draft.revision as RevisionDraft;
+                const settings = { ...current.settings, commute };
+                const errors = validateSettings(settings);
+                if (errors.length) throw new Error(errors.join(' '));
+                validateRevisedSettings(s, settings);
+                return {
+                  ...s,
+                  draft: {
+                    ...s.draft,
+                    [`commute-${d.id}`]: undefined,
+                    revision: { ...current, settings, stage: 'review' },
+                  },
+                };
+              });
+            }}
             onSave={async (commute) => {
               await update((s) => {
                 const current = s.draft.revision as RevisionDraft;

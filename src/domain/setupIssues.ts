@@ -107,8 +107,8 @@ export function setupIssues(s: Settings, from?: string): SetupIssue[] {
   }
   return issues;
 }
-export function requirePlanningInputs(s: Settings) {
-  const errors = setupIssues(s).filter((i) => i.severity === 'error');
+export function requirePlanningInputs(s: Settings, from?: string) {
+  const errors = setupIssues(s, from).filter((i) => i.severity === 'error');
   if (errors.length)
     throw new Error(errors.map((i) => `${i.title}。${i.impact}\n${i.action}`).join('\n'));
 }

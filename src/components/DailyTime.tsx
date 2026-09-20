@@ -58,6 +58,13 @@ export function DailyTime({ settings, date }: { settings: Settings; date: string
           )}
         </div>
       )}
+      {day.adjustedMeals.length > 0 && (
+        <p className="hint">
+          {day.adjustedMeals
+            .map((e) => `${e.name}：${clock(e.start)}〜${clock(e.end)}`)
+            .join(' ／ ')}
+        </p>
+      )}
       <div
         className="day-time-bar"
         role="img"

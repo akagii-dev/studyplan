@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { initialState, addDays, AppState } from '../src/domain/model';
-import { generatePlan, capacityForDate, capacityForWeek } from '../src/domain/planner';
+import { generatePlan, capacityForDate, capacityForWeek } from '../src/domain/planning';
 import { overlapsBusy } from '../src/domain/planAudit';
 import { resetSetup, restoreReset } from '../src/domain/reset';
 import { sessionPolicy, sessionUnitCount } from '../src/domain/sessionPolicy';
-import { approve, propose, validateSettings } from '../src/domain/planner';
+import { approve, propose, validateSettings } from '../src/domain/planning';
 import { sameSettings, stalePlan } from '../src/domain/planAudit';
 const date = '2026-10-05';
 function fixture(total = 37, minutes = 2, days = 30): AppState {

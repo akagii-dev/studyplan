@@ -8,7 +8,7 @@ import {
   proposeSettings,
   approve,
   undoPlan,
-} from '../src/domain/planner';
+} from '../src/domain/planning';
 import { overlapsBusy, sameSettings } from '../src/domain/planAudit';
 import { dailyTime } from '../src/domain/dailyTime';
 import { fixedTimeIssue } from '../src/domain/planConstraints';
@@ -69,7 +69,7 @@ function fixture() {
   return s;
 }
 describe('通学時間', () => {
-  it('昼食に隠れていた復路を独立した往復内訳と重複区分に残す', () => {
+  it('復路に重なる昼食を帰宅後へ移し、それぞれの全時間を確保する', () => {
     const s = fixture();
     Object.assign(s.settings.windows[1], { start: 540, end: 640 });
     s.settings.windows.push({ ...s.settings.windows[1], id: 'late', start: 650, end: 750 });
@@ -85,17 +85,17 @@ describe('通学時間', () => {
       ['通学（復路）', 750, 800],
     ]);
     expect(d.commuteMinutes).toBe(100);
-    expect(d.totals.commute).toBe(50);
-    expect(d.totals.mealCommute).toBe(50);
-    expect(d.totals.meal).toBe(85);
+    expect(d.totals.commute).toBe(100);
+    expect(d.totals.mealCommute).toBe(0);
+    expect(d.totals.meal).toBe(135);
     expect(d.segments).toContainEqual({
       start: 750,
       end: 800,
-      kind: 'mealCommute',
+      kind: 'commute',
       commuteNames: ['通学（復路）'],
     });
-    expect(d.segments).toContainEqual({ start: 800, end: 810, kind: 'meal', commuteNames: [] });
-    expect(d.capacity.free).toBe(400);
+    expect(d.segments).toContainEqual({ start: 800, end: 860, kind: 'meal', commuteNames: [] });
+    expect(d.capacity.free).toBe(350);
     expect(Object.values(d.totals).reduce((a, b) => a + b, 0)).toBe(1440);
   });
   it.each([0, 10, 30])('食事との重複が%d分でも往復時間と24時間合計を保つ', (overlap) => {
@@ -103,9 +103,9 @@ describe('通学時間', () => {
     s.settings.meals = { lunch: { start: 730 - overlap, duration: 60 } };
     const d = dailyTime(s.settings, day);
     expect(d.commuteMinutes).toBe(75);
-    expect(d.totals.commute).toBe(75 - overlap);
-    expect(d.totals.mealCommute).toBe(overlap);
-    expect(d.totals.meal).toBe(60 - overlap);
+    expect(d.totals.commute).toBe(75);
+    expect(d.totals.mealCommute).toBe(0);
+    expect(d.totals.meal).toBe(60);
     expect(Object.values(d.totals).reduce((a, b) => a + b, 0)).toBe(1440);
   });
   it('授業日の最初と最後に往復を確保し、授業のない日は除外しない', () => {

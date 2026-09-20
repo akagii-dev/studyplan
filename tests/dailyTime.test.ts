@@ -9,7 +9,7 @@ import {
   approve,
   proposeSettings,
   undoPlan,
-} from '../src/domain/planner';
+} from '../src/domain/planning';
 import { dailyTime } from '../src/domain/dailyTime';
 import { overlapsBusy, stalePlan } from '../src/domain/planAudit';
 import { settingChanges } from '../src/domain/revision';

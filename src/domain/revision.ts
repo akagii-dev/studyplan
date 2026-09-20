@@ -36,8 +36,8 @@ export function minimumRetainedRounds(
   from = today(),
   notBefore?: number,
 ) {
-  const now = new Date();
-  const minute = notBefore ?? (from === today() ? now.getHours() * 60 + now.getMinutes() : 0);
+  const minute =
+    notBefore ?? (from === today() ? new Date().getHours() * 60 + new Date().getMinutes() : 0);
   const material = state.settings.materials.find((m) => m.id === materialId);
   const required = [
     0,

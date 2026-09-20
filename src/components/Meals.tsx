@@ -4,7 +4,12 @@ import { Field, Props } from './common';
 import { NumericDraftProvider } from './NumberInput';
 
 /** Small, persisted questions shared by onboarding and the schedule editor. */
-export function MealSetup({ state, update, onDone }: Props & { onDone: () => void }) {
+export function MealSetup({
+  state,
+  update,
+  onDone,
+  onSkipRemaining,
+}: Props & { onDone: () => void; onSkipRemaining?: () => void }) {
   const [error, setError] = useState('');
   const index = Number(state.draft.mealStep ?? 0);
   const key = mealKeys[Math.min(2, Math.floor(index / 2))];
@@ -17,7 +22,7 @@ export function MealSetup({ state, update, onDone }: Props & { onDone: () => voi
     }));
   const timeDraft = state.draft.mealClock as { index: number; text: string } | undefined;
   const timeText = timeDraft?.index === index ? timeDraft.text : clock(meal.start);
-  const next = () => {
+  const next = (skip = false) => {
     const chosen = durationStep ? meal : { ...meal, start: minutes(timeText) };
     if (
       !Number.isInteger(chosen.start) ||
@@ -33,16 +38,24 @@ export function MealSetup({ state, update, onDone }: Props & { onDone: () => voi
     void update((s) => ({
       ...s,
       settings: { ...s.settings, meals: { ...s.settings.meals, [key]: chosen } },
-      draft: { ...s.draft, mealClock: undefined, mealStep: index === 5 ? 0 : index + 1 },
+      draft: { ...s.draft, mealClock: undefined, mealStep: skip || index === 5 ? 0 : index + 1 },
     }))
       .then(() => {
-        if (index === 5) onDone();
+        if (skip) onSkipRemaining?.();
+        else if (index === 5) onDone();
       })
       .catch((e) => setError(String(e)));
   };
   return (
     <NumericDraftProvider state={state} update={update} scope={`meals/${index}`}>
       <section className="question-card meal-questions" aria-label="食事時間の質問">
+        {onSkipRemaining && (
+          <div className="wizard-skip">
+            <button data-submit onClick={() => next(true)}>
+              残りを一括スキップして確認
+            </button>
+          </div>
+        )}
         <small>食事の質問 {index + 1} / 6 · 毎日に適用</small>
         <h2>
           {mealNames[key]}は{durationStep ? '何分確保しますか？' : '何時からですか？'}
@@ -100,7 +113,7 @@ export function MealSetup({ state, update, onDone }: Props & { onDone: () => voi
           >
             前の質問
           </button>
-          <button data-submit className="primary" onClick={next}>
+          <button data-submit className="primary" onClick={() => next()}>
             {index === 5 ? '食事時間を保存して進む' : '次へ'}
           </button>
         </div>
@@ -113,6 +126,7 @@ export function Meals({ state, update }: Props) {
     <section className="card">
       <h2>毎日の食事時間</h2>
       <p>朝・昼・夜を30〜60分ずつ確保し、学習可能枠から差し引きます。</p>
+      <p className="hint">通学と重なる食事は、通学後へずらして全時間を確保します。</p>
       {mealKeys.map((key) => (
         <p key={key}>
           {mealNames[key]}：
@@ -126,6 +140,9 @@ export function Meals({ state, update }: Props) {
           state={state}
           update={update}
           onDone={() => void update((s) => ({ ...s, draft: { ...s.draft, mealOpen: false } }))}
+          onSkipRemaining={() =>
+            void update((s) => ({ ...s, draft: { ...s.draft, mealOpen: false } }))
+          }
         />
       ) : (
         <button

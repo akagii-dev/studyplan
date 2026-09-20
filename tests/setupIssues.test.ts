@@ -7,7 +7,7 @@ import {
   scheduleStatus,
   setupIssues,
 } from '../src/domain/setupIssues';
-import { approve, capacityForDate, propose } from '../src/domain/planner';
+import { approve, capacityForDate, propose } from '../src/domain/planning';
 function ready() {
   const state = initialState();
   state.settings.exams = [

@@ -1,7 +1,7 @@
 import { Warning } from './Warnings';
 import { useMemo } from 'react';
 import { AppState, Plan, addDays, remaining, today } from '../domain/model';
-import { datesBetween, generatePlan, capacityForWeek } from '../domain/planner';
+import { datesBetween, generatePlan, capacityForWeek } from '../domain/planning';
 import { startOfWeek } from '../domain/calendar';
 import { dateTime } from '../domain/planAudit';
 import { duration } from './common';

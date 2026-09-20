@@ -2374,3 +2374,16 @@ textarea {
     padding: 20px 4px 0;
   }
 }
+.wizard-skip {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 0;
+  background: var(--page);
+}
+.wizard-skip button {
+  max-width: 100%;
+  white-space: normal;
+}

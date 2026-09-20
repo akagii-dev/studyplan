@@ -6,7 +6,7 @@ import {
   freeIntervalsForDate,
   generatePlan,
   propose,
-} from '../src/domain/planner';
+} from '../src/domain/planning';
 import { overlapsBusy, stalePlan } from '../src/domain/planAudit';
 import { parseNumberInput } from '../src/domain/numeric';
 

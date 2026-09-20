@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { initialState, Session } from '../src/domain/model';
-import { capacityForDate, generatePlan, proposeSettings } from '../src/domain/planner';
+import { capacityForDate, generatePlan, proposeSettings } from '../src/domain/planning';
 import { fixedTimeIssue } from '../src/domain/planConstraints';
 import { beginConstraintRepair, releaseFixedAndRefresh } from '../src/domain/repairPlan';
 import { beginRevision, RevisionDraft } from '../src/domain/revision';

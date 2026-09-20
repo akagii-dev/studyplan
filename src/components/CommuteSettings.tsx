@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Commute, clock, minutes, today } from '../domain/model';
 import { commuteErrors, defaultCommute } from '../domain/commute';
-import { proposeSettings } from '../domain/planner';
+import { proposeSettings } from '../domain/planning';
 import { Field, Props, useDraft, weekdays } from './common';
 
 export function CommuteEditor({
@@ -10,10 +10,12 @@ export function CommuteEditor({
   value,
   draftKey,
   onSave,
+  onSkipRemaining,
 }: Props & {
   value?: Commute;
   draftKey: string;
   onSave: (commute: Commute) => Promise<void>;
+  onSkipRemaining?: (commute: Commute) => Promise<void>;
 }) {
   const initial = value ?? defaultCommute();
   const [draft, set] = useDraft(state, update, `commute-${draftKey}`, {
@@ -66,6 +68,27 @@ export function CommuteEditor({
   };
   return (
     <section className="card commute-editor" aria-label="通学時間の設定">
+      {(onSkipRemaining || (value && draft.step < 3)) && (
+        <div className="wizard-skip">
+          <button
+            disabled={busy}
+            onClick={async () => {
+              try {
+                setBusy(true);
+                const commute = parse();
+                if (onSkipRemaining) await onSkipRemaining(commute);
+                else patch({ step: 3 });
+              } catch (e) {
+                setError(String(e));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            残りを一括スキップして確認
+          </button>
+        </div>
+      )}
       <h2>
         {
           [

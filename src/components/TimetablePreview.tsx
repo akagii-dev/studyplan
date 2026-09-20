@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Settings, clock, weekday } from '../domain/model';
-import { freeIntervalsForDate } from '../domain/planner';
+import { freeIntervalsForDate } from '../domain/planning';
 import { unavailableEvents } from '../domain/planAudit';
 import { weekdays, Field, duration } from './common';
 

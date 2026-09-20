@@ -11,9 +11,9 @@ import {
 } from 'node:fs';
 import { resolve } from 'node:path';
 import { addDays, today, weekday, AppState, initialState } from '../src/domain/model';
-import { generatePlan, capacityForWeek } from '../src/domain/planner';
+import { generatePlan, capacityForWeek } from '../src/domain/planning';
 import { overlapsBusy } from '../src/domain/planAudit';
-import { proposeSettings } from '../src/domain/planner';
+import { proposeSettings } from '../src/domain/planning';
 import ICAL from 'ical.js';
 import AxeBuilder from '@axe-core/playwright';
 import { startOfWeek } from '../src/domain/calendar';
@@ -98,6 +98,90 @@ async function close() {
   }
 }
 test.afterAll(close);
+test('実機：対話修正の一括スキップは変更を保存し、未変更の値と承認手順を保つ', async () => {
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/skip-revision-'));
+  await launch();
+  const seed = studentFixture(today());
+  seed.plan = generatePlan(seed, today(), false);
+  await seedState(seed, 'skip-revision');
+  await nav('再計画の確認');
+  await page.getByRole('button', { name: '対話で条件を見直す', exact: true }).click();
+  let wizard = page.getByRole('region', { name: '対話式の再計画' });
+  const skip = () =>
+    wizard.getByRole('button', { name: '残りを一括スキップして確認', exact: true });
+  await expect(skip()).toBeVisible();
+  await wizard.getByRole('button', { name: '連続時間・休憩・余裕率', exact: true }).click();
+  const input = wizard.getByLabel('最長で何分続けて勉強できますか？');
+  await input.fill('');
+  await skip().click();
+  await expect(input).toBeVisible();
+  await expect(input).toHaveAttribute('aria-invalid', 'true');
+  await input.fill('75');
+  await skip().click();
+  await expect(
+    wizard.getByRole('heading', { name: 'この変更で計画案を作りますか？' }),
+  ).toBeVisible();
+  await saved();
+  let data = await storedState();
+  expect(data.settings).toEqual(seed.settings);
+  expect(data.plan).toEqual(seed.plan);
+  expect(data.draft.revision).toMatchObject({
+    stage: 'review',
+    settings: { ...seed.settings, block: 75 },
+  });
+  await launch();
+  wizard = page.getByRole('region', { name: '対話式の再計画' });
+  await nav('再計画の確認');
+  await page.getByRole('button', { name: '対話の続きから見直す' }).click();
+  await expect(
+    wizard.getByRole('heading', { name: 'この変更で計画案を作りますか？' }),
+  ).toBeVisible();
+  await wizard.getByRole('button', { name: '別の項目も見直す' }).click();
+  await wizard.getByRole('button', { name: '通学時間', exact: true }).click();
+  await skip().click();
+  await expect(
+    wizard.getByRole('heading', { name: 'この変更で計画案を作りますか？' }),
+  ).toBeVisible();
+  await wizard.getByRole('button', { name: 'この条件で再計画案を作成' }).click();
+  await saved();
+  data = await storedState();
+  expect(data.settings).toEqual(seed.settings);
+  expect(data.proposal?.plan.settingsSnapshot).toEqual({ ...seed.settings, block: 75 });
+  expect(data.records).toEqual(seed.records);
+  await nav('対話式の初期設定');
+  await page.getByRole('button', { name: '設定項目を選んで修正する' }).click();
+  await page
+    .getByRole('button', { name: `試験・目標：${seed.settings.exams[0].name}`, exact: true })
+    .click();
+  await page.getByLabel('試験名', { exact: true }).fill('名称を修正');
+  await page.getByRole('button', { name: '残りを一括スキップして確認', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '設定の確認', exact: true })).toBeVisible();
+  await saved();
+  data = await storedState();
+  expect(data.settings).toEqual({
+    ...seed.settings,
+    exams: seed.settings.exams.map((e, i) => (i ? e : { ...e, name: '名称を修正' })),
+  });
+  expect(data.plan).toEqual(seed.plan);
+  await page.screenshot({ path: 'test-results/skip-review.png', fullPage: true });
+  await nav('通学時間');
+  await page.getByRole('button', { name: '残りを一括スキップして確認', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '通学時間を確認してください' })).toBeVisible();
+  expect((await storedState()).settings.commute).toEqual(seed.settings.commute);
+  await nav('時間枠・時間割');
+  await page.getByRole('button', { name: '食事時間を対話で設定する' }).click();
+  const meal = page.getByRole('region', { name: '食事時間の質問' });
+  await meal.getByRole('button', { name: '次へ', exact: true }).click();
+  await meal.getByLabel('朝食の長さ（分）').fill('40');
+  await meal.getByRole('button', { name: '残りを一括スキップして確認', exact: true }).click();
+  await expect(meal).toHaveCount(0);
+  await saved();
+  expect((await storedState()).settings.meals).toEqual({
+    ...seed.settings.meals,
+    breakfast: { ...seed.settings.meals!.breakfast, duration: 40 },
+  });
+});
 test('実機：学生の代表データで条件変更案を維持して記録・承認・保存・出力する', async () => {
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/student-flow-'));
@@ -1112,11 +1196,11 @@ test('実機：ホームで昼食と重なる復路を隠さず往復100分を�
   await expect(card.getByText('通学（往路）：08:10〜09:00（50分）', { exact: true })).toBeVisible();
   await expect(card.getByText('通学（復路）：12:30〜13:20（50分）', { exact: true })).toBeVisible();
   await card.getByText('時刻の内訳を見る', { exact: true }).click();
-  await expect(card.getByText('12:30〜13:20：食事・通学（復路）', { exact: true })).toBeVisible();
-  await expect(card.getByText('13:20〜13:30：食事', { exact: true })).toBeVisible();
+  await expect(card.getByText('12:30〜13:20：通学（復路）', { exact: true })).toBeVisible();
+  await expect(card.getByText('13:20〜14:20：食事', { exact: true })).toBeVisible();
   await expect(card.getByText('09:00〜12:30：授業・予定・移動', { exact: true })).toBeVisible();
   await expect(
-    card.getByText('13:30〜21:30：学習可能枠（休憩を含む）', { exact: true }),
+    card.getByText('14:20〜21:30：学習可能枠（休憩を含む）', { exact: true }),
   ).toBeVisible();
   await expect(card.locator('details li').filter({ hasText: '学習の合間の休憩' })).toHaveCount(0);
   for (const appearance of ['light', 'dark']) {

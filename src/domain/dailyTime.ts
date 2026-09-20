@@ -1,5 +1,5 @@
 import { Settings, Interval, weekday } from './model';
-import { capacityForDate, mergeIntervals } from './planner';
+import { capacityForDate, mergeIntervals } from './planning';
 import { unavailableEvents } from './planAudit';
 export type TimeKind =
   'meal' | 'commute' | 'mealCommute' | 'busy' | 'available' | 'rest' | 'outside';
@@ -89,5 +89,6 @@ export function dailyTime(settings: Settings, date: string) {
       last.end = s.end;
     else overview.push({ ...s, kind });
   }
-  return { capacity, segments, overview, totals, commutes, commuteMinutes };
+  const adjustedMeals = events.filter((e) => e.kind === 'meal' && e.adjusted);
+  return { capacity, segments, overview, totals, commutes, commuteMinutes, adjustedMeals };
 }

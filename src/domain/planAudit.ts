@@ -1,4 +1,5 @@
-import { Plan, Session, Settings, weekday, addDays, mealKeys, mealNames } from './model';
+import { mealEvents } from './mealEvents';
+import { Plan, Session, Settings, weekday, addDays } from './model';
 import { sessionPolicy, PLAN_CALCULATION_VERSION } from './sessionPolicy';
 import { commuteEvents } from './commute';
 
@@ -26,6 +27,7 @@ export interface UnavailableEvent {
   kind: string;
   start: number;
   end: number;
+  adjusted?: boolean;
 }
 export function blockingEvents(settings: Settings, date: string): UnavailableEvent[] {
   return [
@@ -63,25 +65,7 @@ export function unavailableEvents(settings: Settings, date: string) {
     previousEnd = Math.max(previousEnd ?? c.end, c.end);
   }
   events.push(...commuteEvents(settings, date));
-  for (const key of mealKeys) {
-    const meal = settings.meals?.[key];
-    if (!meal) continue;
-    events.push({
-      id: 'meal-' + key,
-      name: mealNames[key],
-      kind: 'meal',
-      start: meal.start,
-      end: Math.min(1440, meal.start + meal.duration),
-    });
-    if (meal.start + meal.duration > 1440)
-      events.push({
-        id: 'meal-' + key + '-previous',
-        name: mealNames[key] + '（前日から）',
-        kind: 'meal',
-        start: 0,
-        end: meal.start + meal.duration - 1440,
-      });
-  }
+  events.push(...mealEvents(settings, date));
   if (gap > 0)
     for (const offset of [-1, 0, 1]) {
       const day = addDays(date, offset);

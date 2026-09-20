@@ -5,7 +5,7 @@ import { useRef, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { Progress as ProgressRecord, completed, remaining, today, uid } from '../domain/model';
 import { correctProgress, recordProgress } from '../domain/progress';
-import { proposalAfterRecord } from '../domain/planner';
+import { proposalAfterRecord } from '../domain/planning';
 import { parseNumberInput } from '../domain/numeric';
 import { Empty, Field, Props, useDraft } from './common';
 export function Progress({ state, update }: Props) {

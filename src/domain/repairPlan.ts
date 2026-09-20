@@ -1,5 +1,5 @@
 import { AppState, today, uid } from './model';
-import { propose, proposeSettings } from './planner';
+import { propose, proposeSettings } from './planning';
 import { beginRevision, RevisionDraft, sameRevisionBase } from './revision';
 import type { ConstraintIssue } from './planConstraints';
 import { studyCoverageGaps, StudyCoverageGap } from './studyCoverage';

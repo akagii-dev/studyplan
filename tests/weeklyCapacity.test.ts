@@ -8,7 +8,7 @@ import {
   approve,
   propose,
   undoPlan,
-} from '../src/domain/planner';
+} from '../src/domain/planning';
 import { dailyTime } from '../src/domain/dailyTime';
 const monday = '2030-10-07';
 function fixture() {

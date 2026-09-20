@@ -1,214 +1,23 @@
-import {
-  AppState,
-  Capacity,
-  Interval,
-  Plan,
-  Session,
-  Settings,
-  addDays,
-  remaining,
-  reported,
-  today,
-  uid,
-  weekday,
-} from './model';
+import { startOfWeek } from '../calendar';
+import { addDays, AppState, Capacity, Interval, Plan, remaining, Session } from '../model';
+import { fixedIssueMessage, fixedOrderIssue, fixedTimeIssue } from '../planConstraints';
+import { PLAN_CALCULATION_VERSION, sessionPolicy, sessionUnitCount } from '../sessionPolicy';
+import { weeklyCapacities } from '../weeklyCapacity';
+import { capacityForDate } from './capacity';
+import { PlanningContext } from './context';
+import { datesBetween, subtractIntervals } from './intervals';
+import { validateSettings } from './validation';
 const EPS = 1e-7;
-import { commuteErrors } from './commute';
-import { sessionPolicy, sessionUnitCount, PLAN_CALCULATION_VERSION } from './sessionPolicy';
-import { requirePlanningInputs } from './setupIssues';
-import { overlapsBusy, sameSettings, unavailableEvents } from './planAudit';
-import {
-  validateRevisedSettings,
-  sameRevisionBase,
-  beginRevision,
-  RevisionDraft,
-} from './revision';
-import { fixedTimeIssue, fixedOrderIssue, fixedIssueMessage } from './planConstraints';
-import { startOfWeek } from './calendar';
-import { weeklyCapacities } from './weeklyCapacity';
-export function mergeIntervals(intervals: Interval[]): Interval[] {
-  const out: Interval[] = [];
-  for (const [start, end] of [...intervals].sort((a, b) => a[0] - b[0])) {
-    if (end <= start) continue;
-    const last = out.at(-1);
-    if (last && start <= last[1]) last[1] = Math.max(last[1], end);
-    else out.push([start, end]);
-  }
-  return out;
-}
-export function subtractIntervals(available: Interval[], busy: Interval[]): Interval[] {
-  let out = mergeIntervals(available);
-  for (const [bs, be] of mergeIntervals(busy))
-    out = out.flatMap(([s, e]): Interval[] =>
-      be <= s || bs >= e
-        ? [[s, e]]
-        : ([...(s < bs ? [[s, bs]] : []), ...(be < e ? [[be, e]] : [])] as Interval[]),
-    );
-  return out;
-}
-export function freeIntervalsForDate(settings: Settings, date: string): Interval[] {
-  const rules = settings.windows.filter(
-    (w) => w.from <= date && date <= w.to && w.weekdays.includes(weekday(date)),
-  );
-  return subtractIntervals(
-    rules.filter((w) => w.kind === 'study').map((w) => [w.start, w.end]),
-    unavailableEvents(settings, date).map((e) => [e.start, e.end]),
-  );
-}
-export function capacityForDate(settings: Settings, date: string): Capacity {
-  if (
-    !Number.isInteger(settings.block) ||
-    settings.block < 1 ||
-    settings.block > 1440 ||
-    !Number.isInteger(settings.rest) ||
-    settings.rest < 1 ||
-    settings.rest > 1440 ||
-    !Number.isFinite(settings.buffer) ||
-    settings.buffer < 0 ||
-    settings.buffer >= 1
-  )
-    throw new Error('連続学習は1〜1440分、休憩は1〜1440分、余裕率は0〜99%で設定してください。');
-  const free = freeIntervalsForDate(settings, date);
-  const blocks: Interval[] = [];
-  // Carry a conservative break across midnight; a date boundary does not reset continuous study.
-  const previousEnd = freeIntervalsForDate(settings, addDays(date, -1)).at(-1)?.[1] ?? 0;
-  let nextStart = Math.max(0, previousEnd + settings.rest - 1440);
-  for (const [s, e] of free) {
-    let cursor = Math.max(s, nextStart);
-    while (cursor < e) {
-      const end = Math.min(e, cursor + settings.block);
-      blocks.push([cursor, end]);
-      nextStart = end + settings.rest;
-      cursor = nextStart;
-    }
-  }
-  const focus = blocks.reduce((n, [s, e]) => n + e - s, 0);
-  const slots = blocks.map(([a, b]): Interval => [a, b]);
-  return {
-    date,
-    blocks,
-    free: free.reduce((n, [s, e]) => n + e - s, 0),
-    focus,
-    allocatable: slots.reduce((n, [s, e]) => n + e - s, 0),
-    slots,
-  };
-}
-export function capacityForWeek(settings: Settings, date: string, sessions: Session[] = []) {
-  const from = startOfWeek(date);
-  return weeklyCapacities(
-    Array.from({ length: 7 }, (_, i) => capacityForDate(settings, addDays(from, i))),
-    settings.buffer,
-    sessions,
-  )[0];
-}
-export function datesBetween(from: string, to: string): string[] {
-  const dates: string[] = [];
-  for (let d = from; d <= to; d = addDays(d, 1)) {
-    dates.push(d);
-    if (dates.length > 3660) throw new Error('計画期間は10年以内にしてください。');
-  }
-  return dates;
-}
-export function validateSettings(s: Settings): string[] {
-  const errors: string[] = commuteErrors(s.commute);
-  const policy = sessionPolicy(s);
-  if (
-    !Number.isInteger(policy.minimum) ||
-    !Number.isInteger(policy.preferred) ||
-    policy.minimum < 1 ||
-    policy.preferred < policy.minimum ||
-    policy.preferred > 1440
-  )
-    errors.push('予定の下限は1分以上、まとまりの目安は下限以上・1440分以下にしてください。');
-  if (
-    !Number.isInteger(s.classTransition ?? 0) ||
-    (s.classTransition ?? 0) < 0 ||
-    (s.classTransition ?? 0) > 180
-  )
-    errors.push('授業前後の移動・準備は0〜180分の整数で指定してください。');
-  if (!(
-    Number.isInteger(s.block) &&
-    Number.isInteger(s.rest) &&
-    s.block > 0 &&
-    s.block <= 1440 &&
-    s.rest >= 1 &&
-    s.rest <= 1440 &&
-    s.buffer >= 0 &&
-    s.buffer < 1
-  ))
-    errors.push('連続学習は1〜1440分、休憩は1〜1440分、余裕率は0〜99%で設定してください。');
-  for (const meal of Object.values(s.meals ?? {}))
-    if (
-      !meal ||
-      !Number.isInteger(meal.start) ||
-      meal.start < 0 ||
-      meal.start >= 1440 ||
-      !Number.isInteger(meal.duration) ||
-      meal.duration < 30 ||
-      meal.duration > 60
-    )
-      errors.push('食事は開始時刻と30〜60分の長さを指定してください。');
-  for (const e of s.exams)
-    if (
-      !e.name.trim() ||
-      !e.start ||
-      !e.target ||
-      e.target < e.start ||
-      !Number.isInteger(e.reviewDays) ||
-      e.reviewDays < 0 ||
-      addDays(e.start, e.reviewDays) > e.target
-    )
-      errors.push(`${e.name || '試験'}：日付と復習期間を確認してください。`);
-  for (const m of s.materials)
-    if (
-      !s.exams.some((e) => e.id === m.examId) ||
-      !m.name.trim() ||
-      !Number.isInteger(m.order) ||
-      m.order < 1 ||
-      !Number.isInteger(m.total) ||
-      m.total < 1 ||
-      !m.rounds.length ||
-      m.rounds.some(
-        (r) =>
-          !Number.isInteger(r.completed) ||
-          r.completed < 0 ||
-          r.completed > m.total ||
-          !Number.isFinite(r.minutes) ||
-          r.minutes <= 0,
-      )
-    )
-      errors.push(`${m.name || '教材'}：問題数と所要時間を確認してください。`);
-  for (const w of s.windows)
-    if (
-      !w.from ||
-      w.to < w.from ||
-      !w.weekdays.length ||
-      !Number.isFinite(w.start) ||
-      !Number.isFinite(w.end) ||
-      w.start < 0 ||
-      w.end > 1440 ||
-      w.start >= w.end
-    )
-      errors.push(`${w.name}：期間・曜日・時間帯を確認してください。`);
-  for (const e of s.exceptions)
-    if (
-      !e.date ||
-      !Number.isFinite(e.start) ||
-      !Number.isFinite(e.end) ||
-      e.start < 0 ||
-      e.end > 1440 ||
-      e.start >= e.end
-    )
-      errors.push(`${e.name}：予定の時間を確認してください。`);
-  return errors;
-}
 export function generatePlan(
   state: AppState,
   from: string,
   preserve = true,
   notBefore = 0,
-  allocation: 'balanced' | 'earliest' = 'balanced',
+  allocation: 'balanced' | 'earliest',
+  context: PlanningContext,
 ): Plan {
+  let sequence = 0;
+  const nextId = () => `${context.idPrefix}-${sequence++}`;
   const { settings: s } = state;
   const policy = sessionPolicy(s);
   const errors = validateSettings(s);
@@ -293,7 +102,7 @@ export function generatePlan(
         const length = Math.min(Math.max(policy.minimum, left), end - start, weeklyRoom(cap.date));
         if (length < policy.minimum) continue;
         assign({
-          id: uid(),
+          id: nextId(),
           date: cap.date,
           start,
           end: start + length,
@@ -421,7 +230,7 @@ export function generatePlan(
         if (count <= 0) break;
         const length = count * t.minutes;
         assign({
-          id: uid(),
+          id: nextId(),
           date: cap.date,
           start: cursor,
           end: cursor + length,
@@ -455,7 +264,7 @@ export function generatePlan(
         if (length < policy.minimum) continue;
         const exam = reviewExams[index++ % reviewExams.length];
         assign({
-          id: uid(),
+          id: nextId(),
           date: cap.date,
           start,
           end: start + length,
@@ -503,7 +312,7 @@ export function generatePlan(
           const length = count * t.minutes;
           const small = length < policy.minimum - EPS;
           assign({
-            id: uid(),
+            id: nextId(),
             date: cap.date,
             start: cursor,
             end: cursor + count * t.minutes,
@@ -658,8 +467,8 @@ export function generatePlan(
         `${week.from}〜${week.to}の週の割当上限${week.limit}分を、固定・保持予定が${Math.ceil(week.used - week.limit)}分超えています。固定予定または週の学習可能枠・余裕率を見直してください。`,
       );
   return {
-    id: uid(),
-    createdAt: new Date().toISOString(),
+    id: nextId(),
+    createdAt: context.timestamp,
     calculationVersion: PLAN_CALCULATION_VERSION,
     settingsSnapshot: structuredClone(s),
     settingsUpdatedAt: state.settingsUpdatedAt,
@@ -681,155 +490,4 @@ export function generatePlan(
         reason: '期限までの学習枠・週の割当上限・集中ブロック・教材順序の条件に収まりません。',
       })),
   };
-}
-export function propose(state: AppState, from: string, reason: string): AppState {
-  const now = new Date();
-  const notBefore = from === today() ? now.getHours() * 60 + now.getMinutes() : 0;
-  const unreported = [
-    ...new Set(
-      (state.plan?.sessions ?? [])
-        .filter(
-          (x) =>
-            x.kind === 'study' &&
-            (x.date < from || (x.date === from && x.start < notBefore)) &&
-            !reported(state, x.date, x.materialId, x.round),
-        )
-        .map(
-          (x) =>
-            `${x.date}｜${state.settings.materials.find((m) => m.id === x.materialId)?.name}｜${x.round + 1}周目`,
-        ),
-    ),
-  ];
-  return {
-    ...state,
-    proposal: {
-      plan: generatePlan(state, from, true, notBefore),
-      basedOn: state.plan?.id ?? null,
-      reason,
-      unreported,
-    },
-  };
-}
-export function proposalAfterRecord(
-  state: AppState,
-  reason: string,
-  previousProposal = state.proposal,
-): AppState {
-  if (!state.plan) return state;
-  const candidateSettings =
-    previousProposal?.settingsBase &&
-    sameRevisionBase(previousProposal.settingsBase, state.settings)
-      ? previousProposal.plan.settingsSnapshot
-      : undefined;
-  try {
-    const candidate = candidateSettings
-      ? proposeSettings(state, candidateSettings, today())
-      : propose(state, today(), reason);
-    return { ...candidate, draft: { ...state.draft, replanError: '' } };
-  } catch (error) {
-    // A new record may make a proposed total/round count invalid. Keep those edits as
-    // an editable draft, never as an approvable plan or a replacement for actuals.
-    let draft = state.draft;
-    if (candidateSettings && !draft.revision) {
-      const revision = beginRevision(state).draft.revision as RevisionDraft;
-      draft = {
-        ...draft,
-        revision: { ...revision, settings: structuredClone(candidateSettings), stage: 'review' },
-      };
-    }
-    return {
-      ...state,
-      proposal: null,
-      draft: {
-        ...draft,
-        replanError: `記録は保存しました。再計画は設定を確認してから作成してください。${String(error)}`,
-      },
-    };
-  }
-}
-export function proposeSettings(state: AppState, settings: Settings, from: string): AppState {
-  requirePlanningInputs(settings);
-  validateRevisedSettings(state, settings, from);
-  const candidate = propose(
-    { ...state, settings, settingsUpdatedAt: new Date().toISOString() },
-    from,
-    '対話で見直した条件を使い、残りの課題を再配分します。設定も承認時に反映します。',
-  );
-  return {
-    ...state,
-    proposal: { ...candidate.proposal!, settingsBase: structuredClone(state.settings) },
-  };
-}
-export function approve(state: AppState, acknowledge = false): AppState {
-  const p = state.proposal;
-  if (!p) throw new Error('再計画案がありません。');
-  if (p.plan.calculationVersion !== PLAN_CALCULATION_VERSION)
-    throw new Error(
-      '計算方式が更新されました。現在の条件と固定予定を確認して案を作り直してください。',
-    );
-  if (p.basedOn !== (state.plan?.id ?? null))
-    throw new Error('計画が変更されました。案を作り直してください。');
-  if (
-    !p.plan.settingsSnapshot ||
-    !(p.settingsBase
-      ? sameRevisionBase(p.settingsBase, state.settings)
-      : sameSettings(p.plan.settingsSnapshot, state.settings))
-  )
-    throw new Error('作成後に設定が変わっています。現在の設定で案を作り直してください。');
-  const settings = p.plan.settingsSnapshot;
-  requirePlanningInputs(settings);
-  validateRevisedSettings(state, settings);
-  const now = new Date();
-  const minute = now.getHours() * 60 + now.getMinutes();
-  for (const x of p.plan.sessions.filter(
-    (x) => x.fixed && (x.date > today() || (x.date === today() && x.start >= minute)),
-  )) {
-    const issue =
-      fixedTimeIssue(settings, x, capacityForDate(settings, x.date)) ??
-      fixedOrderIssue({ ...state, settings }, x, p.plan.sessions, p.plan.from, p.plan.notBefore);
-    if (issue) throw new Error(fixedIssueMessage(x, issue));
-  }
-  if (
-    p.plan.sessions.some(
-      (x) =>
-        (x.date > today() || (x.date === today() && x.start >= minute)) &&
-        overlapsBusy(settings, x).length > 0,
-    )
-  )
-    throw new Error('授業・予定と重複しています。固定予定や設定を確認して案を作り直してください。');
-  for (const weekDate of new Set(
-    p.plan.sessions
-      .filter((x) => x.date > today() || (x.date === today() && x.start >= minute))
-      .map((x) => startOfWeek(x.date)),
-  )) {
-    const week = capacityForWeek(settings, weekDate, p.plan.sessions);
-    if (week.used > week.limit + EPS)
-      throw new Error(
-        `${week.from}〜${week.to}の週の割当上限を超えています。案を作り直してください。`,
-      );
-  }
-  if (p.plan.conflicts.length)
-    throw new Error('固定予定・週の割当上限・復習枠の競合を解消してください。');
-  if (p.unreported.length && !acknowledge) throw new Error('未報告の扱いを確認してください。');
-  return {
-    ...state,
-    settings,
-    settingsUpdatedAt: !sameSettings(state.settings, settings)
-      ? now.toISOString()
-      : state.settingsUpdatedAt,
-    plan: {
-      ...p.plan,
-      settingsUpdatedAt: !sameSettings(state.settings, settings)
-        ? now.toISOString()
-        : state.settingsUpdatedAt,
-    },
-    history: state.plan ? [...state.history, state.plan] : state.history,
-    proposal: null,
-    draft: { ...state.draft, revision: undefined },
-  };
-}
-export function undoPlan(state: AppState): AppState {
-  const previous = state.history.at(-1);
-  if (!previous) throw new Error('戻せる計画がありません。');
-  return { ...state, plan: previous, history: state.history.slice(0, -1), proposal: null };
 }

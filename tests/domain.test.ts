@@ -18,7 +18,7 @@ import {
   subtractIntervals,
   undoPlan,
   proposalAfterRecord,
-} from '../src/domain/planner';
+} from '../src/domain/planning';
 import { correctProgress, recordProgress } from '../src/domain/progress';
 const from = '2026-09-21';
 function fixture(): AppState {

@@ -8,7 +8,7 @@ import {
   minimumRetainedRounds,
   validateRevisedSettings,
 } from '../src/domain/revision';
-import { generatePlan, proposeSettings, approve } from '../src/domain/planner';
+import { generatePlan, proposeSettings, approve } from '../src/domain/planning';
 import { createWeeklyReport } from '../src/domain/weeklyReport';
 
 function fixture() {

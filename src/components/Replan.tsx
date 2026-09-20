@@ -2,7 +2,7 @@ import { Warning } from './Warnings';
 import { useState, useEffect, useRef, useId, useLayoutEffect } from 'react';
 import { ArrowRight, RefreshCw, Undo2, CheckCircle2 } from 'lucide-react';
 import { Session, today, clock } from '../domain/model';
-import { approve, propose, undoPlan } from '../domain/planner';
+import { approve, propose, undoPlan } from '../domain/planning';
 import { Empty, Props, duration } from './common';
 import { SetupImpact } from './SetupImpact';
 import { PLAN_CALCULATION_VERSION } from '../domain/sessionPolicy';

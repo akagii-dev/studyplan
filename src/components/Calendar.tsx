@@ -12,7 +12,7 @@ import {
   today,
   weekday,
 } from '../domain/model';
-import { datesBetween, capacityForDate } from '../domain/planner';
+import { datesBetween, capacityForDate } from '../domain/planning';
 import { weeklyCapacities } from '../domain/weeklyCapacity';
 import { blockingEvents, overlapsBusy } from '../domain/planAudit';
 import { moveCalendarDate, startOfWeek } from '../domain/calendar';

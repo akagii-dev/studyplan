@@ -7,7 +7,7 @@ import {
   undoPlan,
   proposalAfterRecord,
   freeIntervalsForDate,
-} from '../src/domain/planner';
+} from '../src/domain/planning';
 import {
   beginRevision,
   RevisionDraft,

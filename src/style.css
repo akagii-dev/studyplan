@@ -471,13 +471,6 @@ b {
   letter-spacing: -0.8px;
   line-height: 1.1;
 }
-.brand small {
-  display: block;
-  font-size: 10px;
-  letter-spacing: 0.13em;
-  font-weight: 400;
-  margin-top: 7px;
-}
 nav {
   display: flex;
   flex-direction: column;

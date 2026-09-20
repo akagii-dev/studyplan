@@ -331,7 +331,7 @@ export default function App() {
               <Leaf size={24} />
             </div>
             <span>
-              StudyPlan<small>学びの計画室</small>
+              StudyPlan
             </span>
           </a>
           <nav>

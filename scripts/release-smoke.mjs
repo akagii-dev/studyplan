@@ -32,6 +32,13 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   await expect(page.getByRole('heading', { name: 'ホーム' })).toBeVisible();
+  await expect(page).toHaveTitle('StudyPlan');
+  await expect(page.locator('.brand')).toHaveText('StudyPlan');
+  await expect(page.locator('.brand small')).toHaveCount(0);
+  const windowTitle = await page.evaluate(() =>
+    window.__TAURI_INTERNALS__.invoke('plugin:window|title', { label: 'main' }),
+  );
+  expect(windowTitle).toBe('StudyPlan');
   if (page.url().includes(':1420')) throw new Error('Release is using the development server.');
   await page.locator('nav').getByRole('button', { name: '対話式の初期設定', exact: true }).click();
   await expect(page.locator('.question-card')).toBeVisible();

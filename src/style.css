@@ -2146,7 +2146,8 @@ progress::-webkit-progress-value {
   --sidebar-width: 226px;
 }
 .app-shell .sidebar {
-  width: var(--sidebar-width);
+  width: calc(var(--sidebar-width) - 24px);
+  padding-right: 8px;
 }
 .app-shell main {
   margin-left: var(--sidebar-width);
@@ -2154,35 +2155,33 @@ progress::-webkit-progress-value {
   min-width: 0;
 }
 .sidebar-toggle {
-  align-self: flex-end;
-  margin-bottom: 14px;
+  position: fixed;
+  left: calc(var(--sidebar-width) - 24px);
+  top: 0;
+  width: 24px;
+  height: 100dvh;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11px;
+  z-index: 3;
+}
+.sidebar-toggle:hover {
+  background: var(--soft);
+  color: var(--ink);
+}
+.sidebar-toggle:focus-visible {
+  outline-offset: -3px;
 }
 .sidebar-collapsed {
-  --sidebar-width: 72px;
+  --sidebar-width: 24px;
 }
 .sidebar-collapsed .sidebar {
-  padding: 18px 8px;
-}
-.sidebar-collapsed .sidebar-toggle {
-  align-self: center;
-}
-.sidebar-collapsed .brand {
-  margin: 4px auto 24px;
-}
-.sidebar-collapsed .brand > span,
-.sidebar-collapsed .nav-label,
-.sidebar-collapsed .sidebar-bottom {
   display: none;
-}
-.sidebar-collapsed nav button {
-  justify-content: center;
-  padding: 12px 8px;
-  position: relative;
-}
-.sidebar-collapsed .nav-dot {
-  position: absolute;
-  right: 2px;
-  top: 7px;
 }
 .nav-label {
   white-space: normal;

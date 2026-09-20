@@ -1,6 +1,6 @@
 import { Warning, WarningsProvider, WarningSettings } from './components/Warnings';
 import { CommuteSettings } from './components/CommuteSettings';
-import { PanelLeftClose, PanelLeftOpen, Bus, BellOff } from 'lucide-react';
+import { Bus, BellOff } from 'lucide-react';
 import { AnimatedProgress } from './components/AnimatedProgress';
 import { todayProgress } from './domain/todayProgress';
 import { Meals } from './components/Meals';
@@ -346,15 +346,19 @@ export default function App() {
           className={`app-shell ${state.sidebarCollapsed ? 'sidebar-collapsed' : ''}`}
           inert={closing || restoring || !!recovery || undefined}
         >
-          <aside className="sidebar">
-            <button
-              className="sidebar-toggle"
-              aria-label={state.sidebarCollapsed ? 'サイドバーを開く' : 'サイドバーを折りたたむ'}
-              aria-expanded={!state.sidebarCollapsed}
-              onClick={() => void update((s) => ({ ...s, sidebarCollapsed: !s.sidebarCollapsed }))}
-            >
-              {state.sidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
-            </button>
+          <button
+            className="sidebar-toggle"
+            aria-label={state.sidebarCollapsed ? 'サイドバーを開く' : 'サイドバーを折りたたむ'}
+            title={state.sidebarCollapsed ? 'サイドバーを開く' : 'サイドバーを折りたたむ'}
+            aria-controls="app-sidebar"
+            aria-expanded={!state.sidebarCollapsed}
+            onClick={() =>
+              void update((s) => ({ ...s, sidebarCollapsed: !s.sidebarCollapsed })).catch(() => {})
+            }
+          >
+            <span aria-hidden="true">{state.sidebarCollapsed ? '▶' : '◀'}</span>
+          </button>
+          <aside id="app-sidebar" className="sidebar">
             <a
               className="brand"
               href="#"

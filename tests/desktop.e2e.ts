@@ -610,12 +610,27 @@ test('実機：通学の承認・警告の管理・サイドバー保存・可�
   await expect(warning).toHaveCount(0);
   expect((await storedState()).plan).toEqual(s.plan);
   const beforeWidth = (await page.locator('main').boundingBox())!.width;
+  await expect(page.locator('.sidebar-toggle')).toHaveText('◀');
+  const rail = (await page.locator('.sidebar-toggle').boundingBox())!;
+  expect(rail.x + rail.width).toBe((await page.locator('main').boundingBox())!.x);
+  expect(rail.height).toBe(await page.evaluate(() => window.innerHeight));
   await page.getByRole('button', { name: 'サイドバーを折りたたむ' }).click();
   await saved();
+  await expect(page.locator('.sidebar')).toBeHidden();
+  await expect(page.locator('.sidebar-toggle')).toHaveText('▶');
+  expect((await page.locator('main').boundingBox())!.x).toBe(24);
+  await page.screenshot({ path: 'test-results/sidebar-rail-collapsed.png' });
   expect((await page.locator('main').boundingBox())!.width).toBeGreaterThan(beforeWidth);
   await close();
   await launch();
   await expect(page.getByRole('button', { name: 'サイドバーを開く' })).toBeVisible();
+  await expect(page.locator('.sidebar')).toBeHidden();
+  await page.getByRole('button', { name: 'サイドバーを開く' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.sidebar')).toBeVisible();
+  await expect(page.locator('.sidebar-toggle')).toHaveText('◀');
+  await saved();
+  await page.screenshot({ path: 'test-results/sidebar-rail-expanded.png' });
   await expect(
     page.getByRole('region', {
       name: '保存済みの計画と現在の設定が一致していません。',
@@ -659,7 +674,10 @@ test('実機：通学の承認・警告の管理・サイドバー保存・可�
     expect(overlapsBusy(approved.settings, session)).toEqual([]);
   await nav('再計画の確認');
   await page.getByRole('button', { name: '対話で条件を見直す', exact: true }).click();
-  await page.getByRole('button', { name: '通学時間', exact: true }).last().click();
+  await page
+    .getByRole('region', { name: '対話式の再計画', exact: true })
+    .getByRole('button', { name: '通学時間', exact: true })
+    .click();
   await expect(page.getByLabel('通学時間を確保する')).toBeChecked();
   await page.getByLabel('適用する日', { exact: true }).selectOption('weekdays');
   await page.getByRole('button', { name: '次へ', exact: true }).click();
@@ -708,7 +726,6 @@ test('実機：通学の承認・警告の管理・サイドバー保存・可�
         )
         .toBeLessThanOrEqual(width + 1);
     }
-    if (width === 640) await page.getByRole('button', { name: 'サイドバーを開く' }).click();
   }
   await page.getByLabel('表示モード').selectOption('dark');
   await nav('進捗を記録');

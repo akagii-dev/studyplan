@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, LockKeyhole, Unlock, CalendarDays } from 'lucide-react';
 import {
   AppState,
+  CalendarDensity,
+  CalendarView,
   Session,
   actual,
   addDays,
@@ -34,7 +36,8 @@ export function Calendar({
     const id = setInterval(() => tick((n) => n + 1), 60000);
     return () => clearInterval(id);
   }, [todayOnly]);
-  const [view, setView] = useState<'month' | 'week' | 'list'>('month');
+  const [view, setView] = useState<CalendarView>('month');
+  const density = state.calendarDensity?.[view] ?? (view === 'month' ? 'compact' : 'standard');
   const [filter, setFilter] = useState('all');
   const [selected, setSelected] = useState(today());
   const anchor = selected;
@@ -75,7 +78,7 @@ export function Calendar({
         周目：＋{r.count}問
       </p>
     ));
-  const detail = (s: Session) => {
+  const detail = (s: Session, level: CalendarDensity = 'detailed') => {
     const e = state.settings.exams.find((e) => e.id === s.examId);
     const m = state.settings.materials.find((m) => m.id === s.materialId);
     const count = actual(state, s.date, s.materialId, s.round);
@@ -83,13 +86,21 @@ export function Calendar({
       .filter((x) => x.date === s.date && x.materialId === s.materialId && x.round === s.round)
       .reduce((n, x) => n + x.count, 0);
     return (
-      <div key={s.id} className="session-detail" style={{ borderLeftColor: e?.color }}>
-        <div className="row">
-          <span className="eyebrow">{e?.name}</span>
-          <span className="planned-time">
-            学習予定 {clock(s.start)}–{clock(s.end)}
-          </span>
-        </div>
+      <div
+        key={s.id}
+        className={`session-detail density-${level}`}
+        style={{ borderLeftColor: e?.color }}
+      >
+        {level !== 'compact' && (
+          <div className="row">
+            <span className="eyebrow">{e?.name}</span>
+            {level === 'detailed' && (
+              <span className="planned-time">
+                学習予定 {clock(s.start)}–{clock(s.end)}
+              </span>
+            )}
+          </div>
+        )}
         <h3>{s.kind === 'review' ? 'まとめの復習' : m?.name}</h3>
         {overlapsBusy(state.settings, s).length > 0 && (
           <div className="error" role="status">
@@ -106,7 +117,7 @@ export function Calendar({
         <div className="row">
           <span>
             {s.kind === 'study'
-              ? `${s.round + 1}周目 · 予定 ${s.count}問`
+              ? `${level === 'detailed' ? `${s.round + 1}周目 · ` : ''}予定 ${s.count}問`
               : duration(s.end - s.start)}
           </span>
           {s.kind === 'study' && (
@@ -114,12 +125,15 @@ export function Calendar({
               className={`status ${reported(state, s.date, s.materialId, s.round) ? 'done' : ''}`}
             >
               {reported(state, s.date, s.materialId, s.round)
-                ? `当日実績 ${count}問 / 当日予定 ${planned}問`
+                ? level === 'detailed'
+                  ? `当日実績 ${count}問 / 当日予定 ${planned}問`
+                  : '報告済'
                 : '未報告'}
             </span>
           )}
         </div>
-        {s.kind === 'study' &&
+        {level === 'detailed' &&
+          s.kind === 'study' &&
           m &&
           m.rounds[s.round] &&
           s.end - s.start > s.count * m.rounds[s.round].minutes + 0.01 && (
@@ -128,7 +142,8 @@ export function Calendar({
               {duration(s.end - s.start - s.count * m.rounds[s.round].minutes)}
             </p>
           )}
-        {s.allocationReason &&
+        {level === 'detailed' &&
+          s.allocationReason &&
           s.end - s.start <
             sessionPolicy(state.plan?.settingsSnapshot ?? state.settings).minimum - 1e-7 && (
             <p className="hint">
@@ -189,10 +204,10 @@ export function Calendar({
           busy: b,
         })),
     ].sort((a, b) => a.start - b.start || a.end - b.end);
-  const daySchedule = (date: string) =>
+  const daySchedule = (date: string, level: CalendarDensity = 'detailed') =>
     timeline(date).map((x) =>
       x.session ? (
-        detail(x.session)
+        detail(x.session, level)
       ) : (
         <div className="busy-event" key={x.id}>
           <b>
@@ -201,9 +216,11 @@ export function Calendar({
               : x.busy!.name}{' '}
             · 学習不可
           </b>
-          <div>
-            開始 {clock(x.start)} ／ 終了 {clock(x.end)}
-          </div>
+          {level === 'detailed' && (
+            <div>
+              開始 {clock(x.start)} ／ 終了 {clock(x.end)}
+            </div>
+          )}
         </div>
       ),
     );
@@ -300,6 +317,26 @@ export function Calendar({
           </div>
         </div>
       </div>
+      <div className="calendar-density" role="group" aria-label="カレンダーの表示密度">
+        <span>表示密度</span>
+        <div className="segmented">
+          {(['compact', 'standard', 'detailed'] as const).map((value, i) => (
+            <button
+              key={value}
+              aria-pressed={density === value}
+              className={density === value ? 'active' : ''}
+              onClick={() =>
+                void update((s) => ({
+                  ...s,
+                  calendarDensity: { ...s.calendarDensity, [view]: value },
+                })).catch(() => {})
+              }
+            >
+              {['コンパクト', '標準', '詳細'][i]}
+            </button>
+          ))}
+        </div>
+      </div>
       <CalendarExport
         state={state}
         from={view === 'week' ? from : monthStart}
@@ -342,7 +379,7 @@ export function Calendar({
       )}
       <div className={view === 'month' ? 'calendar-layout' : ''}>
         {view === 'list' ? (
-          <div className="card">
+          <div className={`card calendar-list density-${density}`}>
             {days
               .filter((d) => timeline(d).length || recordsOn(d).length)
               .map((d) => (
@@ -357,7 +394,7 @@ export function Calendar({
                       {d}（{weekdays[weekday(d)]}）
                     </button>
                   </h3>
-                  {daySchedule(d)}
+                  {daySchedule(d, density)}
                   {recordsOn(d).length > 0 && (
                     <>
                       <h4>この日の学習実績</h4>
@@ -371,7 +408,7 @@ export function Calendar({
             )}
           </div>
         ) : (
-          <div className={`calendar-grid ${view}`}>
+          <div className={`calendar-grid ${view} density-${density}`}>
             <div className="calendar-head">
               {[1, 2, 3, 4, 5, 6, 0].map((d) => (
                 <span key={d}>{weekdays[d]}</span>
@@ -404,9 +441,11 @@ export function Calendar({
                             {entry.busy.kind === 'class'
                               ? '授業：' + (entry.busy.name.trim() || '大学の授業')
                               : entry.busy.name}
-                            <small>
-                              {clock(entry.start)}–{clock(entry.end)} · 学習不可
-                            </small>
+                            {density !== 'compact' && (
+                              <small>
+                                {clock(entry.start)}–{clock(entry.end)} · 学習不可
+                              </small>
+                            )}
                           </button>
                         );
                       const s = entry.session!;
@@ -415,6 +454,7 @@ export function Calendar({
                         <button
                           key={s.id}
                           className={`calendar-event ${overlapsBusy(state.settings, s).length ? 'has-conflict' : ''}`}
+                          title={`${s.kind === 'review' ? 'まとめの復習' : (state.settings.materials.find((m) => m.id === s.materialId)?.name ?? '教材')} · ${e?.name ?? '試験'} · ${clock(s.start)}–${clock(s.end)}`}
                           style={{
                             borderLeftColor: e?.color,
                             background: `${e?.color ?? '#287569'}14`,
@@ -436,8 +476,31 @@ export function Calendar({
                               : ''}
                             {s.kind === 'study'
                               ? `${s.count}問 · ${reported(state, d, s.materialId, s.round) ? '報告済' : '未報告'}`
-                              : clock(s.start)}
+                              : duration(s.end - s.start)}
                           </small>
+                          {density !== 'compact' && <small className="event-exam">{e?.name}</small>}
+                          {density === 'detailed' && (
+                            <>
+                              <small>
+                                {clock(s.start)}–{clock(s.end)}
+                                {s.kind === 'study' ? ` · ${s.round + 1}周目` : ''}
+                              </small>
+                              {s.kind === 'study' && reported(state, d, s.materialId, s.round) && (
+                                <small>
+                                  当日実績 {actual(state, d, s.materialId, s.round)}問 / 当日予定{' '}
+                                  {all
+                                    .filter(
+                                      (x) =>
+                                        x.date === d &&
+                                        x.materialId === s.materialId &&
+                                        x.round === s.round,
+                                    )
+                                    .reduce((n, x) => n + x.count, 0)}
+                                  問
+                                </small>
+                              )}
+                            </>
+                          )}
                         </button>
                       );
                     })}

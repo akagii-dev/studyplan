@@ -1066,6 +1066,42 @@ main {
   white-space: nowrap;
   font-size: 19px;
 }
+.calendar-density {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 17px;
+  font-size: 12px;
+}
+.calendar-density button {
+  padding: 7px 10px;
+  font-size: 12px;
+}
+.calendar-grid .calendar-event small,
+.calendar-grid .calendar-busy {
+  overflow-wrap: anywhere;
+}
+.calendar-grid.density-standard .calendar-event span,
+.calendar-grid.density-detailed .calendar-event span {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.calendar-grid.density-standard .calendar-event,
+.calendar-grid.density-detailed .calendar-event {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.calendar-grid.density-detailed .calendar-event small + small {
+  margin-top: 3px;
+}
+.calendar-list .session-detail.density-compact {
+  margin: 8px 0;
+  padding: 6px 10px;
+}
+.calendar-list .session-detail.density-compact .actions {
+  margin-top: 6px;
+}
 .segmented {
   display: flex;
   border: 1px solid var(--border);

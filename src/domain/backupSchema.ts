@@ -244,6 +244,13 @@ const state = z.looseObject({
   theme: z.enum(['mint', 'sky', 'lime']).optional(),
   appearance: z.enum(['light', 'dark', 'system']).optional(),
   sidebarCollapsed: z.boolean().optional(),
+  calendarDensity: z
+    .object({
+      month: z.enum(['compact', 'standard', 'detailed']).optional(),
+      week: z.enum(['compact', 'standard', 'detailed']).optional(),
+      list: z.enum(['compact', 'standard', 'detailed']).optional(),
+    })
+    .optional(),
   ignoredWarnings: z
     .record(id, z.object({ title: text, version: text, ignoredAt: z.iso.datetime() }))
     .optional(),

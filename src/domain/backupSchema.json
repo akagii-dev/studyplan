@@ -5228,6 +5228,36 @@
         "sidebarCollapsed": {
           "type": "boolean"
         },
+        "calendarDensity": {
+          "type": "object",
+          "properties": {
+            "month": {
+              "type": "string",
+              "enum": [
+                "compact",
+                "standard",
+                "detailed"
+              ]
+            },
+            "week": {
+              "type": "string",
+              "enum": [
+                "compact",
+                "standard",
+                "detailed"
+              ]
+            },
+            "list": {
+              "type": "string",
+              "enum": [
+                "compact",
+                "standard",
+                "detailed"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
         "ignoredWarnings": {
           "type": "object",
           "propertyNames": {
@@ -10481,6 +10511,36 @@
             },
             "sidebarCollapsed": {
               "type": "boolean"
+            },
+            "calendarDensity": {
+              "type": "object",
+              "properties": {
+                "month": {
+                  "type": "string",
+                  "enum": [
+                    "compact",
+                    "standard",
+                    "detailed"
+                  ]
+                },
+                "week": {
+                  "type": "string",
+                  "enum": [
+                    "compact",
+                    "standard",
+                    "detailed"
+                  ]
+                },
+                "list": {
+                  "type": "string",
+                  "enum": [
+                    "compact",
+                    "standard",
+                    "detailed"
+                  ]
+                }
+              },
+              "additionalProperties": false
             },
             "ignoredWarnings": {
               "type": "object",

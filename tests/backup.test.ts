@@ -47,6 +47,7 @@ it('テーマと初期化の復元用データも保ち、原本は変更しな�
   file.data.theme = 'sky';
   file.data.appearance = 'dark';
   file.data.sidebarCollapsed = true;
+  file.data.calendarDensity = { month: 'compact', week: 'standard', list: 'detailed' };
   file.data.ignoredWarnings = {
     notice: { title: '注意', version: '1', ignoredAt: '2026-09-21T00:00:00Z' },
   };

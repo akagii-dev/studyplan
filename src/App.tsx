@@ -632,6 +632,10 @@ function Dashboard({
   return (
     <>
       <div className="actions addition-actions">
+        <button onClick={() => navigate('today')}>
+          <CalendarDays size={17} />
+          今日のスケジュール
+        </button>
         <button className="primary" onClick={() => navigate(state.plan ? 'progress' : 'setup')}>
           {state.plan ? '今日の進捗を記録' : '質問に答えて計画をつくる'}
           <ChevronRight size={17} />

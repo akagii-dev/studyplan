@@ -145,12 +145,15 @@ export interface Proposal {
   reason: string;
   unreported: string[];
 }
+export type CalendarView = 'month' | 'week' | 'list';
+export type CalendarDensity = 'compact' | 'standard' | 'detailed';
 export interface AppState {
   resetBackup?: AppState;
   settingsUpdatedAt?: string;
   theme?: 'mint' | 'sky' | 'lime';
   appearance?: 'light' | 'dark' | 'system';
   sidebarCollapsed?: boolean;
+  calendarDensity?: Partial<Record<CalendarView, CalendarDensity>>;
   ignoredWarnings?: Record<string, { title: string; version: string; ignoredAt: string }>;
   warningExpanded?: Record<string, boolean>;
   settings: Settings;

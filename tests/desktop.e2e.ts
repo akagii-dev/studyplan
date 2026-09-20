@@ -97,6 +97,208 @@ async function close() {
   }
 }
 test.afterAll(close);
+test('実機：ホームの導線・表示別のカレンダー密度・再起動保存', async () => {
+  test.setTimeout(180000);
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/calendar-density-'));
+  await launch();
+  const date = today();
+  const seed = initialState();
+  seed.settings.exams = [
+    {
+      id: 'e',
+      name: '行政書士',
+      start: date,
+      target: addDays(date, 14),
+      priority: 2,
+      color: '#287569',
+      reviewDays: 0,
+    },
+    {
+      id: 'e2',
+      name: '予備試験',
+      start: date,
+      target: addDays(date, 14),
+      priority: 1,
+      color: '#b76336',
+      reviewDays: 0,
+    },
+  ];
+  seed.settings.materials = [
+    {
+      id: 'm',
+      name: '分野別の長い教材名・過去問題集',
+      examId: 'e',
+      total: 70,
+      order: 1,
+      rounds: [{ completed: 0, minutes: 3 }],
+    },
+    {
+      id: 'm2',
+      name: '論文演習',
+      examId: 'e2',
+      total: 10,
+      order: 1,
+      rounds: [{ completed: 0, minutes: 30 }],
+    },
+  ];
+  seed.settings.windows = [
+    {
+      id: 'c',
+      name: '民法の授業',
+      kind: 'class',
+      from: date,
+      to: date,
+      weekdays: [weekday(date)],
+      start: 540,
+      end: 640,
+    },
+  ];
+  seed.plan = {
+    id: 'density-plan',
+    calculationVersion: PLAN_CALCULATION_VERSION,
+    createdAt: new Date().toISOString(),
+    from: date,
+    sessions: [
+      {
+        id: 's',
+        date,
+        start: 660,
+        end: 690,
+        examId: 'e',
+        materialId: 'm',
+        round: 0,
+        count: 10,
+        kind: 'study',
+        fixed: false,
+      },
+      {
+        id: 's2',
+        date,
+        start: 720,
+        end: 780,
+        examId: 'e2',
+        materialId: 'm2',
+        round: 0,
+        count: 2,
+        kind: 'study',
+        fixed: true,
+      },
+    ],
+    capacities: [],
+    shortfalls: [],
+    conflicts: [],
+  };
+  seed.records = [
+    {
+      id: 'r',
+      materialId: 'm',
+      round: 0,
+      date,
+      count: 0,
+      cancelled: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ];
+  await seedState(seed, 'density-seed');
+  await page.setViewportSize({ width: 1320, height: 900 });
+  const actions = page.locator('.addition-actions');
+  const schedule = actions.getByRole('button', { name: '今日のスケジュール', exact: true });
+  const record = actions.getByRole('button', { name: '今日の進捗を記録', exact: true });
+  expect((await schedule.boundingBox())!.x).toBeLessThan((await record.boundingBox())!.x);
+  await schedule.click();
+  await expect(page.getByRole('region', { name: '今日の予定一覧' })).toBeVisible();
+  await nav('ホーム');
+  await record.click();
+  await expect(page.getByRole('heading', { name: '進捗を記録', exact: true })).toBeVisible();
+  await nav('学習カレンダー');
+  let density = page.getByRole('group', { name: 'カレンダーの表示密度' });
+  let views = page.locator('.calendar-toolbar');
+  for (const [view, initial] of [
+    ['月', 'コンパクト'],
+    ['週', '標準'],
+    ['一覧', '標準'],
+  ]) {
+    await views.getByRole('button', { name: view, exact: true }).click();
+    await expect(density.getByRole('button', { name: initial, exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    for (const level of ['コンパクト', '標準', '詳細']) {
+      await density.getByRole('button', { name: level, exact: true }).click();
+      await saved();
+      const events = page.locator(
+        view === '一覧' ? '.calendar-list .session-detail' : '.calendar-grid .calendar-event',
+      );
+      await expect(events).toHaveCount(2);
+      const first = events.first();
+      await expect(first).toContainText('分野別の長い教材名');
+      await expect(first).toContainText('10問');
+      await expect(first).toContainText(level === '詳細' ? '当日実績 0問' : '報告済');
+      if (level === 'コンパクト') await expect(first).not.toContainText('行政書士');
+      else await expect(first).toContainText('行政書士');
+      if (level === '詳細') {
+        await expect(first).toContainText('1周目');
+        await expect(first).toContainText('11:00');
+      } else {
+        await expect(first).not.toContainText('1周目');
+        await expect(first).not.toContainText('11:00');
+      }
+      expect(await first.evaluate((e) => getComputedStyle(e).borderLeftColor)).toBe(
+        'rgb(40, 117, 105)',
+      );
+      await page.getByLabel('表示する試験').selectOption('e2');
+      await expect(events).toHaveCount(1);
+      await expect(events).toContainText('論文演習');
+      await expect(
+        page.locator(
+          view === '一覧' ? '.calendar-list .busy-event' : '.calendar-grid .calendar-busy',
+        ),
+      ).toHaveCount(1);
+      await page.getByLabel('表示する試験').selectOption('all');
+      await page.setViewportSize({ width: 480, height: 800 });
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
+      ).toBe(true);
+    }
+  }
+  await density.getByRole('button', { name: '標準', exact: true }).click();
+  await views.getByRole('button', { name: '月', exact: true }).click();
+  await density.getByRole('button', { name: 'コンパクト', exact: true }).click();
+  await saved();
+  for (const mode of ['light', 'dark']) {
+    await page.getByLabel('表示モード').selectOption(mode);
+    await saved();
+    const result = await new AxeBuilder({ page })
+      .setLegacyMode()
+      .withTags(['wcag2a', 'wcag2aa'])
+      .analyze();
+    expect(result.violations).toEqual([]);
+  }
+  await page.setViewportSize({ width: 1320, height: 900 });
+  await page.screenshot({ path: 'test-results/calendar-density-month.png', fullPage: true });
+  const stored = await storedState();
+  expect(stored.calendarDensity).toEqual({ month: 'compact', week: 'detailed', list: 'standard' });
+  expect(stored.plan).toEqual(seed.plan);
+  expect(stored.records).toEqual(seed.records);
+  await close();
+  await launch();
+  await nav('学習カレンダー');
+  density = page.getByRole('group', { name: 'カレンダーの表示密度' });
+  views = page.locator('.calendar-toolbar');
+  for (const [view, selected] of [
+    ['月', 'コンパクト'],
+    ['週', '詳細'],
+    ['一覧', '標準'],
+  ]) {
+    await views.getByRole('button', { name: view, exact: true }).click();
+    await expect(density.getByRole('button', { name: selected, exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  }
+});
 test('実機：3テーマの読みやすさ・入力ラベル・小さい画面での操作', async () => {
   test.setTimeout(180000);
   mkdirSync('.test-data', { recursive: true });

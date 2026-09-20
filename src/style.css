@@ -2148,6 +2148,7 @@ progress::-webkit-progress-value {
 .app-shell .sidebar {
   width: calc(var(--sidebar-width) - 24px);
   padding-right: 8px;
+  border-right: 0;
 }
 .app-shell main {
   margin-left: var(--sidebar-width);
@@ -2162,7 +2163,6 @@ progress::-webkit-progress-value {
   height: 100dvh;
   padding: 0;
   border: 0;
-  border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
   border-radius: 0;
   background: var(--surface);

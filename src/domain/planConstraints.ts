@@ -46,7 +46,7 @@ export function fixedTimeIssue(
           ? 'focus'
           : first.kind === 'meal'
             ? 'meal'
-            : first.kind === 'class'
+            : first.kind === 'class' || first.kind === 'classBreak'
               ? 'class'
               : first.kind === 'exception'
                 ? 'exception'
@@ -65,7 +65,7 @@ export function fixedTimeIssue(
       `${busy.map((e) => `${e.name || '大学の授業'}（${clock(e.start)}〜${clock(e.end)}）`).join('、')}と重なっています。`,
       topic,
       index,
-      first.id,
+      first.kind === 'classBreak' ? '' : first.id,
     );
   }
   const study = settings.windows.filter(

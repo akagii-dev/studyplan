@@ -69,6 +69,45 @@ function fixture() {
   return s;
 }
 describe('通学時間', () => {
+  it('昼食に隠れていた復路を独立した往復内訳と重複区分に残す', () => {
+    const s = fixture();
+    Object.assign(s.settings.windows[1], { start: 540, end: 640 });
+    s.settings.windows.push({ ...s.settings.windows[1], id: 'late', start: 650, end: 750 });
+    Object.assign(s.settings.commute!, { outboundMinutes: 50, returnMinutes: 50 });
+    s.settings.meals = {
+      breakfast: { start: 420, duration: 30 },
+      lunch: { start: 750, duration: 60 },
+      dinner: { start: 1320, duration: 45 },
+    };
+    const d = dailyTime(s.settings, day);
+    expect(d.commutes.map((e) => [e.name, e.start, e.end])).toEqual([
+      ['通学（往路）', 490, 540],
+      ['通学（復路）', 750, 800],
+    ]);
+    expect(d.commuteMinutes).toBe(100);
+    expect(d.totals.commute).toBe(50);
+    expect(d.totals.mealCommute).toBe(50);
+    expect(d.totals.meal).toBe(85);
+    expect(d.segments).toContainEqual({
+      start: 750,
+      end: 800,
+      kind: 'mealCommute',
+      commuteNames: ['通学（復路）'],
+    });
+    expect(d.segments).toContainEqual({ start: 800, end: 810, kind: 'meal', commuteNames: [] });
+    expect(d.capacity.free).toBe(400);
+    expect(Object.values(d.totals).reduce((a, b) => a + b, 0)).toBe(1440);
+  });
+  it.each([0, 10, 30])('食事との重複が%d分でも往復時間と24時間合計を保つ', (overlap) => {
+    const s = fixture();
+    s.settings.meals = { lunch: { start: 730 - overlap, duration: 60 } };
+    const d = dailyTime(s.settings, day);
+    expect(d.commuteMinutes).toBe(75);
+    expect(d.totals.commute).toBe(75 - overlap);
+    expect(d.totals.mealCommute).toBe(overlap);
+    expect(d.totals.meal).toBe(60 - overlap);
+    expect(Object.values(d.totals).reduce((a, b) => a + b, 0)).toBe(1440);
+  });
   it('授業日の最初と最後に往復を確保し、授業のない日は除外しない', () => {
     const s = fixture();
     s.settings.windows.push({ ...s.settings.windows[1], id: 'late', start: 900, end: 1000 });

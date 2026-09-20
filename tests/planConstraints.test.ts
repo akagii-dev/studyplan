@@ -58,6 +58,23 @@ const session = (start: number, end: number): Session => ({
   fixed: true,
   kind: 'study',
 });
+it('授業間の移動に重なる固定予定を保持し、時間割の修正へ案内する', () => {
+  const s = fixture();
+  const base = s.settings.windows[0];
+  s.settings.windows.push(
+    { ...base, id: 'c1', kind: 'class', start: 540, end: 640 },
+    { ...base, id: 'c2', kind: 'class', start: 650, end: 750 },
+  );
+  const fixed = session(640, 650);
+  s.plan!.sessions = [fixed];
+  expect(fixedTimeIssue(s.settings, fixed, capacityForDate(s.settings, date))).toMatchObject({
+    topic: 'class',
+    itemId: '',
+  });
+  const p = generatePlan(s, date, true, 0);
+  expect(p.sessions).toContainEqual(fixed);
+  expect(p.conflicts.join('')).toContain('授業間の移動');
+});
 it('授業・食事・枠の外・連続上限・休憩・余裕率を区別する', () => {
   const s = fixture();
   const issue = (a: number, b: number) =>

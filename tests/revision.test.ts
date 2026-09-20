@@ -163,7 +163,7 @@ describe('対話での再計画', () => {
   });
 });
 describe('画像の時刻と授業の重複', () => {
-  it('10:40境界は重複せず、13:10の授業に重なる2件を検出し、再計画で解消する', () => {
+  it('10:40の授業間移動と13:10の授業に重なる3件を検出し、再計画で解消する', () => {
     const s = fixture();
     classes(s.settings);
     const imageTimes = [
@@ -184,7 +184,7 @@ describe('画像の時刻と授業の重複', () => {
       kind: 'study',
     }));
     expect(s.plan!.sessions.map((x) => overlapsBusy(s.settings, x).length > 0)).toEqual([
-      false,
+      true,
       true,
       true,
     ]);
@@ -194,10 +194,10 @@ describe('画像の時刻と授業の重複', () => {
     ).toBe(true);
     expect(revised.records).toEqual(s.records);
   });
-  it('授業前後の移動を指定した場合だけ除外し、10分の隙間を学習枠から外す', () => {
+  it('授業間の10分は常に除外し、指定した授業前後の移動も追加で除外する', () => {
     const s = fixture();
     classes(s.settings);
-    expect(freeIntervalsForDate(s.settings, date)).toContainEqual([640, 650]);
+    expect(freeIntervalsForDate(s.settings, date)).not.toContainEqual([640, 650]);
     s.settings.classTransition = 10;
     expect(freeIntervalsForDate(s.settings, date)).toEqual([
       [760, 780],

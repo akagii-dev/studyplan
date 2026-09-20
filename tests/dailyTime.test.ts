@@ -53,6 +53,48 @@ function fixture() {
   return s;
 }
 describe('食事・連続学習・1日の可処分時間', () => {
+  it('時刻の内訳は学習・休憩・余裕をまとめ、予定をまたいで結合しない', () => {
+    const s = fixture();
+    const d = dailyTime(s.settings, date);
+    expect(d.overview.filter((x) => x.kind === 'studyWindow').length).toBeLessThan(
+      d.segments.filter((x) => ['available', 'buffer', 'rest'].includes(x.kind)).length,
+    );
+    expect(
+      d.overview.filter((x) => x.kind === 'studyWindow').reduce((n, x) => n + x.end - x.start, 0),
+    ).toBe(d.capacity.free);
+    expect(d.overview.reduce((n, x) => n + x.end - x.start, 0)).toBe(1440);
+    expect(d.overview.some((x) => x.kind === 'meal')).toBe(true);
+  });
+  it.each([5, 10, 11, 60])('授業間%d分のうち10分以下だけを移動として除く', (gap) => {
+    const s = fixture();
+    s.settings.meals = {};
+    const base = s.settings.windows[0];
+    s.settings.windows.push(
+      { ...base, id: 'c1', kind: 'class', start: 540, end: 640 },
+      { ...base, id: 'c1-duplicate', kind: 'class', start: 600, end: 640 },
+      { ...base, id: 'c2', kind: 'class', start: 640 + gap, end: 740 + gap },
+    );
+    expect(capacityForDate(s.settings, date).free).toBe(780 - 200 - (gap <= 10 ? gap : 0));
+    expect(freeIntervalsForDate(s.settings, date)).toContainEqual([740 + gap, 1260]);
+    expect(
+      freeIntervalsForDate(s.settings, date).some(([a, b]) => a === 640 && b === 640 + gap),
+    ).toBe(gap > 10);
+  });
+  it('授業間の移動・授業前後の余白・他の予定を重複して差し引かない', () => {
+    const s = fixture();
+    s.settings.meals = {};
+    s.settings.classTransition = 10;
+    const base = s.settings.windows[0];
+    s.settings.windows.push(
+      { ...base, id: 'c1', kind: 'class', start: 540, end: 640 },
+      { ...base, id: 'c2', kind: 'class', start: 650, end: 750 },
+      { ...base, id: 'b', kind: 'busy', start: 640, end: 650 },
+    );
+    expect(freeIntervalsForDate(s.settings, date)).toEqual([
+      [480, 530],
+      [760, 1260],
+    ]);
+  });
   it('朝昼夜の食事を除外し、授業と重なっても一度だけ差し引く', () => {
     const s = fixture();
     s.settings.windows.push({

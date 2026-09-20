@@ -1,6 +1,6 @@
 import type { Settings } from './model';
 
-export const PLAN_CALCULATION_VERSION = 5;
+export const PLAN_CALCULATION_VERSION = 6;
 export const DEFAULT_MINIMUM_SESSION_MINUTES = 10;
 export const DEFAULT_PREFERRED_SESSION_MINUTES = 30;
 export function sessionPolicy(settings: Settings) {

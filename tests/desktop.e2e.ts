@@ -755,6 +755,93 @@ test('実機：通学の承認・警告の管理・サイドバー保存・可�
   expect((await storedState()).settings.commute).toEqual(approved.settings.commute);
 });
 
+test('実機：ホームで昼食と重なる復路を隠さず往復100分を表示する', async () => {
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/commute-meal-overlap-'));
+  await launch();
+  const date = today();
+  const s = initialState();
+  s.settings.windows = [
+    {
+      id: 'study',
+      kind: 'study',
+      name: '学習',
+      from: date,
+      to: date,
+      weekdays: [weekday(date)],
+      start: 480,
+      end: 1290,
+    },
+    {
+      id: 'c1',
+      kind: 'class',
+      name: '授業',
+      from: date,
+      to: date,
+      weekdays: [weekday(date)],
+      start: 540,
+      end: 640,
+    },
+    {
+      id: 'c2',
+      kind: 'class',
+      name: '授業',
+      from: date,
+      to: date,
+      weekdays: [weekday(date)],
+      start: 650,
+      end: 750,
+    },
+  ];
+  s.settings.meals = {
+    breakfast: { start: 420, duration: 30 },
+    lunch: { start: 750, duration: 60 },
+    dinner: { start: 1320, duration: 45 },
+  };
+  s.settings.commute = {
+    enabled: true,
+    from: date,
+    to: date,
+    mode: 'classDays',
+    weekdays: [weekday(date)],
+    outboundMinutes: 50,
+    returnMinutes: 50,
+    outboundStart: 480,
+    returnStart: 1080,
+  };
+  await seedState(s, 'overlap-home');
+  const card = page.getByRole('region', { name: '1日の可処分時間', exact: true });
+  await expect(card.getByText('この日の通学：計1時間 40分', { exact: true })).toBeVisible();
+  await expect(card.getByText('通学（往路）：08:10〜09:00（50分）', { exact: true })).toBeVisible();
+  await expect(card.getByText('通学（復路）：12:30〜13:20（50分）', { exact: true })).toBeVisible();
+  await card.getByText('時刻の内訳を見る', { exact: true }).click();
+  await expect(card.getByText('12:30〜13:20：食事・通学（復路）', { exact: true })).toBeVisible();
+  await expect(card.getByText('13:20〜13:30：食事', { exact: true })).toBeVisible();
+  await expect(card.getByText('09:00〜12:30：授業・予定・移動', { exact: true })).toBeVisible();
+  await expect(
+    card.getByText('13:30〜21:30：学習可能枠（休憩・余裕を含む）', { exact: true }),
+  ).toBeVisible();
+  await expect(card.locator('details li').filter({ hasText: '学習の合間の休憩' })).toHaveCount(0);
+  for (const appearance of ['light', 'dark']) {
+    await page.getByLabel('表示モード').selectOption(appearance);
+    await page.setViewportSize({ width: 480, height: 800 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      481,
+    );
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include('.daily-time')
+          .setLegacyMode()
+          .withTags(['wcag2a', 'wcag2aa'])
+          .analyze()
+      ).violations,
+    ).toEqual([]);
+  }
+  await card.screenshot({ path: 'test-results/home-commute-overlap.png' });
+  expect((await storedState()).settings).toEqual(s.settings);
+});
+
 test('実機：週間レポートの全体比較・Markdown保存・取消・保存失敗', async () => {
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/weekly-report-'));

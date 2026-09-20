@@ -1,11 +1,16 @@
 import { Settings, Interval, weekday } from './model';
 import { capacityForDate, mergeIntervals } from './planner';
 import { unavailableEvents } from './planAudit';
-export type TimeKind = 'meal' | 'commute' | 'busy' | 'available' | 'buffer' | 'rest' | 'outside';
+export type TimeKind =
+  'meal' | 'commute' | 'mealCommute' | 'busy' | 'available' | 'buffer' | 'rest' | 'outside';
 export interface TimeSegment {
   start: number;
   end: number;
   kind: TimeKind;
+  commuteNames: string[];
+}
+export interface OverviewSegment extends Omit<TimeSegment, 'kind'> {
+  kind: Exclude<TimeKind, 'available' | 'buffer' | 'rest'> | 'studyWindow';
 }
 export function dailyTime(settings: Settings, date: string) {
   const capacity = capacityForDate(settings, date);
@@ -21,6 +26,11 @@ export function dailyTime(settings: Settings, date: string) {
       .map((w) => [w.start, w.end]),
   );
   const events = unavailableEvents(settings, date);
+  const commutes = events.filter((e) => e.kind === 'commute');
+  const commuteMinutes = mergeIntervals(commutes.map((e) => [e.start, e.end])).reduce(
+    (sum, [start, end]) => sum + end - start,
+    0,
+  );
   const boundaries = [
     ...new Set([
       0,
@@ -38,24 +48,50 @@ export function dailyTime(settings: Settings, date: string) {
     const start = boundaries[i],
       end = boundaries[i + 1],
       mid = (start + end) / 2;
-    const kind: TimeKind = events.some((e) => e.kind === 'meal' && e.start <= mid && mid < e.end)
-      ? 'meal'
-      : events.some((e) => e.kind === 'commute' && e.start <= mid && mid < e.end)
-        ? 'commute'
-        : events.some((e) => e.start <= mid && mid < e.end)
-          ? 'busy'
-          : !contains(windows, mid)
-            ? 'outside'
-            : contains(capacity.slots, mid)
-              ? 'available'
-              : contains(capacity.blocks ?? [], mid)
-                ? 'buffer'
-                : 'rest';
+    const hasMeal = events.some((e) => e.kind === 'meal' && e.start <= mid && mid < e.end);
+    const commuteNames = [
+      ...new Set(commutes.filter((e) => e.start <= mid && mid < e.end).map((e) => e.name)),
+    ];
+    const kind: TimeKind =
+      hasMeal && commuteNames.length
+        ? 'mealCommute'
+        : hasMeal
+          ? 'meal'
+          : commuteNames.length
+            ? 'commute'
+            : events.some((e) => e.start <= mid && mid < e.end)
+              ? 'busy'
+              : !contains(windows, mid)
+                ? 'outside'
+                : contains(capacity.slots, mid)
+                  ? 'available'
+                  : contains(capacity.blocks ?? [], mid)
+                    ? 'buffer'
+                    : 'rest';
     const last = segments.at(-1);
-    if (last?.kind === kind) last.end = end;
-    else segments.push({ start, end, kind });
+    if (last?.kind === kind && last.commuteNames.join('/') === commuteNames.join('/'))
+      last.end = end;
+    else segments.push({ start, end, kind, commuteNames });
   }
-  const totals = { commute: 0, meal: 0, busy: 0, available: 0, buffer: 0, rest: 0, outside: 0 };
+  const totals = {
+    commute: 0,
+    mealCommute: 0,
+    meal: 0,
+    busy: 0,
+    available: 0,
+    buffer: 0,
+    rest: 0,
+    outside: 0,
+  };
   for (const s of segments) totals[s.kind] += s.end - s.start;
-  return { capacity, segments, totals };
+  const overview: OverviewSegment[] = [];
+  for (const s of segments) {
+    const kind =
+      s.kind === 'available' || s.kind === 'buffer' || s.kind === 'rest' ? 'studyWindow' : s.kind;
+    const last = overview.at(-1);
+    if (last?.kind === kind && last.commuteNames.join('/') === s.commuteNames.join('/'))
+      last.end = s.end;
+    else overview.push({ ...s, kind });
+  }
+  return { capacity, segments, overview, totals, commutes, commuteMinutes };
 }

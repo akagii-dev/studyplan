@@ -49,6 +49,19 @@ export function overlapsBusy(settings: Settings, session: Session) {
 export function unavailableEvents(settings: Settings, date: string) {
   const gap = settings.classTransition ?? 0;
   const events = blockingEvents(settings, date);
+  const classes = events.filter((e) => e.kind === 'class').sort((a, b) => a.start - b.start);
+  let previousEnd: number | undefined;
+  for (const c of classes) {
+    if (previousEnd !== undefined && c.start > previousEnd && c.start - previousEnd <= 10)
+      events.push({
+        id: `${c.id}-class-break`,
+        name: '授業間の移動',
+        kind: 'classBreak',
+        start: previousEnd,
+        end: c.start,
+      });
+    previousEnd = Math.max(previousEnd ?? c.end, c.end);
+  }
   events.push(...commuteEvents(settings, date));
   for (const key of mealKeys) {
     const meal = settings.meals?.[key];

@@ -1,16 +1,23 @@
 import { Warning } from './Warnings';
 import { Settings, clock } from '../domain/model';
-import { dailyTime, TimeKind } from '../domain/dailyTime';
+import { dailyTime, TimeKind, TimeSegment, OverviewSegment } from '../domain/dailyTime';
 import { duration } from './common';
 const labels: Record<TimeKind, string> = {
   meal: '食事',
   commute: '通学',
+  mealCommute: '食事・通学（重複）',
   busy: '授業・予定・移動',
   available: '計画を入れられる時間',
   buffer: '余裕として残す時間',
   rest: '学習の合間の休憩',
   outside: '学習対象外・未設定',
 };
+const segmentLabel = (s: TimeSegment | OverviewSegment) =>
+  s.commuteNames.length
+    ? `${s.kind === 'mealCommute' ? '食事・' : ''}${s.commuteNames.join('・')}`
+    : s.kind === 'studyWindow'
+      ? '学習可能枠（休憩・余裕を含む）'
+      : labels[s.kind];
 export function DailyTime({ settings, date }: { settings: Settings; date: string }) {
   let day;
   try {
@@ -32,6 +39,26 @@ export function DailyTime({ settings, date }: { settings: Settings; date: string
         勉強に使える空き時間 <strong>{duration(day.capacity.free)}</strong> ／ 休憩・余裕を残すと{' '}
         <strong>{duration(day.capacity.allocatable)}</strong>
       </p>
+      {day.commutes.length > 0 && (
+        <div className="daily-commute" aria-label="通学の往復内訳">
+          <p>
+            <strong>この日の通学：計{duration(day.commuteMinutes)}</strong>
+          </p>
+          <ul className="day-time-list">
+            {day.commutes.map((e) => (
+              <li key={e.id}>
+                {e.name}：{clock(e.start)}〜{clock(e.end)}（{duration(e.end - e.start)}）
+              </li>
+            ))}
+          </ul>
+          {day.totals.mealCommute > 0 && (
+            <p className="hint">
+              食事と{duration(day.totals.mealCommute)}
+              重なっています。下の内訳では「食事・通学（重複）」にまとめ、二重には差し引きません。
+            </p>
+          )}
+        </div>
+      )}
       <div
         className="day-time-bar"
         role="img"
@@ -42,7 +69,7 @@ export function DailyTime({ settings, date }: { settings: Settings; date: string
             key={s.start}
             className={`time-${s.kind}`}
             style={{ width: `${((s.end - s.start) / 1440) * 100}%` }}
-            title={`${clock(s.start)}〜${clock(s.end)} ${labels[s.kind]}`}
+            title={`${clock(s.start)}〜${clock(s.end)} ${segmentLabel(s)}`}
           />
         ))}
       </div>
@@ -52,22 +79,27 @@ export function DailyTime({ settings, date }: { settings: Settings; date: string
         <span>24:00</span>
       </div>
       <dl className="time-legend">
-        {(Object.keys(labels) as TimeKind[]).map((kind) => (
-          <div key={kind}>
-            <dt>
-              <i className={`time-${kind}`} />
-              {labels[kind]}
-            </dt>
-            <dd>{duration(day.totals[kind])}</dd>
-          </div>
-        ))}
+        {(Object.keys(labels) as TimeKind[])
+          .filter((kind) => kind !== 'mealCommute' || day.totals.mealCommute > 0)
+          .map((kind) => (
+            <div key={kind}>
+              <dt>
+                <i className={`time-${kind}`} />
+                {labels[kind]}
+                {day.totals.mealCommute > 0 && (kind === 'meal' || kind === 'commute')
+                  ? '（重複分を除く）'
+                  : ''}
+              </dt>
+              <dd>{duration(day.totals[kind])}</dd>
+            </div>
+          ))}
       </dl>
       <details>
         <summary>時刻の内訳を見る</summary>
         <ul className="day-time-list">
-          {day.segments.map((s) => (
+          {day.overview.map((s) => (
             <li key={s.start}>
-              {clock(s.start)}〜{clock(s.end)}：{labels[s.kind]}
+              {clock(s.start)}〜{clock(s.end)}：{segmentLabel(s)}
             </li>
           ))}
         </ul>

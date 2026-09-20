@@ -2142,6 +2142,9 @@ progress::-webkit-progress-value {
 .time-commute {
   background: var(--busy-border);
 }
+.time-mealCommute {
+  background: repeating-linear-gradient(135deg, #d1a466 0 4px, var(--busy-border) 4px 8px);
+}
 .app-shell {
   --sidebar-width: 226px;
 }

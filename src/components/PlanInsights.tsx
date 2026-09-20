@@ -53,6 +53,7 @@ export function PlanInsights({
           <div className="note">
             連続で最長 {duration(settings.block)} ／ 休憩 {duration(settings.rest)} ／ 授業前後 各
             {duration(settings.classTransition ?? 0)} ／ 余裕率 {Math.round(settings.buffer * 100)}%
+            {(plan.calculationVersion ?? 0) >= 6 && ' ／ 授業間10分以下は移動時間'}
           </div>
           <p>計画開始：{plan.from}。目標日当日は通常教材を割り当てません。</p>
           {settings.commute?.enabled && (

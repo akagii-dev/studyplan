@@ -40,15 +40,17 @@ export function fixedTimeIssue(
   if (busy.length) {
     const first = busy[0];
     const topic: RevisionTopic =
-      first.kind === 'transition'
-        ? 'focus'
-        : first.kind === 'meal'
-          ? 'meal'
-          : first.kind === 'class'
-            ? 'class'
-            : first.kind === 'exception'
-              ? 'exception'
-              : 'busy';
+      first.kind === 'commute'
+        ? 'commute'
+        : first.kind === 'transition'
+          ? 'focus'
+          : first.kind === 'meal'
+            ? 'meal'
+            : first.kind === 'class'
+              ? 'class'
+              : first.kind === 'exception'
+                ? 'exception'
+                : 'busy';
     const index =
       first.kind === 'transition'
         ? 2

@@ -47,6 +47,19 @@ const settings = z.looseObject({
   focus: count.optional(),
   periods: z.array(minute).min(1).max(100),
   classTransition: count.max(180).optional(),
+  commute: z
+    .object({
+      enabled: z.boolean(),
+      from: date,
+      to: date,
+      mode: z.enum(['classDays', 'weekdays']),
+      weekdays: z.array(z.number().int().min(0).max(6)).max(7),
+      outboundMinutes: count.max(360),
+      returnMinutes: count.max(360),
+      outboundStart: count.max(1439),
+      returnStart: count.max(1439),
+    })
+    .optional(),
   meals: z
     .object({
       breakfast: z.looseObject({ start: minute, duration: count.min(30).max(60) }).optional(),
@@ -181,7 +194,17 @@ const draft = z.looseObject({
       base: settings,
       settings,
       stage: z.enum(['choose', 'item', 'question', 'review']),
-      topic: z.enum(['exam', 'material', 'study', 'class', 'busy', 'exception', 'focus', 'meal']),
+      topic: z.enum([
+        'exam',
+        'material',
+        'study',
+        'class',
+        'busy',
+        'exception',
+        'focus',
+        'meal',
+        'commute',
+      ]),
       itemId: id,
       index: count,
     })
@@ -220,6 +243,11 @@ const state = z.looseObject({
     .nullable(),
   theme: z.enum(['mint', 'sky', 'lime']).optional(),
   appearance: z.enum(['light', 'dark', 'system']).optional(),
+  sidebarCollapsed: z.boolean().optional(),
+  ignoredWarnings: z
+    .record(id, z.object({ title: text, version: text, ignoredAt: z.iso.datetime() }))
+    .optional(),
+  warningExpanded: z.record(id, z.boolean()).optional(),
   settingsUpdatedAt: text.optional(),
 });
 export const backupSchema = z.object({

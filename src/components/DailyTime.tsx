@@ -1,8 +1,10 @@
+import { Warning } from './Warnings';
 import { Settings, clock } from '../domain/model';
 import { dailyTime, TimeKind } from '../domain/dailyTime';
 import { duration } from './common';
 const labels: Record<TimeKind, string> = {
   meal: '食事',
+  commute: '通学',
   busy: '授業・予定・移動',
   available: '計画を入れられる時間',
   buffer: '余裕として残す時間',
@@ -15,9 +17,9 @@ export function DailyTime({ settings, date }: { settings: Settings; date: string
     day = dailyTime(settings, date);
   } catch {
     return (
-      <p className="warning">
+      <Warning id="dailytime-0" title="時間の設定を確認してください" version={settings}>
         時間の内訳を表示するには、連続学習・休憩・余裕率の設定を確認してください。
-      </p>
+      </Warning>
     );
   }
   return (

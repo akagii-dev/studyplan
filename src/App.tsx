@@ -1,3 +1,8 @@
+import { Warning, WarningsProvider, WarningSettings } from './components/Warnings';
+import { CommuteSettings } from './components/CommuteSettings';
+import { PanelLeftClose, PanelLeftOpen, Bus, BellOff } from 'lucide-react';
+import { AnimatedProgress } from './components/AnimatedProgress';
+import { todayProgress } from './domain/todayProgress';
 import { Meals } from './components/Meals';
 import { DailyTime } from './components/DailyTime';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -41,6 +46,8 @@ import { SaveRecovery } from './components/SaveRecovery';
 import { WeeklyReport } from './components/WeeklyReport';
 import { version } from '../package.json';
 type Page =
+  | 'commute'
+  | 'warnings'
   | 'today'
   | 'dashboard'
   | 'setup'
@@ -68,6 +75,8 @@ const navigation = [
   { id: 'exams', name: '試験・目標', icon: GraduationCap },
   { id: 'materials', name: '教材・進捗', icon: BookOpen },
   { id: 'availability', name: '時間枠・時間割', icon: CalendarDays },
+  { id: 'commute', name: '通学時間', icon: Bus },
+  { id: 'warnings', name: '警告の管理', icon: BellOff },
   { id: 'focus', name: '連続時間・余裕率', icon: Settings2 },
   { id: 'setup', name: '対話式の初期設定', icon: ListChecks },
   { id: 'backup', name: 'バックアップ', icon: DatabaseBackup },
@@ -332,240 +341,266 @@ export default function App() {
           </section>
         </div>
       )}
-      <div className="app-shell" inert={closing || restoring || !!recovery || undefined}>
-        <aside className="sidebar">
-          <a
-            className="brand"
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setPage('dashboard');
-            }}
-          >
-            <div>
-              <Leaf size={24} />
-            </div>
-            <span>StudyPlan</span>
-          </a>
-          <nav>
-            {navigation.map((n) => (
-              <button
-                key={n.id}
-                className={`${page === n.id ? 'active' : ''} ${n.id === 'exams' ? 'nav-divider' : ''}`}
-                aria-current={page === n.id ? 'page' : undefined}
-                onClick={() => setPage(n.id)}
-              >
-                <n.icon size={18} />
-                {n.name}
-                {n.id === 'replan' && state.proposal && <span className="nav-dot" />}
-              </button>
-            ))}
-          </nav>
-          <div className="sidebar-bottom">
-            <label className="theme-picker">
-              表示モード
-              <select
-                aria-label="表示モード"
-                value={state.appearance ?? 'light'}
-                onChange={(e) =>
-                  void update((s) => ({
-                    ...s,
-                    appearance: e.target.value as AppState['appearance'],
-                  }))
-                }
-              >
-                <option value="light">ライト</option>
-                <option value="dark">ダーク</option>
-                <option value="system">システム</option>
-              </select>
-            </label>
-            <label className="theme-picker">
-              カラーテーマ
-              <select
-                aria-label="カラーテーマ"
-                value={state.theme ?? 'mint'}
-                onChange={(e) =>
-                  void update((s) => ({ ...s, theme: e.target.value as AppState['theme'] }))
-                }
-              >
-                <option value="mint">ミントグリーン</option>
-                <option value="sky">ペールブルー</option>
-                <option value="lime">ライム</option>
-              </select>
-            </label>
-            <div className="local-indicator">
-              <span />
-              この端末に保存
-            </div>
-            <small>StudyPlan v{version}</small>
-          </div>
-        </aside>
-        <main>
-          <header className="topbar">
-            <div>
-              マイワークスペース <ChevronRight size={13} /> <strong>{active.name}</strong>
-            </div>
-            <span className={`save-status ${saving ? 'pending' : ''}`} role="status">
-              {recovery
-                ? '保存未確認'
-                : saving
-                  ? '保存中…'
-                  : saved
-                    ? '✓ 保存済み'
-                    : '○ まだ保存されていません'}
-            </span>
-          </header>
-          <div className="main-content">
-            <div className="page-heading">
+      <WarningsProvider {...props}>
+        <div
+          className={`app-shell ${state.sidebarCollapsed ? 'sidebar-collapsed' : ''}`}
+          inert={closing || restoring || !!recovery || undefined}
+        >
+          <aside className="sidebar">
+            <button
+              className="sidebar-toggle"
+              aria-label={state.sidebarCollapsed ? 'サイドバーを開く' : 'サイドバーを折りたたむ'}
+              aria-expanded={!state.sidebarCollapsed}
+              onClick={() => void update((s) => ({ ...s, sidebarCollapsed: !s.sidebarCollapsed }))}
+            >
+              {state.sidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+            </button>
+            <a
+              className="brand"
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setPage('dashboard');
+              }}
+            >
               <div>
-                <h1 ref={pageHeading} tabIndex={-1}>
-                  {active.name}
-                </h1>
+                <Leaf size={24} />
               </div>
-              <span className="today-label">
-                {today().replaceAll('-', ' / ')}（
-                {['日', '月', '火', '水', '木', '金', '土'][weekday(today())]}）
-              </span>
+              <span>StudyPlan</span>
+            </a>
+            <nav>
+              {navigation.map((n) => (
+                <button
+                  key={n.id}
+                  aria-label={n.name}
+                  title={n.name}
+                  className={`${page === n.id ? 'active' : ''} ${n.id === 'exams' ? 'nav-divider' : ''}`}
+                  aria-current={page === n.id ? 'page' : undefined}
+                  onClick={() => setPage(n.id)}
+                >
+                  <n.icon size={18} />
+                  <span className="nav-label">{n.name}</span>
+                  {n.id === 'replan' && state.proposal && <span className="nav-dot" />}
+                </button>
+              ))}
+            </nav>
+            <div className="sidebar-bottom">
+              <label className="theme-picker">
+                表示モード
+                <select
+                  aria-label="表示モード"
+                  value={state.appearance ?? 'light'}
+                  onChange={(e) =>
+                    void update((s) => ({
+                      ...s,
+                      appearance: e.target.value as AppState['appearance'],
+                    }))
+                  }
+                >
+                  <option value="light">ライト</option>
+                  <option value="dark">ダーク</option>
+                  <option value="system">システム</option>
+                </select>
+              </label>
+              <label className="theme-picker">
+                カラーテーマ
+                <select
+                  aria-label="カラーテーマ"
+                  value={state.theme ?? 'mint'}
+                  onChange={(e) =>
+                    void update((s) => ({ ...s, theme: e.target.value as AppState['theme'] }))
+                  }
+                >
+                  <option value="mint">ミントグリーン</option>
+                  <option value="sky">ペールブルー</option>
+                  <option value="lime">ライム</option>
+                </select>
+              </label>
+              <div className="local-indicator">
+                <span />
+                この端末に保存
+              </div>
+              <small>StudyPlan v{version}</small>
             </div>
-            {error && (
-              <div className="error-banner" role="alert">
-                <span>{error}</span>
-                <button onClick={() => setError('')}>閉じる</button>
+          </aside>
+          <main>
+            <header className="topbar">
+              <div>
+                マイワークスペース <ChevronRight size={13} /> <strong>{active.name}</strong>
               </div>
-            )}
-            {typeof state.draft.replanError === 'string' && state.draft.replanError && (
-              <div className="warning" role="status">
-                {state.draft.replanError}
+              <span className={`save-status ${saving ? 'pending' : ''}`} role="status">
+                {recovery
+                  ? '保存未確認'
+                  : saving
+                    ? '保存中…'
+                    : saved
+                      ? '✓ 保存済み'
+                      : '○ まだ保存されていません'}
+              </span>
+            </header>
+            <div className="main-content">
+              <div className="page-heading">
+                <div>
+                  <h1 ref={pageHeading} tabIndex={-1}>
+                    {active.name}
+                  </h1>
+                </div>
+                <span className="today-label">
+                  {today().replaceAll('-', ' / ')}（
+                  {['日', '月', '火', '水', '木', '金', '土'][weekday(today())]}）
+                </span>
               </div>
-            )}
-            {page === 'dashboard' && state.plan && (
-              <SetupImpact
-                settings={state.settings}
-                onConfigure={() => setPage('availability')}
-                onConfigureStudy={() => setPage('replan')}
-              />
-            )}
-            {['dashboard', 'today', 'calendar', 'replan'].includes(page) &&
-              stalePlan(state.plan, state.settings) && (
-                <div className="warning" role="status">
-                  <b>保存済みの計画と現在の設定が一致していません。</b>
-                  <p>
-                    設定や計算方式の変更は、新しい案を承認すると反映されます。現在の設定の最終更新：
-                    {dateTime(state.settingsUpdatedAt)}
-                  </p>
-                  {page !== 'replan' && (
-                    <button onClick={generate}>現在の設定で計画案を作成</button>
-                  )}
+              {error && (
+                <div className="error-banner" role="alert">
+                  <span>{error}</span>
+                  <button onClick={() => setError('')}>閉じる</button>
                 </div>
               )}
-            <NumericDraftProvider state={state} update={update} scope={numericScope}>
-              {page === 'dashboard' && (
-                <Dashboard {...props} navigate={setPage} generate={generate} onAdd={addItem} />
-              )}{' '}
-              {page === 'setup' && <GuidedSetup {...props} onGenerate={generate} />}{' '}
-              {(page === 'exams' || page === 'materials') && (
-                <RegistrationStatus
-                  state={state}
-                  onGenerate={generate}
-                  onReview={() => setPage('replan')}
-                  onConfigure={configureRegistration}
+              {typeof state.draft.replanError === 'string' && state.draft.replanError && (
+                <Warning
+                  id="replan-error"
+                  title="再計画を確認してください"
+                  version={state.draft.replanError}
+                >
+                  {state.draft.replanError}
+                </Warning>
+              )}
+              {page === 'dashboard' && state.plan && (
+                <SetupImpact
+                  settings={state.settings}
+                  onConfigure={() => setPage('availability')}
+                  onConfigureStudy={() => setPage('replan')}
                 />
               )}
-              {page === 'exams' && (
-                <Exams
-                  {...props}
-                  onAdd={() => addItem('addExam')}
-                  onAddMaterial={(id) => addItem('addMaterial', id)}
-                />
-              )}{' '}
-              {page === 'materials' && (
-                <Materials {...props} onAdd={() => addItem('addMaterial')} />
-              )}{' '}
-              {(page === 'addExam' || page === 'addMaterial') &&
-                (page === 'addMaterial' && !state.settings.exams.length ? (
-                  <section className="card">
-                    <h2>先に試験を追加しましょう</h2>
-                    <button className="primary" onClick={() => addItem('addExam')}>
-                      試験を追加
-                    </button>
-                  </section>
-                ) : (
-                  <GuidedSetup
-                    key={page}
-                    {...props}
-                    mode={page}
+              {['dashboard', 'today', 'calendar', 'replan'].includes(page) &&
+                stalePlan(state.plan, state.settings) && (
+                  <Warning
+                    id="stale-plan"
+                    title="保存済みの計画と現在の設定が一致していません。"
+                    version={[state.plan?.id, state.settings]}
+                  >
+                    <p>
+                      設定や計算方式の変更は、新しい案を承認すると反映されます。現在の設定の最終更新：
+                      {dateTime(state.settingsUpdatedAt)}
+                    </p>
+                    {page !== 'replan' && (
+                      <button onClick={generate}>現在の設定で計画案を作成</button>
+                    )}
+                  </Warning>
+                )}
+              <NumericDraftProvider state={state} update={update} scope={numericScope}>
+                {page === 'dashboard' && (
+                  <Dashboard {...props} navigate={setPage} generate={generate} onAdd={addItem} />
+                )}{' '}
+                {page === 'setup' && <GuidedSetup {...props} onGenerate={generate} />}{' '}
+                {(page === 'exams' || page === 'materials') && (
+                  <RegistrationStatus
+                    state={state}
                     onGenerate={generate}
-                    onClose={() => setPage(page === 'addExam' ? 'exams' : 'materials')}
-                    onAddMaterial={(id) => addItem('addMaterial', id)}
                     onReview={() => setPage('replan')}
                     onConfigure={configureRegistration}
                   />
-                ))}
-              {page === 'availability' && (
-                <>
-                  <Availability {...props} />
-                  <Meals {...props} />
-                </>
-              )}{' '}
-              {page === 'focus' && (
-                <>
-                  <Focus {...props} />
-                  <Buffer {...props} />
-                </>
-              )}{' '}
-              {page === 'today' && (
-                <Calendar
-                  {...props}
-                  todayOnly
-                  onRecord={onRecord}
-                  onReplan={() => setPage('replan')}
-                />
-              )}
-              {page === 'calendar' && (
-                <Calendar {...props} onRecord={onRecord} onReplan={() => setPage('replan')} />
-              )}{' '}
-              {page === 'progress' && <Progress {...props} />}{' '}
-              {page === 'history' && <History {...props} />}{' '}
-              {page === 'report' && (
-                <WeeklyReport
-                  state={state}
-                  saving={saving > 0}
-                  readSaved={async () => {
-                    await queue.current;
-                    if (unconfirmed.current)
-                      throw new Error('保存状態を確認してから書き出してください。');
-                    return (await loadState()).data;
-                  }}
-                />
-              )}
-              {page === 'tutorial' && <Tutorial navigate={setPage} />}
-              {page === 'backup' && (
-                <Suspense fallback={<p>読み込んでいます…</p>}>
-                  <Backup
+                )}
+                {page === 'exams' && (
+                  <Exams
+                    {...props}
+                    onAdd={() => addItem('addExam')}
+                    onAddMaterial={(id) => addItem('addMaterial', id)}
+                  />
+                )}{' '}
+                {page === 'materials' && (
+                  <Materials {...props} onAdd={() => addItem('addMaterial')} />
+                )}{' '}
+                {(page === 'addExam' || page === 'addMaterial') &&
+                  (page === 'addMaterial' && !state.settings.exams.length ? (
+                    <section className="card">
+                      <h2>先に試験を追加しましょう</h2>
+                      <button className="primary" onClick={() => addItem('addExam')}>
+                        試験を追加
+                      </button>
+                    </section>
+                  ) : (
+                    <GuidedSetup
+                      key={page}
+                      {...props}
+                      mode={page}
+                      onGenerate={generate}
+                      onClose={() => setPage(page === 'addExam' ? 'exams' : 'materials')}
+                      onAddMaterial={(id) => addItem('addMaterial', id)}
+                      onReview={() => setPage('replan')}
+                      onConfigure={configureRegistration}
+                    />
+                  ))}
+                {page === 'availability' && (
+                  <>
+                    <Availability {...props} />
+                    <Meals {...props} />
+                  </>
+                )}{' '}
+                {page === 'focus' && (
+                  <>
+                    <Focus {...props} />
+                    <Buffer {...props} />
+                  </>
+                )}{' '}
+                {page === 'today' && (
+                  <Calendar
+                    {...props}
+                    todayOnly
+                    onRecord={onRecord}
+                    onReplan={() => setPage('replan')}
+                  />
+                )}
+                {page === 'calendar' && (
+                  <Calendar {...props} onRecord={onRecord} onReplan={() => setPage('replan')} />
+                )}{' '}
+                {page === 'commute' && (
+                  <CommuteSettings {...props} onReview={() => setPage('replan')} />
+                )}
+                {page === 'warnings' && <WarningSettings {...props} />}
+                {page === 'progress' && <Progress {...props} />}{' '}
+                {page === 'history' && <History {...props} />}{' '}
+                {page === 'report' && (
+                  <WeeklyReport
                     state={state}
                     saving={saving > 0}
-                    saved={saved}
-                    onRestore={restore}
-                    onExport={async (path) => {
+                    readSaved={async () => {
                       await queue.current;
-                      await exportBackup(path);
+                      if (unconfirmed.current)
+                        throw new Error('保存状態を確認してから書き出してください。');
+                      return (await loadState()).data;
                     }}
                   />
-                </Suspense>
-              )}
-              {page === 'replan' && <Replan {...props} onCalendar={() => setPage('calendar')} />}{' '}
-              {['availability', 'focus'].includes(page) && (
-                <div className="wizard-footer">
-                  <span>設定の変更は保存済みの計画を自動で書き換えません。</span>
-                  <button data-submit className="primary" onClick={generate}>
-                    設定から計画案を作成
-                  </button>
-                </div>
-              )}
-            </NumericDraftProvider>
-          </div>
-        </main>
-      </div>
+                )}
+                {page === 'tutorial' && <Tutorial navigate={setPage} />}
+                {page === 'backup' && (
+                  <Suspense fallback={<p>読み込んでいます…</p>}>
+                    <Backup
+                      state={state}
+                      saving={saving > 0}
+                      saved={saved}
+                      onRestore={restore}
+                      onExport={async (path) => {
+                        await queue.current;
+                        await exportBackup(path);
+                      }}
+                    />
+                  </Suspense>
+                )}
+                {page === 'replan' && <Replan {...props} onCalendar={() => setPage('calendar')} />}{' '}
+                {['availability', 'focus'].includes(page) && (
+                  <div className="wizard-footer">
+                    <span>設定の変更は保存済みの計画を自動で書き換えません。</span>
+                    <button data-submit className="primary" onClick={generate}>
+                      設定から計画案を作成
+                    </button>
+                  </div>
+                )}
+              </NumericDraftProvider>
+            </div>
+          </main>
+        </div>
+      </WarningsProvider>
     </>
   );
 }
@@ -576,11 +611,7 @@ function Dashboard({
   onAdd,
 }: Props & { navigate: (p: Page) => void; generate: () => void; onAdd: (mode: Addition) => void }) {
   const s = state.settings;
-  const done = s.materials.reduce(
-    (n, m) => n + m.rounds.reduce((a, _, i) => a + completed(state, m.id, i), 0),
-    0,
-  );
-  const total = s.materials.reduce((n, m) => n + m.total * m.rounds.length, 0);
+  const daily = todayProgress(state);
   const required = s.materials.reduce(
     (n, m) => n + m.rounds.reduce((a, r, i) => a + remaining(state, m.id, i) * r.minutes, 0),
     0,
@@ -623,16 +654,17 @@ function Dashboard({
         <div className="metric-card">
           <span>
             <CheckCircle2 size={17} />
-            教材全体の進捗
+            今日の進捗
           </span>
           <strong>
-            {total ? Math.round((done / total) * 100) : 0}
+            {daily.percent === null ? '—' : Math.round(daily.percent)}
             <small>%</small>
           </strong>
           <p>
-            {done} / {total}問 完了
+            {daily.reported ? `今日の記録 ${daily.actual}問` : '今日は未報告'} · 予定{' '}
+            {daily.planned}問
           </p>
-          <progress aria-label="教材全体の進捗" max={total || 1} value={done} />
+          <AnimatedProgress label="今日の進捗" max={daily.planned} value={daily.matched} />
         </div>
         <div className="metric-card">
           <span>
@@ -677,9 +709,9 @@ function Dashboard({
                     <p>
                       目標 {e.target} · 教材 {ms.length}冊
                     </p>
-                    <progress
-                      aria-label={`${e.name}の進捗`}
-                      style={{ accentColor: e.color }}
+                    <AnimatedProgress
+                      label={`${e.name}の進捗`}
+                      color={e.color}
                       value={d}
                       max={t || 1}
                     />
@@ -712,13 +744,17 @@ function Dashboard({
         </section>
       </div>
       {state.plan?.shortfalls.length ? (
-        <div className="warning">
+        <Warning
+          id="approved-shortfalls"
+          title="未配置の課題があります"
+          version={state.plan.shortfalls}
+        >
           <b>
             未配置の課題があります：{state.plan.shortfalls.reduce((n, x) => n + x.count, 0)}問 /{' '}
             {duration(state.plan.shortfalls.reduce((n, x) => n + x.minutes, 0))}
           </b>
           <p>目標日や時間枠を見直し、再計画画面で不足を確認してください。</p>
-        </div>
+        </Warning>
       ) : null}
     </>
   );

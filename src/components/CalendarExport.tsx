@@ -1,3 +1,4 @@
+import { Warning } from './Warnings';
 import { useRef, useState } from 'react';
 import { Download } from 'lucide-react';
 import { save } from '@tauri-apps/plugin-dialog';
@@ -125,9 +126,13 @@ export function CalendarExport({
             )}
           </fieldset>
           {options.study && stalePlan(state.plan, state.settings) && (
-            <p className="warning">
+            <Warning
+              id="calendarexport-0"
+              title="書き出す計画に最新の設定が未反映です"
+              version={[state.plan?.id, state.settings]}
+            >
               学習予定に、最新の設定がまだ反映されていません。必要に応じて再計画してください。
-            </p>
+            </Warning>
           )}
           <p className="hint">
             承認済みの学習予定・現在の時間割 ／ 時刻：

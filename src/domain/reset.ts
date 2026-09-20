@@ -22,6 +22,7 @@ export function resetSetup(state: AppState, all = false): AppState {
     ...initialState(),
     theme: state.theme,
     appearance: state.appearance,
+    sidebarCollapsed: state.sidebarCollapsed,
     settingsUpdatedAt: new Date().toISOString(),
     resetBackup: backup,
   };

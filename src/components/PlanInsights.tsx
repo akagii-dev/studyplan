@@ -1,3 +1,4 @@
+import { Warning } from './Warnings';
 import { useMemo } from 'react';
 import { AppState, Plan, addDays, remaining, today } from '../domain/model';
 import { datesBetween, generatePlan } from '../domain/planner';
@@ -43,9 +44,9 @@ export function PlanInsights({
         使用した設定の最終更新：{dateTime(plan.settingsUpdatedAt)}
       </p>
       {plan.calculationVersion !== PLAN_CALCULATION_VERSION && (
-        <p className="warning">
-          以前の計算方式で保存した計画です。現在は問題数ではなく所要時間でまとめます。再計画で確認してください。
-        </p>
+        <Warning id="planinsights-0" title="以前の計算方式の計画です" version={plan.id}>
+          以前の計算方式で保存した計画です。現在の計算条件（所要時間・通学など）で案を作り直せます。再計画で確認してください。
+        </Warning>
       )}
       {settings ? (
         <>
@@ -54,6 +55,17 @@ export function PlanInsights({
             {duration(settings.classTransition ?? 0)} ／ 余裕率 {Math.round(settings.buffer * 100)}%
           </div>
           <p>計画開始：{plan.from}。目標日当日は通常教材を割り当てません。</p>
+          {settings.commute?.enabled && (
+            <p>
+              通学：{settings.commute.from}〜{settings.commute.to} ／{' '}
+              {settings.commute.mode === 'classDays'
+                ? '授業日のみ'
+                : settings.commute.weekdays
+                    .map((d) => ['日', '月', '火', '水', '木', '金', '土'][d])
+                    .join('・')}{' '}
+              ／ 往路 {settings.commute.outboundMinutes}分・復路 {settings.commute.returnMinutes}分
+            </p>
+          )}
           {plan.calculationVersion === PLAN_CALCULATION_VERSION && (
             <p>
               予定の下限 {sessionPolicy(settings).minimum}分 ／ まとまりの目安{' '}
@@ -134,9 +146,9 @@ export function PlanInsights({
           </details>
         </>
       ) : (
-        <p className="warning">
+        <Warning id="planinsights-1" title="計画に使用した設定の記録がありません" version={plan.id}>
           この計画は旧バージョンで作成され、使用した設定の記録がありません。現在の設定で計画案を作成すると記録されます。
-        </p>
+        </Warning>
       )}
       <details open={preview}>
         <summary>一日の予定問題数（全試験で共有）</summary>

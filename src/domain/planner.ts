@@ -13,6 +13,7 @@ import {
   weekday,
 } from './model';
 const EPS = 1e-7;
+import { commuteErrors } from './commute';
 import { sessionPolicy, sessionUnitCount, PLAN_CALCULATION_VERSION } from './sessionPolicy';
 import { requirePlanningInputs } from './setupIssues';
 import { overlapsBusy, sameSettings, unavailableEvents } from './planAudit';
@@ -100,7 +101,7 @@ export function datesBetween(from: string, to: string): string[] {
   return dates;
 }
 export function validateSettings(s: Settings): string[] {
-  const errors: string[] = [];
+  const errors: string[] = commuteErrors(s.commute);
   const policy = sessionPolicy(s);
   if (
     !Number.isInteger(policy.minimum) ||
@@ -667,7 +668,7 @@ export function approve(state: AppState, acknowledge = false): AppState {
   if (!p) throw new Error('再計画案がありません。');
   if (p.plan.calculationVersion !== PLAN_CALCULATION_VERSION)
     throw new Error(
-      '計算方式が更新されました。問題数ではなく所要時間を基準に案を作り直してください。',
+      '計算方式が更新されました。通学時間などを含む現在の条件で案を作り直してください。',
     );
   if (p.basedOn !== (state.plan?.id ?? null))
     throw new Error('計画が変更されました。案を作り直してください。');

@@ -287,6 +287,72 @@
               "minimum": 0,
               "maximum": 180
             },
+            "commute": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "from": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "to": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "classDays",
+                    "weekdays"
+                  ]
+                },
+                "weekdays": {
+                  "maxItems": 7,
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 6
+                  }
+                },
+                "outboundMinutes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 360
+                },
+                "returnMinutes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 360
+                },
+                "outboundStart": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1439
+                },
+                "returnStart": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1439
+                }
+              },
+              "required": [
+                "enabled",
+                "from",
+                "to",
+                "mode",
+                "weekdays",
+                "outboundMinutes",
+                "returnMinutes",
+                "outboundStart",
+                "returnStart"
+              ],
+              "additionalProperties": false
+            },
             "meals": {
               "type": "object",
               "properties": {
@@ -1897,6 +1963,72 @@
                       "minimum": 0,
                       "maximum": 180
                     },
+                    "commute": {
+                      "type": "object",
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "from": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "to": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "classDays",
+                            "weekdays"
+                          ]
+                        },
+                        "weekdays": {
+                          "maxItems": 7,
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 6
+                          }
+                        },
+                        "outboundMinutes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 360
+                        },
+                        "returnMinutes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 360
+                        },
+                        "outboundStart": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1439
+                        },
+                        "returnStart": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1439
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "from",
+                        "to",
+                        "mode",
+                        "weekdays",
+                        "outboundMinutes",
+                        "returnMinutes",
+                        "outboundStart",
+                        "returnStart"
+                      ],
+                      "additionalProperties": false
+                    },
                     "meals": {
                       "type": "object",
                       "properties": {
@@ -2265,6 +2397,72 @@
                       "minimum": 0,
                       "maximum": 180
                     },
+                    "commute": {
+                      "type": "object",
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "from": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "to": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "classDays",
+                            "weekdays"
+                          ]
+                        },
+                        "weekdays": {
+                          "maxItems": 7,
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 6
+                          }
+                        },
+                        "outboundMinutes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 360
+                        },
+                        "returnMinutes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 360
+                        },
+                        "outboundStart": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1439
+                        },
+                        "returnStart": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1439
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "from",
+                        "to",
+                        "mode",
+                        "weekdays",
+                        "outboundMinutes",
+                        "returnMinutes",
+                        "outboundStart",
+                        "returnStart"
+                      ],
+                      "additionalProperties": false
+                    },
                     "meals": {
                       "type": "object",
                       "properties": {
@@ -2387,7 +2585,8 @@
                     "busy",
                     "exception",
                     "focus",
-                    "meal"
+                    "meal",
+                    "commute"
                   ]
                 },
                 "itemId": {
@@ -2795,6 +2994,72 @@
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 180
+                    },
+                    "commute": {
+                      "type": "object",
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "from": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "to": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "classDays",
+                            "weekdays"
+                          ]
+                        },
+                        "weekdays": {
+                          "maxItems": 7,
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 6
+                          }
+                        },
+                        "outboundMinutes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 360
+                        },
+                        "returnMinutes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 360
+                        },
+                        "outboundStart": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1439
+                        },
+                        "returnStart": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1439
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "from",
+                        "to",
+                        "mode",
+                        "weekdays",
+                        "outboundMinutes",
+                        "returnMinutes",
+                        "outboundStart",
+                        "returnStart"
+                      ],
+                      "additionalProperties": false
                     },
                     "meals": {
                       "type": "object",
@@ -3411,6 +3676,72 @@
                     "minimum": 0,
                     "maximum": 180
                   },
+                  "commute": {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "from": {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      "to": {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      "mode": {
+                        "type": "string",
+                        "enum": [
+                          "classDays",
+                          "weekdays"
+                        ]
+                      },
+                      "weekdays": {
+                        "maxItems": 7,
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 6
+                        }
+                      },
+                      "outboundMinutes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 360
+                      },
+                      "returnMinutes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 360
+                      },
+                      "outboundStart": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1439
+                      },
+                      "returnStart": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1439
+                      }
+                    },
+                    "required": [
+                      "enabled",
+                      "from",
+                      "to",
+                      "mode",
+                      "weekdays",
+                      "outboundMinutes",
+                      "returnMinutes",
+                      "outboundStart",
+                      "returnStart"
+                    ],
+                    "additionalProperties": false
+                  },
                   "meals": {
                     "type": "object",
                     "properties": {
@@ -4025,6 +4356,72 @@
                           "minimum": 0,
                           "maximum": 180
                         },
+                        "commute": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            "to": {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "classDays",
+                                "weekdays"
+                              ]
+                            },
+                            "weekdays": {
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 6
+                              }
+                            },
+                            "outboundMinutes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 360
+                            },
+                            "returnMinutes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 360
+                            },
+                            "outboundStart": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1439
+                            },
+                            "returnStart": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1439
+                            }
+                          },
+                          "required": [
+                            "enabled",
+                            "from",
+                            "to",
+                            "mode",
+                            "weekdays",
+                            "outboundMinutes",
+                            "returnMinutes",
+                            "outboundStart",
+                            "returnStart"
+                          ],
+                          "additionalProperties": false
+                        },
                         "meals": {
                           "type": "object",
                           "properties": {
@@ -4629,6 +5026,72 @@
                       "minimum": 0,
                       "maximum": 180
                     },
+                    "commute": {
+                      "type": "object",
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "from": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "to": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "classDays",
+                            "weekdays"
+                          ]
+                        },
+                        "weekdays": {
+                          "maxItems": 7,
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 6
+                          }
+                        },
+                        "outboundMinutes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 360
+                        },
+                        "returnMinutes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 360
+                        },
+                        "outboundStart": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1439
+                        },
+                        "returnStart": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1439
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "from",
+                        "to",
+                        "mode",
+                        "weekdays",
+                        "outboundMinutes",
+                        "returnMinutes",
+                        "outboundStart",
+                        "returnStart"
+                      ],
+                      "additionalProperties": false
+                    },
                     "meals": {
                       "type": "object",
                       "properties": {
@@ -4761,6 +5224,50 @@
             "dark",
             "system"
           ]
+        },
+        "sidebarCollapsed": {
+          "type": "boolean"
+        },
+        "ignoredWarnings": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "maxLength": 10000
+              },
+              "version": {
+                "type": "string",
+                "maxLength": 10000
+              },
+              "ignoredAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              }
+            },
+            "required": [
+              "title",
+              "version",
+              "ignoredAt"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "warningExpanded": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "additionalProperties": {
+            "type": "boolean"
+          }
         },
         "settingsUpdatedAt": {
           "type": "string",
@@ -5033,6 +5540,72 @@
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 180
+                },
+                "commute": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "from": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    "to": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "classDays",
+                        "weekdays"
+                      ]
+                    },
+                    "weekdays": {
+                      "maxItems": 7,
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 6
+                      }
+                    },
+                    "outboundMinutes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 360
+                    },
+                    "returnMinutes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 360
+                    },
+                    "outboundStart": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1439
+                    },
+                    "returnStart": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1439
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "from",
+                    "to",
+                    "mode",
+                    "weekdays",
+                    "outboundMinutes",
+                    "returnMinutes",
+                    "outboundStart",
+                    "returnStart"
+                  ],
+                  "additionalProperties": false
                 },
                 "meals": {
                   "type": "object",
@@ -6644,6 +7217,72 @@
                           "minimum": 0,
                           "maximum": 180
                         },
+                        "commute": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            "to": {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "classDays",
+                                "weekdays"
+                              ]
+                            },
+                            "weekdays": {
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 6
+                              }
+                            },
+                            "outboundMinutes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 360
+                            },
+                            "returnMinutes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 360
+                            },
+                            "outboundStart": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1439
+                            },
+                            "returnStart": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1439
+                            }
+                          },
+                          "required": [
+                            "enabled",
+                            "from",
+                            "to",
+                            "mode",
+                            "weekdays",
+                            "outboundMinutes",
+                            "returnMinutes",
+                            "outboundStart",
+                            "returnStart"
+                          ],
+                          "additionalProperties": false
+                        },
                         "meals": {
                           "type": "object",
                           "properties": {
@@ -7012,6 +7651,72 @@
                           "minimum": 0,
                           "maximum": 180
                         },
+                        "commute": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            "to": {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "classDays",
+                                "weekdays"
+                              ]
+                            },
+                            "weekdays": {
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 6
+                              }
+                            },
+                            "outboundMinutes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 360
+                            },
+                            "returnMinutes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 360
+                            },
+                            "outboundStart": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1439
+                            },
+                            "returnStart": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1439
+                            }
+                          },
+                          "required": [
+                            "enabled",
+                            "from",
+                            "to",
+                            "mode",
+                            "weekdays",
+                            "outboundMinutes",
+                            "returnMinutes",
+                            "outboundStart",
+                            "returnStart"
+                          ],
+                          "additionalProperties": false
+                        },
                         "meals": {
                           "type": "object",
                           "properties": {
@@ -7134,7 +7839,8 @@
                         "busy",
                         "exception",
                         "focus",
-                        "meal"
+                        "meal",
+                        "commute"
                       ]
                     },
                     "itemId": {
@@ -7542,6 +8248,72 @@
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 180
+                        },
+                        "commute": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            "to": {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "classDays",
+                                "weekdays"
+                              ]
+                            },
+                            "weekdays": {
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 6
+                              }
+                            },
+                            "outboundMinutes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 360
+                            },
+                            "returnMinutes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 360
+                            },
+                            "outboundStart": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1439
+                            },
+                            "returnStart": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1439
+                            }
+                          },
+                          "required": [
+                            "enabled",
+                            "from",
+                            "to",
+                            "mode",
+                            "weekdays",
+                            "outboundMinutes",
+                            "returnMinutes",
+                            "outboundStart",
+                            "returnStart"
+                          ],
+                          "additionalProperties": false
                         },
                         "meals": {
                           "type": "object",
@@ -8158,6 +8930,72 @@
                         "minimum": 0,
                         "maximum": 180
                       },
+                      "commute": {
+                        "type": "object",
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "from": {
+                            "type": "string",
+                            "format": "date",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                          },
+                          "to": {
+                            "type": "string",
+                            "format": "date",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                          },
+                          "mode": {
+                            "type": "string",
+                            "enum": [
+                              "classDays",
+                              "weekdays"
+                            ]
+                          },
+                          "weekdays": {
+                            "maxItems": 7,
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 6
+                            }
+                          },
+                          "outboundMinutes": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 360
+                          },
+                          "returnMinutes": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 360
+                          },
+                          "outboundStart": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1439
+                          },
+                          "returnStart": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1439
+                          }
+                        },
+                        "required": [
+                          "enabled",
+                          "from",
+                          "to",
+                          "mode",
+                          "weekdays",
+                          "outboundMinutes",
+                          "returnMinutes",
+                          "outboundStart",
+                          "returnStart"
+                        ],
+                        "additionalProperties": false
+                      },
                       "meals": {
                         "type": "object",
                         "properties": {
@@ -8772,6 +9610,72 @@
                               "minimum": 0,
                               "maximum": 180
                             },
+                            "commute": {
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean"
+                                },
+                                "from": {
+                                  "type": "string",
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                },
+                                "to": {
+                                  "type": "string",
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                },
+                                "mode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "classDays",
+                                    "weekdays"
+                                  ]
+                                },
+                                "weekdays": {
+                                  "maxItems": 7,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 6
+                                  }
+                                },
+                                "outboundMinutes": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 360
+                                },
+                                "returnMinutes": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 360
+                                },
+                                "outboundStart": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 1439
+                                },
+                                "returnStart": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 1439
+                                }
+                              },
+                              "required": [
+                                "enabled",
+                                "from",
+                                "to",
+                                "mode",
+                                "weekdays",
+                                "outboundMinutes",
+                                "returnMinutes",
+                                "outboundStart",
+                                "returnStart"
+                              ],
+                              "additionalProperties": false
+                            },
                             "meals": {
                               "type": "object",
                               "properties": {
@@ -9376,6 +10280,72 @@
                           "minimum": 0,
                           "maximum": 180
                         },
+                        "commute": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            "to": {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "classDays",
+                                "weekdays"
+                              ]
+                            },
+                            "weekdays": {
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 6
+                              }
+                            },
+                            "outboundMinutes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 360
+                            },
+                            "returnMinutes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 360
+                            },
+                            "outboundStart": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1439
+                            },
+                            "returnStart": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1439
+                            }
+                          },
+                          "required": [
+                            "enabled",
+                            "from",
+                            "to",
+                            "mode",
+                            "weekdays",
+                            "outboundMinutes",
+                            "returnMinutes",
+                            "outboundStart",
+                            "returnStart"
+                          ],
+                          "additionalProperties": false
+                        },
                         "meals": {
                           "type": "object",
                           "properties": {
@@ -9508,6 +10478,50 @@
                 "dark",
                 "system"
               ]
+            },
+            "sidebarCollapsed": {
+              "type": "boolean"
+            },
+            "ignoredWarnings": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "version": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "ignoredAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  }
+                },
+                "required": [
+                  "title",
+                  "version",
+                  "ignoredAt"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "warningExpanded": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "additionalProperties": {
+                "type": "boolean"
+              }
             },
             "settingsUpdatedAt": {
               "type": "string",

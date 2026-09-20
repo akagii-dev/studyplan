@@ -3,7 +3,7 @@ import { sameSettings } from './planAudit';
 import { sessionPolicy } from './sessionPolicy';
 
 export type RevisionTopic =
-  'exam' | 'material' | 'study' | 'class' | 'busy' | 'exception' | 'focus' | 'meal';
+  'exam' | 'material' | 'study' | 'class' | 'busy' | 'exception' | 'focus' | 'meal' | 'commute';
 export interface RevisionDraft {
   id: string;
   base: Settings;
@@ -87,6 +87,14 @@ export function sameRevisionBase(a: Settings, b: Settings) {
 }
 export function settingChanges(before: Settings, after: Settings): string[] {
   const changes: string[] = [];
+  if (JSON.stringify(before.commute) !== JSON.stringify(after.commute)) {
+    const c = after.commute;
+    changes.push(
+      c?.enabled
+        ? `通学：${c.from}〜${c.to}、${c.mode === 'classDays' ? '授業日のみ' : '曜日 ' + c.weekdays.map((d) => ['日', '月', '火', '水', '木', '金', '土'][d]).join('・')}、往路${c.outboundMinutes}分・復路${c.returnMinutes}分${c.mode === 'weekdays' ? `（出発 ${clock(c.outboundStart)} / ${clock(c.returnStart)}）` : ''}`
+        : '通学：設定なし',
+    );
+  }
   const add = (label: string, a: unknown, b: unknown) => {
     if (a !== b) changes.push(`${label}：${a} → ${b}`);
   };

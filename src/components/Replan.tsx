@@ -1,3 +1,4 @@
+import { Warning } from './Warnings';
 import { useState, useEffect, useRef, useId, useLayoutEffect } from 'react';
 import { ArrowRight, RefreshCw, Undo2, CheckCircle2 } from 'lucide-react';
 import { Session, today, clock } from '../domain/model';
@@ -150,7 +151,7 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
     ...(plan && plan.calculationVersion !== PLAN_CALCULATION_VERSION
       ? [
           {
-            text: '問題数ではなく所要時間でまとめる、新しい計算方式に更新されています。',
+            text: '通学時間などを含む、現在の計算方式で案を作り直してください。',
             action: '時間を基準に案を更新する',
             run: () => void act((s) => refreshProposal(s)),
           },
@@ -319,9 +320,13 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
         }}
       />
       {stale && (
-        <p className="warning">
+        <Warning
+          id="replan-0"
+          title="計画案の元の設定が変更されています"
+          version={[state.proposal?.plan.id, state.settings]}
+        >
           案を作ったあとに元の設定が変わりました。現在の設定から案を作り直してください。
-        </p>
+        </Warning>
       )}
       {!p || !plan ? (
         result ? (
@@ -400,7 +405,7 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
               </div>
             </div>
             {plan.conflicts.length > 0 && (
-              <section className="warning" aria-label="計画エラーの修正">
+              <section className="confirmation-panel" aria-label="計画エラーの修正">
                 <h3 ref={conflictsHeading} tabIndex={-1} className="approval-target">
                   計画を承認する前に、確認してください
                 </h3>
@@ -445,7 +450,11 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
               </section>
             )}
             {plan.shortfalls.length > 0 && (
-              <div className="warning">
+              <Warning
+                id="replan-1"
+                title="条件内に収まらない課題があります"
+                version={plan.shortfalls}
+              >
                 <h3>条件内に収まらない課題があります</h3>
                 {plan.shortfalls.map((x) => (
                   <p key={`${x.materialId}-${x.round}`}>
@@ -457,10 +466,10 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
                 <p>
                   期限・学習可能枠・教材の量などを見直すか、不足を残したまま配置できた分を承認できます。
                 </p>
-              </div>
+              </Warning>
             )}
             {p.unreported.length > 0 && (
-              <div className="warning">
+              <div className="confirmation-panel">
                 <h3 ref={unreportedHeading} tabIndex={-1} className="approval-target">
                   未報告の予定を確認してください
                 </h3>

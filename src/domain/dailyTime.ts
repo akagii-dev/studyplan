@@ -1,7 +1,7 @@
 import { Settings, Interval, weekday } from './model';
 import { capacityForDate, mergeIntervals } from './planner';
 import { unavailableEvents } from './planAudit';
-export type TimeKind = 'meal' | 'busy' | 'available' | 'buffer' | 'rest' | 'outside';
+export type TimeKind = 'meal' | 'commute' | 'busy' | 'available' | 'buffer' | 'rest' | 'outside';
 export interface TimeSegment {
   start: number;
   end: number;
@@ -40,20 +40,22 @@ export function dailyTime(settings: Settings, date: string) {
       mid = (start + end) / 2;
     const kind: TimeKind = events.some((e) => e.kind === 'meal' && e.start <= mid && mid < e.end)
       ? 'meal'
-      : events.some((e) => e.start <= mid && mid < e.end)
-        ? 'busy'
-        : !contains(windows, mid)
-          ? 'outside'
-          : contains(capacity.slots, mid)
-            ? 'available'
-            : contains(capacity.blocks ?? [], mid)
-              ? 'buffer'
-              : 'rest';
+      : events.some((e) => e.kind === 'commute' && e.start <= mid && mid < e.end)
+        ? 'commute'
+        : events.some((e) => e.start <= mid && mid < e.end)
+          ? 'busy'
+          : !contains(windows, mid)
+            ? 'outside'
+            : contains(capacity.slots, mid)
+              ? 'available'
+              : contains(capacity.blocks ?? [], mid)
+                ? 'buffer'
+                : 'rest';
     const last = segments.at(-1);
     if (last?.kind === kind) last.end = end;
     else segments.push({ start, end, kind });
   }
-  const totals = { meal: 0, busy: 0, available: 0, buffer: 0, rest: 0, outside: 0 };
+  const totals = { commute: 0, meal: 0, busy: 0, available: 0, buffer: 0, rest: 0, outside: 0 };
   for (const s of segments) totals[s.kind] += s.end - s.start;
   return { capacity, segments, totals };
 }

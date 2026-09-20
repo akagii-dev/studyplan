@@ -158,7 +158,7 @@ export function Backup({
           </button>
         )}
         {mode && candidate && (
-          <section className="warning" aria-label="バックアップ復元の確認">
+          <section className="confirmation-panel" aria-label="バックアップ復元の確認">
             <h3>{mode === 'file' ? file!.name : '前回の復元前のデータ'}</h3>
             <p>{dateTime(mode === 'file' ? file!.backup.createdAt : previous!.savedAt)}</p>
             <Summary state={candidate} />

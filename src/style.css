@@ -2064,3 +2064,278 @@ progress::-webkit-progress-value {
 .replan-approval .actions {
   margin: 0;
 }
+
+/* Reusable progress motion; no dependency or timer is needed. */
+.animated-progress {
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--soft);
+  margin: 12px 0;
+}
+.animated-progress-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--accent);
+  transform: scaleX(var(--progress, 0));
+  transform-origin: left;
+  transition: transform 700ms cubic-bezier(0.2, 0.7, 0.25, 1);
+}
+.progress-donut-value {
+  transition: stroke-dashoffset 700ms cubic-bezier(0.2, 0.7, 0.25, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .animated-progress-fill,
+  .progress-donut-value {
+    transition: none;
+  }
+}
+.warning-toolbar {
+  display: flex;
+  align-items: start;
+  gap: 12px;
+  justify-content: space-between;
+}
+.warning-toggle {
+  text-align: left;
+  justify-content: start;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-weight: 650;
+  padding: 4px 0;
+  overflow-wrap: anywhere;
+}
+.warning-ignore {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.warning-content {
+  margin-top: 12px;
+}
+.ignored-warnings {
+  list-style: none;
+  padding: 0;
+}
+.ignored-warnings li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.confirmation-panel {
+  padding: 20px 24px;
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  border-radius: 9px;
+  margin: 20px 0;
+  color: var(--warning-ink);
+}
+.confirmation-panel p,
+.confirmation-panel small {
+  color: inherit;
+}
+.time-commute {
+  background: var(--busy-border);
+}
+.app-shell {
+  --sidebar-width: 226px;
+}
+.app-shell .sidebar {
+  width: var(--sidebar-width);
+}
+.app-shell main {
+  margin-left: var(--sidebar-width);
+  width: calc(100% - var(--sidebar-width));
+  min-width: 0;
+}
+.sidebar-toggle {
+  align-self: flex-end;
+  margin-bottom: 14px;
+}
+.sidebar-collapsed {
+  --sidebar-width: 72px;
+}
+.sidebar-collapsed .sidebar {
+  padding: 18px 8px;
+}
+.sidebar-collapsed .sidebar-toggle {
+  align-self: center;
+}
+.sidebar-collapsed .brand {
+  margin: 4px auto 24px;
+}
+.sidebar-collapsed .brand > span,
+.sidebar-collapsed .nav-label,
+.sidebar-collapsed .sidebar-bottom {
+  display: none;
+}
+.sidebar-collapsed nav button {
+  justify-content: center;
+  padding: 12px 8px;
+  position: relative;
+}
+.sidebar-collapsed .nav-dot {
+  position: absolute;
+  right: 2px;
+  top: 7px;
+}
+.nav-label {
+  white-space: normal;
+  text-align: left;
+}
+.sidebar nav svg {
+  flex-shrink: 0;
+}
+.main-content {
+  container-type: inline-size;
+}
+.split {
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+}
+.dashboard-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.calendar-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(210px, 0.4fr);
+}
+.card,
+.metric-card,
+.two > *,
+.row > *,
+.calendar-toolbar > * {
+  min-width: 0;
+}
+.row,
+.calendar-toolbar,
+.wizard-footer {
+  flex-wrap: wrap;
+}
+input,
+select,
+textarea {
+  max-width: 100%;
+  min-width: 0;
+}
+.card table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}
+.card h2,
+.card h3,
+.goal-row h3,
+.warning {
+  overflow-wrap: anywhere;
+}
+@container (max-width: 880px) {
+  .calendar-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .day-panel {
+    display: block;
+  }
+  .metrics {
+    grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  }
+}
+@container (max-width: 680px) {
+  .split,
+  .dashboard-grid,
+  .tutorial {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .question-card {
+    padding: 22px;
+  }
+  .two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .timetable {
+    overflow-x: auto;
+  }
+}
+@container (max-width: 430px) {
+  .card,
+  .metric-card {
+    padding: 14px;
+  }
+  .warning,
+  .confirmation-panel {
+    padding: 14px;
+  }
+  .warning-toolbar {
+    flex-wrap: wrap;
+  }
+  .count-choices {
+    gap: 7px;
+  }
+  .progress-summary {
+    padding: 12px;
+    gap: 7px;
+    flex-wrap: wrap;
+  }
+  .calendar-toolbar {
+    gap: 10px;
+  }
+  .calendar-event,
+  .calendar-busy {
+    padding: 4px 2px;
+    font-size: 10px;
+  }
+  .day {
+    min-height: 90px;
+    padding: 4px 2px;
+  }
+  .day > .date-number {
+    width: 20px;
+    height: 20px;
+  }
+  .calendar-head > span {
+    padding: 8px 0;
+  }
+}
+@media (max-width: 1100px) {
+  .app-shell:not(.sidebar-collapsed) {
+    --sidebar-width: 196px;
+  }
+}
+@media (max-width: 700px) {
+  .app-shell:not(.sidebar-collapsed) {
+    --sidebar-width: 164px;
+  }
+  .main-content {
+    padding: 20px 12px;
+  }
+  .topbar {
+    padding: 0 12px;
+    gap: 8px;
+    height: auto;
+    min-height: 60px;
+    flex-wrap: wrap;
+  }
+  .sidebar {
+    padding: 16px 8px;
+  }
+  .brand {
+    gap: 6px;
+    margin: 0 0 20px;
+  }
+  .brand > span {
+    font-size: 16px;
+  }
+  .sidebar nav button {
+    font-size: 11px;
+    gap: 6px;
+  }
+  .page-heading h1 {
+    font-size: 24px;
+  }
+  .sidebar-bottom {
+    padding: 20px 4px 0;
+  }
+}

@@ -1,3 +1,4 @@
+import { Warning } from './Warnings';
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, LockKeyhole, Unlock, CalendarDays } from 'lucide-react';
 import {
@@ -320,13 +321,17 @@ export function Calendar({
         ))}
       </div>
       {!!collisions.length && (
-        <div className="warning" role="alert">
+        <Warning
+          id="calendar-0"
+          title="授業・予定・通学と重なる学習予定があります"
+          version={[state.plan?.id, state.settings]}
+        >
           <b>授業・予定と重なる学習予定が{collisions.length}件あります</b>
           <p>
             保存済みの予定を現在の授業・予定と照合しました。重なった予定はそのまま実行せず、変更案を確認してください。
           </p>
           <button onClick={onReplan}>重なりを対話で見直す</button>
-        </div>
+        </Warning>
       )}
       {!state.plan && (
         <Empty>

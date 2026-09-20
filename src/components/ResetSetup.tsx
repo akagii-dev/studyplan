@@ -37,7 +37,7 @@ export function ResetSetup({ state, update }: Props) {
         )}
       </div>
       {mode && (
-        <section className="warning" role="region" aria-label="初期化の確認">
+        <section className="confirmation-panel" role="region" aria-label="初期化の確認">
           <h3>
             {mode === 'all'
               ? '登録データ全体を初期化します'

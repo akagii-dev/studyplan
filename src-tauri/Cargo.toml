@@ -1,6 +1,6 @@
 [package]
 name = "studyplan"
-version = "0.2.5"
+version = "0.3.0"
 description = "ローカル学習計画アプリ"
 edition = "2021"
 

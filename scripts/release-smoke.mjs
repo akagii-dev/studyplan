@@ -45,7 +45,7 @@ try {
   mkdirSync('test-results', { recursive: true });
   await page.screenshot({ path: 'test-results/release-initial-setup.png', fullPage: true });
   await page.locator('nav').getByRole('button', { name: '進捗を記録', exact: true }).click();
-  await expect(page.getByRole('region', { name: '現在の進捗', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: '今日の進捗', exact: true })).toBeVisible();
   await expect(page.getByLabel('表示モード').locator('option')).toHaveText([
     'ライト',
     'ダーク',

@@ -46,6 +46,22 @@ it('テーマと初期化の復元用データも保ち、原本は変更しな�
   const file = packet();
   file.data.theme = 'sky';
   file.data.appearance = 'dark';
+  file.data.sidebarCollapsed = true;
+  file.data.ignoredWarnings = {
+    notice: { title: '注意', version: '1', ignoredAt: '2026-09-21T00:00:00Z' },
+  };
+  file.data.warningExpanded = { notice: false };
+  file.data.settings.commute = {
+    enabled: true,
+    mode: 'weekdays',
+    from: '2026-09-21',
+    to: '2026-12-31',
+    weekdays: [1, 2],
+    outboundMinutes: 30,
+    returnMinutes: 45,
+    outboundStart: 480,
+    returnStart: 1080,
+  };
   file.data.resetBackup = initialState();
   file.data.resetBackup.appearance = 'system';
   const text = JSON.stringify(file);

@@ -1,5 +1,6 @@
 import { Plan, Session, Settings, weekday, addDays, mealKeys, mealNames } from './model';
 import { sessionPolicy, PLAN_CALCULATION_VERSION } from './sessionPolicy';
+import { commuteEvents } from './commute';
 
 export function sameSettings(a: Settings, b: Settings): boolean {
   const normalize = (s: Settings) =>
@@ -10,6 +11,7 @@ export function sameSettings(a: Settings, b: Settings): boolean {
       windows: s.windows,
       exceptions: s.exceptions,
       meals: s.meals ?? {},
+      commute: s.commute?.enabled ? s.commute : null,
       block: s.block,
       sessionPolicy: sessionPolicy(s),
       rest: s.rest,
@@ -47,6 +49,7 @@ export function overlapsBusy(settings: Settings, session: Session) {
 export function unavailableEvents(settings: Settings, date: string) {
   const gap = settings.classTransition ?? 0;
   const events = blockingEvents(settings, date);
+  events.push(...commuteEvents(settings, date));
   for (const key of mealKeys) {
     const meal = settings.meals?.[key];
     if (!meal) continue;

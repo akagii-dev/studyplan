@@ -1,4 +1,6 @@
+import { Warning } from './Warnings';
 import { useState } from 'react';
+import { CommuteEditor } from './CommuteSettings';
 import {
   AppState,
   Settings,
@@ -36,6 +38,7 @@ const topics: [RevisionTopic, string][] = [
   ['busy', '授業以外の定期予定'],
   ['exception', '特定の日の予定'],
   ['meal', '朝・昼・夜の食事時間'],
+  ['commute', '通学時間'],
   ['focus', '連続時間・休憩・余裕率'],
 ];
 type Question = {
@@ -429,10 +432,14 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
         <div className="eyebrow">今の設定を引き継いで、必要なところだけ</div>
         <p>変更は、最後に承認すると反映されます。</p>
         {stale && (
-          <div className="warning">
+          <Warning
+            id="guidedrevision-0"
+            title="下書きの元の設定が変更されています"
+            version={[d.id, state.settings]}
+          >
             別の画面で設定が変更されています。この下書きの承認はできません。
             <button onClick={() => void update(beginRevision)}>現在の設定からやり直す</button>
-          </div>
+          </Warning>
         )}
         {d.stage === 'choose' && (
           <>
@@ -444,7 +451,7 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
                   onClick={() =>
                     patch({
                       topic,
-                      stage: topic === 'focus' || topic === 'meal' ? 'question' : 'item',
+                      stage: ['focus', 'meal', 'commute'].includes(topic) ? 'question' : 'item',
                       index: 0,
                       itemId: '',
                     })
@@ -485,6 +492,31 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
             )}
             <button onClick={() => patch({ stage: 'choose' })}>見直す項目に戻る</button>
           </>
+        )}
+        {d.stage === 'question' && d.topic === 'commute' && (
+          <CommuteEditor
+            state={state}
+            update={update}
+            value={d.settings.commute}
+            draftKey={d.id}
+            onSave={async (commute) => {
+              await update((s) => {
+                const current = s.draft.revision as RevisionDraft;
+                return {
+                  ...s,
+                  draft: {
+                    ...s.draft,
+                    [`commute-${d.id}`]: undefined,
+                    revision: {
+                      ...current,
+                      settings: { ...current.settings, commute },
+                      stage: 'choose',
+                    },
+                  },
+                };
+              });
+            }}
+          />
         )}
         {d.stage === 'question' && q && (
           <>
@@ -567,7 +599,7 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
           <div className="revision-remove">
             <button onClick={() => setRemove(true)}>この時間枠・予定を取り除く</button>
             {remove && (
-              <div className="warning">
+              <div className="confirmation-panel">
                 <p>
                   この時間枠・予定を変更案から取り除きます。承認するまで元の設定は変わりません。
                 </p>
@@ -639,7 +671,7 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
           <button onClick={() => setDiscard(true)}>変更の下書きを破棄する</button>
         </div>
         {discard && (
-          <div className="warning">
+          <div className="confirmation-panel">
             <p>この見直しの回答を破棄します。現在の設定・計画・実績はそのままです。</p>
             <button
               onClick={() =>

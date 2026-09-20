@@ -1,3 +1,4 @@
+import { Warning } from './Warnings';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { save } from '@tauri-apps/plugin-dialog';
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
@@ -140,7 +141,13 @@ export function WeeklyReport({
             </div>
           </div>
           {report.settingsChanged && (
-            <p className="warning">週間予定には、現在の設定がまだ反映されていません。</p>
+            <Warning
+              id="weeklyreport-0"
+              title="週間予定に最新の設定が未反映です"
+              version={[state.plan?.id, state.settings]}
+            >
+              週間予定には、現在の設定がまだ反映されていません。
+            </Warning>
           )}
           <section className="card">
             <h3>試験ごとの比較</h3>

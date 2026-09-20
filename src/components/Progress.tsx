@@ -1,3 +1,5 @@
+import { todayProgress } from '../domain/todayProgress';
+import { ProgressRing } from './AnimatedProgress';
 import { NumberInput } from './NumberInput';
 import { useRef, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
@@ -17,7 +19,7 @@ export function Progress({ state, update }: Props) {
   const [form, set] = useDraft(state, update, 'progress', initial);
   const [message, msg] = useState('');
   const [busy, setBusy] = useState(false);
-  const [chartScope, setChartScope] = useState<'all' | 'round'>('all');
+  const [chartScope, setChartScope] = useState<'today' | 'round'>('today');
   const sending = useRef(false);
   const request = useRef(uid());
   const numberEdits = (state.draft.numberEdits ?? {}) as Record<
@@ -46,25 +48,19 @@ export function Progress({ state, update }: Props) {
   };
   const material = state.settings.materials.find((m) => m.id === form.materialId);
   const rest = material ? remaining(state, material.id, form.round) : 0;
-  const chartMaterials =
-    chartScope === 'all' ? state.settings.materials : material ? [material] : [];
-  const chartProgress = chartMaterials.reduce(
-    (sum, m) => {
-      m.rounds.forEach((_, round) => {
-        if (chartScope === 'round' && round !== form.round) return;
-        sum.total += m.total;
-        sum.done += completed(state, m.id, round);
-      });
-      return sum;
-    },
-    { total: 0, done: 0 },
-  );
-  const chartLabel =
-    chartScope === 'all'
-      ? '全教材・全周回'
-      : material
-        ? `${material.name} · ${form.round + 1}周目`
-        : '教材を選択してください';
+  const daily = todayProgress(state);
+  const isToday = chartScope === 'today';
+  const chartProgress = isToday
+    ? { total: daily.planned, done: daily.matched }
+    : {
+        total: material?.total ?? 0,
+        done: material ? completed(state, material.id, form.round) : 0,
+      };
+  const chartLabel = isToday
+    ? today() + 'の予定'
+    : material
+      ? `${material.name} · ${form.round + 1}周目`
+      : '教材を選択してください';
   const chartPercent = chartProgress.total ? (chartProgress.done / chartProgress.total) * 100 : 0;
   const displayPercent = chartPercent.toLocaleString('ja-JP', { maximumFractionDigits: 1 });
   const customCount = (() => {
@@ -271,14 +267,14 @@ export function Progress({ state, update }: Props) {
         )}
       </section>
       <section className="card progress-chart-card" aria-labelledby="progress-chart-heading">
-        <h2 id="progress-chart-heading">現在の進捗</h2>
+        <h2 id="progress-chart-heading">{isToday ? '今日の進捗' : '教材の進捗'}</h2>
         <div className="actions" role="group" aria-label="進捗グラフの対象">
           <button
-            aria-pressed={chartScope === 'all'}
-            className={chartScope === 'all' ? 'selected' : ''}
-            onClick={() => setChartScope('all')}
+            aria-pressed={chartScope === 'today'}
+            className={chartScope === 'today' ? 'selected' : ''}
+            onClick={() => setChartScope('today')}
           >
-            全体
+            今日
           </button>
           <button
             aria-pressed={chartScope === 'round'}
@@ -290,40 +286,20 @@ export function Progress({ state, update }: Props) {
           </button>
         </div>
         <p className="progress-chart-scope">{chartLabel}</p>
+        {isToday && (
+          <p className="today-actual">
+            {daily.reported ? `今日の記録：${daily.actual}問` : '今日は未報告です'}
+            {daily.actual > daily.matched
+              ? `（予定外・超過 ${daily.actual - daily.matched}問）`
+              : ''}
+          </p>
+        )}
         {chartProgress.total > 0 ? (
           <>
-            <svg
-              className="progress-donut"
-              viewBox="0 0 220 220"
-              role="img"
-              aria-label={`${chartLabel}：完了${chartProgress.done}問、残り${chartProgress.total - chartProgress.done}問、進捗率${displayPercent}%`}
-            >
-              <circle
-                className="progress-donut-track"
-                cx="110"
-                cy="110"
-                r="88"
-                fill="none"
-                strokeWidth="22"
-              />
-              <circle
-                className="progress-donut-value"
-                cx="110"
-                cy="110"
-                r="88"
-                fill="none"
-                strokeWidth="22"
-                pathLength="100"
-                strokeDasharray={`${chartPercent} 100`}
-                transform="rotate(-90 110 110)"
-              />
-              <text x="110" y="108" textAnchor="middle" className="progress-donut-percent">
-                {displayPercent}%
-              </text>
-              <text x="110" y="135" textAnchor="middle" className="progress-donut-caption">
-                完了
-              </text>
-            </svg>
+            <ProgressRing
+              percent={chartPercent}
+              label={`${chartLabel}：完了${chartProgress.done}問、残り${chartProgress.total - chartProgress.done}問、進捗率${displayPercent}%`}
+            />
             <dl className="progress-chart-counts" aria-live="polite">
               <div>
                 <dt>
@@ -349,7 +325,9 @@ export function Progress({ state, update }: Props) {
             <p className="hint">全{chartProgress.total.toLocaleString('ja-JP')}問 · 問題数ベース</p>
           </>
         ) : (
-          <Empty>教材を登録すると進捗を表示します。</Empty>
+          <Empty>
+            {isToday ? '今日の学習予定はありません。' : '教材を登録すると進捗を表示します。'}
+          </Empty>
         )}
       </section>
     </div>

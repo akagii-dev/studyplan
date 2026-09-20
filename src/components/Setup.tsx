@@ -1,3 +1,4 @@
+import { AnimatedProgress } from './AnimatedProgress';
 import { useState } from 'react';
 import { ScheduleReview } from './SetupImpact';
 import { Plus, Pencil, Check, BookOpen, GraduationCap } from 'lucide-react';
@@ -393,8 +394,8 @@ export function Materials({ state, update, onAdd }: Props & { onAdd: () => void 
                 {!state.plan?.settingsSnapshot?.materials.some((x) => x.id === m.id) && (
                   <p className="hint">計画に未反映</p>
                 )}
-                <progress
-                  aria-label={`${m.name}の進捗`}
+                <AnimatedProgress
+                  label={`${m.name}の進捗`}
                   max={m.total * m.rounds.length}
                   value={done}
                 />

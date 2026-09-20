@@ -1,3 +1,4 @@
+import { PLAN_CALCULATION_VERSION } from '../src/domain/sessionPolicy';
 import { test, expect, chromium, Browser, Page } from '@playwright/test';
 import { spawn, ChildProcess } from 'node:child_process';
 import {
@@ -359,13 +360,13 @@ async function calendarSavePath(path: string | null) {
     };
   }, path);
 }
-test('実機：進捗円グラフの全体・周回・記録・訂正・取消・空表示', async () => {
+test('実機：進捗円グラフの今日・周回・記録・訂正・取消・空表示', async () => {
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/progress-chart-'));
   await launch();
   await nav('進捗を記録');
-  const chart = page.getByRole('region', { name: '現在の進捗', exact: true });
-  await expect(chart).toContainText('教材を登録すると進捗を表示します。');
+  const chart = page.locator('.progress-chart-card');
+  await expect(chart).toContainText('今日の学習予定はありません。');
   await expect(chart.getByRole('img')).toHaveCount(0);
   const seed = initialState();
   const date = today();
@@ -414,10 +415,45 @@ test('実機：進捗円グラフの全体・周回・記録・訂正・取消�
     },
   ];
   seed.draft.progress = { date, materialId: 'm', round: 0, choice: '', custom: '' };
+  seed.plan = {
+    id: 'p',
+    createdAt: new Date().toISOString(),
+    from: date,
+    settingsSnapshot: structuredClone(seed.settings),
+    capacities: [],
+    conflicts: [],
+    shortfalls: [],
+    sessions: [
+      {
+        id: 'short',
+        date,
+        start: 600,
+        end: 630,
+        materialId: 'm',
+        examId: 'e',
+        round: 0,
+        count: 10,
+        kind: 'study',
+        fixed: false,
+      },
+      {
+        id: 'essay',
+        date,
+        start: 700,
+        end: 940,
+        materialId: 'essay',
+        examId: 'e',
+        round: 0,
+        count: 8,
+        kind: 'study',
+        fixed: false,
+      },
+    ],
+  };
   await seedState(seed, 'progress-chart');
   await nav('進捗を記録');
   await expect(chart.getByRole('img')).toHaveAccessibleName(
-    '全教材・全周回：完了5問、残り45問、進捗率10%',
+    `${date}の予定：完了0問、残り18問、進捗率0%`,
   );
   await chart.getByRole('button', { name: '選択中の周回' }).click();
   await expect(chart.getByRole('img')).toHaveAccessibleName(
@@ -438,9 +474,9 @@ test('実機：進捗円グラフの全体・周回・記録・訂正・取消�
   await expect(chart.getByRole('img')).toHaveAccessibleName(
     '論文 · 1周目：完了5問、残り5問、進捗率50%',
   );
-  await chart.getByRole('button', { name: '全体', exact: true }).click();
+  await chart.getByRole('button', { name: '今日', exact: true }).click();
   await expect(chart.getByRole('img')).toHaveAccessibleName(
-    '全教材・全周回：完了8問、残り42問、進捗率16%',
+    `${date}の予定：完了3問、残り15問、進捗率16.7%`,
   );
   await nav('記録履歴');
   await page.getByRole('button', { name: '訂正', exact: true }).click();
@@ -449,7 +485,7 @@ test('実機：進捗円グラフの全体・周回・記録・訂正・取消�
   await saved();
   await nav('進捗を記録');
   await expect(chart.getByRole('img')).toHaveAccessibleName(
-    '全教材・全周回：完了12問、残り38問、進捗率24%',
+    `${date}の予定：完了7問、残り11問、進捗率38.9%`,
   );
   await nav('記録履歴');
   await page.getByRole('button', { name: '取消', exact: true }).click();
@@ -457,7 +493,7 @@ test('実機：進捗円グラフの全体・周回・記録・訂正・取消�
   await saved();
   await nav('進捗を記録');
   await expect(chart.getByRole('img')).toHaveAccessibleName(
-    '全教材・全周回：完了5問、残り45問、進捗率10%',
+    `${date}の予定：完了0問、残り18問、進捗率0%`,
   );
   for (const theme of ['mint', 'sky', 'lime']) {
     await page.getByLabel('カラーテーマ').selectOption(theme);
@@ -490,9 +526,216 @@ test('実機：進捗円グラフの全体・周回・記録・訂正・取消�
   await close();
   await launch();
   await nav('進捗を記録');
+  await expect(page.locator('.progress-chart-card').getByRole('img')).toHaveAccessibleName(
+    `${date}の予定：完了8問、残り10問、進捗率44.4%`,
+  );
+});
+
+test('実機：通学の承認・警告の管理・サイドバー保存・可変幅・進捗アニメーション', async () => {
+  test.setTimeout(180000);
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/adaptive-commute-'));
+  await launch();
+  const date = today();
+  const s = initialState();
+  s.settings.exams = [
+    {
+      id: 'e',
+      name: '資格試験',
+      start: date,
+      target: addDays(date, 20),
+      priority: 1,
+      color: '#287569',
+      reviewDays: 0,
+    },
+  ];
+  s.settings.materials = [
+    {
+      id: 'm',
+      examId: 'e',
+      name: '過去問',
+      total: 100,
+      order: 1,
+      rounds: [{ completed: 20, minutes: 3 }],
+    },
+  ];
+  s.settings.windows = [
+    {
+      id: 'w',
+      kind: 'study',
+      name: '学習枠',
+      from: date,
+      to: addDays(date, 30),
+      weekdays: [0, 1, 2, 3, 4, 5, 6],
+      start: 480,
+      end: 1260,
+    },
+    {
+      id: 'c',
+      kind: 'class',
+      name: '授業',
+      from: date,
+      to: addDays(date, 30),
+      weekdays: [0, 1, 2, 3, 4, 5, 6],
+      start: 600,
+      end: 700,
+    },
+  ];
+  s.records = [
+    {
+      id: 'r',
+      date,
+      materialId: 'm',
+      round: 0,
+      count: 1,
+      cancelled: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ];
+  s.plan = generatePlan(s, date, false);
+  const fixed = s.plan.sessions[0];
+  fixed.fixed = true;
+  s.settings.rest += 1;
+  await seedState(s, 'adaptive-seed');
+  const warning = page.getByRole('region', {
+    name: '保存済みの計画と現在の設定が一致していません。',
+    exact: true,
+  });
+  await warning.getByRole('button', { name: /保存済みの計画/ }).click();
+  await expect(warning.locator('.warning-content')).toHaveCount(0);
+  await warning.getByRole('button', { name: /保存済みの計画/ }).click();
+  await warning.getByRole('button', { name: '無視する', exact: true }).click();
+  await saved();
+  await expect(warning).toHaveCount(0);
+  expect((await storedState()).plan).toEqual(s.plan);
+  const beforeWidth = (await page.locator('main').boundingBox())!.width;
+  await page.getByRole('button', { name: 'サイドバーを折りたたむ' }).click();
+  await saved();
+  expect((await page.locator('main').boundingBox())!.width).toBeGreaterThan(beforeWidth);
+  await close();
+  await launch();
+  await expect(page.getByRole('button', { name: 'サイドバーを開く' })).toBeVisible();
   await expect(
-    page.getByRole('region', { name: '現在の進捗', exact: true }).getByRole('img'),
-  ).toHaveAccessibleName('全教材・全周回：完了13問、残り37問、進捗率26%');
+    page.getByRole('region', {
+      name: '保存済みの計画と現在の設定が一致していません。',
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await nav('警告の管理');
+  await page
+    .getByRole('button', { name: '保存済みの計画と現在の設定が一致していません。を再表示' })
+    .click();
+  await nav('ホーム');
+  await expect(
+    page.getByRole('region', {
+      name: '保存済みの計画と現在の設定が一致していません。',
+      exact: true,
+    }),
+  ).toBeVisible();
+  await nav('通学時間');
+  await page.getByLabel('通学時間を確保する').check();
+  await page.getByLabel('通学の適用終了日').fill(addDays(date, 30));
+  await page.getByRole('button', { name: '次へ', exact: true }).click();
+  await page.getByLabel('往路の所要時間（分）').fill('');
+  await page.getByLabel('往路の所要時間（分）').fill('30');
+  await page.getByLabel('往路の所要時間（分）').press('Enter');
+  await page.getByLabel('復路の所要時間（分）').fill('45');
+  await page.getByRole('button', { name: '次へ', exact: true }).click();
+  await page.getByRole('button', { name: 'この通学設定を使う', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '再計画の確認', exact: true })).toBeVisible();
+  expect((await storedState()).settings.commute).toBeUndefined();
+  const proposal = (await storedState()).proposal!;
+  expect(proposal.plan.settingsSnapshot!.commute!.returnMinutes).toBe(45);
+  expect(proposal.plan.sessions.find((x) => x.id === fixed.id)).toEqual(fixed);
+  if (proposal.unreported.length)
+    await page.getByLabel('未報告は記録を保留したまま、現在の残数を今後の枠へ再配置する').check();
+  await page.getByRole('button', { name: 'この計画を承認する', exact: true }).click();
+  await saved();
+  const approved = await storedState();
+  expect(approved.settings.commute!.enabled).toBe(true);
+  expect(approved.records).toEqual(s.records);
+  for (const session of approved.plan!.sessions)
+    expect(overlapsBusy(approved.settings, session)).toEqual([]);
+  await nav('再計画の確認');
+  await page.getByRole('button', { name: '対話で条件を見直す', exact: true }).click();
+  await page.getByRole('button', { name: '通学時間', exact: true }).last().click();
+  await expect(page.getByLabel('通学時間を確保する')).toBeChecked();
+  await page.getByLabel('適用する日', { exact: true }).selectOption('weekdays');
+  await page.getByRole('button', { name: '次へ', exact: true }).click();
+  await expect(page.getByLabel('往路の所要時間（分）')).toHaveValue('30');
+  await page.getByLabel('往路の出発時刻').fill('07:15');
+  await page.getByRole('button', { name: '次へ', exact: true }).click();
+  await expect(page.getByLabel('復路の所要時間（分）')).toHaveValue('45');
+  await page.getByLabel('復路の出発時刻').fill('18:30');
+  await page.getByRole('button', { name: '次へ', exact: true }).click();
+  await page.getByRole('button', { name: 'この通学設定を使う', exact: true }).click();
+  await page.getByRole('button', { name: '変更内容を確認する', exact: true }).click();
+  await page.getByRole('button', { name: 'この条件で再計画案を作成', exact: true }).click();
+  await saved();
+  expect((await storedState()).proposal!.plan.settingsSnapshot!.commute!.mode).toBe('weekdays');
+  expect((await storedState()).settings.commute).toEqual(approved.settings.commute);
+  await page.getByRole('button', { name: '案を破棄する', exact: true }).click();
+  await saved();
+  for (const width of [1400, 900, 640, 480]) {
+    await page.setViewportSize({ width, height: 800 });
+    for (const screen of [
+      'ホーム',
+      '学習カレンダー',
+      '進捗を記録',
+      '教材・進捗',
+      '通学時間',
+      '警告の管理',
+      ...(width === 480
+        ? [
+            '時間枠・時間割',
+            '連続時間・余裕率',
+            '試験・目標',
+            '対話式の初期設定',
+            '週間レポート',
+            '記録履歴',
+            'バックアップ',
+            'チュートリアル',
+            '再計画の確認',
+          ]
+        : []),
+    ]) {
+      await nav(screen);
+      expect
+        .soft(
+          await page.evaluate(() => document.documentElement.scrollWidth),
+          `${width}px ${screen}`,
+        )
+        .toBeLessThanOrEqual(width + 1);
+    }
+    if (width === 640) await page.getByRole('button', { name: 'サイドバーを開く' }).click();
+  }
+  await page.getByLabel('表示モード').selectOption('dark');
+  await nav('進捗を記録');
+  await page.screenshot({ path: 'test-results/adaptive-480-dark.png', fullPage: true });
+  expect(
+    (await new AxeBuilder({ page }).setLegacyMode().withTags(['wcag2a', 'wcag2aa']).analyze())
+      .violations,
+  ).toEqual([]);
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await nav('教材・進捗');
+  const bar = page.getByRole('progressbar', { name: '過去問の進捗' });
+  await expect(bar).toHaveAttribute('aria-valuenow', '21');
+  await expect(bar.locator('span')).toHaveCSS('transition-duration', '0.7s');
+  await expect
+    .poll(() =>
+      bar
+        .locator('span')
+        .evaluate((el) =>
+          Number(getComputedStyle(el).transform.match(/matrix\(([^,]+)/)?.[1] ?? 0),
+        ),
+    )
+    .toBeCloseTo(0.21, 2);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(bar.locator('span')).toHaveCSS('transition-duration', '0s');
+  await close();
+  await launch();
+  expect((await storedState()).settings.commute).toEqual(approved.settings.commute);
 });
 
 test('実機：週間レポートの全体比較・Markdown保存・取消・保存失敗', async () => {
@@ -1294,9 +1537,11 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   await next();
   await page.screenshot({ path: 'test-results/setup-finish.png', fullPage: true });
   await expect(
-    page.getByText('勉強できない特定の日・時間：あとで設定', { exact: true }),
+    page.getByRole('region', { name: '勉強できない特定の日・時間：あとで設定', exact: true }),
   ).toBeVisible();
-  await expect(page.getByText('授業以外の定期予定：あとで設定', { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole('region', { name: '授業以外の定期予定：あとで設定', exact: true }),
+  ).toHaveCount(0);
   await page.getByRole('button', { name: '計画案を作成する' }).click();
   await expect(page.getByRole('heading', { name: '計画案', exact: true })).toBeVisible();
   await expect(
@@ -1309,7 +1554,7 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   expect(previewState.proposal!.plan.settingsSnapshot).toEqual(previewState.settings);
   expect(previewState.proposal!.plan.settingsUpdatedAt).toBeTruthy();
   await expect(
-    page.getByText('勉強できない特定の日・時間：あとで設定', { exact: true }),
+    page.getByRole('region', { name: '勉強できない特定の日・時間：あとで設定', exact: true }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'この計画を承認する' }).click();
   await saved();
@@ -1395,7 +1640,7 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   browser = undefined!;
   await launch();
   await expect(
-    page.getByText('勉強できない特定の日・時間：あとで設定', { exact: true }),
+    page.getByRole('region', { name: '勉強できない特定の日・時間：あとで設定', exact: true }),
   ).toBeVisible();
   await nav('記録履歴');
   await expect(page.locator('tbody tr')).toHaveCount(2);
@@ -1431,7 +1676,7 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   ).toHaveText('予定なし');
   await nav('ホーム');
   await expect(
-    page.getByText('勉強できない特定の日・時間：あとで設定', { exact: true }),
+    page.getByRole('region', { name: '勉強できない特定の日・時間：あとで設定', exact: true }),
   ).toHaveCount(0);
   await nav('時間枠・時間割');
   await page.getByLabel('勉強できる開始時刻', { exact: true }).fill('09:00');
@@ -1467,6 +1712,7 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
     accents.add(palette.accent);
     await page.screenshot({ path: `test-results/theme-${theme}.png`, fullPage: true });
     await nav('進捗を記録');
+    await page.getByRole('button', { name: '選択中の周回' }).click();
     await expect(page.locator('.progress-donut')).toBeVisible();
     chartColors.add(
       await page
@@ -2563,7 +2809,7 @@ test('実機：論文2問は通常の60分予定として扱い、時間設定�
   ).toBeDisabled();
   await page.getByRole('button', { name: '時間を基準に案を更新する', exact: true }).click();
   await saved();
-  expect((await storedState()).proposal!.plan.calculationVersion).toBe(4);
+  expect((await storedState()).proposal!.plan.calculationVersion).toBe(PLAN_CALCULATION_VERSION);
   expect((await storedState()).plan).toEqual(seed.plan);
   await nav('連続時間・余裕率');
   await page.getByText('予定のまとまりを調整する', { exact: true }).click();

@@ -51,6 +51,32 @@ fn array<'a>(v: &'a Value, key: &str) -> Result<&'a Vec<Value>, String> {
 }
 pub fn validate(data: &Value) -> Result<(), String> {
     let s = &data["settings"];
+    if let Some(commute) = s.get("commute") {
+        static COMMUTE_SCHEMA: std::sync::OnceLock<jsonschema::Validator> =
+            std::sync::OnceLock::new();
+        let schema = COMMUTE_SCHEMA.get_or_init(|| {
+            let schema: Value =
+                serde_json::from_str(include_str!("../../src/domain/backupSchema.json"))
+                    .expect("bundled schema");
+            jsonschema::options()
+                .should_validate_formats(true)
+                .build(
+                    &schema["properties"]["data"]["properties"]["settings"]["properties"]
+                        ["commute"],
+                )
+                .expect("commute schema")
+        });
+        if !schema.is_valid(commute)
+            || commute["from"].as_str() > commute["to"].as_str()
+            || (commute["enabled"] == true
+                && commute["mode"] == "weekdays"
+                && commute["weekdays"]
+                    .as_array()
+                    .is_some_and(|days| days.is_empty()))
+        {
+            return Err("通学の期間・曜日・時間が不正です。".into());
+        }
+    }
     let materials = array(s, "materials")?;
     let records = array(data, "records")?;
     array(s, "exams")?;
@@ -201,6 +227,9 @@ mod tests {
         let mut db = open(&path).unwrap();
         let mut data = state();
         data["records"] = serde_json::json!([record("r", 3)]);
+        data["sidebarCollapsed"] = true.into();
+        data["ignoredWarnings"] = serde_json::json!({"notice":{"title":"注意","version":"1","ignoredAt":"2026-09-21T00:00:00Z"}});
+        data["settings"]["commute"] = serde_json::json!({"enabled":true,"mode":"classDays","from":"2026-09-21","to":"2026-12-31","weekdays":[1,2],"outboundMinutes":30,"returnMinutes":45,"outboundStart":480,"returnStart":1080});
         commit(&mut db, 0, "one", data.clone()).unwrap();
         drop(db);
         let db = open(&path).unwrap();
@@ -215,6 +244,18 @@ mod tests {
         let b = commit(&mut db, 0, "same", state()).unwrap();
         assert_eq!(a.revision, b.revision);
         assert!(commit(&mut db, 0, "different", state()).is_err());
+    }
+    #[test]
+    fn invalid_commute_is_rejected_without_changing_saved_data() {
+        let mut db = open(Path::new(":memory:")).unwrap();
+        commit(&mut db, 0, "init", state()).unwrap();
+        let mut data = state();
+        data["settings"]["commute"] = serde_json::json!({"enabled":true,"mode":"weekdays","from":"2026-09-21","to":"2026-12-31","weekdays":[],"outboundMinutes":30,"returnMinutes":45,"outboundStart":480,"returnStart":1080});
+        assert!(commit(&mut db, 1, "empty-days", data.clone()).is_err());
+        data["settings"]["commute"]["weekdays"] = serde_json::json!([1]);
+        data["settings"]["commute"]["returnMinutes"] = (-1).into();
+        assert!(commit(&mut db, 1, "negative", data).is_err());
+        assert_eq!(load(&db).unwrap().unwrap().revision, 1);
     }
     #[test]
     fn overrun_rejected_atomically() {

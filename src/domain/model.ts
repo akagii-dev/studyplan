@@ -58,6 +58,7 @@ export const defaultMeals: Record<MealKey, Meal> = {
   dinner: { start: 1140, duration: 45 },
 };
 export interface Settings {
+  commute?: Commute;
   meals?: Partial<Record<MealKey, Meal>>;
   classTransition?: number;
   scheduleAnswers?: Partial<Record<ScheduleKind, ScheduleAnswer>>;
@@ -73,6 +74,17 @@ export interface Settings {
   rest: number;
   buffer: number;
   periods: number[];
+}
+export interface Commute {
+  enabled: boolean;
+  from: DateKey;
+  to: DateKey;
+  mode: 'classDays' | 'weekdays';
+  weekdays: number[];
+  outboundMinutes: number;
+  returnMinutes: number;
+  outboundStart: number;
+  returnStart: number;
 }
 export interface Progress {
   id: string;
@@ -137,6 +149,9 @@ export interface AppState {
   settingsUpdatedAt?: string;
   theme?: 'mint' | 'sky' | 'lime';
   appearance?: 'light' | 'dark' | 'system';
+  sidebarCollapsed?: boolean;
+  ignoredWarnings?: Record<string, { title: string; version: string; ignoredAt: string }>;
+  warningExpanded?: Record<string, boolean>;
   settings: Settings;
   draft: Record<string, unknown>;
   step: number;

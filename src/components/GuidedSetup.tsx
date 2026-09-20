@@ -1275,6 +1275,11 @@ export function GuidedSetup({
           </div>
           <SetupImpact
             settings={state.settings}
+            onConfigureStudy={(gap) =>
+              go('window.period', {
+                window: { ...newWindow(), from: gap.from, to: gap.to },
+              })
+            }
             onConfigure={(kind) =>
               go(kind === 'class' ? 'class.ask' : kind === 'busy' ? 'busy.ask' : 'exception.ask')
             }

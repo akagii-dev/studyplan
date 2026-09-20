@@ -18,12 +18,15 @@ import {
   revisionIsStale,
   settingChanges,
   validateRevisedSettings,
+  minimumRetainedRounds,
 } from '../domain/revision';
 import { proposeSettings, validateSettings } from '../domain/planner';
 import { Field, Props, weekdays } from './common';
 import { NumericDraftProvider } from './NumberInput';
 import { TimetablePreview } from './TimetablePreview';
 import { sessionPolicy } from '../domain/sessionPolicy';
+import { StudyCoverageNotice } from './SetupImpact';
+import { beginStudyCoverageRepair, beginStudyGoalReview } from '../domain/repairPlan';
 
 const topics: [RevisionTopic, string][] = [
   ['exam', '試験・目標日'],
@@ -222,7 +225,7 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
 
       value: m.rounds.length,
       type: 'number',
-      min: state.settings.materials.find((x) => x.id === m.id)!.rounds.length,
+      min: minimumRetainedRounds(state, m.id),
       max: 20,
       set: (s, v) => {
         const target = s.materials.find((x) => x.id === m.id)!;
@@ -547,6 +550,9 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
                 翌日00:00（24:00）まで{q.value === '24:00' ? '（選択中）' : ''}
               </button>
             )}
+            {d.topic === 'material' && d.index === 2 && (
+              <p className="hint">完了数・記録・開始済み予定・固定予定のある周回は残します。</p>
+            )}
             <div className="question-footer">
               <button onClick={() => patch(d.index ? { index: d.index - 1 } : { stage: 'choose' })}>
                 前の質問
@@ -594,6 +600,19 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
             {!settingChanges(d.base, d.settings).length && (
               <p>設定は変えず、現在の残数で予定を組み直します。</p>
             )}
+            <StudyCoverageNotice
+              settings={d.settings}
+              onReviewGoal={(gap, topic) =>
+                void update((s) => beginStudyGoalReview(s, gap, topic)).catch((e) =>
+                  setError(String(e)),
+                )
+              }
+              onConfigure={(gap) =>
+                void update((s) => beginStudyCoverageRepair(s, gap)).catch((e) =>
+                  setError(String(e)),
+                )
+              }
+            />
             {d.settings.windows.some((w) => w.kind === 'study') && (
               <TimetablePreview
                 periodLabel="確認できる期間"

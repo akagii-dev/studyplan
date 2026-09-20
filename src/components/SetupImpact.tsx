@@ -8,6 +8,50 @@ import {
   setupIssues,
 } from '../domain/setupIssues';
 import { Props } from './common';
+import { StudyCoverageGap } from '../domain/studyCoverage';
+
+export function StudyCoverageNotice({
+  settings,
+  from,
+  onConfigure,
+  actionLabel = 'この期間の学習枠を追加',
+  onReviewGoal,
+}: {
+  settings: Settings;
+  from?: string;
+  onConfigure?: (gap: StudyCoverageGap) => void;
+  actionLabel?: string;
+  onReviewGoal?: (gap: StudyCoverageGap, topic: 'material' | 'exam') => void;
+}) {
+  const issues = setupIssues(settings, from).filter((i) => i.studyGap);
+  if (!issues.length) return null;
+  return (
+    <section className="warning" aria-label="学習枠の未登録期間" role="note">
+      <h3>目標日までの学習枠を確認してください</h3>
+      {issues.map((i) => (
+        <div key={i.id} className="setup-issue">
+          <b>{i.title}</b>
+          {onConfigure && <button onClick={() => onConfigure(i.studyGap!)}>{actionLabel}</button>}
+          {i.longTerm && (
+            <>
+              <p>{i.action}</p>
+              {onReviewGoal && (
+                <div className="actions">
+                  <button onClick={() => onReviewGoal(i.studyGap!, 'material')}>
+                    周回数を見直す
+                  </button>
+                  <button onClick={() => onReviewGoal(i.studyGap!, 'exam')}>目標日を見直す</button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      ))}
+      <p>{issues[0].impact}</p>
+      {!issues.some((i) => i.longTerm) && <small>{issues[0].action}</small>}
+    </section>
+  );
+}
 
 export function SkipImpact({ kind }: { kind: ScheduleKind }) {
   return (
@@ -23,16 +67,28 @@ export function SkipImpact({ kind }: { kind: ScheduleKind }) {
 export function SetupImpact({
   settings,
   onConfigure,
+  onConfigureStudy,
+  from,
+  onReviewStudyGoal,
 }: {
   settings: Settings;
   onConfigure?: (kind: ScheduleKind) => void;
+  onConfigureStudy?: (gap: StudyCoverageGap) => void;
+  from?: string;
+  onReviewStudyGoal?: (gap: StudyCoverageGap, topic: 'material' | 'exam') => void;
 }) {
-  const issues = setupIssues(settings);
+  const issues = setupIssues(settings, from);
   if (!issues.length) return null;
   return (
     <section className="setup-impact" aria-label="未設定項目と計画への影響">
+      <StudyCoverageNotice
+        settings={settings}
+        from={from}
+        onConfigure={onConfigureStudy}
+        onReviewGoal={onReviewStudyGoal}
+      />
       {(['error', 'warning'] as const).map((severity) => {
-        const items = issues.filter((i) => i.severity === severity);
+        const items = issues.filter((i) => i.severity === severity && !i.studyGap);
         if (!items.length) return null;
         return (
           <div

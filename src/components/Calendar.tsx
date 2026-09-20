@@ -18,6 +18,7 @@ import { PlanInsights } from './PlanInsights';
 import { Empty, Props, duration, weekdays } from './common';
 import { CalendarExport } from './CalendarExport';
 import { sessionPolicy } from '../domain/sessionPolicy';
+import { StudyCoverageNotice } from './SetupImpact';
 export function Calendar({
   state,
   update,
@@ -303,6 +304,13 @@ export function Calendar({
         to={view === 'week' ? to : monthEnd}
         examId={filter}
       />
+      {state.plan && (
+        <StudyCoverageNotice
+          settings={state.plan.settingsSnapshot ?? state.settings}
+          onConfigure={onReplan}
+          actionLabel="再計画で期間を見直す"
+        />
+      )}
       <div className="legend">
         {state.settings.exams.map((e) => (
           <span key={e.id}>

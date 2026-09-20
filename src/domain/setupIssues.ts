@@ -1,4 +1,5 @@
 import { AppState, ScheduleAnswer, ScheduleKind, Settings, mealKeys, mealNames } from './model';
+import { studyCoverageGaps, StudyCoverageGap, isLongTermStudyGap } from './studyCoverage';
 
 export const scheduleKinds: ScheduleKind[] = ['class', 'busy', 'exception'];
 export const scheduleInfo: Record<ScheduleKind, { label: string; impact: string }> = {
@@ -38,8 +39,10 @@ export interface SetupIssue {
   impact: string;
   action: string;
   kind?: ScheduleKind;
+  studyGap?: StudyCoverageGap;
+  longTerm?: boolean;
 }
-export function setupIssues(s: Settings): SetupIssue[] {
+export function setupIssues(s: Settings, from?: string): SetupIssue[] {
   const issues: SetupIssue[] = [];
   if (!s.exams.length)
     issues.push({
@@ -66,6 +69,19 @@ export function setupIssues(s: Settings): SetupIssue[] {
       action: '「時間枠・時間割」で「勉強できる時間」を1件以上登録してください。',
     });
   const missingMeals = mealKeys.filter((key) => !s.meals?.[key]);
+  if (s.windows.some((w) => w.kind === 'study'))
+    for (const gap of studyCoverageGaps(s, from))
+      issues.push({
+        id: `study-period/${gap.examId}/${gap.from}/${gap.to}`,
+        severity: 'warning',
+        title: `${gap.examName}：${gap.from}〜${gap.to} の学習枠が未登録です`,
+        impact: 'この期間は計算から除外され、登録済みの期間に学習が集中します。',
+        action: isLongTermStudyGap(s, gap, from)
+          ? '長期計画の一部が未設定です。登録済みの枠だけで全周回を配置するため、学習枠・周回数・目標日を見直してください。'
+          : '春休みなどの学習枠を追加してください。意図して勉強しない期間なら、そのまま進められます。',
+        studyGap: gap,
+        longTerm: isLongTermStudyGap(s, gap, from),
+      });
   if (missingMeals.length)
     issues.push({
       id: 'meals',

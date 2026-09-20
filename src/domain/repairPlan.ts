@@ -1,7 +1,57 @@
-import { AppState, today } from './model';
+import { AppState, today, uid } from './model';
 import { propose, proposeSettings } from './planner';
 import { beginRevision, RevisionDraft, sameRevisionBase } from './revision';
 import type { ConstraintIssue } from './planConstraints';
+import { studyCoverageGaps, StudyCoverageGap } from './studyCoverage';
+
+export function beginStudyGoalReview(
+  state: AppState,
+  gap: StudyCoverageGap,
+  topic: 'material' | 'exam',
+): AppState {
+  const next = beginConstraintRepair(state);
+  const draft = next.draft.revision as RevisionDraft;
+  const materials = draft.settings.materials.filter((m) => m.examId === gap.examId);
+  draft.topic = topic;
+  draft.itemId = topic === 'exam' ? gap.examId : materials.length === 1 ? materials[0].id : '';
+  draft.index = topic === 'exam' ? 1 : 2;
+  draft.stage = draft.itemId ? 'question' : 'item';
+  return next;
+}
+
+export function beginStudyCoverageRepair(
+  state: AppState,
+  gap: StudyCoverageGap,
+  from = today(),
+): AppState {
+  const next = beginConstraintRepair(state);
+  const draft = next.draft.revision as RevisionDraft;
+  const missing = studyCoverageGaps(draft.settings, from).find(
+    (g) => g.examId === gap.examId && g.from <= gap.to && g.to >= gap.from,
+  );
+  draft.topic = 'study';
+  draft.index = 0;
+  draft.itemId = '';
+  draft.stage = 'item';
+  if (!missing) return next;
+  const previous = draft.settings.windows
+    .filter((w) => w.kind === 'study' && w.to < missing.from)
+    .sort((a, b) => b.to.localeCompare(a.to))[0];
+  const id = uid();
+  draft.settings.windows.push({
+    id,
+    name: '追加の学習可能枠',
+    kind: 'study',
+    from: missing.from,
+    to: missing.to,
+    weekdays: previous ? [...previous.weekdays] : [1, 2, 3, 4, 5],
+    start: previous?.start ?? 1080,
+    end: previous?.end ?? 1260,
+  });
+  draft.itemId = id;
+  draft.stage = 'question';
+  return next;
+}
 
 export function refreshProposal(state: AppState, from = today()): AppState {
   if (state.proposal?.settingsBase) {

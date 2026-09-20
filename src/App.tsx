@@ -419,7 +419,11 @@ export default function App() {
               </div>
             )}
             {page === 'dashboard' && state.plan && (
-              <SetupImpact settings={state.settings} onConfigure={() => setPage('availability')} />
+              <SetupImpact
+                settings={state.settings}
+                onConfigure={() => setPage('availability')}
+                onConfigureStudy={() => setPage('replan')}
+              />
             )}
             {['dashboard', 'today', 'calendar', 'replan'].includes(page) &&
               stalePlan(state.plan, state.settings) && (

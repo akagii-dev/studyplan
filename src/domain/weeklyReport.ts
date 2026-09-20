@@ -1,6 +1,7 @@
 import { AppState, addDays, weekday } from './model';
 import { startOfWeek } from './calendar';
 import { stalePlan } from './planAudit';
+import { studyCoverageGaps, StudyCoverageGap, isLongTermStudyGap } from './studyCoverage';
 
 export interface ReportProgress {
   total: number;
@@ -24,6 +25,8 @@ export interface WeeklyReport {
   hasPlan: boolean;
   planCreatedAt: string | null;
   settingsChanged: boolean;
+  studyCoverageGaps: StudyCoverageGap[];
+  longTermStudyWarning: boolean;
   markdown: string;
   filename: string;
 }
@@ -168,6 +171,14 @@ export function createWeeklyReport(
     hasPlan: !!state.plan,
     planCreatedAt: state.plan?.createdAt ?? null,
     settingsChanged: stalePlan(state.plan, state.settings),
+    studyCoverageGaps: state.plan?.settingsSnapshot
+      ? studyCoverageGaps(state.plan.settingsSnapshot, asOf)
+      : [],
+    longTermStudyWarning:
+      !!state.plan?.settingsSnapshot &&
+      studyCoverageGaps(state.plan.settingsSnapshot, asOf).some((g) =>
+        isLongTermStudyGap(state.plan!.settingsSnapshot!, g, asOf),
+      ),
     markdown: '',
     filename: `StudyPlan-weekly-${from}.md`,
   };
@@ -243,6 +254,23 @@ function renderWeeklyReport(r: WeeklyReport) {
     ...(r.settingsChanged
       ? [
           '注意：現在の設定と承認済み計画が一致していません。週間予定と全体の総問題数は異なる条件に基づきます。',
+        ]
+      : []),
+    ...(r.studyCoverageGaps.length
+      ? [
+          '',
+          '### 学習枠の未登録期間（承認済み計画の設定）',
+          '',
+          ...r.studyCoverageGaps.map((g) => `- ${cell(g.examName)}：${g.from}〜${g.to}`),
+          '',
+          'この期間は計算から除外され、登録済みの期間に学習が集中します。春休みなどの学習枠を追加し、再計画で確認してください。',
+          '',
+        ]
+      : []),
+    ...(r.longTermStudyWarning
+      ? [
+          '長期計画の一部が未設定です。登録済みの枠だけで全周回を配置するため、学習枠・周回数・目標日を見直してください。',
+          '',
         ]
       : []),
     '承認待ち案は含めません。週の開始時点の計画を復元した比較ではありません。問題数のない別枠の復習は予定問題数に含めません。',

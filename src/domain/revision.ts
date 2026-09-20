@@ -1,4 +1,4 @@
-import { AppState, Settings, completed, clock, uid, mealKeys, mealNames } from './model';
+import { AppState, Settings, completed, clock, uid, mealKeys, mealNames, today } from './model';
 import { sameSettings } from './planAudit';
 import { sessionPolicy } from './sessionPolicy';
 
@@ -30,16 +30,45 @@ export function beginRevision(state: AppState): AppState {
     },
   };
 }
-export function validateRevisedSettings(state: AppState, candidate: Settings) {
+export function minimumRetainedRounds(
+  state: AppState,
+  materialId: string,
+  from = today(),
+  notBefore?: number,
+) {
+  const now = new Date();
+  const minute = notBefore ?? (from === today() ? now.getHours() * 60 + now.getMinutes() : 0);
+  const material = state.settings.materials.find((m) => m.id === materialId);
+  const required = [
+    0,
+    ...(material?.rounds.flatMap((r, i) => (r.completed > 0 ? [i] : [])) ?? []),
+    ...state.records.filter((r) => r.materialId === materialId).map((r) => r.round),
+    ...(state.plan?.sessions
+      .filter(
+        (s) =>
+          s.materialId === materialId &&
+          s.kind === 'study' &&
+          (s.fixed || s.date < from || (s.date === from && s.start < minute)),
+      )
+      .map((s) => s.round) ?? []),
+  ];
+  return required.reduce((max, round) => Math.max(max, round), 0) + 1;
+}
+export function validateRevisedSettings(
+  state: AppState,
+  candidate: Settings,
+  from = today(),
+  notBefore?: number,
+) {
   for (const exam of state.settings.exams)
     if (!candidate.exams.some((e) => e.id === exam.id))
       throw new Error('登録済み試験は再計画から削除できません。');
   for (const old of state.settings.materials) {
     const material = candidate.materials.find((m) => m.id === old.id);
     if (!material) throw new Error('登録済み教材は再計画から削除できません。');
-    if (material.rounds.length < old.rounds.length)
-      throw new Error('再計画では登録済みの周回を削除できません。');
-    for (let i = 0; i < old.rounds.length; i++) {
+    if (material.rounds.length < minimumRetainedRounds(state, old.id, from, notBefore))
+      throw new Error('完了数・記録・開始済み予定・固定予定のある周回は減らせません。');
+    for (let i = 0; i < Math.min(old.rounds.length, material.rounds.length); i++) {
       if (material.rounds[i].completed !== old.rounds[i].completed)
         throw new Error('再計画では完了数を変更できません。訂正は記録履歴で行ってください。');
       if (material.total < completed(state, old.id, i))

@@ -651,7 +651,7 @@ export function proposalAfterRecord(state: AppState, reason: string): AppState {
 }
 export function proposeSettings(state: AppState, settings: Settings, from: string): AppState {
   requirePlanningInputs(settings);
-  validateRevisedSettings(state, settings);
+  validateRevisedSettings(state, settings, from);
   const candidate = propose(
     { ...state, settings, settingsUpdatedAt: new Date().toISOString() },
     from,

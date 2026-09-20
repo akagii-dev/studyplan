@@ -12,9 +12,12 @@ import { beginRevision, settingChanges, sameRevisionBase } from '../domain/revis
 import { fixedTimeIssue, fixedIssueMessage, ConstraintIssue } from '../domain/planConstraints';
 import {
   beginConstraintRepair,
+  beginStudyCoverageRepair,
+  beginStudyGoalReview,
   refreshProposal,
   releaseFixedAndRefresh,
 } from '../domain/repairPlan';
+import { StudyCoverageGap } from '../domain/studyCoverage';
 export function Replan({ state, update, onCalendar }: Props & { onCalendar: () => void }) {
   const [ack, setAck] = useState(false);
   const [error, err] = useState('');
@@ -108,6 +111,15 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
   const repair = async (issue?: ConstraintIssue) => {
     try {
       await update((s) => beginConstraintRepair(s, issue));
+      setEditing(true);
+      err('');
+    } catch (e) {
+      err(String(e));
+    }
+  };
+  const repairStudy = async (gap: StudyCoverageGap) => {
+    try {
+      await update((s) => beginStudyCoverageRepair(s, gap));
       setEditing(true);
       err('');
     } catch (e) {
@@ -246,7 +258,15 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
           {error}
         </p>
       )}
-      <SetupImpact settings={displaySettings} />
+      <SetupImpact
+        settings={displaySettings}
+        onConfigureStudy={(gap) => void repairStudy(gap)}
+        onReviewStudyGoal={(gap, topic) => {
+          void update((s) => beginStudyGoalReview(s, gap, topic))
+            .then(() => setEditing(true))
+            .catch((e) => err(String(e)));
+        }}
+      />
       {stale && (
         <p className="warning">
           案を作ったあとに元の設定が変わりました。現在の設定から案を作り直してください。

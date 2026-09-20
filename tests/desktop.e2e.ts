@@ -2395,3 +2395,120 @@ test('実機：論文2問は通常の60分予定として扱い、時間設定�
   expect(after.plan).toEqual(updated.plan);
   expect(after.records).toEqual(seed.records);
 });
+
+test('実機：長期計画の未登録期間から周回と時間枠を対話で見直し、承認後に保存する', async () => {
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/study-coverage-'));
+  await launch();
+  const seed = initialState();
+  const start = addDays(today(), 1);
+  const cutoff = addDays(start, 5);
+  seed.settings.exams = [
+    {
+      id: 'long',
+      name: '長期の試験',
+      start,
+      target: addDays(start, 120),
+      priority: 2,
+      color: '#287569',
+      reviewDays: 0,
+    },
+  ];
+  seed.settings.materials = [
+    {
+      id: 'essay',
+      examId: 'long',
+      name: '論述教材',
+      total: 12,
+      order: 1,
+      rounds: [
+        { completed: 0, minutes: 30 },
+        { completed: 0, minutes: 30 },
+      ],
+    },
+  ];
+  seed.settings.windows = [
+    {
+      id: 'term',
+      name: '授業期間の学習',
+      kind: 'study',
+      from: start,
+      to: cutoff,
+      weekdays: [0, 1, 2, 3, 4, 5, 6],
+      start: 540,
+      end: 690,
+    },
+  ];
+  seed.settings.block = 60;
+  seed.settings.buffer = 0;
+  seed.settings.scheduleAnswers = { class: 'none', busy: 'none', exception: 'none' };
+  seed.records = [
+    {
+      id: 'zero',
+      date: today(),
+      materialId: 'essay',
+      round: 0,
+      count: 0,
+      cancelled: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ];
+  seed.plan = generatePlan(seed, start);
+  seed.plan.sessions[0].fixed = true;
+  await seedState(seed, 'coverage-seed');
+  await nav('学習カレンダー');
+  await expect(page.getByLabel('学習枠の未登録期間')).toContainText(
+    '周回数・目標日を見直してください',
+  );
+  await page.getByRole('button', { name: '再計画で期間を見直す', exact: true }).click();
+  await page.getByRole('button', { name: '周回数を見直す', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '何周取り組みますか？' })).toBeVisible();
+  await page.getByLabel('何周取り組みますか？', { exact: true }).fill('1');
+  await page.getByLabel('何周取り組みますか？', { exact: true }).press('Enter');
+  await expect(
+    page.getByRole('heading', { name: '1周目は1問に何分かかりそうですか？' }),
+  ).toBeVisible();
+  await saved();
+  expect((await storedState()).settings.materials[0].rounds).toHaveLength(2);
+  await page.getByRole('button', { name: '下書きを残して閉じる', exact: true }).click();
+  await page.getByRole('button', { name: 'この期間の学習枠を追加', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'この学習枠に名前を付けますか？' })).toBeVisible();
+  await page.getByLabel('この学習枠に名前を付けますか？', { exact: true }).fill('休暇以降の学習');
+  await page.getByRole('button', { name: '次へ', exact: true }).click();
+  await expect(page.getByLabel('この時間帯はいつから使いますか？', { exact: true })).toHaveValue(
+    addDays(cutoff, 1),
+  );
+  await page.getByRole('button', { name: '次へ', exact: true }).click();
+  await expect(page.getByLabel('この時間帯はいつまで使いますか？', { exact: true })).toHaveValue(
+    addDays(start, 119),
+  );
+  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: '次へ', exact: true }).click();
+  await page.getByRole('button', { name: 'この項目の変更を終える', exact: true }).click();
+  await page.getByRole('button', { name: '変更内容を確認する', exact: true }).click();
+  await expect(page.getByLabel('学習枠の未登録期間')).toHaveCount(0);
+  await page.getByRole('button', { name: 'この条件で再計画案を作成', exact: true }).click();
+  await saved();
+  const preview = await storedState();
+  expect(preview.settings).toEqual(seed.settings);
+  expect(preview.plan).toEqual(seed.plan);
+  expect(preview.proposal!.plan.settingsSnapshot!.materials[0].rounds).toHaveLength(1);
+  expect(preview.proposal!.plan.sessions.some((x) => x.date > cutoff)).toBe(true);
+  await page.getByRole('button', { name: 'この計画を承認する', exact: true }).click();
+  await saved();
+  const approved = await storedState();
+  expect(approved.records).toEqual(seed.records);
+  expect(approved.plan!.sessions.find((x) => x.id === seed.plan!.sessions[0].id)).toEqual(
+    seed.plan.sessions[0],
+  );
+  expect(approved.settings.windows[0]).toEqual(seed.settings.windows[0]);
+  expect(approved.settings.materials[0].rounds).toHaveLength(1);
+  await launch();
+  const restored = await storedState();
+  expect(restored.settings).toEqual(approved.settings);
+  expect(restored.plan).toEqual(approved.plan);
+  expect(restored.records).toEqual(approved.records);
+  await nav('学習カレンダー');
+  await expect(page.getByLabel('学習枠の未登録期間')).toHaveCount(0);
+  await page.screenshot({ path: 'test-results/study-coverage-resolved.png', fullPage: true });
+});

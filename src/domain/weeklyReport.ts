@@ -48,6 +48,7 @@ const aggregate = (rows: ReportProgress[]): ReportProgress => ({
 });
 const cell = (text: string) =>
   text
+    // eslint-disable-next-line no-control-regex -- Keep control characters out of Markdown table cells.
     .replace(/[\u0000-\u001f\u007f]/g, ' ')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')

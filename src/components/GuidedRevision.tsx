@@ -2,7 +2,6 @@ import { Warning } from './Warnings';
 import { useState } from 'react';
 import { CommuteEditor } from './CommuteSettings';
 import {
-  AppState,
   Settings,
   addDays,
   clock,

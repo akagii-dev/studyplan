@@ -95,7 +95,12 @@ export function beginConstraintRepair(state: AppState, issue?: ConstraintIssue):
     draft.topic = issue.topic;
     draft.index = issue.index;
     draft.itemId = issue.itemId;
-    if (issue.topic === 'focus' || issue.topic === 'meal' || issue.topic === 'commute') draft.stage = 'question';
+    if (issue.topic === 'material' && draft.settings.materials.some((m) => m.id === issue.itemId)) {
+      draft.stage = 'question';
+      return next;
+    }
+    if (issue.topic === 'focus' || issue.topic === 'meal' || issue.topic === 'commute')
+      draft.stage = 'question';
     else if (
       issue.itemId &&
       [...draft.settings.windows, ...draft.settings.exceptions].some((x) => x.id === issue.itemId)

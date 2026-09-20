@@ -23,6 +23,7 @@ const escapeText = (value: string) =>
     .replace(/\r\n|\r|\n/g, '\\n')
     .replace(/;/g, '\\;')
     .replace(/,/g, '\\,')
+    // eslint-disable-next-line no-control-regex -- Strip prohibited control characters from ICS text.
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '');
 function fold(line: string) {
   let result = '',

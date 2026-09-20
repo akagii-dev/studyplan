@@ -10,7 +10,12 @@ import { requirePlanningInputs, setupIssues } from '../domain/setupIssues';
 import { PlanInsights } from './PlanInsights';
 import { GuidedRevision } from './GuidedRevision';
 import { beginRevision, settingChanges, sameRevisionBase } from '../domain/revision';
-import { fixedTimeIssue, fixedIssueMessage, ConstraintIssue } from '../domain/planConstraints';
+import {
+  fixedTimeIssue,
+  fixedOrderIssue,
+  fixedIssueMessage,
+  ConstraintIssue,
+} from '../domain/planConstraints';
 import {
   beginConstraintRepair,
   beginStudyCoverageRepair,
@@ -135,7 +140,15 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
     )
       return [];
     const cap = plan!.capacities.find((c) => c.date === session.date);
-    const issue = cap ? fixedTimeIssue(displaySettings, session, cap) : null;
+    const issue =
+      (cap ? fixedTimeIssue(displaySettings, session, cap) : null) ??
+      fixedOrderIssue(
+        { ...state, settings: displaySettings },
+        session,
+        plan!.sessions,
+        plan!.from,
+        plan!.notBefore,
+      );
     return issue
       ? [
           {
@@ -147,11 +160,15 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
         ]
       : [];
   });
+  // Recheck saved proposals too: older versions may not have stored these conflicts.
+  const conflicts = [
+    ...new Set([...(plan?.conflicts ?? []), ...timeProblems.map((x) => x.message)]),
+  ];
   const approvalBlocks = [
     ...(plan && plan.calculationVersion !== PLAN_CALCULATION_VERSION
       ? [
           {
-            text: '余裕率を週全体の割当上限に適用する方式で案を作り直してください。',
+            text: '現在の計算方式で、固定予定と学習のまとまりを確認した案を作り直してください。',
             action: '時間を基準に案を更新する',
             run: () => void act((s) => refreshProposal(s)),
           },
@@ -179,10 +196,10 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
           },
         ]
       : []),
-    ...(plan?.conflicts.length
+    ...(conflicts.length
       ? [
           {
-            text: `予定の競合：${plan.conflicts.length}件`,
+            text: `予定の競合：${conflicts.length}件`,
             action: '競合の理由と修正方法を確認',
             run: () => reveal(conflictsHeading.current),
           },
@@ -404,12 +421,12 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
                 <strong>{duration(plan.shortfalls.reduce((n, s) => n + s.minutes, 0))}</strong>
               </div>
             </div>
-            {plan.conflicts.length > 0 && (
+            {conflicts.length > 0 && (
               <section className="confirmation-panel" aria-label="計画エラーの修正">
                 <h3 ref={conflictsHeading} tabIndex={-1} className="approval-target">
                   計画を承認する前に、確認してください
                 </h3>
-                {plan.conflicts.map((message) => {
+                {conflicts.map((message) => {
                   const problem = timeProblems.find(
                     (x) => x.message === message || x.legacy === message,
                   );

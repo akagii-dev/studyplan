@@ -2,7 +2,6 @@ import { Warning } from './Warnings';
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, LockKeyhole, Unlock, CalendarDays } from 'lucide-react';
 import {
-  AppState,
   CalendarDensity,
   CalendarView,
   Session,

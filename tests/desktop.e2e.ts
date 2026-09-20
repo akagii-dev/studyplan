@@ -17,6 +17,7 @@ import { proposeSettings } from '../src/domain/planner';
 import ICAL from 'ical.js';
 import AxeBuilder from '@axe-core/playwright';
 import { startOfWeek } from '../src/domain/calendar';
+import { studentFixture } from './fixtures/student';
 let child: ChildProcess;
 let browser: Browser;
 let page: Page;
@@ -97,6 +98,100 @@ async function close() {
   }
 }
 test.afterAll(close);
+test('実機：学生の代表データで条件変更案を維持して記録・承認・保存・出力する', async () => {
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/student-flow-'));
+  await launch();
+  const date = today();
+  let seed = studentFixture(date);
+  seed.plan = generatePlan(seed, date, false, new Date().getHours() * 60 + new Date().getMinutes());
+  const settings = structuredClone(seed.settings);
+  settings.buffer = 0.3;
+  settings.materials[1].rounds[0].minutes = 45;
+  seed = proposeSettings(seed, settings, date);
+  await seedState(seed, 'student');
+  await nav('今日のスケジュール');
+  await expect(page.getByRole('region', { name: '今日の予定一覧' })).toContainText('勉強');
+  await nav('進捗を記録');
+  await page.getByLabel('教材', { exact: true }).selectOption('long');
+  await page.getByRole('button', { name: 'その他', exact: true }).click();
+  await page.getByLabel('追加問題数（1問単位）').fill('2');
+  await page.getByRole('button', { name: '記録する', exact: true }).click();
+  await saved();
+  const recorded = await storedState();
+  expect(recorded.records.at(-1)?.count).toBe(2);
+  expect(recorded.settings.buffer).toBe(0.2);
+  expect(recorded.proposal?.plan.settingsSnapshot?.buffer).toBe(0.3);
+  expect(recorded.proposal?.plan.settingsSnapshot?.materials[1].rounds[0].minutes).toBe(45);
+  await nav('再計画の確認');
+  const acknowledge = page.getByRole('checkbox');
+  if (await acknowledge.count()) await acknowledge.first().check();
+  await page.getByRole('button', { name: 'この計画を承認する', exact: true }).click();
+  await saved();
+  const approved = await storedState();
+  expect(approved.settings.buffer).toBe(0.3);
+  expect(approved.records).toEqual(recorded.records);
+  await nav('学習カレンダー');
+  await page.getByRole('button', { name: 'ICSを書き出す', exact: true }).click();
+  const exporter = page.getByRole('region', { name: 'ICS書き出し', exact: true });
+  await exporter.getByLabel('書き出す開始日').fill(date);
+  await exporter.getByLabel('書き出す終了日').fill(addDays(date, 55));
+  const icsPath = resolve(dataDir, '学生の計画.ics');
+  await calendarSavePath(icsPath);
+  await exporter.getByRole('button', { name: 'ICSを保存する' }).click();
+  await expect(exporter.getByRole('status')).toContainText('書き出しました');
+  const events = new ICAL.Component(ICAL.parse(readFileSync(icsPath, 'utf8'))).getAllSubcomponents(
+    'vevent',
+  );
+  expect(events.length).toBeGreaterThan(approved.plan!.sessions.length);
+  expect(events.some((e) => String(e.getFirstPropertyValue('summary')).includes('民法'))).toBe(
+    true,
+  );
+  await nav('週間レポート');
+  const markdownPath = resolve(dataDir, '学生の週間レポート.md');
+  await calendarSavePath(markdownPath);
+  await page.getByRole('button', { name: 'Markdownを保存', exact: true }).click();
+  await expect.poll(() => existsSync(markdownPath)).toBe(true);
+  expect(readFileSync(markdownPath, 'utf8')).toContain('論文演習');
+  expect(readFileSync(markdownPath, 'utf8')).toContain('週間の追加完了数 | 2問');
+  await close();
+  await launch();
+  expect((await storedState()).plan).toEqual(approved.plan);
+  expect((await storedState()).records).toEqual(approved.records);
+  await nav('今日のスケジュール');
+  await page.screenshot({ path: 'test-results/student-today.png', fullPage: true });
+});
+
+test('実機：固定枠の時間不足を教材の推定時間へ戻って修正できる', async () => {
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/fixed-duration-'));
+  await launch();
+  const date = today();
+  let seed = studentFixture(date);
+  seed.plan = generatePlan(seed, date, false, new Date().getHours() * 60 + new Date().getMinutes());
+  const fixed = seed.plan.sessions.find((s) => s.materialId === 'long')!;
+  fixed.fixed = true;
+  const settings = structuredClone(seed.settings);
+  settings.materials[1].rounds[fixed.round].minutes = 100;
+  seed = proposeSettings(seed, settings, date);
+  // Older saved proposals did not contain the duration conflict. The UI must recheck it.
+  seed.proposal!.plan.conflicts = [];
+  await seedState(seed, 'fixed-duration');
+  await nav('再計画の確認');
+  await expect(
+    page.getByRole('button', { name: 'この計画を承認する', exact: true }),
+  ).toBeDisabled();
+  const conflict = page.locator('.plan-conflict').filter({ hasText: '推定所要時間' });
+  await expect(conflict).toHaveCount(1);
+  await conflict.getByRole('button', { name: '条件を修正', exact: true }).click();
+  await expect(
+    page.getByRole('heading', {
+      name: `${fixed.round + 1}周目は1問に何分かかりそうですか？`,
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect((await storedState()).plan!.sessions).toContainEqual(fixed);
+});
 test('実機：ホームの導線・表示別のカレンダー密度・再起動保存', async () => {
   test.setTimeout(180000);
   mkdirSync('.test-data', { recursive: true });

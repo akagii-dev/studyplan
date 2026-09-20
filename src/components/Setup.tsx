@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { ScheduleReview } from './SetupImpact';
 import { Plus, Pencil, Check, BookOpen, GraduationCap } from 'lucide-react';
 import {
-  AppState,
   Exam,
   Material,
   WindowRule,

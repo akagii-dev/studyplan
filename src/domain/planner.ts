@@ -17,8 +17,13 @@ import { commuteErrors } from './commute';
 import { sessionPolicy, sessionUnitCount, PLAN_CALCULATION_VERSION } from './sessionPolicy';
 import { requirePlanningInputs } from './setupIssues';
 import { overlapsBusy, sameSettings, unavailableEvents } from './planAudit';
-import { validateRevisedSettings, sameRevisionBase } from './revision';
-import { fixedTimeIssue, fixedIssueMessage } from './planConstraints';
+import {
+  validateRevisedSettings,
+  sameRevisionBase,
+  beginRevision,
+  RevisionDraft,
+} from './revision';
+import { fixedTimeIssue, fixedOrderIssue, fixedIssueMessage } from './planConstraints';
 import { startOfWeek } from './calendar';
 import { weeklyCapacities } from './weeklyCapacity';
 export function mergeIntervals(intervals: Interval[]): Interval[] {
@@ -603,6 +608,38 @@ export function generatePlan(
       break;
     }
   }
+  // Different allocation passes can leave adjoining cards for the same work.
+  // Coalesce only new sessions inside one real concentration block.
+  sessions.sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
+  for (let i = 1; i < sessions.length;) {
+    const a = sessions[i - 1],
+      b = sessions[i];
+    if (
+      !keptIds.has(a.id) &&
+      !keptIds.has(b.id) &&
+      a.kind === 'study' &&
+      b.kind === 'study' &&
+      a.date === b.date &&
+      a.materialId === b.materialId &&
+      a.round === b.round &&
+      a.examId === b.examId &&
+      Math.abs(a.end - b.start) < EPS &&
+      capacities
+        .find((c) => c.date === a.date)
+        ?.slots.some(([lo, hi]) => a.start >= lo - EPS && b.end <= hi + EPS)
+    ) {
+      a.end = b.end;
+      a.count += b.count;
+      if (a.end - a.start >= policy.minimum - EPS) delete a.allocationReason;
+      sessions.splice(i, 1);
+    } else i++;
+  }
+  for (const fixed of kept.filter(
+    (x) => x.fixed && (x.date > from || (x.date === from && x.start >= notBefore)),
+  )) {
+    const issue = fixedOrderIssue(state, fixed, sessions, from, notBefore);
+    if (issue) conflicts.push(fixedIssueMessage(fixed, issue));
+  }
   for (const e of s.exams.filter((e) => e.reviewDays > 0 && e.target > from))
     if (!sessions.some((x) => x.examId === e.id && x.kind === 'review' && x.date >= from))
       conflicts.push(
@@ -673,20 +710,38 @@ export function propose(state: AppState, from: string, reason: string): AppState
     },
   };
 }
-export function proposalAfterRecord(state: AppState, reason: string): AppState {
+export function proposalAfterRecord(
+  state: AppState,
+  reason: string,
+  previousProposal = state.proposal,
+): AppState {
   if (!state.plan) return state;
+  const candidateSettings =
+    previousProposal?.settingsBase &&
+    sameRevisionBase(previousProposal.settingsBase, state.settings)
+      ? previousProposal.plan.settingsSnapshot
+      : undefined;
   try {
-    const candidate =
-      state.proposal?.settingsBase && sameRevisionBase(state.proposal.settingsBase, state.settings)
-        ? proposeSettings(state, state.proposal.plan.settingsSnapshot!, today())
-        : propose(state, today(), reason);
+    const candidate = candidateSettings
+      ? proposeSettings(state, candidateSettings, today())
+      : propose(state, today(), reason);
     return { ...candidate, draft: { ...state.draft, replanError: '' } };
   } catch (error) {
+    // A new record may make a proposed total/round count invalid. Keep those edits as
+    // an editable draft, never as an approvable plan or a replacement for actuals.
+    let draft = state.draft;
+    if (candidateSettings && !draft.revision) {
+      const revision = beginRevision(state).draft.revision as RevisionDraft;
+      draft = {
+        ...draft,
+        revision: { ...revision, settings: structuredClone(candidateSettings), stage: 'review' },
+      };
+    }
     return {
       ...state,
       proposal: null,
       draft: {
-        ...state.draft,
+        ...draft,
         replanError: `記録は保存しました。再計画は設定を確認してから作成してください。${String(error)}`,
       },
     };
@@ -710,7 +765,7 @@ export function approve(state: AppState, acknowledge = false): AppState {
   if (!p) throw new Error('再計画案がありません。');
   if (p.plan.calculationVersion !== PLAN_CALCULATION_VERSION)
     throw new Error(
-      '計算方式が更新されました。週単位の余裕率を使う現在の条件で案を作り直してください。',
+      '計算方式が更新されました。現在の条件と固定予定を確認して案を作り直してください。',
     );
   if (p.basedOn !== (state.plan?.id ?? null))
     throw new Error('計画が変更されました。案を作り直してください。');
@@ -726,6 +781,14 @@ export function approve(state: AppState, acknowledge = false): AppState {
   validateRevisedSettings(state, settings);
   const now = new Date();
   const minute = now.getHours() * 60 + now.getMinutes();
+  for (const x of p.plan.sessions.filter(
+    (x) => x.fixed && (x.date > today() || (x.date === today() && x.start >= minute)),
+  )) {
+    const issue =
+      fixedTimeIssue(settings, x, capacityForDate(settings, x.date)) ??
+      fixedOrderIssue({ ...state, settings }, x, p.plan.sessions, p.plan.from, p.plan.notBefore);
+    if (issue) throw new Error(fixedIssueMessage(x, issue));
+  }
   if (
     p.plan.sessions.some(
       (x) =>

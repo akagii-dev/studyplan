@@ -112,6 +112,7 @@ export function Progress({ state, update }: Props) {
         next = proposalAfterRecord(
           next,
           '進捗の記録によって残り問題数が変わったため、今後の課題を再配分します。',
+          s.proposal,
         );
         return next;
       });
@@ -347,6 +348,7 @@ export function History({ state, update }: Props) {
           cancelled
             ? '記録の取消によって残数が増えたため再配分します。'
             : '記録の訂正に合わせて残りの課題を再配分します。',
+          s.proposal,
         );
         return next;
       });

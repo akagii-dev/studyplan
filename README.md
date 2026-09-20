@@ -40,7 +40,7 @@
 
 ビルド済みの `release/StudyPlan.exe` をダブルクリックしてください。Windows + Microsoft Edge WebView2 Runtimeが必要です。ブラウザーからの起動や外部アカウントは不要です。
 
-2026-09-21の v0.4.1 は `release/StudyPlan.exe` と `release/StudyPlan-20260921.exe`（同じ内容）。今日の進捗・警告の管理・サイドバー折りたたみ・可変幅・通学時間を追加しました。進捗の円グラフ、16色の試験色、ライト・ダーク・システム表示を追加しました。画面・HTMLタイトル・ウィンドウ名のアプリ表記を「StudyPlan」に統一しました。承認ボタンを上部へ移し、ホームの装飾メッセージを削除しました。学習枠の未登録期間と長期計画の見直し警告を追加しました。警告から時間枠・周回数・目標日を対話で修正できます。試験・教材の対話式追加、承認の案内、週の表示整理、データを引き継ぐ更新パッケージも含みます。週間レポート・ICS・3配色の改善も含みます。保存先は共通なので、切り替える際は今のStudyPlanを閉じてから新しいファイルを開いてください。
+2026-09-21の v0.4.2 は `release/StudyPlan.exe` と `release/StudyPlan-20260921.exe`（同じ内容）。今日の進捗・警告の管理・サイドバー折りたたみ・可変幅・通学時間を追加しました。進捗の円グラフ、16色の試験色、ライト・ダーク・システム表示を追加しました。画面・HTMLタイトル・ウィンドウ名のアプリ表記を「StudyPlan」に統一しました。承認ボタンを上部へ移し、ホームの装飾メッセージを削除しました。学習枠の未登録期間と長期計画の見直し警告を追加しました。警告から時間枠・周回数・目標日を対話で修正できます。試験・教材の対話式追加、承認の案内、週の表示整理、データを引き継ぐ更新パッケージも含みます。週間レポート・ICS・3配色の改善も含みます。保存先は共通なので、切り替える際は今のStudyPlanを閉じてから新しいファイルを開いてください。
 
 データの保存先は通常 `%APPDATA%\jp.local.studyplan\studyplan.sqlite3`。開発用テストデータは別フォルダーに分離します。保存中にウィンドウを閉じた場合は、最後の入力の保存を待ってから終了します。保存に失敗した場合は終了を中止して知らせます。強制終了や電源断はこの待機の対象外です。
 
@@ -50,7 +50,7 @@
 
 ## 開発
 
-必要環境: Node.js 22以降、pnpm、Rust stable、Visual Studio C++ Build Tools、Windows SDK、WebView2 Runtime。
+必要環境: Node.js 22.13以降の22系または24以降、pnpm、Rust stable、Visual Studio C++ Build Tools、Windows SDK、WebView2 Runtime。
 
 ```powershell
 pnpm install
@@ -63,6 +63,8 @@ pnpm desktop
 
 ```powershell
 pnpm test
+pnpm lint
+pnpm typecheck
 cargo test --manifest-path src-tauri/Cargo.toml
 pnpm build
 cargo build --manifest-path src-tauri/Cargo.toml
@@ -89,6 +91,8 @@ WebView2の画面データも起動ごとに `.test-data/native-webview-*` へ�
 
 詳細は[実装仕様](docs/SPEC.md)と[動作確認記録](docs/VALIDATION.md)を参照してください。
 
+[実利用フローの監査](docs/REAL_USE_AUDIT.md)には、架空の学生データ、見つかった不整合と修正、確認範囲と残る制約を記録しています。
+
 計画は制約を守る分散型のヒューリスティックです。数学的な最適解は保証しません。入らない課題は不足として表示し、連続学習の長さや余裕率を自動変更しません。
 
 ## 試験・教材を追加する
@@ -99,7 +103,7 @@ WebView2の画面データも起動ごとに `.test-data/native-webview-*` へ�
 
 ## 更新パッケージ
 
-`release/StudyPlan-update-0.4.1.zip` を展開し、`Update.cmd` を開いて、これまで使っていた StudyPlan の実行ファイルを選んでください。アプリを閉じてから行います。設定・計画・記録は同じ保存先を引き継ぎます。旧実行ファイルも控えとして残します。
+`release/StudyPlan-update-0.4.2.zip` を展開し、`Update.cmd` を開いて、これまで使っていた StudyPlan の実行ファイルを選んでください。アプリを閉じてから行います。設定・計画・記録は同じ保存先を引き継ぎます。旧実行ファイルも控えとして残します。
 
 実行ファイル全体を差し替える更新パッケージです。差分ダウンロードや自動更新は行いません。手動で同梱の `StudyPlan.exe` を差し替えても更新できます。
 

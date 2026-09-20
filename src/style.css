@@ -1,4 +1,17 @@
 :root {
+  color-scheme: light;
+  --on-accent: #fff;
+  --on-ink: #fff;
+  --busy-bg: #e8edf4;
+  --busy-ink: #354e68;
+  --busy-muted: #435c75;
+  --busy-border: #859ab0;
+  --warning-bg: #fbf5e8;
+  --warning-ink: #694b19;
+  --warning-border: #c8ae78;
+  --error-bg: #fcf0eb;
+  --error-ink: #914534;
+  --error-border: #cc998a;
   --ink: #1c332b;
   --muted: #415a4f;
   --page: #edf3ef;
@@ -166,6 +179,62 @@
 :root[data-theme='lime'] button.primary:hover:not(:disabled) {
   background: #a7ce3b;
 }
+:root[data-appearance='dark'] {
+  color-scheme: dark;
+  --ink: #e5f2ed;
+  --muted: #b2c9bf;
+  --page: #111b18;
+  --surface: #1b2823;
+  --soft: #2b4137;
+  --border: #476354;
+  --control-border: #7e9f8d;
+  --accent: #8dd7b9;
+  --accent-hover: #ace7ce;
+  --ring: #8bbca5;
+  --art: #355547;
+  --on-accent: #12281e;
+  --on-ink: #17241e;
+  --busy-bg: #253344;
+  --busy-ink: #d5e5f6;
+  --busy-muted: #b9cce0;
+  --busy-border: #8ba6c1;
+  --warning-bg: #392f1d;
+  --warning-ink: #efcf8f;
+  --warning-border: #9e8350;
+  --error-bg: #3d2826;
+  --error-ink: #ffc0ae;
+  --error-border: #b98275;
+}
+:root[data-theme='sky'][data-appearance='dark'] {
+  --ink: #e5f0fc;
+  --muted: #b6c9df;
+  --page: #121b26;
+  --surface: #1c2938;
+  --soft: #2a4058;
+  --border: #47617d;
+  --control-border: #829fbe;
+  --accent: #9dceff;
+  --accent-hover: #c1e0ff;
+  --ring: #86afd6;
+  --art: #354f6c;
+  --on-accent: #172c42;
+  --on-ink: #172c42;
+}
+:root[data-theme='lime'][data-appearance='dark'] {
+  --ink: #eef4df;
+  --muted: #c2ceaa;
+  --page: #191e12;
+  --surface: #252e1b;
+  --soft: #394729;
+  --border: #5a7042;
+  --control-border: #94ab76;
+  --accent: #b7da7d;
+  --accent-hover: #cceba0;
+  --ring: #a4c47a;
+  --art: #4a5f2e;
+  --on-accent: #243510;
+  --on-ink: #243510;
+}
 .theme-picker {
   display: block;
   font-size: 11px;
@@ -178,13 +247,13 @@
   font-size: 12px;
 }
 .timetable-row > button.class-selected {
-  background: #e8edf4;
-  color: #354e68;
-  border: 2px solid #859ab0;
+  background: var(--busy-bg);
+  color: var(--busy-ink);
+  border: 2px solid var(--busy-border);
 }
 .timetable-row > button.class-selected small {
   display: block;
-  color: #435c75;
+  color: var(--busy-muted);
   font-size: 10px;
 }
 .timetable-preview {
@@ -214,8 +283,8 @@
 }
 .availability-breakdown .busy-time,
 .busy-event {
-  background: #e8edf4;
-  color: #354e68;
+  background: var(--busy-bg);
+  color: var(--busy-ink);
 }
 .calendar-busy {
   display: block;
@@ -223,21 +292,21 @@
   padding: 5px 7px;
   margin: 4px 0;
   text-align: left;
-  background: #e8edf4;
-  color: #354e68;
-  border-left: 3px solid #859ab0;
+  background: var(--busy-bg);
+  color: var(--busy-ink);
+  border-left: 3px solid var(--busy-border);
   font-size: 11px;
 }
 .calendar-busy small {
   display: block;
-  color: #435c75;
+  color: var(--busy-muted);
   font-size: 10px;
 }
 .calendar-event.has-conflict {
-  outline: 2px solid #b45843;
+  outline: 2px solid var(--error-border);
 }
 .calendar-event.has-conflict small {
-  color: #a13f2d;
+  color: var(--error-ink);
 }
 .session-detail .row {
   flex-wrap: wrap;
@@ -298,10 +367,10 @@
   color: var(--muted);
 }
 .number-input small.error {
-  color: #a65545;
+  color: var(--error-ink);
 }
 .number-input input[aria-invalid='true'] {
-  border-color: #b05840;
+  border-color: var(--error-border);
 }
 .daily-plan-table {
   max-height: 360px;
@@ -336,7 +405,7 @@ button {
   gap: 7px;
   cursor: pointer;
   color: var(--ink);
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--control-border);
   border-radius: 8px;
   padding: 9px 14px;
@@ -460,7 +529,7 @@ b {
   display: grid;
   place-items: center;
   background: var(--accent);
-  color: white;
+  color: var(--on-accent);
   width: 40px;
   height: 42px;
   border-radius: 12px;
@@ -553,7 +622,7 @@ main {
   color: var(--muted);
 }
 .save-status.pending {
-  color: #815c21;
+  color: var(--warning-ink);
 }
 .main-content {
   max-width: 1450px;
@@ -582,7 +651,7 @@ main {
   color: var(--muted);
 }
 .primary {
-  color: white;
+  color: var(--on-accent);
   background: var(--accent);
   border-color: var(--accent);
   padding: 11px 19px;
@@ -602,7 +671,7 @@ main {
 }
 .metric-card {
   padding: 23px 24px;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
 }
@@ -640,7 +709,7 @@ main {
   color: var(--muted);
 }
 .card {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 11px;
   padding: 26px;
@@ -848,7 +917,7 @@ main {
   font-size: 12px;
 }
 .text-danger {
-  color: #994c3a;
+  color: var(--error-ink);
 }
 .hint {
   font-size: 11px;
@@ -890,7 +959,7 @@ main {
 }
 .stepper button {
   flex: 1;
-  background: #fff;
+  background: var(--surface);
   font-size: 11px;
   white-space: nowrap;
 }
@@ -909,7 +978,7 @@ main {
 }
 .stepper button.active > span {
   background: var(--ink);
-  color: #fff;
+  color: var(--on-ink);
 }
 .wizard-footer {
   display: flex;
@@ -1012,7 +1081,7 @@ main {
 }
 .segmented button.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 650;
 }
 .legend {
@@ -1048,7 +1117,7 @@ main {
   border: 1px solid var(--border);
   border-radius: 9px;
   overflow: hidden;
-  background: #fff;
+  background: var(--surface);
   margin-bottom: 23px;
 }
 .calendar-head,
@@ -1089,7 +1158,7 @@ main {
 }
 .today .date-number {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border-radius: 50%;
 }
 .chosen {
@@ -1246,24 +1315,70 @@ summary {
 .wide {
   width: 100%;
 }
-.quiet-card {
-  background: var(--soft);
-  min-height: 510px;
-  border-color: var(--border);
-  padding: 38px;
+.progress-chart-card {
   text-align: center;
 }
-.quiet-card h2 {
-  margin-top: 20px;
-  font-size: 25px;
-  line-height: 1.8;
+.progress-chart-card .actions {
+  justify-content: center;
 }
-.quiet-card p {
+.progress-chart-scope {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+.progress-donut {
+  display: block;
+  width: min(100%, 260px);
+  margin: 20px auto;
+}
+.progress-donut-track {
+  stroke: var(--soft);
+}
+.progress-donut-value {
+  stroke: var(--accent);
+}
+.progress-donut-percent {
+  fill: var(--ink);
+  font-size: 32px;
+  font-weight: 700;
+}
+.progress-donut-caption {
+  fill: var(--muted);
+  font-size: 14px;
+}
+.progress-chart-counts {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px 36px;
+  margin: 20px 0 10px;
+}
+.progress-chart-counts dt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--muted);
+}
+.progress-chart-counts dd {
+  margin: 4px 0 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+.progress-chart-counts small {
+  margin-left: 4px;
   font-size: 12px;
+  font-weight: 400;
 }
-.illustration {
-  max-width: 280px;
-  margin: 25px auto;
+.progress-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--soft);
+  border: 1px solid var(--control-border);
+}
+.progress-dot.done {
+  background: var(--accent);
+  border-color: var(--accent);
 }
 .block {
   display: block;
@@ -1298,11 +1413,11 @@ td .actions {
 }
 .warning {
   padding: 20px 24px;
-  background: #fbf5e8;
-  border: 1px solid #c8ae78;
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
   border-radius: 9px;
   margin: 20px 0;
-  color: #694b19;
+  color: var(--warning-ink);
 }
 .warning p {
   color: inherit;
@@ -1325,9 +1440,9 @@ td .actions {
 }
 .error,
 .error-banner {
-  color: #914534;
-  background: #fcf0eb;
-  border: 1px solid #cc998a;
+  color: var(--error-ink);
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
   border-radius: 7px;
   padding: 12px;
   font-size: 12px;
@@ -1435,9 +1550,6 @@ progress::-webkit-progress-value {
   .card {
     padding: 22px;
   }
-  .quiet-card {
-    display: none;
-  }
   .calendar-layout {
     grid-template-columns: 1fr;
   }
@@ -1484,7 +1596,7 @@ progress::-webkit-progress-value {
 }
 .guided-phases .active i {
   background: var(--ink);
-  color: #fff;
+  color: var(--on-ink);
 }
 .guided-phases .complete i {
   background: var(--soft);

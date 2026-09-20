@@ -80,14 +80,14 @@ interface Wizard {
   classFrom: string;
   classTo: string;
 }
-const colors = ['#287569', '#6870b5', '#c78341', '#b66b7f', '#4c89ac'];
+import { examColors } from '../domain/appearance';
 const newExam = (): Exam => ({
   id: uid(),
   name: '',
   start: today(),
   target: addDays(today(), 90),
   priority: 2,
-  color: colors[0],
+  color: examColors[0].value,
   reviewDays: 0,
 });
 const newWindow = (kind: WindowRule['kind'] = 'study'): WindowRule => ({
@@ -330,7 +330,7 @@ export function GuidedSetup({
       title = 'この試験の色を選んでください。';
       content = (
         <div className="wizard-options color-options">
-          {colors.map((color, i) => (
+          {examColors.map(({ value: color, name }) => (
             <button
               key={color}
               aria-label={`表示色 ${color}`}
@@ -339,7 +339,7 @@ export function GuidedSetup({
               onClick={() => exam({ color })}
             >
               <i style={{ background: color }} />
-              {['グリーン', 'パープル', 'オレンジ', 'ピンク', 'ブルー'][i]}
+              {name}
               {w.exam.color === color && <Check size={16} />}
             </button>
           ))}

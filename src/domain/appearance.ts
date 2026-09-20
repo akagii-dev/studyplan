@@ -1,0 +1,18 @@
+export const examColors = [
+  { value: '#287569', name: 'グリーン' },
+  { value: '#6870b5', name: 'パープル' },
+  { value: '#c78341', name: 'オレンジ' },
+  { value: '#b66b7f', name: 'ピンク' },
+  { value: '#4c89ac', name: 'ブルー' },
+  { value: '#bb5555', name: 'レッド' },
+  { value: '#cf765f', name: 'コーラル' },
+  { value: '#ad8a32', name: 'ゴールド' },
+  { value: '#7b963f', name: 'オリーブ' },
+  { value: '#499a78', name: 'ミント' },
+  { value: '#329ca2', name: 'ターコイズ' },
+  { value: '#4375c3', name: 'ロイヤルブルー' },
+  { value: '#8f6ab9', name: 'ラベンダー' },
+  { value: '#b060a0', name: 'モーブ' },
+  { value: '#967359', name: 'ブラウン' },
+  { value: '#748598', name: 'スレート' },
+] as const;

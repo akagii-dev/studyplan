@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { backupJsonSchema } from '../src/domain/backupSchema';
 import { parseBackup } from '../src/domain/backup';
 import { initialState } from '../src/domain/model';
+import { resetSetup, restoreReset } from '../src/domain/reset';
 
 const packet = () => ({
   format: 'StudyPlanBackup',
@@ -44,10 +45,28 @@ it('表示に使う型・計画・下書きの破損を拒否する', () => {
 it('テーマと初期化の復元用データも保ち、原本は変更しない', () => {
   const file = packet();
   file.data.theme = 'sky';
+  file.data.appearance = 'dark';
   file.data.resetBackup = initialState();
+  file.data.resetBackup.appearance = 'system';
   const text = JSON.stringify(file);
   expect(parseBackup(text)).toEqual(file);
   expect(JSON.stringify(file)).toBe(text);
+});
+
+it('表示モードの旧設定との互換性・初期化保持・不正値の拒否', () => {
+  expect(parseBackup(JSON.stringify(packet())).data.appearance).toBeUndefined();
+  for (const appearance of ['light', 'dark', 'system'] as const) {
+    const file = packet();
+    file.data.appearance = appearance;
+    expect(parseBackup(JSON.stringify(file)).data.appearance).toBe(appearance);
+    const reset = resetSetup(file.data, true);
+    expect(reset.appearance).toBe(appearance);
+    expect(restoreReset(reset).appearance).toBe(appearance);
+  }
+  const file = packet();
+  expect(() =>
+    parseBackup(JSON.stringify({ ...file, data: { ...file.data, appearance: 'unknown' } })),
+  ).toThrow();
 });
 
 it('試験・教材の追加下書きを保持し、壊れた追加下書きを拒否する', () => {

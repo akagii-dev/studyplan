@@ -102,9 +102,24 @@ export default function App() {
     unconfirmed,
     setError,
   );
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.documentElement.dataset.theme = state?.theme ?? 'mint';
-  }, [state?.theme]);
+    const preference = state?.appearance ?? 'light';
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => {
+      document.documentElement.dataset.appearance =
+        preference === 'system' ? (media.matches ? 'dark' : 'light') : preference;
+      document
+        .querySelector('meta[name="theme-color"]')
+        ?.setAttribute(
+          'content',
+          getComputedStyle(document.documentElement).getPropertyValue('--page').trim(),
+        );
+    };
+    apply();
+    media.addEventListener('change', apply);
+    return () => media.removeEventListener('change', apply);
+  }, [state?.theme, state?.appearance]);
   useLayoutEffect(() => {
     if (!ready) return;
     // Only navigation/loading moves focus; background saves must not interrupt typing.
@@ -330,9 +345,7 @@ export default function App() {
             <div>
               <Leaf size={24} />
             </div>
-            <span>
-              StudyPlan
-            </span>
+            <span>StudyPlan</span>
           </a>
           <nav>
             {navigation.map((n) => (
@@ -349,6 +362,23 @@ export default function App() {
             ))}
           </nav>
           <div className="sidebar-bottom">
+            <label className="theme-picker">
+              表示モード
+              <select
+                aria-label="表示モード"
+                value={state.appearance ?? 'light'}
+                onChange={(e) =>
+                  void update((s) => ({
+                    ...s,
+                    appearance: e.target.value as AppState['appearance'],
+                  }))
+                }
+              >
+                <option value="light">ライト</option>
+                <option value="dark">ダーク</option>
+                <option value="system">システム</option>
+              </select>
+            </label>
             <label className="theme-picker">
               カラーテーマ
               <select

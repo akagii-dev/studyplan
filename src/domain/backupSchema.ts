@@ -219,6 +219,7 @@ const state = z.looseObject({
     })
     .nullable(),
   theme: z.enum(['mint', 'sky', 'lime']).optional(),
+  appearance: z.enum(['light', 'dark', 'system']).optional(),
   settingsUpdatedAt: text.optional(),
 });
 export const backupSchema = z.object({

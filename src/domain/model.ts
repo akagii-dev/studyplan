@@ -136,6 +136,7 @@ export interface AppState {
   resetBackup?: AppState;
   settingsUpdatedAt?: string;
   theme?: 'mint' | 'sky' | 'lime';
+  appearance?: 'light' | 'dark' | 'system';
   settings: Settings;
   draft: Record<string, unknown>;
   step: number;

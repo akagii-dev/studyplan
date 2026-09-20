@@ -4754,6 +4754,14 @@
             "lime"
           ]
         },
+        "appearance": {
+          "type": "string",
+          "enum": [
+            "light",
+            "dark",
+            "system"
+          ]
+        },
         "settingsUpdatedAt": {
           "type": "string",
           "maxLength": 10000
@@ -9491,6 +9499,14 @@
                 "mint",
                 "sky",
                 "lime"
+              ]
+            },
+            "appearance": {
+              "type": "string",
+              "enum": [
+                "light",
+                "dark",
+                "system"
               ]
             },
             "settingsUpdatedAt": {

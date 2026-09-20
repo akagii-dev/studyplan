@@ -169,7 +169,10 @@ test('実機：3テーマの読みやすさ・入力ラベル・小さい画面�
   await seedState(seed, 'a11y-seed');
   const reports: { theme: string; screen: string; violations: unknown[]; incomplete: unknown[] }[] =
     [];
-  for (const theme of ['mint', 'sky', 'lime']) {
+  for (const { theme, appearance } of ['mint', 'sky', 'lime'].flatMap((theme) =>
+    ['light', 'dark'].map((appearance) => ({ theme, appearance })),
+  )) {
+    await page.getByLabel('表示モード').selectOption(appearance);
     await page.getByLabel('カラーテーマ').selectOption(theme);
     await saved();
     for (const screen of [
@@ -196,7 +199,7 @@ test('実機：3テーマの読みやすさ・入力ラベル・小さい画面�
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
         .analyze();
       reports.push({
-        theme,
+        theme: `${theme}-${appearance}`,
         screen,
         violations: result.violations.map((v) => ({
           id: v.id,
@@ -210,18 +213,27 @@ test('実機：3テーマの読みやすさ・入力ラベル・小さい画面�
       if (screen === 'ホーム' || screen === '進捗を記録' || screen === '学習カレンダー') {
         const view =
           screen === 'ホーム' ? 'home' : screen === '進捗を記録' ? 'progress' : 'calendar';
-        await page.screenshot({ path: `test-results/contrast-${theme}-${view}.png` });
+        await page.screenshot({ path: `test-results/contrast-${theme}-${appearance}-${view}.png` });
       }
     }
     await nav('再計画の確認');
     const planTable = page.getByRole('region', { name: '一日の予定問題数の表' });
-    await page.getByText('一日の予定問題数（全試験で共有）', { exact: true }).focus();
-    await page.keyboard.press('Tab');
-    await expect(planTable).toBeFocused();
-    await page.keyboard.press('ArrowDown');
-    await expect.poll(() => planTable.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-    await expect(planTable).toBeFocused();
-    await page.keyboard.press('End');
+    if (theme === 'mint' && appearance === 'light') {
+      await page.getByText('一日の予定問題数（全試験で共有）', { exact: true }).focus();
+      await page.keyboard.press('Tab');
+      await expect(planTable).toBeFocused();
+      await page.keyboard.press('ArrowDown');
+      await expect
+        .poll(() => planTable.evaluate((element) => element.scrollTop))
+        .toBeGreaterThan(0);
+      await expect(planTable).toBeFocused();
+      await page.keyboard.press('End');
+    } else {
+      // Keyboard behavior is checked once; inspect the same final rows in every palette.
+      await planTable.evaluate((element) =>
+        element.scrollTo({ top: element.scrollHeight, behavior: 'instant' }),
+      );
+    }
     await expect
       .poll(() =>
         planTable.evaluate(
@@ -235,12 +247,15 @@ test('実機：3テーマの読みやすさ・入力ラベル・小さい画面�
       .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
       .analyze();
     reports.push({
-      theme,
+      theme: `${theme}-${appearance}`,
       screen: '一日の予定問題数の表・末尾',
       violations: bottom.violations,
       incomplete: bottom.incomplete,
     });
-    await page.screenshot({ path: `test-results/readability-${theme}.png`, fullPage: true });
+    await page.screenshot({
+      path: `test-results/readability-${theme}-${appearance}.png`,
+      fullPage: true,
+    });
   }
   await nav('試験・目標');
   await page.getByRole('button', { name: '情報処理安全確保支援士試験を編集', exact: true }).click();
@@ -257,6 +272,32 @@ test('実機：3テーマの読みやすさ・入力ラベル・小さい画面�
     'aria-pressed',
     'true',
   );
+  await expect(page.locator('.swatch')).toHaveCount(16);
+  await page.getByRole('button', { name: '表示色 #329ca2', exact: true }).click();
+  await page.getByRole('button', { name: '試験を更新する', exact: true }).click();
+  await saved();
+  expect((await storedState()).settings.exams[0].color).toBe('#329ca2');
+  await nav('学習カレンダー');
+  await expect(page.locator('.calendar-event').first()).toHaveCSS(
+    'border-left-color',
+    'rgb(50, 156, 162)',
+  );
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.getByLabel('表示モード').selectOption('system');
+  await saved();
+  await expect(page.locator('html')).toHaveAttribute('data-appearance', 'dark');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect(page.locator('html')).toHaveAttribute('data-appearance', 'light');
+  await page.getByLabel('表示モード').selectOption('dark');
+  await saved();
+  await expect(page.locator('html')).toHaveAttribute('data-appearance', 'dark');
+  await page.getByLabel('表示モード').selectOption('light');
+  await saved();
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(page.locator('html')).toHaveAttribute('data-appearance', 'light');
+  await page.getByLabel('表示モード').selectOption('system');
+  await saved();
+  await expect(page.locator('html')).toHaveAttribute('data-appearance', 'dark');
   await page.setViewportSize({ width: 900, height: 640 });
   for (const screen of [
     '対話式の初期設定',
@@ -279,6 +320,14 @@ test('実機：3テーマの読みやすさ・入力ラベル・小さい画面�
       .map((r) => ({ theme: r.theme, screen: r.screen, violations: r.violations })),
     '詳細は accessibility.json',
   ).toEqual([]);
+  await close();
+  await launch();
+  await expect(page.getByLabel('表示モード')).toHaveValue('system');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(page.locator('html')).toHaveAttribute('data-appearance', 'dark');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect(page.locator('html')).toHaveAttribute('data-appearance', 'light');
+  expect((await storedState()).settings.exams[0].color).toBe('#329ca2');
 });
 async function seedState(data: AppState, requestId: string) {
   await page.evaluate(
@@ -310,6 +359,142 @@ async function calendarSavePath(path: string | null) {
     };
   }, path);
 }
+test('実機：進捗円グラフの全体・周回・記録・訂正・取消・空表示', async () => {
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/progress-chart-'));
+  await launch();
+  await nav('進捗を記録');
+  const chart = page.getByRole('region', { name: '現在の進捗', exact: true });
+  await expect(chart).toContainText('教材を登録すると進捗を表示します。');
+  await expect(chart.getByRole('img')).toHaveCount(0);
+  const seed = initialState();
+  const date = today();
+  seed.settings.exams = [
+    {
+      id: 'e',
+      name: '試験',
+      start: date,
+      target: addDays(date, 30),
+      priority: 1,
+      color: '#216957',
+      reviewDays: 0,
+    },
+  ];
+  seed.settings.materials = [
+    {
+      id: 'm',
+      examId: 'e',
+      name: '短答',
+      total: 20,
+      order: 1,
+      rounds: [
+        { completed: 3, minutes: 3 },
+        { completed: 0, minutes: 3 },
+      ],
+    },
+    {
+      id: 'essay',
+      examId: 'e',
+      name: '論文',
+      total: 10,
+      order: 2,
+      rounds: [{ completed: 2, minutes: 30 }],
+    },
+  ];
+  seed.records = [
+    {
+      id: 'cancelled',
+      materialId: 'm',
+      round: 0,
+      date,
+      count: 7,
+      cancelled: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ];
+  seed.draft.progress = { date, materialId: 'm', round: 0, choice: '', custom: '' };
+  await seedState(seed, 'progress-chart');
+  await nav('進捗を記録');
+  await expect(chart.getByRole('img')).toHaveAccessibleName(
+    '全教材・全周回：完了5問、残り45問、進捗率10%',
+  );
+  await chart.getByRole('button', { name: '選択中の周回' }).click();
+  await expect(chart.getByRole('img')).toHaveAccessibleName(
+    '短答 · 1周目：完了3問、残り17問、進捗率15%',
+  );
+  await page.getByLabel('周回', { exact: true }).selectOption('1');
+  await expect(chart.getByRole('img')).toHaveAccessibleName(
+    '短答 · 2周目：完了0問、残り20問、進捗率0%',
+  );
+  await page.getByLabel('教材', { exact: true }).selectOption('essay');
+  await expect(chart.getByRole('img')).toHaveAccessibleName(
+    '論文 · 1周目：完了2問、残り8問、進捗率20%',
+  );
+  await page.getByRole('button', { name: 'その他', exact: true }).click();
+  await page.getByLabel('追加問題数（1問単位）').fill('3');
+  await page.getByLabel('追加問題数（1問単位）').press('Enter');
+  await saved();
+  await expect(chart.getByRole('img')).toHaveAccessibleName(
+    '論文 · 1周目：完了5問、残り5問、進捗率50%',
+  );
+  await chart.getByRole('button', { name: '全体', exact: true }).click();
+  await expect(chart.getByRole('img')).toHaveAccessibleName(
+    '全教材・全周回：完了8問、残り42問、進捗率16%',
+  );
+  await nav('記録履歴');
+  await page.getByRole('button', { name: '訂正', exact: true }).click();
+  await page.getByLabel('訂正後の問題数').fill('7');
+  await page.getByRole('button', { name: '訂正を保存' }).click();
+  await saved();
+  await nav('進捗を記録');
+  await expect(chart.getByRole('img')).toHaveAccessibleName(
+    '全教材・全周回：完了12問、残り38問、進捗率24%',
+  );
+  await nav('記録履歴');
+  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await page.getByRole('button', { name: '取消を確定' }).click();
+  await saved();
+  await nav('進捗を記録');
+  await expect(chart.getByRole('img')).toHaveAccessibleName(
+    '全教材・全周回：完了5問、残り45問、進捗率10%',
+  );
+  for (const theme of ['mint', 'sky', 'lime']) {
+    await page.getByLabel('カラーテーマ').selectOption(theme);
+    await saved();
+    expect(
+      (await new AxeBuilder({ page }).include('.progress-chart-card').analyze()).violations,
+    ).toEqual([]);
+    await page.screenshot({ path: `test-results/progress-chart-${theme}.png`, fullPage: true });
+  }
+  await chart.getByRole('button', { name: '選択中の周回' }).click();
+  await page.getByRole('button', { name: '残りすべて：8問' }).click();
+  await page.getByRole('button', { name: '記録する', exact: true }).click();
+  await saved();
+  await expect(chart.getByRole('img')).toHaveAccessibleName(
+    '論文 · 1周目：完了10問、残り0問、進捗率100%',
+  );
+  await page.getByRole('button', { name: /^0\s*問$/ }).click();
+  await page.getByRole('button', { name: '記録する', exact: true }).click();
+  await saved();
+  await expect(chart.getByRole('img')).toHaveAccessibleName(
+    '論文 · 1周目：完了10問、残り0問、進捗率100%',
+  );
+  await page.setViewportSize({ width: 900, height: 900 });
+  await expect(chart).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await chart.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'test-results/progress-chart-900.png', fullPage: true });
+  await close();
+  await launch();
+  await nav('進捗を記録');
+  await expect(
+    page.getByRole('region', { name: '現在の進捗', exact: true }).getByRole('img'),
+  ).toHaveAccessibleName('全教材・全周回：完了13問、残り37問、進捗率26%');
+});
+
 test('実機：週間レポートの全体比較・Markdown保存・取消・保存失敗', async () => {
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/weekly-report-'));
@@ -989,7 +1174,8 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   await next();
   await next();
   await next();
-  await page.getByRole('button', { name: '表示色 #6870b5' }).click();
+  await expect(page.getByRole('button', { name: /^表示色 #/ })).toHaveCount(16);
+  await page.getByRole('button', { name: '表示色 #8f6ab9' }).click();
   await next();
   await page.getByRole('button', { name: '今回は設定しない' }).click();
   await page.getByRole('button', { name: '保存して、勉強できる時間へ' }).click();
@@ -1265,6 +1451,7 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   await expect(page.getByText('保存済みの計画と現在の設定が一致していません。')).toBeVisible();
   const beforeTheme = await storedState();
   const accents = new Set<string>();
+  const chartColors = new Set<string>();
   for (const theme of ['mint', 'sky', 'lime']) {
     await page.getByLabel('カラーテーマ').selectOption(theme);
     await saved();
@@ -1280,15 +1467,17 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
     accents.add(palette.accent);
     await page.screenshot({ path: `test-results/theme-${theme}.png`, fullPage: true });
     await nav('進捗を記録');
-    expect(
+    await expect(page.locator('.progress-donut')).toBeVisible();
+    chartColors.add(
       await page
-        .locator('svg[aria-label="本と学びの積み重ねのイラスト"] circle')
-        .getAttribute('fill'),
-    ).toBe('var(--soft)');
+        .locator('.progress-donut-value')
+        .evaluate((circle) => getComputedStyle(circle).stroke),
+    );
     await page.screenshot({ path: `test-results/progress-${theme}.png`, fullPage: true });
     await nav('ホーム');
   }
   expect(accents.size).toBe(3);
+  expect(chartColors.size).toBe(3);
   expect((await storedState()).settingsUpdatedAt).toBe(beforeTheme.settingsUpdatedAt);
   await close();
   browser = undefined!;
@@ -1847,6 +2036,7 @@ test('実機：バックアップ保存・破損拒否・内容確認・復元�
   seed.draft.numberEdits = { 'setup/test': { base: '50', text: '' } };
   seed.resetBackup = initialState();
   seed.theme = 'sky';
+  seed.appearance = 'dark';
   await page.evaluate(async (data) => {
     await (
       window as unknown as {
@@ -1887,6 +2077,7 @@ test('実機：バックアップ保存・破損拒否・内容確認・復元�
   const packet = JSON.parse(readFileSync(path, 'utf8'));
   expect(packet.data).toEqual(seed);
   await page.getByLabel('カラーテーマ').selectOption('lime');
+  await page.getByLabel('表示モード').selectOption('light');
   await saved();
   const beforeRestore = await storedState();
   await page

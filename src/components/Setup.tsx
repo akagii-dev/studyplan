@@ -18,7 +18,8 @@ import { Empty, Field, Props, useDraft, weekdays } from './common';
 import { ClassNames } from './ClassNames';
 import { TimetablePreview } from './TimetablePreview';
 import { sessionPolicy } from '../domain/sessionPolicy';
-const colors = ['#287569', '#6870b5', '#c78341', '#b66b7f', '#4c89ac'];
+import { examColors } from '../domain/appearance';
+const colors = examColors.map((color) => color.value);
 export function Exams({
   state,
   update,
@@ -110,6 +111,7 @@ export function Exams({
                 <button
                   key={c}
                   aria-label={`表示色 ${c}`}
+                  title={examColors.find((color) => color.value === c)?.name}
                   aria-pressed={form.color === c}
                   className={`swatch ${form.color === c ? 'selected' : ''}`}
                   style={{ background: c }}

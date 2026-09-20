@@ -21,6 +21,7 @@ export function resetSetup(state: AppState, all = false): AppState {
   return {
     ...initialState(),
     theme: state.theme,
+    appearance: state.appearance,
     settingsUpdatedAt: new Date().toISOString(),
     resetBackup: backup,
   };

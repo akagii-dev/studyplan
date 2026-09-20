@@ -17,6 +17,7 @@ export function Progress({ state, update }: Props) {
   const [form, set] = useDraft(state, update, 'progress', initial);
   const [message, msg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [chartScope, setChartScope] = useState<'all' | 'round'>('all');
   const sending = useRef(false);
   const request = useRef(uid());
   const numberEdits = (state.draft.numberEdits ?? {}) as Record<
@@ -45,6 +46,27 @@ export function Progress({ state, update }: Props) {
   };
   const material = state.settings.materials.find((m) => m.id === form.materialId);
   const rest = material ? remaining(state, material.id, form.round) : 0;
+  const chartMaterials =
+    chartScope === 'all' ? state.settings.materials : material ? [material] : [];
+  const chartProgress = chartMaterials.reduce(
+    (sum, m) => {
+      m.rounds.forEach((_, round) => {
+        if (chartScope === 'round' && round !== form.round) return;
+        sum.total += m.total;
+        sum.done += completed(state, m.id, round);
+      });
+      return sum;
+    },
+    { total: 0, done: 0 },
+  );
+  const chartLabel =
+    chartScope === 'all'
+      ? '全教材・全周回'
+      : material
+        ? `${material.name} · ${form.round + 1}周目`
+        : '教材を選択してください';
+  const chartPercent = chartProgress.total ? (chartProgress.done / chartProgress.total) * 100 : 0;
+  const displayPercent = chartPercent.toLocaleString('ja-JP', { maximumFractionDigits: 1 });
   const customCount = (() => {
     try {
       return parseNumberInput(customText, 0, rest, 1);
@@ -248,51 +270,89 @@ export function Progress({ state, update }: Props) {
           </div>
         )}
       </section>
-      <section className="card quiet-card">
-        <div className="eyebrow">SMALL STEPS, REAL PROGRESS</div>
-        <h2>
-          積み重ねを、
-          <br />
-          見えるかたちに。
-        </h2>
-        <p>
-          3問でも、7問でも。
-          <br />
-          進めた分をそのまま残せます。
-        </p>
-        <div className="illustration">
-          <BookDrawing />
+      <section className="card progress-chart-card" aria-labelledby="progress-chart-heading">
+        <h2 id="progress-chart-heading">現在の進捗</h2>
+        <div className="actions" role="group" aria-label="進捗グラフの対象">
+          <button
+            aria-pressed={chartScope === 'all'}
+            className={chartScope === 'all' ? 'selected' : ''}
+            onClick={() => setChartScope('all')}
+          >
+            全体
+          </button>
+          <button
+            aria-pressed={chartScope === 'round'}
+            className={chartScope === 'round' ? 'selected' : ''}
+            onClick={() => setChartScope('round')}
+            disabled={!material}
+          >
+            選択中の周回
+          </button>
         </div>
-        <p className="hint">記録はあとから訂正・取消できます。</p>
+        <p className="progress-chart-scope">{chartLabel}</p>
+        {chartProgress.total > 0 ? (
+          <>
+            <svg
+              className="progress-donut"
+              viewBox="0 0 220 220"
+              role="img"
+              aria-label={`${chartLabel}：完了${chartProgress.done}問、残り${chartProgress.total - chartProgress.done}問、進捗率${displayPercent}%`}
+            >
+              <circle
+                className="progress-donut-track"
+                cx="110"
+                cy="110"
+                r="88"
+                fill="none"
+                strokeWidth="22"
+              />
+              <circle
+                className="progress-donut-value"
+                cx="110"
+                cy="110"
+                r="88"
+                fill="none"
+                strokeWidth="22"
+                pathLength="100"
+                strokeDasharray={`${chartPercent} 100`}
+                transform="rotate(-90 110 110)"
+              />
+              <text x="110" y="108" textAnchor="middle" className="progress-donut-percent">
+                {displayPercent}%
+              </text>
+              <text x="110" y="135" textAnchor="middle" className="progress-donut-caption">
+                完了
+              </text>
+            </svg>
+            <dl className="progress-chart-counts" aria-live="polite">
+              <div>
+                <dt>
+                  <span className="progress-dot done" />
+                  完了
+                </dt>
+                <dd>
+                  {chartProgress.done.toLocaleString('ja-JP')}
+                  <small>問</small>
+                </dd>
+              </div>
+              <div>
+                <dt>
+                  <span className="progress-dot" />
+                  残り
+                </dt>
+                <dd>
+                  {(chartProgress.total - chartProgress.done).toLocaleString('ja-JP')}
+                  <small>問</small>
+                </dd>
+              </div>
+            </dl>
+            <p className="hint">全{chartProgress.total.toLocaleString('ja-JP')}問 · 問題数ベース</p>
+          </>
+        ) : (
+          <Empty>教材を登録すると進捗を表示します。</Empty>
+        )}
       </section>
     </div>
-  );
-}
-function BookDrawing() {
-  return (
-    <svg viewBox="0 0 250 180" role="img" aria-label="本と学びの積み重ねのイラスト">
-      <circle cx="125" cy="87" r="72" fill="var(--soft)" />
-      <rect x="54" y="115" width="153" height="22" rx="5" fill="var(--art)" />
-      <rect x="48" y="88" width="147" height="22" rx="5" fill="#dfc4a0" />
-      <path
-        d="M60 46 Q94 32 126 50 Q157 33 187 46 V97 Q154 85 126 105 Q96 86 60 97Z"
-        fill="var(--surface)"
-        stroke="var(--accent)"
-        strokeWidth="3"
-      />
-      <path
-        d="M126 50 V104 M74 57 L111 65 M74 69 L109 77 M142 64 L175 56 M142 77 L175 69"
-        stroke="var(--ring)"
-        strokeWidth="3"
-      />
-      <path
-        d="M200 42 l6 8 15-20"
-        fill="none"
-        stroke="var(--accent)"
-        strokeWidth="4"
-        strokeLinecap="round"
-      />
-    </svg>
   );
 }
 export function History({ state, update }: Props) {

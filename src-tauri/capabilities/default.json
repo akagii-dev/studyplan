@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "ローカルのアプリウィンドウ",
+  "windows": ["main"],
+  "permissions": ["core:default", "core:window:allow-close", "core:window:allow-destroy", "dialog:allow-save"]
+}

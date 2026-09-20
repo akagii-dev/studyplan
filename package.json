@@ -1,0 +1,37 @@
+{
+  "name": "studyplan",
+  "version": "0.2.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -b && vite build",
+    "test": "vitest run",
+    "test:ui": "playwright test",
+    "tauri": "tauri",
+    "desktop": "tauri dev",
+    "desktop:build": "tauri build --no-bundle"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-dialog": "^2.7.3",
+    "lucide-react": "^0.468.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.55.0",
+    "@tauri-apps/cli": "^2.8.0",
+    "@types/node": "^22.18.0",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^4.7.0",
+    "ical.js": "^2.2.1",
+    "prettier": "^3.9.8",
+    "typescript": "~5.9.2",
+    "vite": "^6.1.0",
+    "vitest": "^3.2.4"
+  }
+}

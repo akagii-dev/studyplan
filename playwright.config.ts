@@ -1,0 +1,15 @@
+import { defineConfig } from '@playwright/test';
+export default defineConfig({
+  testDir: 'tests',
+  testMatch: '**/*.e2e.ts',
+  workers: 1,
+  timeout: 120000,
+  reporter: 'list',
+  use: { trace: 'retain-on-failure' },
+  webServer: {
+    command: 'pnpm dev',
+    url: 'http://127.0.0.1:1420',
+    reuseExistingServer: true,
+    timeout: 30000,
+  },
+});

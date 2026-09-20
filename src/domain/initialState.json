@@ -1,0 +1,18 @@
+{
+  "settings": {
+    "exams": [],
+    "materials": [],
+    "windows": [],
+    "exceptions": [],
+    "block": 50,
+    "rest": 10,
+    "buffer": 0.2,
+    "periods": [540, 650, 790, 900, 1010]
+  },
+  "draft": {},
+  "step": 0,
+  "records": [],
+  "plan": null,
+  "history": [],
+  "proposal": null
+}

@@ -34,13 +34,6 @@ export function DailyTime({ settings, date }: { settings: Settings; date: string
           <time dateTime={date}>{date}</time> · 現在の設定
         </p>
       </header>
-      <dl className="daily-time-metric">
-        <div>
-          <dt>学習可能</dt>
-          <dd>{duration(day.capacity.focus)}</dd>
-        </div>
-      </dl>
-      <p className="daily-time-support">休憩を含む空き枠 {duration(day.capacity.free)}</p>
       {settings.commute?.enabled &&
         settings.commute.mode === 'classDays' &&
         !settings.commute.departureTimesConfirmed && (
@@ -58,38 +51,58 @@ export function DailyTime({ settings, date }: { settings: Settings; date: string
           重なっています。通学の出発時刻または食事時間を修正してください。
         </p>
       )}
-      {/* The adjacent text and native detail tables provide all values without duplicate narration. */}
-      <div className="daily-time-visual" aria-hidden="true">
-        <div className="day-time-bar">
-          {day.segments.map((s) => (
-            <span
-              key={s.start}
-              className={`time-${s.kind}`}
-              style={{ width: `${((s.end - s.start) / 1440) * 100}%` }}
-            />
-          ))}
-        </div>
-        <div className="daily-time-scale">
-          <span>00:00</span>
-          <span>24:00</span>
-        </div>
-      </div>
-      <dl className="time-legend">
-        {(Object.keys(labels) as TimeKind[])
-          .filter((kind) => kind !== 'mealCommute' || day.totals.mealCommute > 0)
-          .map((kind) => (
-            <div key={kind} data-kind={kind}>
-              <dt>
-                <span className={`time-swatch time-${kind}`} aria-hidden="true" />
-                {labels[kind]}
-                {day.totals.mealCommute > 0 && (kind === 'meal' || kind === 'commute')
-                  ? '（重複分を除く）'
-                  : ''}
-              </dt>
-              <dd>{duration(day.totals[kind])}</dd>
+      <div className="daily-time-summary">
+        <div className="daily-time-primary">
+          <dl className="daily-time-metric">
+            <div>
+              <dt>学習可能</dt>
+              <dd>{duration(day.capacity.focus)}</dd>
             </div>
-          ))}
-      </dl>
+          </dl>
+          <p className="daily-time-support">休憩を含む空き枠 {duration(day.capacity.free)}</p>
+        </div>
+        {/* The adjacent text and detail table provide the full alternative to this chart. */}
+        <div className="daily-time-visual" aria-hidden="true">
+          <svg className="daily-time-donut" viewBox="0 0 200 200" focusable="false">
+            {(Object.keys(labels) as TimeKind[]).map((kind, index, kinds) => {
+              const value = day.totals[kind];
+              if (!value) return null;
+              const offset = kinds.slice(0, index).reduce((sum, k) => sum + day.totals[k], 0);
+              return (
+                <circle
+                  key={kind}
+                  className={`time-${kind}`}
+                  data-kind={kind}
+                  cx="100"
+                  cy="100"
+                  r="74"
+                  pathLength="1440"
+                  strokeDasharray={`${value} ${1440 - value}`}
+                  strokeDashoffset={-offset}
+                  transform="rotate(-90 100 100)"
+                />
+              );
+            })}
+          </svg>
+          <span className="daily-time-total">24時間</span>
+        </div>
+        <dl className="time-legend">
+          {(Object.keys(labels) as TimeKind[])
+            .filter((kind) => kind !== 'mealCommute' || day.totals.mealCommute > 0)
+            .map((kind) => (
+              <div key={kind} data-kind={kind}>
+                <dt>
+                  <span className={`time-swatch time-${kind}`} aria-hidden="true" />
+                  {labels[kind]}
+                  {day.totals.mealCommute > 0 && (kind === 'meal' || kind === 'commute')
+                    ? '（重複分を除く）'
+                    : ''}
+                </dt>
+                <dd>{duration(day.totals[kind])}</dd>
+              </div>
+            ))}
+        </dl>
+      </div>
       <details className="daily-time-details">
         <summary>時刻・通学の内訳を見る</summary>
         {day.commutes.length > 0 && (

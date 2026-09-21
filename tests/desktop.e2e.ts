@@ -141,16 +141,24 @@ test('実機：可処分時間の情報階層・全テーマ・キーボード�
   await expect(card.locator('.daily-commute')).not.toBeVisible();
   await expect(card.locator('.daily-time-visual')).toHaveAttribute('aria-hidden', 'true');
   expect(await card.getByRole('img').count()).toBe(0);
-  // All bar intervals retain exact proportions, including short rests.
-  const widths = await card
-    .locator('.day-time-bar > span')
-    .evaluateAll((els) => els.map((e) => parseFloat((e as HTMLElement).style.width)));
-  widths.forEach((width, i) =>
-    expect(width).toBeCloseTo(
-      ((expected.segments[i].end - expected.segments[i].start) / 1440) * 100,
-      4,
-    ),
+  // Category arcs cover exactly one day; no minimum slice size or duplicated overlaps.
+  const slices = await card.locator('.daily-time-donut circle').evaluateAll((els) =>
+    els.map((e) => ({
+      kind: e.getAttribute('data-kind')!,
+      amount: Number(e.getAttribute('stroke-dasharray')!.split(' ')[0]),
+      offset: Number(e.getAttribute('stroke-dashoffset')),
+      length: e.getAttribute('pathLength'),
+    })),
   );
+  let total = 0;
+  for (const slice of slices) {
+    expect(slice.length).toBe('1440');
+    expect(slice.amount).toBe(expected.totals[slice.kind as keyof typeof expected.totals]);
+    expect(slice.offset).toBeCloseTo(-total, 8);
+    total += slice.amount;
+  }
+  expect(total).toBe(1440);
+  await expect(card.locator('.day-time-bar')).toHaveCount(0);
   const reports: unknown[] = [];
   for (const theme of ['mint', 'sky', 'lime']) {
     for (const mode of ['light', 'dark', 'system-light', 'system-dark']) {

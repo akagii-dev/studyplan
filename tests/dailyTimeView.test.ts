@@ -14,6 +14,9 @@ it('未設定の日も0分を示し、詳細は閉じておき、入力状態を
   expect(html).toContain('<details class="daily-time-details">');
   expect(html).not.toContain(' open=');
   expect(html).not.toContain('role="img"');
+  expect(html.match(/<circle /g)).toHaveLength(1);
+  expect(html).toContain('stroke-dasharray="1440 0"');
+  expect(html).toContain('data-kind="outside"');
   expect(html).not.toContain('title=');
   expect(settings).toEqual(before);
 });

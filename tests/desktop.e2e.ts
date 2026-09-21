@@ -85,6 +85,66 @@ async function storedState(): Promise<AppState> {
       ).data,
   );
 }
+async function nativeWindowSize() {
+  return page.evaluate(async () => {
+    const invoke = (
+      window as unknown as {
+        __TAURI_INTERNALS__: { invoke: (name: string, args?: unknown) => Promise<unknown> };
+      }
+    ).__TAURI_INTERNALS__.invoke;
+    const [size, scale] = await Promise.all([
+      invoke('plugin:window|inner_size', { label: 'main' }) as Promise<{
+        width: number;
+        height: number;
+      }>,
+      invoke('plugin:window|scale_factor', { label: 'main' }) as Promise<number>,
+    ]);
+    return {
+      width: Math.round(size.width / scale),
+      height: Math.round(size.height / scale),
+    };
+  });
+}
+async function resizeNativeWindow(width: number, height: number) {
+  await page.evaluate(
+    async ({ width, height }) => {
+      await (
+        window as unknown as {
+          __TAURI_INTERNALS__: { invoke: (name: string, args?: unknown) => Promise<unknown> };
+        }
+      ).__TAURI_INTERNALS__.invoke('plugin:window|set_size', {
+        label: 'main',
+        value: { Logical: { width, height } },
+      });
+    },
+    { width, height },
+  );
+}
+async function closeWindowNormally() {
+  const exited = new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new Error('通常終了を待機中にタイムアウトしました。')),
+      10000,
+    );
+    child.once('exit', () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+  });
+  await page
+    .evaluate(async () => {
+      await (
+        window as unknown as {
+          __TAURI_INTERNALS__: { invoke: (name: string, args?: unknown) => Promise<unknown> };
+        }
+      ).__TAURI_INTERNALS__.invoke('plugin:window|close', { label: 'main' });
+    })
+    .catch(() => {});
+  await exited;
+  await browser.close().catch(() => {});
+  browser = undefined!;
+  child = undefined!;
+}
 async function nav(name: string) {
   await page.locator('.sidebar nav').getByRole('button', { name, exact: true }).click();
 }
@@ -120,6 +180,13 @@ test('実機：今日の未設定区間に名前を付け、保存・取消・�
   expect((await editButton.boundingBox())!.x).toBeLessThan(
     (await row.locator('.time-category').boundingBox())!.x,
   );
+  const availableText = card.locator('tr[data-kind=available]').first().locator('.time-category');
+  expect(
+    Math.abs(
+      (await row.locator('.time-category').boundingBox())!.x -
+        (await availableText.boundingBox())!.x,
+    ),
+  ).toBeLessThan(1);
   await editButton.focus();
   await page.keyboard.press('Tab');
   await page.keyboard.press('Shift+Tab');
@@ -170,7 +237,30 @@ test('実機：今日の未設定区間に名前を付け、保存・取消・�
   await row.getByRole('textbox').fill('朝の支度');
   await row.getByRole('textbox').press('Enter');
   await saved();
+  const renamedTextX = (await row.locator('.time-category').boundingBox())!.x;
+  expect(
+    Math.abs((await row.locator('.daily-time-note').boundingBox())!.x - renamedTextX),
+  ).toBeLessThan(1);
+  const commuteRow = card.locator('tr[data-kind=commute]').first();
+  expect(
+    Math.abs(
+      (await commuteRow.locator('.daily-time-note').boundingBox())!.x -
+        (await commuteRow.locator('.time-category').boundingBox())!.x,
+    ),
+  ).toBeLessThan(1);
   await card.screenshot({ path: 'test-results/outside-label.png' });
+});
+
+test('実機：変更したウィンドウサイズを通常終了後の再起動で復元する', async () => {
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/window-size-'));
+  await launch();
+  await resizeNativeWindow(910, 680);
+  await closeWindowNormally();
+  await launch();
+  await expect.poll(nativeWindowSize, { timeout: 10000 }).toEqual({ width: 910, height: 680 });
+  expect((await storedState()).windowSize).toEqual({ width: 910, height: 680 });
+  await page.screenshot({ path: 'test-results/window-size-restored.png', fullPage: true });
 });
 
 test('実機：解消した計画入力エラーだけを再検証し、全解消時に自動で閉じる', async () => {
@@ -1227,11 +1317,24 @@ test('実機：3テーマの読みやすさ・入力ラベル・小さい画面�
 async function seedState(data: AppState, requestId: string) {
   await page.evaluate(
     async ({ data, requestId }) => {
-      await (
+      const invoke = (
         window as unknown as {
-          __TAURI_INTERNALS__: { invoke: (name: string, args: unknown) => Promise<unknown> };
+          __TAURI_INTERNALS__: { invoke: (name: string, args?: unknown) => Promise<unknown> };
         }
-      ).__TAURI_INTERNALS__.invoke('commit_state', { expected: 0, requestId, data });
+      ).__TAURI_INTERNALS__.invoke;
+      let error: unknown;
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const stored = (await invoke('load_state')) as { revision: number } | null;
+        try {
+          await invoke('commit_state', { expected: stored?.revision ?? 0, requestId, data });
+          return;
+        } catch (caught) {
+          error = caught;
+          if (!String(caught).includes('別の操作でデータが更新されました')) throw caught;
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+      throw error;
     },
     { data, requestId },
   );
@@ -2374,14 +2477,7 @@ test('実機：重複の表示 → 既存設定を対話で修正 → 破棄・�
       end: start + 100,
     }),
   );
-  await page.evaluate(async (data) => {
-    await (
-      window as unknown as {
-        __TAURI_INTERNALS__: { invoke: (name: string, args: unknown) => Promise<unknown> };
-      }
-    ).__TAURI_INTERNALS__.invoke('commit_state', { expected: 0, requestId: 'revision-seed', data });
-  }, seed);
-  await page.reload();
+  await seedState(seed, 'revision-seed');
   await nav('学習カレンダー');
   await expect(page.getByText('授業・予定と重なる学習予定が3件あります')).toBeVisible();
   await page.getByRole('button', { name: `${date}を表示` }).click();
@@ -2910,14 +3006,7 @@ test('実機：授業名・初期設定の再編集・今日の予定・初期�
   ];
   seed.plan = generatePlan(seed, date);
   seed.plan.sessions[0].fixed = true;
-  await page.evaluate(async (data) => {
-    await (
-      window as unknown as {
-        __TAURI_INTERNALS__: { invoke: (name: string, args: unknown) => Promise<unknown> };
-      }
-    ).__TAURI_INTERNALS__.invoke('commit_state', { expected: 0, requestId: 'edit-seed', data });
-  }, seed);
-  await page.reload();
+  await seedState(seed, 'edit-seed');
   await nav('対話式の初期設定');
   await page.getByRole('button', { name: '設定項目を選んで修正する' }).click();
   await expect(page.getByRole('region', { name: '初期設定の項目選択' })).toContainText(
@@ -3102,22 +3191,15 @@ test('実機：選択日と週内訳・月移動・授業だけの日・予定�
       kind: 'study',
     },
   ];
-  await page.evaluate(async (data) => {
-    data.draft.progress = {
-      date: data.settings.exams[0].start,
-      materialId: 'a',
-      round: 0,
-      choice: 'other',
-      custom: '',
-    };
-    data.draft.numberEdits = { 'progress///追加問題数（1問単位）': { text: '7', base: '' } };
-    await (
-      window as unknown as {
-        __TAURI_INTERNALS__: { invoke: (cmd: string, args: unknown) => Promise<unknown> };
-      }
-    ).__TAURI_INTERNALS__.invoke('commit_state', { data, expected: 0, requestId: 'calendar-seed' });
-  }, seed);
-  await page.reload();
+  seed.draft.progress = {
+    date: seed.settings.exams[0].start,
+    materialId: 'a',
+    round: 0,
+    choice: 'other',
+    custom: '',
+  };
+  seed.draft.numberEdits = { 'progress///追加問題数（1問単位）': { text: '7', base: '' } };
+  await seedState(seed, 'calendar-seed');
   await nav('学習カレンダー');
   const selected = `${month}-27`;
   await page.getByRole('button', { name: `${selected}を表示`, exact: true }).click();
@@ -3401,14 +3483,7 @@ test('実機：バックアップ保存・破損拒否・内容確認・復元�
   seed.resetBackup = initialState();
   seed.theme = 'sky';
   seed.appearance = 'dark';
-  await page.evaluate(async (data) => {
-    await (
-      window as unknown as {
-        __TAURI_INTERNALS__: { invoke: (cmd: string, args: unknown) => Promise<unknown> };
-      }
-    ).__TAURI_INTERNALS__.invoke('commit_state', { data, expected: 0, requestId: 'backup-seed' });
-  }, seed);
-  await page.reload();
+  await seedState(seed, 'backup-seed');
   await nav('バックアップ');
   const path = resolve(dataDir, '試験.studyplan.json');
   async function chooseSavePath(result: string | null) {
@@ -3433,13 +3508,16 @@ test('実機：バックアップ保存・破損拒否・内容確認・復元�
   await expect(
     page.getByRole('button', { name: 'バックアップを保存する', exact: true }),
   ).toBeEnabled();
-  expect(await storedState()).toEqual(seed);
+  const seeded = await storedState();
+  const seededContent = { ...seeded };
+  delete seededContent.windowSize;
+  expect(seededContent).toEqual(JSON.parse(JSON.stringify(seed)));
   await chooseSavePath(path);
   await page.getByRole('button', { name: 'バックアップを保存する', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: '保存しました：' })).toBeVisible();
   const { readFileSync } = await import('node:fs');
   const packet = JSON.parse(readFileSync(path, 'utf8'));
-  expect(packet.data).toEqual(seed);
+  expect(packet.data).toEqual(seeded);
   await page.getByLabel('カラーテーマ').selectOption('lime');
   await page.getByLabel('表示モード').selectOption('light');
   await saved();
@@ -3470,11 +3548,11 @@ test('実機：バックアップ保存・破損拒否・内容確認・復元�
   await confirm.getByRole('button', { name: 'この内容で復元する' }).click();
   await saved();
   await expect(page.getByText('復元しました。', { exact: true })).toBeVisible();
-  expect(await storedState()).toEqual(seed);
+  expect(await storedState()).toEqual(seeded);
   await close();
   browser = undefined!;
   await launch();
-  expect(await storedState()).toEqual(seed);
+  expect(await storedState()).toEqual(seeded);
   await nav('バックアップ');
   await page.getByRole('button', { name: '前回の復元前に戻す' }).click();
   const undo = page.getByRole('region', { name: 'バックアップ復元の確認' });

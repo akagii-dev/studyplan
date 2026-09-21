@@ -7,18 +7,21 @@ import { createCalendarFile, CalendarExportOptions } from '../domain/icalendar';
 import { stalePlan } from '../domain/planAudit';
 import { exportCalendar } from '../store';
 import { Field } from './common';
+import { demoMode } from '../demo';
 
-export function CalendarExport({
-  state,
-  from,
-  to,
-  examId = 'all',
-}: {
+type CalendarExportProps = {
   state: AppState;
   from: string;
   to: string;
   examId?: string;
-}) {
+};
+
+export function CalendarExport(props: CalendarExportProps) {
+  if (demoMode) return null;
+  return <DesktopCalendarExport {...props} />;
+}
+
+function DesktopCalendarExport({ state, from, to, examId = 'all' }: CalendarExportProps) {
   const [open, setOpen] = useState(false);
   const [options, setOptions] = useState<CalendarExportOptions>({
     from,

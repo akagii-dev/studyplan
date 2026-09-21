@@ -2049,6 +2049,9 @@ progress::-webkit-progress-value {
   display: block;
   color: var(--muted);
 }
+.daily-time-table td:nth-child(2) > .daily-time-note {
+  margin-inline-start: calc(28px + 0.35rem);
+}
 .meal-questions {
   padding: 16px 0;
 }
@@ -2405,6 +2408,13 @@ textarea {
   max-width: 100%;
   min-width: 0;
 }
+.demo-banner {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-small);
+  color: var(--ink);
+  background: var(--soft);
+}
 .card table {
   display: block;
   overflow-x: auto;
@@ -2547,7 +2557,6 @@ textarea {
   font-size: 1.2rem;
 }
 .outside-label-edit {
-  flex: 0 0 auto;
   width: 28px;
   min-width: 28px;
   height: 28px;
@@ -2556,16 +2565,26 @@ textarea {
   background: transparent;
 }
 .time-category-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 28px minmax(0, max-content);
   align-items: center;
   gap: 0.35rem;
   min-width: 0;
-  flex-wrap: wrap;
+}
+.time-category-action {
+  grid-column: 1;
+  min-width: 28px;
+}
+.time-category-row > .time-category {
+  grid-column: 2;
 }
 .outside-label-editor {
-  flex: 1 0 100%;
-  order: 2;
+  grid-column: 1 / -1;
   margin-top: 0.35rem;
+}
+.time-category-action:has(.outside-label-editor) {
+  grid-column: 1 / -1;
+  grid-row: 2;
 }
 .outside-label-editor input {
   min-width: 0;

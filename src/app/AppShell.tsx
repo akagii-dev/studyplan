@@ -3,6 +3,7 @@ import { ReactNode, useLayoutEffect, useRef } from 'react';
 import { version } from '../../package.json';
 import { Props } from '../components/common';
 import { AppState, today, weekday } from '../domain/model';
+import { demoMode } from '../demo';
 import { Page, navigation } from './navigation';
 export function AppShell({
   state,
@@ -87,20 +88,22 @@ export function AppShell({
           <span>StudyPlan</span>
         </a>
         <nav>
-          {navigation.map((n) => (
-            <button
-              key={n.id}
-              aria-label={n.name}
-              title={n.name}
-              className={`${page === n.id ? 'active' : ''} ${n.id === 'exams' ? 'nav-divider' : ''}`}
-              aria-current={page === n.id ? 'page' : undefined}
-              onClick={() => setPage(n.id)}
-            >
-              <n.icon size={18} />
-              <span className="nav-label">{n.name}</span>
-              {n.id === 'replan' && state.proposal && <span className="nav-dot" />}
-            </button>
-          ))}
+          {navigation
+            .filter((n) => !demoMode || n.id !== 'backup')
+            .map((n) => (
+              <button
+                key={n.id}
+                aria-label={n.name}
+                title={n.name}
+                className={`${page === n.id ? 'active' : ''} ${n.id === 'exams' ? 'nav-divider' : ''}`}
+                aria-current={page === n.id ? 'page' : undefined}
+                onClick={() => setPage(n.id)}
+              >
+                <n.icon size={18} />
+                <span className="nav-label">{n.name}</span>
+                {n.id === 'replan' && state.proposal && <span className="nav-dot" />}
+              </button>
+            ))}
         </nav>
         <div className="sidebar-bottom">
           <label className="theme-picker">
@@ -136,7 +139,7 @@ export function AppShell({
           </label>
           <div className="local-indicator">
             <span />
-            この端末に保存
+            {demoMode ? 'デモ・このブラウザーに保存' : 'この端末に保存'}
           </div>
           <small>StudyPlan v{version}</small>
         </div>
@@ -157,6 +160,11 @@ export function AppShell({
           </span>
         </header>
         <div className="main-content">
+          {demoMode && (
+            <p className="demo-banner" role="status">
+              公開デモです。入力内容はこのブラウザー内だけに保存され、デスクトップ版とは共有されません。
+            </p>
+          )}
           <div className="page-heading">
             <div>
               <h1 ref={pageHeading} tabIndex={-1}>

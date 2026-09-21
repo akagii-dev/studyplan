@@ -164,14 +164,16 @@ export function DailyTime({
                 </th>
                 <td>
                   <span className="time-category-row">
-                    {s.kind === 'outside' && onRenameOutside && (
-                      <OutsideLabelEditor
-                        start={s.start}
-                        end={s.end}
-                        title={s.title}
-                        save={(title) => onRenameOutside(s.start, s.end, title)}
-                      />
-                    )}
+                    <span className="time-category-action">
+                      {s.kind === 'outside' && onRenameOutside && (
+                        <OutsideLabelEditor
+                          start={s.start}
+                          end={s.end}
+                          title={s.title}
+                          save={(title) => onRenameOutside(s.start, s.end, title)}
+                        />
+                      )}
+                    </span>
                     <span className={`time-category time-${s.kind}`}>
                       {s.title ?? labels[s.kind]}
                     </span>

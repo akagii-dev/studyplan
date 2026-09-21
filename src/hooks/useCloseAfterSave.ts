@@ -8,6 +8,7 @@ export function useCloseAfterSave(
   generation: RefObject<number>,
   unconfirmed: RefObject<boolean>,
   onError: (message: string) => void,
+  beforeClose: RefObject<() => Promise<void>>,
 ) {
   const [closing, setClosing] = useState(false);
   const inFlight = useRef(false);
@@ -28,11 +29,12 @@ export function useCloseAfterSave(
           );
           return;
         }
-        if (!pending.current) return;
         inFlight.current = true;
-        setClosing(true);
         const started = generation.current;
         try {
+          await beforeClose.current();
+          if (!pending.current) return;
+          setClosing(true);
           // Wait for every queued edit, including any already-dispatched input handlers.
           while (pending.current) await queue.current;
           if (generation.current !== started) {
@@ -64,7 +66,7 @@ export function useCloseAfterSave(
       disposed = true;
       unlisten?.();
     };
-  }, [queue, pending, generation, unconfirmed, onError]);
+  }, [queue, pending, generation, unconfirmed, onError, beforeClose]);
   return {
     closing,
     closeWithoutSaving: async () => {

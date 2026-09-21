@@ -47,6 +47,7 @@ it('テーマと初期化の復元用データも保ち、原本は変更しな�
   file.data.theme = 'sky';
   file.data.appearance = 'dark';
   file.data.sidebarCollapsed = true;
+  file.data.windowSize = { width: 1040, height: 720 };
   file.data.calendarDensity = { month: 'compact', week: 'standard', list: 'detailed' };
   file.data.ignoredWarnings = {
     notice: { title: '注意', version: '1', ignoredAt: '2026-09-21T00:00:00Z' },
@@ -68,6 +69,7 @@ it('テーマと初期化の復元用データも保ち、原本は変更しな�
   const text = JSON.stringify(file);
   expect(parseBackup(text)).toEqual(file);
   expect(JSON.stringify(file)).toBe(text);
+  expect(resetSetup(file.data, true).windowSize).toEqual({ width: 1040, height: 720 });
 });
 
 it('表示モードの旧設定との互換性・初期化保持・不正値の拒否', () => {
@@ -84,6 +86,21 @@ it('表示モードの旧設定との互換性・初期化保持・不正値の�
   expect(() =>
     parseBackup(JSON.stringify({ ...file, data: { ...file.data, appearance: 'unknown' } })),
   ).toThrow();
+});
+
+it('ウィンドウサイズの旧設定との互換性と不正値の拒否', () => {
+  expect(parseBackup(JSON.stringify(packet())).data.windowSize).toBeUndefined();
+  const file = packet();
+  file.data.windowSize = { width: 900, height: 650 };
+  expect(parseBackup(JSON.stringify(file)).data.windowSize).toEqual(file.data.windowSize);
+  for (const windowSize of [
+    { width: 0, height: 650 },
+    { width: 900.5, height: 650 },
+    { width: 900, height: 100_001 },
+  ])
+    expect(() =>
+      parseBackup(JSON.stringify({ ...file, data: { ...file.data, windowSize } })),
+    ).toThrow();
 });
 
 it('試験・教材の追加下書きを保持し、壊れた追加下書きを拒否する', () => {

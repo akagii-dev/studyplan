@@ -278,6 +278,12 @@ const state = z.looseObject({
   theme: z.enum(['mint', 'sky', 'lime']).optional(),
   appearance: z.enum(['light', 'dark', 'system']).optional(),
   sidebarCollapsed: z.boolean().optional(),
+  windowSize: z
+    .object({
+      width: z.number().int().positive().max(100_000),
+      height: z.number().int().positive().max(100_000),
+    })
+    .optional(),
   calendarDensity: z
     .object({
       month: z.enum(['compact', 'standard', 'detailed']).optional(),

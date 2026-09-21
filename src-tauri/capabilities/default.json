@@ -2,5 +2,11 @@
   "identifier": "default",
   "description": "ローカルのアプリウィンドウ",
   "windows": ["main"],
-  "permissions": ["core:default", "core:window:allow-close", "core:window:allow-destroy", "dialog:allow-save"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-destroy",
+    "core:window:allow-set-size",
+    "dialog:allow-save"
+  ]
 }

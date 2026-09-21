@@ -155,6 +155,10 @@ export interface OutsideLabel {
   end: number;
   title: string;
 }
+export interface WindowSize {
+  width: number;
+  height: number;
+}
 export interface AppState {
   outsideLabels?: Record<string, OutsideLabel[]>;
   outsideTime?: OutsideTime;
@@ -163,6 +167,7 @@ export interface AppState {
   theme?: 'mint' | 'sky' | 'lime';
   appearance?: 'light' | 'dark' | 'system';
   sidebarCollapsed?: boolean;
+  windowSize?: WindowSize;
   calendarDensity?: Partial<Record<CalendarView, CalendarDensity>>;
   ignoredWarnings?: Record<string, { title: string; version: string; ignoredAt: string }>;
   warningExpanded?: Record<string, boolean>;

@@ -5431,6 +5431,26 @@
         "sidebarCollapsed": {
           "type": "boolean"
         },
+        "windowSize": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 100000
+            },
+            "height": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 100000
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        },
         "calendarDensity": {
           "type": "object",
           "properties": {
@@ -10917,6 +10937,26 @@
             },
             "sidebarCollapsed": {
               "type": "boolean"
+            },
+            "windowSize": {
+              "type": "object",
+              "properties": {
+                "width": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 100000
+                },
+                "height": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 100000
+                }
+              },
+              "required": [
+                "width",
+                "height"
+              ],
+              "additionalProperties": false
             },
             "calendarDensity": {
               "type": "object",

@@ -7,6 +7,7 @@ import { startOfWeek } from '../domain/calendar';
 import { createWeeklyReport, reportRate } from '../domain/weeklyReport';
 import { exportMarkdown } from '../store';
 import { Field } from './common';
+import { demoMode } from '../demo';
 
 export function WeeklyReport({
   state,
@@ -96,11 +97,12 @@ export function WeeklyReport({
           </button>
           <button
             className="primary"
-            disabled={busy || saving || !report}
+            disabled={demoMode || busy || saving || !report}
+            title={demoMode ? '公開デモでは書き出しを利用できません' : undefined}
             onClick={() => void write()}
           >
             <Download size={16} />
-            {busy ? '書き出し中…' : 'Markdownを保存'}
+            {demoMode ? 'デモでは書き出し不可' : busy ? '書き出し中…' : 'Markdownを保存'}
           </button>
         </div>
         {(error || preview.error) && (

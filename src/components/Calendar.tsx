@@ -264,7 +264,7 @@ export function Calendar({
             <p className="hint">まだ報告はありません。0問としては扱いません。</p>
           )}
         </section>
-        <DailyTime settings={state.settings} date={date} />
+        <DailyTime settings={state.settings} date={date} outsideTime={state.outsideTime} />
       </>
     );
   }
@@ -537,7 +537,7 @@ export function Calendar({
           </aside>
         )}
       </div>
-      <DailyTime settings={state.settings} date={selected} />
+      <DailyTime settings={state.settings} date={selected} outsideTime={state.outsideTime} />
       <section className="card capacity-panel" aria-label="選択した日の週の時間の内訳">
         <div className="row">
           <h3>選択した日の週の時間の内訳（現在の設定）</h3>

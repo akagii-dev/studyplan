@@ -2325,11 +2325,11 @@ progress::-webkit-progress-value {
   color: inherit;
 }
 .time-commute {
-  --time-color: var(--busy-muted);
+  --time-color: var(--warning-border);
   background: var(--time-color);
 }
 .time-mealCommute {
-  --time-color: var(--warning-ink);
+  --time-color: var(--warning-border);
   background: var(--time-color);
 }
 .app-shell {
@@ -2531,4 +2531,23 @@ textarea {
 
 .daily-time-table tbody th span {
   white-space: nowrap;
+}
+
+.time-sleep {
+  --time-color: var(--soft);
+  background: var(--time-color);
+}
+.time-bath {
+  --time-color: var(--ring);
+  background: var(--time-color);
+}
+.daily-time .time-category {
+  background: transparent;
+  text-decoration-line: underline;
+  text-decoration-color: var(--time-color);
+  text-decoration-thickness: 0.2em;
+  text-underline-offset: 0.22em;
+}
+.outside-time-setup h3 {
+  font-size: 1.2rem;
 }

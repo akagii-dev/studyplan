@@ -1,3 +1,5 @@
+import { clock } from '../../domain/model';
+import { outsideNames } from '../../domain/dailyTimeDisplay';
 import { ArrowRight } from 'lucide-react';
 import { ReactNode } from 'react';
 import { setupIssues } from '../../domain/setupIssues';
@@ -99,6 +101,21 @@ export function FinishSteps(ctx: StepContext): QuestionView | undefined {
               連続で最長 {state.settings.block}分 → 休憩 {state.settings.rest}分 → 勉強 · 余裕率{' '}
               {Math.round(state.settings.buffer * 100)}%
             </p>
+            {state.outsideTime && Object.keys(state.outsideTime).length > 0 && (
+              <p>
+                生活時間（表示のみ）：
+                {Object.entries(state.outsideTime)
+                  .map(
+                    ([key, value]) =>
+                      outsideNames[key as keyof typeof outsideNames] +
+                      ' ' +
+                      clock(value!.start) +
+                      '〜' +
+                      clock((value!.start + value!.duration) % 1440),
+                  )
+                  .join(' ／ ')}
+              </p>
+            )}
           </div>
           <SetupImpact
             settings={state.settings}

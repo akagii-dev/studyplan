@@ -148,7 +148,10 @@ export interface Proposal {
 }
 export type CalendarView = 'month' | 'week' | 'list';
 export type CalendarDensity = 'compact' | 'standard' | 'detailed';
+/** Daily display annotations only; never subtract these from study capacity. */
+export type OutsideTime = Partial<Record<'sleep' | 'bath', { start: number; duration: number }>>;
 export interface AppState {
+  outsideTime?: OutsideTime;
   resetBackup?: AppState;
   settingsUpdatedAt?: string;
   theme?: 'mint' | 'sky' | 'lime';

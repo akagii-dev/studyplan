@@ -228,6 +228,8 @@ mod tests {
         let mut data = state();
         data["records"] = serde_json::json!([record("r", 3)]);
         data["sidebarCollapsed"] = true.into();
+        data["outsideTime"] = serde_json::json!({"sleep":{"start":1380,"duration":480},"bath":{"start":1320,"duration":30}});
+        data["draft"]["outside-sleep"] = serde_json::json!({"phase":"end","start":"23:00","end":""});
         data["ignoredWarnings"] = serde_json::json!({"notice":{"title":"注意","version":"1","ignoredAt":"2026-09-21T00:00:00Z"}});
         data["settings"]["commute"] = serde_json::json!({"enabled":true,"mode":"classDays","from":"2026-09-21","to":"2026-12-31","weekdays":[1,2],"outboundMinutes":30,"returnMinutes":45,"outboundStart":480,"returnStart":1080});
         commit(&mut db, 0, "one", data.clone()).unwrap();

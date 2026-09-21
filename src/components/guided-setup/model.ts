@@ -38,6 +38,8 @@ export type Step =
   | 'exception.time'
   | 'exception.done'
   | 'meals'
+  | 'outside.sleep'
+  | 'outside.bath'
   | 'focus.total'
   | 'focus.block'
   | 'focus.rest'

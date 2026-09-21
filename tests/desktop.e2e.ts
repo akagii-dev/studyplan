@@ -1,3 +1,4 @@
+import { dailyTimeDisplay } from '../src/domain/dailyTimeDisplay';
 import { dailyTime } from '../src/domain/dailyTime';
 import { PLAN_CALCULATION_VERSION } from '../src/domain/sessionPolicy';
 import { test, expect, chromium, Browser, Page } from '@playwright/test';
@@ -100,6 +101,78 @@ async function close() {
 }
 test.afterAll(close);
 
+test('実機：睡眠・風呂を任意設定し、日またぎ・中断再開・解除でも計画を変えない', async () => {
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/outside-time-'));
+  await launch();
+  const seed = studentFixture(today());
+  seed.plan = generatePlan(seed, addDays(today(), 1));
+  seed.plan.sessions[0].fixed = true;
+  await seedState(seed, 'outside-time');
+  await nav('対話式の初期設定');
+  await page.getByRole('button', { name: '設定項目を選んで修正する' }).click();
+  await page.getByRole('button', { name: '睡眠・風呂を修正する' }).click();
+  let sleep = page.getByRole('region', { name: '睡眠の質問' });
+  await sleep.getByRole('button', { name: '設定する', exact: true }).click();
+  await sleep.getByLabel('睡眠の開始時刻').press('Enter');
+  await expect(sleep.getByRole('alert')).toContainText('開始時刻');
+  await sleep.getByLabel('睡眠の開始時刻').fill('23:00');
+  await sleep.getByLabel('睡眠の開始時刻').press('Enter');
+  await expect(sleep.getByLabel('睡眠の終了時刻')).toBeVisible();
+  await saved();
+  await launch();
+  await nav('対話式の初期設定');
+  sleep = page.getByRole('region', { name: '睡眠の質問' });
+  await expect(sleep.getByLabel('睡眠の終了時刻')).toHaveValue('');
+  await sleep.getByLabel('睡眠の終了時刻').fill('07:00');
+  await sleep.getByLabel('睡眠の終了時刻').press('Enter');
+  let bath = page.getByRole('region', { name: '風呂の質問' });
+  await bath.getByRole('button', { name: '設定する', exact: true }).click();
+  await bath.getByLabel('風呂の開始時刻').fill('23:30');
+  await bath.getByLabel('風呂の開始時刻').press('Enter');
+  await bath.getByLabel('風呂の終了時刻').fill('00:00');
+  await bath.getByLabel('風呂の終了時刻').press('Enter');
+  await expect(bath.getByRole('alert')).toContainText('重なっています');
+  expect((await storedState()).outsideTime?.bath).toBeUndefined();
+  await bath.getByRole('button', { name: '戻る', exact: true }).click();
+  await bath.getByLabel('風呂の開始時刻').fill('22:00');
+  await bath.getByLabel('風呂の開始時刻').press('Enter');
+  await bath.getByLabel('風呂の終了時刻').fill('22:30');
+  await bath.getByLabel('風呂の終了時刻').press('Enter');
+  await expect(page.getByLabel('連続で勉強できる最長時間（分）')).toBeVisible();
+  await saved();
+  const configured = await storedState();
+  expect(configured.outsideTime).toEqual({
+    sleep: { start: 1380, duration: 480 },
+    bath: { start: 1320, duration: 30 },
+  });
+  expect(configured.settings).toEqual(seed.settings);
+  expect(configured.plan).toEqual(seed.plan);
+  expect(configured.records).toEqual(seed.records);
+  for (const name of ['ホーム', '今日のスケジュール', '学習カレンダー']) {
+    await nav(name);
+    const card = page.getByRole('region', { name: '1日の可処分時間', exact: true });
+    await expect(card.locator('.time-legend [data-kind=sleep]')).toContainText('8時間');
+    await expect(card.locator('.time-legend [data-kind=bath]')).toContainText('30分');
+  }
+  await nav('ホーム');
+  await page.locator('.daily-time').screenshot({ path: 'test-results/daily-time-lifestyle.png' });
+  await launch();
+  expect((await storedState()).outsideTime).toEqual(configured.outsideTime);
+  await nav('対話式の初期設定');
+  await page.getByRole('button', { name: '設定項目を選んで修正する' }).click();
+  await page.getByRole('button', { name: '睡眠・風呂を修正する' }).click();
+  sleep = page.getByRole('region', { name: '睡眠の質問' });
+  bath = page.getByRole('region', { name: '風呂の質問' });
+  await sleep.getByRole('button', { name: '設定を解除して次へ' }).click();
+  await bath.getByRole('button', { name: '今の設定で次へ' }).click();
+  await saved();
+  const removed = await storedState();
+  expect(removed.outsideTime).toEqual({ bath: configured.outsideTime!.bath });
+  expect(removed.plan).toEqual(seed.plan);
+  expect(removed.records).toEqual(seed.records);
+});
+
 test('実機：可処分時間の情報階層・全テーマ・キーボード・拡大と文字間隔', async () => {
   test.setTimeout(180000);
   mkdirSync('.test-data', { recursive: true });
@@ -109,7 +182,9 @@ test('実機：可処分時間の情報階層・全テーマ・キーボード�
   seed.settings.windows.find((w) => w.kind === 'class')!.weekdays = [weekday(today())];
   // Keep a legacy overlap to verify visible repair guidance and union-based totals.
   seed.settings.commute!.returnStart = 750;
+  seed.outsideTime = { sleep: { start: 1380, duration: 480 }, bath: { start: 1330, duration: 30 } };
   const expected = dailyTime(seed.settings, today());
+  const shown = dailyTimeDisplay(expected.segments, seed.outsideTime);
   await seedState(seed, 'daily-time-a11y');
   const card = page.getByRole('region', { name: '1日の可処分時間', exact: true });
   const summary = card.locator('.daily-time-details > summary');
@@ -126,10 +201,20 @@ test('実機：可処分時間の情報階層・全テーマ・キーボード�
     expect(minutesOf(await card.locator('.daily-time-support').innerText())).toBe(
       expected.capacity.free,
     );
-    for (const [kind, total] of Object.entries(expected.totals))
+    for (const [kind, total] of Object.entries(shown.totals).filter(
+      ([kind]) => !['meal', 'commute', 'mealCommute'].includes(kind),
+    ))
       expect(
         minutesOf(await card.locator(`.time-legend [data-kind="${kind}"] dd`).innerText()),
       ).toBe(total);
+    const combined = card.locator('.time-legend [data-kind="meal"]');
+    await expect(combined.locator('dt')).toHaveText('通学・食事');
+    const parts = (await combined.locator('dd').innerText()).match(/食事(.+)、通学(.+)）/)!;
+    expect(minutesOf(parts[1])).toBe(shown.totals.meal + shown.totals.mealCommute);
+    expect(minutesOf(parts[2])).toBe(shown.totals.commute + shown.totals.mealCommute);
+    await expect(
+      card.locator('.time-legend [data-kind="commute"], .time-legend [data-kind="mealCommute"]'),
+    ).toHaveCount(0);
   };
   await assertValues();
   await expect(card.getByRole('heading', { level: 2, name: '1日の可処分時間' })).toBeVisible();
@@ -153,11 +238,17 @@ test('実機：可処分時間の情報階層・全テーマ・キーボード�
   let total = 0;
   for (const slice of slices) {
     expect(slice.length).toBe('1440');
-    expect(slice.amount).toBe(expected.totals[slice.kind as keyof typeof expected.totals]);
+    expect(slice.amount).toBe(
+      slice.kind === 'meal'
+        ? shown.totals.meal + shown.totals.commute + shown.totals.mealCommute
+        : shown.totals[slice.kind as keyof typeof shown.totals],
+    );
     expect(slice.offset).toBeCloseTo(-total, 8);
     total += slice.amount;
   }
   expect(total).toBe(1440);
+  expect(slices.filter((s) => s.kind === 'meal')).toHaveLength(1);
+  expect(slices.some((s) => s.kind === 'commute' || s.kind === 'mealCommute')).toBe(false);
   await expect(card.locator('.day-time-bar')).toHaveCount(0);
   const reports: unknown[] = [];
   for (const theme of ['mint', 'sky', 'lime']) {
@@ -201,11 +292,31 @@ test('実機：可処分時間の情報階層・全テーマ・キーボード�
       await expect(card.locator('.daily-commute')).toBeVisible();
       await expect(card.getByRole('table', { name: '24時間の内訳' })).toBeVisible();
       const rows = card.locator('.daily-time-table tbody tr');
-      expect(await rows.count()).toBe(expected.segments.length);
-      for (let i = 0; i < expected.segments.length; i++) {
-        await expect(rows.nth(i)).toHaveAttribute('data-kind', expected.segments[i].kind);
+      expect(await rows.count()).toBe(shown.segments.length);
+      for (let i = 0; i < shown.segments.length; i++) {
+        await expect(rows.nth(i)).toHaveAttribute('data-kind', shown.segments[i].kind);
         expect(minutesOf(await rows.nth(i).locator('td').last().innerText())).toBe(
-          expected.segments[i].end - expected.segments[i].start,
+          shown.segments[i].end - shown.segments[i].start,
+        );
+      }
+      const colors = await card
+        .locator('.daily-time-donut circle')
+        .evaluateAll((els) =>
+          Object.fromEntries(
+            els.map((e) => [e.getAttribute('data-kind'), getComputedStyle(e).stroke]),
+          ),
+        );
+      const underlines = await card.locator('.time-category').evaluateAll((els) =>
+        els.map((e) => ({
+          kind: e.closest('tr')!.getAttribute('data-kind')!,
+          line: getComputedStyle(e).textDecorationLine,
+          color: getComputedStyle(e).textDecorationColor,
+        })),
+      );
+      for (const line of underlines) {
+        expect(line.line).toBe('underline');
+        expect(line.color).toBe(
+          colors[['commute', 'mealCommute'].includes(line.kind) ? 'meal' : line.kind],
         );
       }
       const axe = await new AxeBuilder({ page })
@@ -248,10 +359,19 @@ test('実機：可処分時間の情報階層・全テーマ・キーボード�
             ...text.map((e) => ratio(getComputedStyle(e).color, background(e))),
           ),
           focus: ratio(getComputedStyle(summary).outlineColor, background(summary)),
+          learning: ratio(
+            getComputedStyle(root.querySelector('.daily-time-donut .time-available')!).stroke,
+            background(root),
+          ),
+          sleep: ratio(
+            getComputedStyle(root.querySelector('.daily-time-donut .time-sleep')!).stroke,
+            background(root),
+          ),
         };
       });
       expect(contrast.textMinimum).toBeGreaterThanOrEqual(4.5);
       expect(contrast.focus).toBeGreaterThanOrEqual(3);
+      expect(contrast.sleep).toBeLessThan(contrast.learning);
       reports.push({
         theme,
         mode,
@@ -2292,6 +2412,14 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
     lunch: { start: 720, duration: 60 },
     dinner: { start: 1140, duration: 45 },
   });
+  await page
+    .getByRole('region', { name: '睡眠の質問' })
+    .getByRole('button', { name: 'あとで', exact: true })
+    .click();
+  await page
+    .getByRole('region', { name: '風呂の質問' })
+    .getByRole('button', { name: 'あとで', exact: true })
+    .click();
   const focusInput = page.getByLabel('連続で勉強できる最長時間（分）');
   await focusInput.fill('');
   await expect(focusInput).toHaveValue('');

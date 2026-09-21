@@ -22,6 +22,52 @@
     "data": {
       "type": "object",
       "properties": {
+        "outsideTime": {
+          "type": "object",
+          "properties": {
+            "sleep": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1439
+                },
+                "duration": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1439
+                }
+              },
+              "required": [
+                "start",
+                "duration"
+              ],
+              "additionalProperties": false
+            },
+            "bath": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1439
+                },
+                "duration": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1439
+                }
+              },
+              "required": [
+                "start",
+                "duration"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
         "settings": {
           "type": "object",
           "properties": {
@@ -462,6 +508,60 @@
         "draft": {
           "type": "object",
           "properties": {
+            "outside-sleep": {
+              "type": "object",
+              "properties": {
+                "phase": {
+                  "type": "string",
+                  "enum": [
+                    "ask",
+                    "start",
+                    "end"
+                  ]
+                },
+                "start": {
+                  "type": "string",
+                  "maxLength": 10000
+                },
+                "end": {
+                  "type": "string",
+                  "maxLength": 10000
+                }
+              },
+              "required": [
+                "phase",
+                "start",
+                "end"
+              ],
+              "additionalProperties": false
+            },
+            "outside-bath": {
+              "type": "object",
+              "properties": {
+                "phase": {
+                  "type": "string",
+                  "enum": [
+                    "ask",
+                    "start",
+                    "end"
+                  ]
+                },
+                "start": {
+                  "type": "string",
+                  "maxLength": 10000
+                },
+                "end": {
+                  "type": "string",
+                  "maxLength": 10000
+                }
+              },
+              "required": [
+                "phase",
+                "start",
+                "end"
+              ],
+              "additionalProperties": false
+            },
             "exam": {
               "type": "object",
               "properties": {
@@ -5327,6 +5427,52 @@
         "resetBackup": {
           "type": "object",
           "properties": {
+            "outsideTime": {
+              "type": "object",
+              "properties": {
+                "sleep": {
+                  "type": "object",
+                  "properties": {
+                    "start": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1439
+                    },
+                    "duration": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1439
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "duration"
+                  ],
+                  "additionalProperties": false
+                },
+                "bath": {
+                  "type": "object",
+                  "properties": {
+                    "start": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1439
+                    },
+                    "duration": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1439
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "duration"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
             "settings": {
               "type": "object",
               "properties": {
@@ -5767,6 +5913,60 @@
             "draft": {
               "type": "object",
               "properties": {
+                "outside-sleep": {
+                  "type": "object",
+                  "properties": {
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "ask",
+                        "start",
+                        "end"
+                      ]
+                    },
+                    "start": {
+                      "type": "string",
+                      "maxLength": 10000
+                    },
+                    "end": {
+                      "type": "string",
+                      "maxLength": 10000
+                    }
+                  },
+                  "required": [
+                    "phase",
+                    "start",
+                    "end"
+                  ],
+                  "additionalProperties": false
+                },
+                "outside-bath": {
+                  "type": "object",
+                  "properties": {
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "ask",
+                        "start",
+                        "end"
+                      ]
+                    },
+                    "start": {
+                      "type": "string",
+                      "maxLength": 10000
+                    },
+                    "end": {
+                      "type": "string",
+                      "maxLength": 10000
+                    }
+                  },
+                  "required": [
+                    "phase",
+                    "start",
+                    "end"
+                  ],
+                  "additionalProperties": false
+                },
                 "exam": {
                   "type": "object",
                   "properties": {

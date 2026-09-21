@@ -11,6 +11,8 @@ export function resetSetup(state: AppState, all = false): AppState {
             ([key]) => !key.startsWith('setup/') && !key.startsWith('meals/'),
           ),
         ),
+        'outside-sleep': undefined,
+        'outside-bath': undefined,
         mealStep: 0,
         mealClock: undefined,
       },

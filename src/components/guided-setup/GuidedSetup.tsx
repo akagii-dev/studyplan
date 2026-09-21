@@ -132,7 +132,7 @@ export function GuidedSetup({
   const next = nextStep(w);
   const phase = w.step.startsWith('exam')
     ? 0
-    : ['window', 'class', 'busy', 'exception', 'meals'].some((p) => w.step.startsWith(p))
+    : ['window', 'class', 'busy', 'exception', 'meals', 'outside'].some((p) => w.step.startsWith(p))
       ? 1
       : w.step.startsWith('focus')
         ? 2
@@ -285,6 +285,14 @@ export function GuidedSetup({
                   }}
                 >
                   食事時間を修正する
+                </button>
+                <button
+                  onClick={() => {
+                    go('outside.sleep');
+                    setEditing(false);
+                  }}
+                >
+                  睡眠・風呂を修正する
                 </button>
                 <button
                   onClick={() => {

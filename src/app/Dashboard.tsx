@@ -84,7 +84,7 @@ export function Dashboard({
           <p>周回ごとの残数 × 推定時間</p>
         </div>
       </div>
-      <DailyTime settings={s} date={today()} />
+      <DailyTime settings={s} date={today()} outsideTime={state.outsideTime} />
       <div className="dashboard-grid">
         <section className="card">
           <div className="row">

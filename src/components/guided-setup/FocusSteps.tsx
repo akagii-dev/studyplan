@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { Field } from '../common';
+import { OutsideTimeSetup } from '../OutsideTimeSetup';
 import { MealSetup } from '../Meals';
 import { QuestionView, StepContext } from './types';
 
@@ -12,8 +13,23 @@ export function FocusSteps(ctx: StepContext): QuestionView | undefined {
     case 'focus.total': // Continue older in-progress setup at the new meal questions.
     case 'meals':
       title = '食事の時間も確保しましょう';
-      content = <MealSetup state={state} update={update} onDone={() => go('focus.block')} />;
+      content = <MealSetup state={state} update={update} onDone={() => go('outside.sleep')} />;
       break;
+    case 'outside.sleep':
+    case 'outside.bath': {
+      const kind = w.step === 'outside.sleep' ? 'sleep' : 'bath';
+      title = '生活時間の表示';
+      content = (
+        <OutsideTimeSetup
+          key={kind}
+          state={state}
+          update={update}
+          kind={kind}
+          onDone={() => go(kind === 'sleep' ? 'outside.bath' : 'focus.block')}
+        />
+      );
+      break;
+    }
     case 'focus.block':
       title = '最長で何分続けて勉強できますか？';
       content = (

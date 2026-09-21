@@ -146,7 +146,11 @@ const guidedDraft = z.looseObject({
   classTo: text,
   classEditingPeriod: period.optional(),
 });
+const outsideDraft = z.object({ phase: z.enum(['ask', 'start', 'end']), start: text, end: text });
+const outsideRange = z.object({ start: count.max(1439), duration: count.min(1).max(1439) });
 const draft = z.looseObject({
+  'outside-sleep': outsideDraft.optional(),
+  'outside-bath': outsideDraft.optional(),
   exam: draftExam.optional(),
   material: material.optional(),
   window: draftWindow.optional(),
@@ -216,6 +220,9 @@ const draft = z.looseObject({
   replanError: text.optional(),
 });
 const state = z.looseObject({
+  outsideTime: z
+    .object({ sleep: outsideRange.optional(), bath: outsideRange.optional() })
+    .optional(),
   settings,
   draft,
   step: count,

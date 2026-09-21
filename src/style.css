@@ -1842,6 +1842,48 @@ progress::-webkit-progress-value {
   margin-top: 10px;
 }
 
+.daily-time {
+  overflow-wrap: anywhere;
+}
+.daily-time-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 1.25rem;
+}
+.daily-time-heading h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+.daily-time-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1rem;
+}
+.daily-time-metric {
+  margin: 1.25rem 0 0;
+}
+.daily-time-metric dt {
+  font-weight: 600;
+}
+.daily-time-metric dd {
+  margin: 0;
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.daily-time-support {
+  margin: 0.25rem 0 1.25rem;
+  color: var(--muted);
+}
+.daily-time-warning {
+  padding: 0.75rem;
+  background: var(--warning-bg);
+  color: var(--warning-ink);
+  border-left: 3px solid var(--warning-ink);
+}
 .day-time-bar {
   display: flex;
   height: 24px;
@@ -1850,7 +1892,15 @@ progress::-webkit-progress-value {
   background: var(--page);
 }
 .day-time-bar span {
+  flex: 0 0 auto;
   min-width: 0;
+}
+.daily-time-scale {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 1rem;
+  margin-top: 0.25rem;
 }
 .time-available {
   background: var(--accent);
@@ -1859,48 +1909,112 @@ progress::-webkit-progress-value {
   background: var(--art);
 }
 .time-meal {
-  background: #d1a466;
+  background: var(--warning-border);
 }
 .time-busy {
-  background: #859ab0;
+  background: var(--busy-border);
 }
 .time-outside {
   background: var(--border);
 }
 .time-legend {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 8px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.5rem;
+  margin: 1rem 0;
+  color: var(--muted);
 }
 .time-legend > div {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 12px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.5rem;
+  max-width: 100%;
 }
 .time-legend dt {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  min-width: 0;
 }
 .time-legend dd {
   margin: 0;
-  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
-.time-legend i {
-  width: 10px;
-  height: 10px;
+.time-legend [data-kind='available'] {
+  color: var(--accent);
+  font-weight: 600;
+}
+.time-swatch {
+  width: 0.7rem;
+  height: 0.7rem;
   display: inline-block;
   border-radius: 2px;
-  flex-shrink: 0;
+  margin-right: 0.5rem;
 }
-.day-panel .daily-time {
-  padding: 12px;
-  margin: 20px 0;
+.daily-time-details {
+  margin-top: 1rem;
 }
-.day-time-list {
-  padding-left: 20px;
-  font-size: 12px;
+.daily-time-details > summary {
+  font-size: 1rem;
+  color: var(--ink);
+  min-height: 44px;
+  padding: 0.65rem 0.25rem;
+  scroll-margin-block: 1rem;
+}
+.daily-time-details > summary:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.daily-time-details h3 {
+  font-size: 1.1rem;
+  margin: 1rem 0 0.5rem;
+}
+.daily-time-details p {
+  margin: 0.5rem 0;
+}
+.daily-commute-list {
+  margin: 0.5rem 0 1rem;
+}
+.daily-commute-list > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.75rem;
+  margin-block: 0.4rem;
+}
+.daily-commute-list dd {
+  margin: 0;
+}
+.card .daily-time-table {
+  display: table;
+  table-layout: auto;
+  width: 100%;
+  overflow: visible;
+  font-size: 1rem;
+  margin: 1rem 0 0;
+}
+.daily-time-table caption {
+  text-align: left;
+  font-weight: 600;
+  padding-block: 0.5rem;
+}
+.daily-time-table th,
+.daily-time-table td {
+  padding: 0.6rem 0.3rem;
+  font-size: inherit;
+  vertical-align: top;
+  color: var(--ink);
+}
+.daily-time-table th:first-child {
+  width: 32%;
+}
+.daily-time-table th:last-child {
+  width: 24%;
+}
+.daily-time-table tbody th {
+  font-weight: 400;
+}
+.daily-time-note {
+  display: block;
+  color: var(--muted);
 }
 .meal-questions {
   padding: 16px 0;
@@ -2176,7 +2290,7 @@ progress::-webkit-progress-value {
   background: var(--busy-border);
 }
 .time-mealCommute {
-  background: repeating-linear-gradient(135deg, #d1a466 0 4px, var(--busy-border) 4px 8px);
+  background: var(--warning-ink);
 }
 .app-shell {
   --sidebar-width: 226px;
@@ -2373,4 +2487,8 @@ textarea {
   .sidebar-bottom {
     padding: 20px 4px 0;
   }
+}
+
+.daily-time-table tbody th span {
+  white-space: nowrap;
 }

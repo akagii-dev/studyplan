@@ -1,3 +1,4 @@
+import { dailyTime } from '../src/domain/dailyTime';
 import { PLAN_CALCULATION_VERSION } from '../src/domain/sessionPolicy';
 import { test, expect, chromium, Browser, Page } from '@playwright/test';
 import { spawn, ChildProcess } from 'node:child_process';
@@ -98,6 +99,226 @@ async function close() {
   }
 }
 test.afterAll(close);
+
+test('実機：可処分時間の情報階層・全テーマ・キーボード・拡大と文字間隔', async () => {
+  test.setTimeout(180000);
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/daily-time-a11y-'));
+  await launch();
+  const seed = studentFixture(today());
+  seed.settings.windows.find((w) => w.kind === 'class')!.weekdays = [weekday(today())];
+  // Keep a legacy overlap to verify visible repair guidance and union-based totals.
+  seed.settings.commute!.returnStart = 750;
+  const expected = dailyTime(seed.settings, today());
+  await seedState(seed, 'daily-time-a11y');
+  const card = page.getByRole('region', { name: '1日の可処分時間', exact: true });
+  const summary = card.locator('.daily-time-details > summary');
+  const details = card.locator('.daily-time-details');
+  const minutesOf = (text: string) => {
+    const hours = Number(text.match(/([\d.]+)時間/)?.[1] ?? 0);
+    const minutes = Number(text.match(/([\d.]+)分/)?.[1] ?? 0);
+    return hours * 60 + minutes;
+  };
+  const assertValues = async () => {
+    expect(minutesOf(await card.locator('.daily-time-metric dd').innerText())).toBe(
+      expected.capacity.focus,
+    );
+    expect(minutesOf(await card.locator('.daily-time-support').innerText())).toBe(
+      expected.capacity.free,
+    );
+    for (const [kind, total] of Object.entries(expected.totals))
+      expect(
+        minutesOf(await card.locator(`.time-legend [data-kind="${kind}"] dd`).innerText()),
+      ).toBe(total);
+  };
+  await assertValues();
+  await expect(card.getByRole('heading', { level: 2, name: '1日の可処分時間' })).toBeVisible();
+  expect(await card.getAttribute('aria-labelledby')).toBe(
+    await card.locator('h2').getAttribute('id'),
+  );
+  await expect(details).not.toHaveAttribute('open');
+  await expect(card.locator('.daily-time-warning')).toBeVisible();
+  await expect(card.locator('.daily-commute')).not.toBeVisible();
+  await expect(card.locator('.daily-time-visual')).toHaveAttribute('aria-hidden', 'true');
+  expect(await card.getByRole('img').count()).toBe(0);
+  // All bar intervals retain exact proportions, including short rests.
+  const widths = await card
+    .locator('.day-time-bar > span')
+    .evaluateAll((els) => els.map((e) => parseFloat((e as HTMLElement).style.width)));
+  widths.forEach((width, i) =>
+    expect(width).toBeCloseTo(
+      ((expected.segments[i].end - expected.segments[i].start) / 1440) * 100,
+      4,
+    ),
+  );
+  const reports: unknown[] = [];
+  for (const theme of ['mint', 'sky', 'lime']) {
+    for (const mode of ['light', 'dark', 'system-light', 'system-dark']) {
+      const appearance = mode.endsWith('dark') ? 'dark' : 'light';
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.emulateMedia({ colorScheme: appearance });
+      await page.getByLabel('表示モード').selectOption(mode.startsWith('system') ? 'system' : mode);
+      await page.getByLabel('カラーテーマ').selectOption(theme);
+      await saved();
+      await expect(page.locator('html')).toHaveAttribute('data-appearance', appearance);
+      await summary.focus();
+      await page.keyboard.press('Shift+Tab');
+      await page.keyboard.press('Tab');
+      await expect(summary).toBeFocused();
+      await expect(summary).toBeInViewport({ ratio: 1 });
+      const focus = await summary.evaluate((e) => {
+        const s = getComputedStyle(e),
+          r = e.getBoundingClientRect();
+        return {
+          style: s.outlineStyle,
+          width: parseFloat(s.outlineWidth),
+          color: s.outlineColor,
+          widthPx: r.width,
+          heightPx: r.height,
+          uncovered: e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)),
+        };
+      });
+      expect(focus.style).toBe('solid');
+      // Windows display scaling snaps the declared 3px outline to physical pixels.
+      expect(focus.width).toBeGreaterThanOrEqual(2);
+      expect(focus.widthPx).toBeGreaterThanOrEqual(24);
+      expect(focus.heightPx).toBeGreaterThanOrEqual(24);
+      expect(focus.uncovered).toBe(true);
+      if (!mode.startsWith('system'))
+        await card.screenshot({
+          path: `test-results/daily-time-${theme}-${appearance}-closed.png`,
+        });
+      await page.keyboard.press('Enter');
+      await expect(details).toHaveAttribute('open', '');
+      await expect(card.locator('.daily-commute')).toBeVisible();
+      await expect(card.getByRole('table', { name: '24時間の内訳' })).toBeVisible();
+      const rows = card.locator('.daily-time-table tbody tr');
+      expect(await rows.count()).toBe(expected.segments.length);
+      for (let i = 0; i < expected.segments.length; i++) {
+        await expect(rows.nth(i)).toHaveAttribute('data-kind', expected.segments[i].kind);
+        expect(minutesOf(await rows.nth(i).locator('td').last().innerText())).toBe(
+          expected.segments[i].end - expected.segments[i].start,
+        );
+      }
+      const axe = await new AxeBuilder({ page })
+        .include('.daily-time')
+        .setLegacyMode()
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+        .analyze();
+      expect(axe.violations).toEqual([]);
+      // Supplement axe with computed text/background and focus/background contrast ratios.
+      const contrast = await card.evaluate((root) => {
+        const luminance = (color: string) => {
+          const rgb = color
+            .match(/[\d.]+/g)!
+            .slice(0, 3)
+            .map(Number)
+            .map((v) => {
+              const n = v / 255;
+              return n <= 0.04045 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4;
+            });
+          return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
+        };
+        const ratio = (a: string, b: string) => {
+          const x = luminance(a),
+            y = luminance(b);
+          return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+        };
+        const background = (e: Element): string => {
+          const c = getComputedStyle(e).backgroundColor;
+          return c === 'rgba(0, 0, 0, 0)' || c === 'transparent' ? background(e.parentElement!) : c;
+        };
+        const text = [...root.querySelectorAll('*')].filter(
+          (e) =>
+            e.getClientRects().length &&
+            !e.closest('[aria-hidden="true"]') &&
+            [...e.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim()),
+        );
+        const summary = root.querySelector('summary')!;
+        return {
+          textMinimum: Math.min(
+            ...text.map((e) => ratio(getComputedStyle(e).color, background(e))),
+          ),
+          focus: ratio(getComputedStyle(summary).outlineColor, background(summary)),
+        };
+      });
+      expect(contrast.textMinimum).toBeGreaterThanOrEqual(4.5);
+      expect(contrast.focus).toBeGreaterThanOrEqual(3);
+      reports.push({
+        theme,
+        mode,
+        contrast,
+        violations: axe.violations,
+        incomplete: axe.incomplete.map((v) => v.id),
+      });
+      await summary.focus();
+      await page.keyboard.press('Space');
+      await expect(details).not.toHaveAttribute('open');
+      await assertValues();
+    }
+  }
+  await page.setViewportSize({ width: 480, height: 800 });
+  await summary.focus();
+  await page.keyboard.press('Enter');
+  const checkFit = async () => {
+    const result = await card.evaluate((e) => {
+      const r = e.getBoundingClientRect();
+      const overflow = [...e.querySelectorAll('*')]
+        .filter((x) => {
+          if (!x.getClientRects().length) return false;
+          const b = x.getBoundingClientRect();
+          return (
+            b.left < r.left - 1 ||
+            b.right > r.right + 1 ||
+            (x.scrollWidth > x.clientWidth + 1 && getComputedStyle(x).display !== 'inline')
+          );
+        })
+        .map((x) => x.tagName + '.' + x.className);
+      return { overflow, pageWidth: document.documentElement.scrollWidth, width: innerWidth };
+    });
+    expect(result.overflow).toEqual([]);
+    expect(result.pageWidth).toBeLessThanOrEqual(result.width + 1);
+  };
+  await checkFit();
+  await page.getByRole('button', { name: 'サイドバーを折りたたむ', exact: true }).click();
+  await page.setViewportSize({ width: 320, height: 800 });
+  await checkFit();
+  await card.screenshot({ path: 'test-results/daily-time-narrow.png' });
+  const doubledText = await card.evaluate((root) =>
+    [root, ...root.querySelectorAll('*')]
+      .map((e, i) => {
+        e.setAttribute('data-daily-size', String(i));
+        return `[data-daily-size="${i}"] { font-size: ${parseFloat(getComputedStyle(e).fontSize) * 2}px !important; }`;
+      })
+      .join('\n'),
+  );
+  const override = await page.addStyleTag({
+    content:
+      doubledText +
+      `
+    .daily-time, .daily-time * { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; }
+    .daily-time p { margin-bottom: 2em !important; }
+  `,
+  });
+  await checkFit();
+  await assertValues();
+  await summary.focus();
+  await expect(summary).toBeInViewport({ ratio: 1 });
+  await card.screenshot({ path: 'test-results/daily-time-text-spacing.png' });
+  await override.evaluate((e) => e.parentNode?.removeChild(e));
+  await card.evaluate((e) => {
+    e.style.filter = 'grayscale(1)';
+  });
+  await assertValues();
+  await card.screenshot({ path: 'test-results/daily-time-grayscale.png' });
+  await saved();
+  const after = await storedState();
+  expect(after.settings).toEqual(seed.settings);
+  expect(after.plan).toEqual(seed.plan);
+  expect(after.records).toEqual(seed.records);
+  expect(dailyTime(after.settings, today())).toEqual(expected);
+  writeFileSync('test-results/daily-time-accessibility.json', JSON.stringify(reports, null, 2));
+});
 test('実機：往復の出発時刻を確認し、食事との重複を修正して保存する', async () => {
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/departures-'));
@@ -1190,17 +1411,23 @@ test('実機：ホームで指定時刻の往復100分と移動しない昼食�
   };
   await seedState(s, 'overlap-home');
   const card = page.getByRole('region', { name: '1日の可処分時間', exact: true });
-  await expect(card.getByText('この日の通学：計1時間 40分', { exact: true })).toBeVisible();
-  await expect(card.getByText('通学（往路）：08:10〜09:00（50分）', { exact: true })).toBeVisible();
-  await expect(card.getByText('通学（復路）：13:30〜14:20（50分）', { exact: true })).toBeVisible();
-  await card.getByText('時刻の内訳を見る', { exact: true }).click();
-  await expect(card.getByText('13:30〜14:20：通学（復路）', { exact: true })).toBeVisible();
-  await expect(card.getByText('12:30〜13:30：食事', { exact: true })).toBeVisible();
-  await expect(card.getByText('09:00〜12:30：授業・予定・移動', { exact: true })).toBeVisible();
+  await expect(card.locator('.daily-commute')).not.toBeVisible();
+  await card.screenshot({ path: 'test-results/daily-time-normal.png' });
+  await card.locator('.daily-time-details > summary').click();
+  await expect(card.locator('.daily-commute')).toContainText('この日の通学：計1時間 40分');
+  await expect(card.locator('.daily-commute-list > div').filter({ hasText: '往路' })).toContainText(
+    '08:10〜09:00 · 50分',
+  );
+  await expect(card.locator('.daily-commute-list > div').filter({ hasText: '復路' })).toContainText(
+    '13:30〜14:20 · 50分',
+  );
   await expect(
-    card.getByText('14:20〜21:30：学習可能枠（休憩を含む）', { exact: true }),
+    card.getByRole('row', { name: '12:30〜13:30 食事 1時間', exact: true }),
   ).toBeVisible();
-  await expect(card.locator('details li').filter({ hasText: '学習の合間の休憩' })).toHaveCount(0);
+  await expect(
+    card.getByRole('row', { name: '09:00〜12:30 授業・予定・移動 3時間 30分', exact: true }),
+  ).toBeVisible();
+  expect(await card.locator('tbody tr[data-kind=rest]').count()).toBeGreaterThan(0);
   for (const appearance of ['light', 'dark']) {
     await page.getByLabel('表示モード').selectOption(appearance);
     await page.setViewportSize({ width: 480, height: 800 });

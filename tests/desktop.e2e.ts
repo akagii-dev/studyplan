@@ -202,7 +202,7 @@ test('実機：可処分時間の情報階層・全テーマ・キーボード�
       expected.capacity.free,
     );
     for (const [kind, total] of Object.entries(shown.totals).filter(
-      ([kind]) => !['meal', 'commute', 'mealCommute'].includes(kind),
+      ([kind]) => !['available', 'meal', 'commute', 'mealCommute'].includes(kind),
     ))
       expect(
         minutesOf(await card.locator(`.time-legend [data-kind="${kind}"] dd`).innerText()),
@@ -224,7 +224,12 @@ test('実機：可処分時間の情報階層・全テーマ・キーボード�
   await expect(details).not.toHaveAttribute('open');
   await expect(card.locator('.daily-time-warning')).toBeVisible();
   await expect(card.locator('.daily-commute')).not.toBeVisible();
-  await expect(card.locator('.daily-time-visual')).toHaveAttribute('aria-hidden', 'true');
+  await expect(card.locator('.daily-time-donut')).toHaveAttribute('aria-hidden', 'true');
+  await expect(card.locator('.daily-time-visual')).not.toHaveAttribute('aria-hidden');
+  await expect(
+    card.locator('.daily-time-summary').getByText('学習可能', { exact: true }),
+  ).toHaveCount(1);
+  await expect(card.locator('.daily-time-total, .daily-time-primary')).toHaveCount(0);
   expect(await card.getByRole('img').count()).toBe(0);
   // Category arcs cover exactly one day; no minimum slice size or duplicated overlaps.
   const slices = await card.locator('.daily-time-donut circle').evaluateAll((els) =>
@@ -260,6 +265,17 @@ test('実機：可処分時間の情報階層・全テーマ・キーボード�
       await page.getByLabel('カラーテーマ').selectOption(theme);
       await saved();
       await expect(page.locator('html')).toHaveAttribute('data-appearance', appearance);
+      await expect(card.locator('.daily-time-visual')).not.toHaveAttribute('data-expanded');
+      const centered = await card.locator('.daily-time-visual').evaluate((e) => {
+        const ring = e.querySelector('svg')!.getBoundingClientRect();
+        const label = e.querySelector('dl')!.getBoundingClientRect();
+        return (
+          Math.abs(ring.x + ring.width / 2 - label.x - label.width / 2) < 1 &&
+          Math.abs(ring.y + ring.height / 2 - label.y - label.height / 2) < 1 &&
+          Math.hypot(label.width, label.height) < ring.width * 0.58
+        );
+      });
+      expect(centered).toBe(true);
       await summary.focus();
       await page.keyboard.press('Shift+Tab');
       await page.keyboard.press('Tab');
@@ -430,10 +446,20 @@ test('実機：可処分時間の情報階層・全テーマ・キーボード�
   });
   await checkFit();
   await assertValues();
+  await expect(card.locator('.daily-time-visual')).toHaveAttribute('data-expanded', 'true');
+  const separated = await card
+    .locator('.daily-time-visual')
+    .evaluate(
+      (e) =>
+        e.querySelector('dl')!.getBoundingClientRect().top >=
+        e.querySelector('svg')!.getBoundingClientRect().bottom - 1,
+    );
+  expect(separated).toBe(true);
   await summary.focus();
   await expect(summary).toBeInViewport({ ratio: 1 });
   await card.screenshot({ path: 'test-results/daily-time-text-spacing.png' });
   await override.evaluate((e) => e.parentNode?.removeChild(e));
+  await expect(card.locator('.daily-time-visual')).not.toHaveAttribute('data-expanded');
   await card.evaluate((e) => {
     e.style.filter = 'grayscale(1)';
   });

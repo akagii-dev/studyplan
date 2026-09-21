@@ -4,6 +4,7 @@ import { Settings, OutsideTime, clock } from '../domain/model';
 import { dailyTime } from '../domain/dailyTime';
 import { dailyTimeDisplay, DisplayTimeKind } from '../domain/dailyTimeDisplay';
 import { duration } from './common';
+import { DailyTimeChart } from './DailyTimeChart';
 
 const labels: Record<DisplayTimeKind, string> = {
   available: '学習可能',
@@ -74,61 +75,36 @@ export function DailyTime({
         </p>
       )}
       <div className="daily-time-summary">
-        <div className="daily-time-primary">
-          <dl className="daily-time-metric">
-            <div>
-              <dt>学習可能</dt>
-              <dd>{duration(day.capacity.focus)}</dd>
-            </div>
+        <DailyTimeChart items={chartItems} focus={day.capacity.focus} />
+        <div className="daily-time-breakdown">
+          <dl className="time-legend">
+            {chartItems
+              .filter(
+                ({ kind }) =>
+                  kind !== 'available' &&
+                  ((kind !== 'sleep' && kind !== 'bath') || !!outsideTime?.[kind]),
+              )
+              .map(({ kind, value }) => (
+                <div key={kind} data-kind={kind}>
+                  <dt>
+                    <span className={`time-swatch time-${kind}`} aria-hidden="true" />
+                    {kind === 'meal' ? '通学・食事' : labels[kind]}
+                  </dt>
+                  <dd>
+                    {kind === 'meal' ? (
+                      <>
+                        （食事{duration(display.totals.meal + display.totals.mealCommute)}、通学
+                        {duration(display.totals.commute + display.totals.mealCommute)}）
+                      </>
+                    ) : (
+                      duration(value)
+                    )}
+                  </dd>
+                </div>
+              ))}
           </dl>
           <p className="daily-time-support">休憩を含む空き枠 {duration(day.capacity.free)}</p>
         </div>
-        {/* The adjacent text and detail table provide the full alternative to this chart. */}
-        <div className="daily-time-visual" aria-hidden="true">
-          <svg className="daily-time-donut" viewBox="0 0 200 200" focusable="false">
-            {chartItems.map(({ kind, value }, index) => {
-              if (!value) return null;
-              const offset = chartItems.slice(0, index).reduce((sum, item) => sum + item.value, 0);
-              return (
-                <circle
-                  key={kind}
-                  className={`time-${kind}`}
-                  data-kind={kind}
-                  cx="100"
-                  cy="100"
-                  r="74"
-                  pathLength="1440"
-                  strokeDasharray={`${value} ${1440 - value}`}
-                  strokeDashoffset={-offset}
-                  transform="rotate(-90 100 100)"
-                />
-              );
-            })}
-          </svg>
-          <span className="daily-time-total">24時間</span>
-        </div>
-        <dl className="time-legend">
-          {chartItems
-            .filter(({ kind }) => (kind !== 'sleep' && kind !== 'bath') || !!outsideTime?.[kind])
-            .map(({ kind, value }) => (
-              <div key={kind} data-kind={kind}>
-                <dt>
-                  <span className={`time-swatch time-${kind}`} aria-hidden="true" />
-                  {kind === 'meal' ? '通学・食事' : labels[kind]}
-                </dt>
-                <dd>
-                  {kind === 'meal' ? (
-                    <>
-                      （食事{duration(display.totals.meal + display.totals.mealCommute)}、通学
-                      {duration(display.totals.commute + display.totals.mealCommute)}）
-                    </>
-                  ) : (
-                    duration(value)
-                  )}
-                </dd>
-              </div>
-            ))}
-        </dl>
       </div>
       <details className="daily-time-details">
         <summary>時刻・通学の内訳を見る</summary>

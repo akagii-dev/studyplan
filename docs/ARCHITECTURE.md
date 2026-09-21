@@ -57,6 +57,8 @@ SQLiteのテーブル・保存キーは維持する。任意項目 departureTime
 
 `dailyTimeDisplay.ts` は既存 `dailyTime` の未設定区間だけを睡眠・風呂へ分ける純粋な表示変換。設定は `AppState.outsideTime` に保存し、計算用 `Settings` へ含めない。`OutsideTimeSetup.tsx` は任意設定・開始・終了の質問と下書き保存を担当し、`FocusSteps.tsx` が初期設定の流れへ組み込む。`DailyTime.tsx` は通学・食事を円グラフと凡例だけでまとめ、詳細は元の分類を維持する。
 
+`DailyTimeChart.tsx` は円弧と中心の学習可能量を表示する。実寸に基づく文字拡大時の配置切替も表示層で完結し、計算層へ依存を追加しない。
+
 ## 検証
 
 計算の再現性・非破壊性と質問遷移、指定出発時刻、食事との重複、日またぎ、旧設定の再確認、承認時の再検証を単体テストで確認する。SQLiteを使った実機テストで保存・再起動・質問操作・既存機能を確認する。結果は [VALIDATION.md](VALIDATION.md) に記録する。

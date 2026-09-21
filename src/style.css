@@ -1861,21 +1861,24 @@ progress::-webkit-progress-value {
   font-size: 1rem;
 }
 .daily-time-metric {
-  margin: 1.25rem 0 0;
+  margin: 0;
+  max-width: 56%;
+  text-align: center;
+  min-width: 0;
 }
 .daily-time-metric dt {
   font-weight: 600;
 }
 .daily-time-metric dd {
   margin: 0;
-  font-size: 2.25rem;
+  font-size: 1.6rem;
   font-weight: 700;
   line-height: 1.4;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
 }
 .daily-time-support {
-  margin: 0.25rem 0 1.25rem;
+  margin: 0.75rem 0 0;
   color: var(--muted);
 }
 .daily-time-warning {
@@ -1891,12 +1894,6 @@ progress::-webkit-progress-value {
   gap: 1rem 1.5rem;
   margin-top: 1.25rem;
 }
-.daily-time-summary .daily-time-metric {
-  margin-top: 0;
-}
-.daily-time-summary .daily-time-support {
-  margin-bottom: 0;
-}
 .daily-time-visual {
   display: grid;
   place-items: center;
@@ -1904,8 +1901,11 @@ progress::-webkit-progress-value {
   justify-self: center;
 }
 .daily-time-donut,
-.daily-time-total {
+.daily-time-metric {
   grid-area: 1 / 1;
+}
+.daily-time-visual[data-expanded] .daily-time-metric {
+  grid-area: 2 / 1;
 }
 .daily-time-donut {
   width: 100%;
@@ -1918,17 +1918,12 @@ progress::-webkit-progress-value {
   stroke-width: 32;
   stroke-linecap: butt;
 }
-.daily-time-total {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--ink);
-}
 .daily-time-summary .time-legend {
   margin: 0;
 }
-@container (min-width: 900px) {
+@container (min-width: 600px) {
   .daily-time-summary {
-    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr) minmax(0, 1.3fr);
+    grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
   }
   .daily-time-summary .time-legend {
     flex-direction: column;

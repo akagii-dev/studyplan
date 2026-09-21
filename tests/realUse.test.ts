@@ -153,7 +153,7 @@ it('後の周回を先に固定した場合は、前の周回を後日に押し�
   const s = studentFixture(from);
   s.plan = generatePlan(s, from);
   const fixed = s.plan.sessions.find((x) => x.materialId === 'long' && x.round === 1)!;
-  Object.assign(fixed, { date: from, start: 870, end: 910, count: 1, fixed: true });
+  Object.assign(fixed, { date: from, start: 810, end: 850, count: 1, fixed: true });
   const p = generatePlan(s, from);
   expect(p.sessions).toContainEqual(fixed);
   expect(p.conflicts.join('')).toContain('取り組む順序');
@@ -168,7 +168,7 @@ it('完了済み先行周回・短くした推定時間は固定予定の承認�
   const s = studentFixture(from);
   s.plan = generatePlan(s, from);
   const fixed = s.plan.sessions.find((x) => x.materialId === 'long' && x.round === 1)!;
-  Object.assign(fixed, { date: from, start: 870, end: 910, count: 1, fixed: true });
+  Object.assign(fixed, { date: from, start: 810, end: 850, count: 1, fixed: true });
   s.settings.materials[1].rounds[0].completed = 37;
   s.settings.materials[1].rounds[1].minutes = 30;
   const proposed = proposeSettings(s, s.settings, from);

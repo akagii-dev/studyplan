@@ -91,7 +91,7 @@ export function settingChanges(before: Settings, after: Settings): string[] {
     const c = after.commute;
     changes.push(
       c?.enabled
-        ? `通学：${c.from}〜${c.to}、${c.mode === 'classDays' ? '授業日のみ' : '曜日 ' + c.weekdays.map((d) => ['日', '月', '火', '水', '木', '金', '土'][d]).join('・')}、往路${c.outboundMinutes}分・復路${c.returnMinutes}分${c.mode === 'weekdays' ? `（出発 ${clock(c.outboundStart)} / ${clock(c.returnStart)}）` : ''}`
+        ? `通学：${c.from}〜${c.to}、${c.mode === 'classDays' ? '授業日のみ' : '曜日 ' + c.weekdays.map((d) => ['日', '月', '火', '水', '木', '金', '土'][d]).join('・')}、往路${c.outboundMinutes}分・復路${c.returnMinutes}分（出発 ${clock(c.outboundStart)} / ${clock(c.returnStart)}）`
         : '通学：設定なし',
     );
   }

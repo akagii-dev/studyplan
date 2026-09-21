@@ -56,6 +56,7 @@ const settings = z.looseObject({
       weekdays: z.array(z.number().int().min(0).max(6)).max(7),
       outboundMinutes: count.max(360),
       returnMinutes: count.max(360),
+      departureTimesConfirmed: z.boolean().optional(),
       outboundStart: count.max(1439),
       returnStart: count.max(1439),
     })

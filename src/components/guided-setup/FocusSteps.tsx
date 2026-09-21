@@ -4,7 +4,7 @@ import { MealSetup } from '../Meals';
 import { QuestionView, StepContext } from './types';
 
 export function FocusSteps(ctx: StepContext): QuestionView | undefined {
-  const { w, state, update, go, skip, choice, setting } = ctx;
+  const { w, state, update, go, choice, setting } = ctx;
   let title: string,
     content: ReactNode,
     valid = true;
@@ -12,14 +12,7 @@ export function FocusSteps(ctx: StepContext): QuestionView | undefined {
     case 'focus.total': // Continue older in-progress setup at the new meal questions.
     case 'meals':
       title = '食事の時間も確保しましょう';
-      content = (
-        <MealSetup
-          state={state}
-          update={update}
-          onDone={() => go('focus.block')}
-          onSkipRemaining={state.settings.exams.length ? skip : undefined}
-        />
-      );
+      content = <MealSetup state={state} update={update} onDone={() => go('focus.block')} />;
       break;
     case 'focus.block':
       title = '最長で何分続けて勉強できますか？';

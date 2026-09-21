@@ -2182,7 +2182,7 @@ progress::-webkit-progress-value {
   --sidebar-width: 226px;
 }
 .app-shell .sidebar {
-  width: calc(var(--sidebar-width) - 24px);
+  width: calc(var(--sidebar-width) - 12px);
   padding-right: 8px;
   border-right: 0;
 }
@@ -2193,9 +2193,9 @@ progress::-webkit-progress-value {
 }
 .sidebar-toggle {
   position: fixed;
-  left: calc(var(--sidebar-width) - 24px);
+  left: calc(var(--sidebar-width) - 12px);
   top: 0;
-  width: 24px;
+  width: 12px;
   height: 100dvh;
   padding: 0;
   border: 0;
@@ -2214,7 +2214,7 @@ progress::-webkit-progress-value {
   outline-offset: -3px;
 }
 .sidebar-collapsed {
-  --sidebar-width: 24px;
+  --sidebar-width: 12px;
 }
 .sidebar-collapsed .sidebar {
   display: none;
@@ -2373,17 +2373,4 @@ textarea {
   .sidebar-bottom {
     padding: 20px 4px 0;
   }
-}
-.wizard-skip {
-  position: sticky;
-  top: 8px;
-  z-index: 5;
-  display: flex;
-  justify-content: flex-end;
-  padding: 8px 0;
-  background: var(--page);
-}
-.wizard-skip button {
-  max-width: 100%;
-  white-space: normal;
 }

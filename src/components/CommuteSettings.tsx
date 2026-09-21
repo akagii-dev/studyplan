@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Commute, clock, minutes, today } from '../domain/model';
-import { commuteErrors, defaultCommute } from '../domain/commute';
+import { Commute, Settings, clock, minutes, today, mealKeys, mealNames } from '../domain/model';
+import { commuteErrors, commuteScheduleErrors, defaultCommute } from '../domain/commute';
 import { proposeSettings } from '../domain/planning';
 import { Field, Props, useDraft, weekdays } from './common';
 
@@ -10,26 +10,34 @@ export function CommuteEditor({
   value,
   draftKey,
   onSave,
-  onSkipRemaining,
+  settings = state.settings,
 }: Props & {
   value?: Commute;
   draftKey: string;
   onSave: (commute: Commute) => Promise<void>;
-  onSkipRemaining?: (commute: Commute) => Promise<void>;
+  settings?: Settings;
 }) {
   const initial = value ?? defaultCommute();
   const [draft, set] = useDraft(state, update, `commute-${draftKey}`, {
     step: 0,
+    flowVersion: 2,
     ...initial,
     outboundMinutes: String(initial.outboundMinutes),
     returnMinutes: String(initial.returnMinutes),
-    outboundStart: clock(initial.outboundStart),
-    returnStart: clock(initial.returnStart),
+    outboundStart:
+      initial.mode === 'classDays' && !initial.departureTimesConfirmed
+        ? ''
+        : clock(initial.outboundStart),
+    returnStart:
+      initial.mode === 'classDays' && !initial.departureTimesConfirmed
+        ? ''
+        : clock(initial.returnStart),
   });
+  const step = draft.flowVersion === 2 ? draft.step : 0;
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const patch = (changes: Partial<typeof draft>) => {
-    set({ ...draft, ...changes });
+    set({ ...draft, step, flowVersion: 2, ...changes });
     setError('');
   };
   const parse = (): Commute => {
@@ -38,9 +46,10 @@ export function CommuteEditor({
       ![draft.outboundStart, draft.returnStart].every((t) => /^\d{2}:\d{2}$/.test(t))
     )
       throw new Error('時間を入力してください。');
-    const { step: _, ...form } = draft;
+    const { step: _, flowVersion: _flow, ...form } = draft;
     const result = {
       ...form,
+      departureTimesConfirmed: true,
       outboundMinutes: Number(form.outboundMinutes),
       returnMinutes: Number(form.returnMinutes),
       outboundStart: minutes(form.outboundStart),
@@ -53,59 +62,64 @@ export function CommuteEditor({
   const submit = async () => {
     if (busy) return;
     try {
-      const c = parse();
-      if (draft.step < 3 && draft.enabled) {
-        patch({ step: draft.step + 1 });
+      if (draft.enabled && step < 5) {
+        if (step === 0) {
+          const errors = commuteErrors({
+            ...defaultCommute(),
+            ...draft,
+            outboundMinutes: 0,
+            returnMinutes: 0,
+            outboundStart: 0,
+            returnStart: 0,
+          });
+          if (errors.length) throw new Error(errors[0]);
+        }
+        if (step === 1 || step === 3) {
+          const time = step === 1 ? draft.outboundStart : draft.returnStart;
+          if (!/^\d{2}:\d{2}$/.test(time) || !Number.isFinite(minutes(time)))
+            throw new Error('出発時刻を入力してください。');
+        }
+        if (step === 2 || step === 4) {
+          const length = step === 2 ? draft.outboundMinutes : draft.returnMinutes;
+          if (!/^\d+$/.test(length) || Number(length) > 360)
+            throw new Error('所要時間は0〜360分の整数で入力してください。');
+        }
+        patch({ step: step + 1 });
         return;
       }
+      const c = draft.enabled ? parse() : { ...initial, enabled: false };
+      const conflicts = commuteScheduleErrors({ ...settings, commute: c });
+      if (conflicts.length) throw new Error(conflicts.join(' '));
       setBusy(true);
       await onSave(c);
     } catch (e) {
-      setError(String(e));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
   };
   return (
     <section className="card commute-editor" aria-label="通学時間の設定">
-      {(onSkipRemaining || (value && draft.step < 3)) && (
-        <div className="wizard-skip">
-          <button
-            disabled={busy}
-            onClick={async () => {
-              try {
-                setBusy(true);
-                const commute = parse();
-                if (onSkipRemaining) await onSkipRemaining(commute);
-                else patch({ step: 3 });
-              } catch (e) {
-                setError(String(e));
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            残りを一括スキップして確認
-          </button>
-        </div>
-      )}
       <h2>
         {
           [
             '通学はいつありますか？',
+            '往路は何時に出発しますか？',
             '往路は何分かかりますか？',
+            '復路は何時に出発しますか？',
             '復路は何分かかりますか？',
             '通学時間を確認してください',
-          ][draft.step]
+          ][step]
         }
       </h2>
       <form
+        noValidate
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
         }}
       >
-        {draft.step === 0 && (
+        {step === 0 && (
           <>
             <label className="check">
               <input
@@ -163,45 +177,49 @@ export function CommuteEditor({
             )}
           </>
         )}
-        {(draft.step === 1 || draft.step === 2) && (
-          <>
-            <Field label={draft.step === 1 ? '往路の所要時間（分）' : '復路の所要時間（分）'}>
-              <input
-                inputMode="numeric"
-                value={draft.step === 1 ? draft.outboundMinutes : draft.returnMinutes}
-                onChange={(e) =>
-                  patch(
-                    draft.step === 1
-                      ? { outboundMinutes: e.target.value }
-                      : { returnMinutes: e.target.value },
-                  )
-                }
-              />
-            </Field>
-            {draft.mode === 'classDays' ? (
-              <p>
-                {draft.step === 1
-                  ? 'その日の最初の授業の直前に確保します。'
-                  : 'その日の最後の授業の直後に確保します。'}
-              </p>
-            ) : (
-              <Field label={draft.step === 1 ? '往路の出発時刻' : '復路の出発時刻'}>
-                <input
-                  type="time"
-                  value={draft.step === 1 ? draft.outboundStart : draft.returnStart}
-                  onChange={(e) =>
-                    patch(
-                      draft.step === 1
-                        ? { outboundStart: e.target.value }
-                        : { returnStart: e.target.value },
-                    )
-                  }
-                />
-              </Field>
-            )}
-          </>
+        {(step === 1 || step === 3) && (
+          <Field label={step === 1 ? '往路の出発時刻' : '復路の出発時刻'}>
+            <input
+              type="time"
+              value={step === 1 ? draft.outboundStart : draft.returnStart}
+              onChange={(e) =>
+                patch(
+                  step === 1 ? { outboundStart: e.target.value } : { returnStart: e.target.value },
+                )
+              }
+            />
+          </Field>
         )}
-        {draft.step === 3 && (
+        {(step === 1 || step === 3) && (
+          <p className="hint">
+            {mealKeys
+              .flatMap((key) => {
+                const meal = settings.meals?.[key];
+                return meal
+                  ? [
+                      `${mealNames[key]} ${clock(meal.start)}〜${clock((meal.start + meal.duration) % 1440)}`,
+                    ]
+                  : [];
+              })
+              .join(' ／ ')}
+          </p>
+        )}
+        {(step === 2 || step === 4) && (
+          <Field label={step === 2 ? '往路の所要時間（分）' : '復路の所要時間（分）'}>
+            <input
+              inputMode="numeric"
+              value={step === 2 ? draft.outboundMinutes : draft.returnMinutes}
+              onChange={(e) =>
+                patch(
+                  step === 2
+                    ? { outboundMinutes: e.target.value }
+                    : { returnMinutes: e.target.value },
+                )
+              }
+            />
+          </Field>
+        )}
+        {step === 5 && (
           <>
             <p>
               {draft.from}〜{draft.to} ／{' '}
@@ -212,11 +230,9 @@ export function CommuteEditor({
             <p>
               往路 {draft.outboundMinutes}分 ／ 復路 {draft.returnMinutes}分
             </p>
-            {draft.mode === 'weekdays' && (
-              <p>
-                出発：往路 {draft.outboundStart} ／ 復路 {draft.returnStart}
-              </p>
-            )}
+            <p>
+              出発：往路 {draft.outboundStart} ／ 復路 {draft.returnStart}
+            </p>
           </>
         )}
         {error && (
@@ -224,14 +240,24 @@ export function CommuteEditor({
             {error}
           </p>
         )}
+        {error && (
+          <div className="actions">
+            <button type="button" onClick={() => patch({ step: 1 })}>
+              往路の出発時刻を修正
+            </button>
+            <button type="button" onClick={() => patch({ step: 3 })}>
+              復路の出発時刻を修正
+            </button>
+          </div>
+        )}
         <div className="actions">
-          {draft.step > 0 && (
-            <button type="button" onClick={() => patch({ step: draft.step - 1 })}>
+          {step > 0 && (
+            <button type="button" onClick={() => patch({ step: step - 1 })}>
               前の質問
             </button>
           )}
           <button className="primary" type="submit" disabled={busy}>
-            {draft.step === 3 || !draft.enabled ? 'この通学設定を使う' : '次へ'}
+            {step === 5 || !draft.enabled ? 'この通学設定を使う' : '次へ'}
           </button>
         </div>
       </form>

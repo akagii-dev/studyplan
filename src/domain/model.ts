@@ -83,6 +83,7 @@ export interface Commute {
   weekdays: number[];
   outboundMinutes: number;
   returnMinutes: number;
+  departureTimesConfirmed?: boolean;
   outboundStart: number;
   returnStart: number;
 }

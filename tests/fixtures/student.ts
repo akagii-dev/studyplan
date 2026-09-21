@@ -132,8 +132,9 @@ export function studentFixture(from = '2030-10-07') {
     weekdays: [],
     outboundMinutes: 50,
     returnMinutes: 50,
-    outboundStart: 480,
-    returnStart: 1080,
+    departureTimesConfirmed: true,
+    outboundStart: 490,
+    returnStart: 960,
   };
   state.settings.block = 90;
   state.settings.rest = 15;

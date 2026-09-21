@@ -1,4 +1,5 @@
-import { Commute, Settings, addDays, today, weekday } from './model';
+import { mealEvents } from './mealEvents';
+import { Commute, Settings, addDays, today, weekday, clock } from './model';
 
 export const defaultCommute = (): Commute => ({
   enabled: false,
@@ -19,6 +20,7 @@ export function commuteErrors(c?: Commute): string[] {
     new Date(v).toISOString().slice(0, 10) === v;
   if (
     typeof c.enabled !== 'boolean' ||
+    (c.departureTimesConfirmed !== undefined && typeof c.departureTimesConfirmed !== 'boolean') ||
     !validDate(c.from) ||
     !validDate(c.to) ||
     c.to < c.from ||
@@ -47,11 +49,13 @@ export function commuteEvents(settings: Settings, date: string) {
     );
     if (c.mode === 'classDays' ? !classes.length : !c.weekdays.includes(weekday(day))) continue;
     const outbound =
-      c.mode === 'classDays'
+      c.mode === 'classDays' && !c.departureTimesConfirmed
         ? Math.min(...classes.map((w) => w.start)) - c.outboundMinutes
         : c.outboundStart;
     const returning =
-      c.mode === 'classDays' ? Math.max(...classes.map((w) => w.end)) : c.returnStart;
+      c.mode === 'classDays' && !c.departureTimesConfirmed
+        ? Math.max(...classes.map((w) => w.end))
+        : c.returnStart;
     for (const [key, name, start, length] of [
       ['outbound', '通学（往路）', outbound, c.outboundMinutes],
       ['return', '通学（復路）', returning, c.returnMinutes],
@@ -63,4 +67,48 @@ export function commuteEvents(settings: Settings, date: string) {
     }
   }
   return events;
+}
+
+export function commuteScheduleErrors(settings: Settings): string[] {
+  const c = settings.commute;
+  if (!c?.enabled || commuteErrors(c).length) return [];
+  if (c.mode === 'classDays' && !c.departureTimesConfirmed)
+    return ['通学の往路・復路の出発時刻を対話で確認してください。'];
+  const errors: string[] = [];
+  // Recurring meals are daily: one matching date for each weekday suffices for each class period.
+  const ranges =
+    c.mode === 'weekdays'
+      ? [{ from: c.from, to: c.to, weekdays: c.weekdays }]
+      : settings.windows.filter((w) => w.kind === 'class');
+  for (const range of ranges) {
+    const from = range.from > c.from ? range.from : c.from,
+      to = range.to < c.to ? range.to : c.to;
+    for (let i = 0; i < 7; i++) {
+      const day = addDays(from, i);
+      if (day > to || !range.weekdays.includes(weekday(day))) continue;
+      for (const offset of [0, 1]) {
+        const date = addDays(day, offset);
+        for (const trip of commuteEvents(settings, date))
+          for (const meal of mealEvents(settings))
+            if (trip.start < meal.end && meal.start < trip.end)
+              errors.push(
+                date +
+                  ' ' +
+                  trip.name +
+                  '（' +
+                  clock(trip.start) +
+                  '〜' +
+                  clock(trip.end) +
+                  '）が' +
+                  meal.name +
+                  '（' +
+                  clock(meal.start) +
+                  '〜' +
+                  clock(meal.end) +
+                  '）と重なっています。出発時刻または食事時間を修正してください。',
+              );
+      }
+    }
+  }
+  return [...new Set(errors)].slice(0, 3);
 }

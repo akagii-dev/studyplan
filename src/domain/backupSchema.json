@@ -329,6 +329,9 @@
                   "minimum": 0,
                   "maximum": 360
                 },
+                "departureTimesConfirmed": {
+                  "type": "boolean"
+                },
                 "outboundStart": {
                   "type": "integer",
                   "minimum": 0,
@@ -2005,6 +2008,9 @@
                           "minimum": 0,
                           "maximum": 360
                         },
+                        "departureTimesConfirmed": {
+                          "type": "boolean"
+                        },
                         "outboundStart": {
                           "type": "integer",
                           "minimum": 0,
@@ -2438,6 +2444,9 @@
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 360
+                        },
+                        "departureTimesConfirmed": {
+                          "type": "boolean"
                         },
                         "outboundStart": {
                           "type": "integer",
@@ -3036,6 +3045,9 @@
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 360
+                        },
+                        "departureTimesConfirmed": {
+                          "type": "boolean"
                         },
                         "outboundStart": {
                           "type": "integer",
@@ -3718,6 +3730,9 @@
                         "minimum": 0,
                         "maximum": 360
                       },
+                      "departureTimesConfirmed": {
+                        "type": "boolean"
+                      },
                       "outboundStart": {
                         "type": "integer",
                         "minimum": 0,
@@ -4398,6 +4413,9 @@
                               "minimum": 0,
                               "maximum": 360
                             },
+                            "departureTimesConfirmed": {
+                              "type": "boolean"
+                            },
                             "outboundStart": {
                               "type": "integer",
                               "minimum": 0,
@@ -5068,6 +5086,9 @@
                           "minimum": 0,
                           "maximum": 360
                         },
+                        "departureTimesConfirmed": {
+                          "type": "boolean"
+                        },
                         "outboundStart": {
                           "type": "integer",
                           "minimum": 0,
@@ -5612,6 +5633,9 @@
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 360
+                    },
+                    "departureTimesConfirmed": {
+                      "type": "boolean"
                     },
                     "outboundStart": {
                       "type": "integer",
@@ -7289,6 +7313,9 @@
                               "minimum": 0,
                               "maximum": 360
                             },
+                            "departureTimesConfirmed": {
+                              "type": "boolean"
+                            },
                             "outboundStart": {
                               "type": "integer",
                               "minimum": 0,
@@ -7722,6 +7749,9 @@
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 360
+                            },
+                            "departureTimesConfirmed": {
+                              "type": "boolean"
                             },
                             "outboundStart": {
                               "type": "integer",
@@ -8320,6 +8350,9 @@
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 360
+                            },
+                            "departureTimesConfirmed": {
+                              "type": "boolean"
                             },
                             "outboundStart": {
                               "type": "integer",
@@ -9002,6 +9035,9 @@
                             "minimum": 0,
                             "maximum": 360
                           },
+                          "departureTimesConfirmed": {
+                            "type": "boolean"
+                          },
                           "outboundStart": {
                             "type": "integer",
                             "minimum": 0,
@@ -9682,6 +9718,9 @@
                                   "minimum": 0,
                                   "maximum": 360
                                 },
+                                "departureTimesConfirmed": {
+                                  "type": "boolean"
+                                },
                                 "outboundStart": {
                                   "type": "integer",
                                   "minimum": 0,
@@ -10351,6 +10390,9 @@
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 360
+                            },
+                            "departureTimesConfirmed": {
+                              "type": "boolean"
                             },
                             "outboundStart": {
                               "type": "integer",

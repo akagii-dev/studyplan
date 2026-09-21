@@ -5,14 +5,11 @@ import {
   advanceQuestion,
   moveTo,
   previousQuestion,
-  skipRemaining,
 } from '../src/components/guided-setup/transitions';
 import { generatePlan } from '../src/domain/planner/generate';
 import { proposeSettings, approve } from '../src/domain/planner/proposal';
 import { PlanningContext } from '../src/domain/planner/context';
 import { studentFixture } from './fixtures/student';
-import { mealEvents } from '../src/domain/mealEvents';
-import { commuteEvents } from '../src/domain/commute';
 import { addDays } from '../src/domain/model';
 
 const date = '2030-10-07';
@@ -63,23 +60,6 @@ describe('責任分離後の純粋な計算・遷移', () => {
       roundIndex: 0,
     });
   });
-  it('一括スキップで変更した教材だけを保存し、未変更の設定・実績・計画は維持する', () => {
-    const state = studentFixture(date);
-    state.plan = generatePlan(state, date, false, 360, 'balanced', context);
-    const w = initialWizard(state);
-    w.step = 'material.name';
-    w.material = { ...w.material, name: '変更した名前' };
-    const result = skipRemaining(state, w);
-    expect(result.settings).toEqual({
-      ...state.settings,
-      materials: state.settings.materials.map((m, i) => (i ? m : { ...m, name: '変更した名前' })),
-    });
-    expect(result.plan).toEqual(state.plan);
-    expect(result.records).toEqual(state.records);
-    expect(result.draft.guided).toMatchObject({ step: 'finish' });
-    expect(state.settings.materials[0].name).not.toBe('変更した名前');
-    expect(() => skipRemaining(state, { ...w, material: { ...w.material, total: 0 } })).toThrow();
-  });
   it('授業期間の修正は遷移時にだけ当該期間へ適用する', () => {
     const state = studentFixture(date),
       w = initialWizard(state);
@@ -98,46 +78,5 @@ describe('責任分離後の純粋な計算・遷移', () => {
       state.settings.windows.filter((x) => x.kind !== 'class'),
     );
     expect((next.draft.guided as typeof w).step).toBe('class.times');
-  });
-});
-describe('通学と食事の両立不可', () => {
-  it('日またぎの復路にも食事が重ならず、食事の長さを削らない', () => {
-    const s = studentFixture(date).settings;
-    Object.assign(s.commute!, {
-      mode: 'weekdays',
-      weekdays: [1],
-      from: date,
-      to: date,
-      returnStart: 1430,
-      returnMinutes: 50,
-    });
-    s.meals = { dinner: { start: 1420, duration: 60 } };
-    expect(mealEvents(s, date).filter((m) => m.id === 'meal-dinner')).toEqual([]);
-    expect(mealEvents(s, addDays(date, 1))).toContainEqual(
-      expect.objectContaining({ start: 40, end: 100, adjusted: true }),
-    );
-    for (const d of [date, addDays(date, 1)])
-      for (const m of mealEvents(s, d))
-        expect(commuteEvents(s, d).some((c) => c.start < m.end && m.start < c.end)).toBe(false);
-  });
-  it('食事同士に調整が波及しても、各食事を全て確保する', () => {
-    const s = studentFixture(date).settings;
-    s.meals = { lunch: { start: 750, duration: 60 }, dinner: { start: 810, duration: 30 } };
-    const meals = mealEvents(s, date);
-    expect(meals.map((m) => [m.start, m.end])).toEqual([
-      [800, 860],
-      [860, 890],
-    ]);
-  });
-  it('授業のない日・通学無効・重ならない食事は設定時刻を維持する', () => {
-    const s = studentFixture(date).settings;
-    s.meals = { lunch: { start: 750, duration: 60 } };
-    expect(mealEvents(s, addDays(date, 5))[0]).toMatchObject({
-      start: 750,
-      end: 810,
-      adjusted: false,
-    });
-    s.commute!.enabled = false;
-    expect(mealEvents(s, date)[0]).toMatchObject({ start: 750, end: 810, adjusted: false });
   });
 });

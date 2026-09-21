@@ -89,6 +89,5 @@ export function dailyTime(settings: Settings, date: string) {
       last.end = s.end;
     else overview.push({ ...s, kind });
   }
-  const adjustedMeals = events.filter((e) => e.kind === 'meal' && e.adjusted);
-  return { capacity, segments, overview, totals, commutes, commuteMinutes, adjustedMeals };
+  return { capacity, segments, overview, totals, commutes, commuteMinutes };
 }

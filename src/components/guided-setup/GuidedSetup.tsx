@@ -10,14 +10,7 @@ import { FinishSteps } from './FinishSteps';
 import { FocusSteps } from './FocusSteps';
 import { MaterialSteps } from './MaterialSteps';
 import { Addition, Step, Wizard, initialWizard, newExam, newMaterial, newWindow } from './model';
-import {
-  advanceQuestion,
-  moveTo,
-  nextStep,
-  previousQuestion,
-  skipRemaining,
-  saveAnswer,
-} from './transitions';
+import { advanceQuestion, moveTo, nextStep, previousQuestion, saveAnswer } from './transitions';
 import { StepContext } from './types';
 export function GuidedSetup({
   state,
@@ -105,15 +98,11 @@ export function GuidedSetup({
       <span>{label}</span>
     </button>
   );
-  const skip = () => {
-    void update((s) => skipRemaining(s, w, draftKey)).catch((e) => err(String(e)));
-  };
   const ctx: StepContext = {
     state,
     update,
     mode,
     w,
-    skip,
     exam,
     win,
     mat,
@@ -156,15 +145,6 @@ export function GuidedSetup({
   };
   return (
     <div className="guided-setup">
-      {!mode &&
-        state.settings.exams.length > 0 &&
-        !['finish', 'meals', 'focus.total'].includes(w.step) && (
-          <div className="wizard-skip">
-            <button data-submit onClick={skip}>
-              残りを一括スキップして確認
-            </button>
-          </div>
-        )}
       {!mode && (
         <section className="card setup-tools">
           <button onClick={() => setEditing(!editing)}>

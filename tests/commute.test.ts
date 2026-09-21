@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { initialState, addDays } from '../src/domain/model';
-import { defaultCommute, commuteEvents, commuteErrors } from '../src/domain/commute';
+import {
+  defaultCommute,
+  commuteEvents,
+  commuteErrors,
+  commuteScheduleErrors,
+} from '../src/domain/commute';
 import {
   capacityForDate,
   freeIntervalsForDate,
@@ -65,15 +70,31 @@ function fixture() {
     to: addDays(day, 10),
     outboundMinutes: 45,
     returnMinutes: 30,
+    departureTimesConfirmed: true,
+    outboundStart: 555,
+    returnStart: 700,
   };
   return s;
 }
 describe('通学時間', () => {
-  it('復路に重なる昼食を帰宅後へ移し、それぞれの全時間を確保する', () => {
+  it('食事を後から変更した案も承認時に再検査し、食事や実績を自動変更しない', () => {
+    const s = fixture();
+    const candidate = proposeSettings(s, s.settings, day);
+    candidate.proposal!.plan.settingsSnapshot!.meals = { lunch: { start: 710, duration: 30 } };
+    const before = structuredClone(candidate);
+    expect(() => approve(candidate)).toThrow('昼食');
+    expect(candidate).toEqual(before);
+  });
+  it('指定した往復の出発時刻を使い、食事の時刻を変えない', () => {
     const s = fixture();
     Object.assign(s.settings.windows[1], { start: 540, end: 640 });
     s.settings.windows.push({ ...s.settings.windows[1], id: 'late', start: 650, end: 750 });
-    Object.assign(s.settings.commute!, { outboundMinutes: 50, returnMinutes: 50 });
+    Object.assign(s.settings.commute!, {
+      outboundMinutes: 50,
+      returnMinutes: 50,
+      outboundStart: 490,
+      returnStart: 810,
+    });
     s.settings.meals = {
       breakfast: { start: 420, duration: 30 },
       lunch: { start: 750, duration: 60 },
@@ -82,19 +103,19 @@ describe('通学時間', () => {
     const d = dailyTime(s.settings, day);
     expect(d.commutes.map((e) => [e.name, e.start, e.end])).toEqual([
       ['通学（往路）', 490, 540],
-      ['通学（復路）', 750, 800],
+      ['通学（復路）', 810, 860],
     ]);
     expect(d.commuteMinutes).toBe(100);
     expect(d.totals.commute).toBe(100);
     expect(d.totals.mealCommute).toBe(0);
     expect(d.totals.meal).toBe(135);
     expect(d.segments).toContainEqual({
-      start: 750,
-      end: 800,
+      start: 810,
+      end: 860,
       kind: 'commute',
       commuteNames: ['通学（復路）'],
     });
-    expect(d.segments).toContainEqual({ start: 800, end: 860, kind: 'meal', commuteNames: [] });
+    expect(d.segments).toContainEqual({ start: 750, end: 810, kind: 'meal', commuteNames: [] });
     expect(d.capacity.free).toBe(350);
     expect(Object.values(d.totals).reduce((a, b) => a + b, 0)).toBe(1440);
   });
@@ -103,17 +124,19 @@ describe('通学時間', () => {
     s.settings.meals = { lunch: { start: 730 - overlap, duration: 60 } };
     const d = dailyTime(s.settings, day);
     expect(d.commuteMinutes).toBe(75);
-    expect(d.totals.commute).toBe(75);
-    expect(d.totals.mealCommute).toBe(0);
-    expect(d.totals.meal).toBe(60);
+    expect(d.totals.commute).toBe(75 - overlap);
+    expect(d.totals.mealCommute).toBe(overlap);
+    expect(d.totals.meal).toBe(60 - overlap);
+    expect(commuteScheduleErrors(s.settings).length > 0).toBe(overlap > 0);
+    if (overlap) expect(() => generatePlan(s, day)).toThrow(/食事時間/);
     expect(Object.values(d.totals).reduce((a, b) => a + b, 0)).toBe(1440);
   });
-  it('授業日の最初と最後に往復を確保し、授業のない日は除外しない', () => {
+  it('授業日のみ指定した出発時刻を使い、授業時刻からは推定しない', () => {
     const s = fixture();
     s.settings.windows.push({ ...s.settings.windows[1], id: 'late', start: 900, end: 1000 });
     expect(commuteEvents(s.settings, day).map((e) => [e.start, e.end])).toEqual([
       [555, 600],
-      [1000, 1030],
+      [700, 730],
     ]);
     expect(commuteEvents(s.settings, addDays(day, 1))).toEqual([]);
     expect(commuteEvents(s.settings, addDays(day, 7))).toEqual([]);
@@ -158,17 +181,25 @@ describe('通学時間', () => {
     s.settings.commute!.enabled = false;
     expect(sameSettings(s.settings, { ...s.settings, commute: undefined })).toBe(true);
   });
-  it('日をまたぐ往路・復路を前後の日へ切り分ける', () => {
+  it('日をまたぐ復路を前後の日へ切り分け、翌日の食事との重複も検出する', () => {
     const s = fixture();
-    s.settings.windows[1].start = 20;
-    s.settings.windows[1].weekdays = [1];
-    s.settings.windows[1].end = 1430;
-    expect(commuteEvents(s.settings, addDays(day, -1)).map((e) => [e.start, e.end])).toEqual([
-      [1415, 1440],
-    ]);
+    Object.assign(s.settings.commute!, {
+      outboundStart: 20,
+      returnStart: 1430,
+      returnMinutes: 30,
+      weekdays: [1],
+      mode: 'weekdays',
+    });
     expect(commuteEvents(s.settings, addDays(day, 1)).map((e) => [e.start, e.end])).toEqual([
       [0, 20],
     ]);
+    s.settings.meals = { breakfast: { start: 10, duration: 30 } };
+    expect(commuteScheduleErrors(s.settings).join('')).toContain('朝食');
+  });
+  it('以前の授業前後の自動時刻は再確認するまで新しい計画に使えない', () => {
+    const s = fixture();
+    delete s.settings.commute!.departureTimesConfirmed;
+    expect(() => generatePlan(s, day)).toThrow('出発時刻を対話で確認');
   });
   it('不正な期間・曜日・長さ・時刻を拒否する', () => {
     for (const change of [

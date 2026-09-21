@@ -1,8 +1,8 @@
-import { commuteErrors } from '../commute';
+import { commuteErrors, commuteScheduleErrors } from '../commute';
 import { addDays, Settings } from '../model';
 import { sessionPolicy } from '../sessionPolicy';
 export function validateSettings(s: Settings): string[] {
-  const errors: string[] = commuteErrors(s.commute);
+  const errors: string[] = [...commuteErrors(s.commute), ...commuteScheduleErrors(s)];
   const policy = sessionPolicy(s);
   if (
     !Number.isInteger(policy.minimum) ||

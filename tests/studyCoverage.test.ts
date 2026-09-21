@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { initialState } from '../src/domain/model';
 import { studyCoverageGaps, isLongTermStudyGap } from '../src/domain/studyCoverage';
 import { setupIssues } from '../src/domain/setupIssues';
@@ -11,6 +11,11 @@ import {
 import { generatePlan, proposeSettings, approve } from '../src/domain/planning';
 import { createWeeklyReport } from '../src/domain/weeklyReport';
 
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-09-20T06:00:00'));
+});
+afterEach(() => vi.useRealTimers());
 function fixture() {
   const s = initialState();
   s.settings.exams = [

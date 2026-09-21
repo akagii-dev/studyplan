@@ -27,7 +27,6 @@ export interface UnavailableEvent {
   kind: string;
   start: number;
   end: number;
-  adjusted?: boolean;
 }
 export function blockingEvents(settings: Settings, date: string): UnavailableEvent[] {
   return [
@@ -65,7 +64,7 @@ export function unavailableEvents(settings: Settings, date: string) {
     previousEnd = Math.max(previousEnd ?? c.end, c.end);
   }
   events.push(...commuteEvents(settings, date));
-  events.push(...mealEvents(settings, date));
+  events.push(...mealEvents(settings));
   if (gap > 0)
     for (const offset of [-1, 0, 1]) {
       const day = addDays(date, offset);

@@ -34,6 +34,17 @@ export function DailyTime({ settings, date }: { settings: Settings; date: string
         <h3>1日の可処分時間</h3>
         <small>{date} · 現在の設定</small>
       </div>
+      {settings.commute?.enabled &&
+        settings.commute.mode === 'classDays' &&
+        !settings.commute.departureTimesConfirmed && (
+          <Warning
+            id="commute-departure-confirmation"
+            title="通学の出発時刻を確認してください"
+            version={settings.commute}
+          >
+            「通学時間」で往路・復路の出発時刻を設定してください。確認前は従来の授業前後の時間を表示しています。
+          </Warning>
+        )}
       <p>
         勉強に使える空き時間 <strong>{duration(day.capacity.free)}</strong> ／ 休憩を除くと{' '}
         <strong>{duration(day.capacity.focus)}</strong>
@@ -53,17 +64,10 @@ export function DailyTime({ settings, date }: { settings: Settings; date: string
           {day.totals.mealCommute > 0 && (
             <p className="hint">
               食事と{duration(day.totals.mealCommute)}
-              重なっています。下の内訳では「食事・通学（重複）」にまとめ、二重には差し引きません。
+              重なっています。通学の出発時刻または食事時間を修正してください。
             </p>
           )}
         </div>
-      )}
-      {day.adjustedMeals.length > 0 && (
-        <p className="hint">
-          {day.adjustedMeals
-            .map((e) => `${e.name}：${clock(e.start)}〜${clock(e.end)}`)
-            .join(' ／ ')}
-        </p>
       )}
       <div
         className="day-time-bar"

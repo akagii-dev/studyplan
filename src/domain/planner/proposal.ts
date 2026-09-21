@@ -1,3 +1,4 @@
+import { validateSettings } from './validation';
 import { startOfWeek } from '../calendar';
 import { AppState, reported, Settings } from '../model';
 import { overlapsBusy, sameSettings } from '../planAudit';
@@ -123,6 +124,8 @@ export function approve(state: AppState, acknowledge: boolean, context: Planning
   )
     throw new Error('作成後に設定が変わっています。現在の設定で案を作り直してください。');
   const settings = p.plan.settingsSnapshot;
+  const errors = validateSettings(settings);
+  if (errors.length) throw new Error(errors.join(' '));
   requirePlanningInputs(settings, context.date);
   validateRevisedSettings(state, settings, context.date, context.minute);
   const minute = context.minute;

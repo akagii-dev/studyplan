@@ -3,39 +3,6 @@ import { validateSettings } from '../../domain/planner/validation';
 import { answerSchedule, scheduleCount } from '../../domain/setupIssues';
 import { Step, Wizard } from './model';
 
-/** Preserve edits to an existing item and all other settings, then jump to the summary. */
-export function skipRemaining(state: AppState, w: Wizard, draftKey = 'guided'): AppState {
-  const settings = structuredClone(state.settings);
-  if (w.step.startsWith('exam.') && settings.exams.some((x) => x.id === w.exam.id))
-    settings.exams = settings.exams.map((x) => (x.id === w.exam.id ? structuredClone(w.exam) : x));
-  if (w.step.startsWith('material.') && settings.materials.some((x) => x.id === w.material.id))
-    settings.materials = settings.materials.map((x) =>
-      x.id === w.material.id ? structuredClone(w.material) : x,
-    );
-  if (
-    (w.step.startsWith('window.') || w.step.startsWith('busy.')) &&
-    settings.windows.some((x) => x.id === w.window.id)
-  )
-    settings.windows = settings.windows.map((x) =>
-      x.id === w.window.id ? structuredClone(w.window) : x,
-    );
-  if (w.step.startsWith('exception.') && settings.exceptions.some((x) => x.id === w.exception.id))
-    settings.exceptions = settings.exceptions.map((x) =>
-      x.id === w.exception.id ? structuredClone(w.exception) : x,
-    );
-  if (w.step === 'class.period' && w.classEditingPeriod) {
-    const old = w.classEditingPeriod;
-    settings.windows = settings.windows.map((x) =>
-      x.kind === 'class' && x.from === old.from && x.to === old.to
-        ? { ...x, from: w.classFrom, to: w.classTo }
-        : x,
-    );
-  }
-  const errors = validateSettings(settings);
-  if (errors.length) throw new Error(errors.join(' '));
-  return { ...state, settings, draft: { ...state.draft, [draftKey]: moveTo(w, 'finish') } };
-}
-
 /** Navigation rules have no rendering, saving, or browser side effects. */
 export function nextStep(w: Wizard): Step | undefined {
   const next: Partial<Record<Step, Step>> = {

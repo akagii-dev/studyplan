@@ -13,7 +13,6 @@ export type GuidedSetupProps = Props & {
 export type QuestionView = { title: string; content: ReactNode; valid: boolean };
 export type StepContext = GuidedSetupProps & {
   w: Wizard;
-  skip: () => void;
   exam: (p: Partial<Exam>) => void;
   win: (p: Partial<WindowRule>) => void;
   mat: (p: Partial<Material>) => void;

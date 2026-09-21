@@ -157,13 +157,15 @@ export function ExamSteps(ctx: StepContext): QuestionView | undefined {
                   className="primary"
                   onClick={() => saveAndGo('exam', 'window.period')}
                 >
-                  保存して、勉強できる時間へ
+                  {w.editScope ? '保存して修正を終了' : '保存して、勉強できる時間へ'}
                   <ArrowRight size={17} />
                 </button>
-                <button onClick={() => saveAndGo('exam', 'exam.name', { exam: newExam() })}>
-                  <Plus size={17} />
-                  別の試験も追加する
-                </button>
+                {!w.editScope && (
+                  <button onClick={() => saveAndGo('exam', 'exam.name', { exam: newExam() })}>
+                    <Plus size={17} />
+                    別の試験も追加する
+                  </button>
+                )}
               </>
             )}
           </div>

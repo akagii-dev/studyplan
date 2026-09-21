@@ -192,7 +192,7 @@ export function MaterialSteps(ctx: StepContext): QuestionView | undefined {
       valid = Number.isInteger(w.material.order) && w.material.order > 0;
       break;
     case 'material.done':
-      title = mode ? 'この教材を登録しますか？' : 'ほかの教材も登録しますか？';
+      title = mode || w.editScope ? 'この教材を登録しますか？' : 'ほかの教材も登録しますか？';
       content = (
         <>
           <div className="answer-summary">
@@ -224,20 +224,22 @@ export function MaterialSteps(ctx: StepContext): QuestionView | undefined {
                   className="primary"
                   onClick={() => saveAndGo('material', 'buffer')}
                 >
-                  保存して、最後の質問へ
+                  {w.editScope ? '保存して修正を終了' : '保存して、最後の質問へ'}
                   <ArrowRight size={17} />
                 </button>
-                <button
-                  onClick={() =>
-                    saveAndGo('material', 'material.exam', {
-                      material: newMaterial(w.material.examId),
-                      roundIndex: 0,
-                    })
-                  }
-                >
-                  <Plus size={17} />
-                  別の教材も追加する
-                </button>
+                {!w.editScope && (
+                  <button
+                    onClick={() =>
+                      saveAndGo('material', 'material.exam', {
+                        material: newMaterial(w.material.examId),
+                        roundIndex: 0,
+                      })
+                    }
+                  >
+                    <Plus size={17} />
+                    別の教材も追加する
+                  </button>
+                )}
               </>
             )}
           </div>

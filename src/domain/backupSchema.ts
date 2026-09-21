@@ -135,6 +135,20 @@ const draftException = exception.extend({
 });
 const period = z.looseObject({ from: text, to: text });
 const guidedDraft = z.looseObject({
+  editScope: z
+    .enum([
+      'exam',
+      'material',
+      'window',
+      'class',
+      'busy',
+      'exception',
+      'meals',
+      'outside',
+      'focus',
+      'buffer',
+    ])
+    .optional(),
   step: text,
   trail: z.array(z.looseObject({ step: text, roundIndex: count })),
   exam: draftExam,
@@ -220,6 +234,18 @@ const draft = z.looseObject({
   replanError: text.optional(),
 });
 const state = z.looseObject({
+  outsideLabels: z
+    .record(
+      date,
+      z.array(
+        z.object({
+          start: count.max(1439),
+          end: count.min(1).max(1440),
+          title: z.string().trim().min(1).max(120),
+        }),
+      ),
+    )
+    .optional(),
   outsideTime: z
     .object({ sleep: outsideRange.optional(), bath: outsideRange.optional() })
     .optional(),

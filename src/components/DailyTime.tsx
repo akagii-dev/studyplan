@@ -1,10 +1,11 @@
 import { useId } from 'react';
 import { Warning } from './Warnings';
-import { Settings, OutsideTime, clock } from '../domain/model';
+import { Settings, OutsideTime, OutsideLabel, clock } from '../domain/model';
 import { dailyTime } from '../domain/dailyTime';
 import { dailyTimeDisplay, DisplayTimeKind } from '../domain/dailyTimeDisplay';
 import { duration } from './common';
 import { DailyTimeChart } from './DailyTimeChart';
+import { OutsideLabelEditor } from './OutsideLabelEditor';
 
 const labels: Record<DisplayTimeKind, string> = {
   available: '学習可能',
@@ -22,10 +23,14 @@ export function DailyTime({
   settings,
   date,
   outsideTime,
+  outsideLabels,
+  onRenameOutside,
 }: {
   settings: Settings;
   date: string;
   outsideTime?: OutsideTime;
+  outsideLabels?: OutsideLabel[];
+  onRenameOutside?: (start: number, end: number, title: string | null) => Promise<void>;
 }) {
   const headingId = useId();
   let day;
@@ -38,16 +43,18 @@ export function DailyTime({
       </Warning>
     );
   }
-  const display = dailyTimeDisplay(day.segments, outsideTime);
+  const display = dailyTimeDisplay(day.segments, outsideTime, outsideLabels);
   // Group only the chart/legend. Detailed categories and calculation stay independent.
   const chartItems = (Object.keys(labels) as DisplayTimeKind[])
-    .filter((kind) => kind !== 'commute' && kind !== 'mealCommute')
+    .filter((kind) => kind !== 'commute' && kind !== 'mealCommute' && kind !== 'bath')
     .map((kind) => ({
       kind,
       value:
         kind === 'meal'
           ? display.totals.meal + display.totals.commute + display.totals.mealCommute
-          : display.totals[kind],
+          : kind === 'sleep'
+            ? display.totals.sleep + display.totals.bath
+            : display.totals[kind],
     }));
   return (
     <section className="card daily-time" aria-labelledby={headingId}>
@@ -82,19 +89,28 @@ export function DailyTime({
               .filter(
                 ({ kind }) =>
                   kind !== 'available' &&
-                  ((kind !== 'sleep' && kind !== 'bath') || !!outsideTime?.[kind]),
+                  (kind !== 'sleep' || !!outsideTime?.sleep || !!outsideTime?.bath),
               )
               .map(({ kind, value }) => (
                 <div key={kind} data-kind={kind}>
                   <dt>
                     <span className={`time-swatch time-${kind}`} aria-hidden="true" />
-                    {kind === 'meal' ? '通学・食事' : labels[kind]}
+                    {kind === 'meal'
+                      ? '通学・食事'
+                      : kind === 'sleep'
+                        ? '睡眠・風呂'
+                        : labels[kind]}
                   </dt>
                   <dd>
                     {kind === 'meal' ? (
                       <>
                         （食事{duration(display.totals.meal + display.totals.mealCommute)}、通学
                         {duration(display.totals.commute + display.totals.mealCommute)}）
+                      </>
+                    ) : kind === 'sleep' ? (
+                      <>
+                        （睡眠{duration(display.totals.sleep)}、風呂{duration(display.totals.bath)}
+                        ）
                       </>
                     ) : (
                       duration(value)
@@ -147,7 +163,18 @@ export function DailyTime({
                   <span>{clock(s.end)}</span>
                 </th>
                 <td>
-                  <span className={`time-category time-${s.kind}`}>{labels[s.kind]}</span>
+                  <span className={`time-category time-${s.kind}`}>
+                    {s.title ?? labels[s.kind]}
+                  </span>
+                  {s.title && <span className="daily-time-note">学習対象外</span>}
+                  {s.kind === 'outside' && onRenameOutside && (
+                    <OutsideLabelEditor
+                      start={s.start}
+                      end={s.end}
+                      title={s.title}
+                      save={(title) => onRenameOutside(s.start, s.end, title)}
+                    />
+                  )}
                   {s.commuteNames.length > 0 && (
                     <span className="daily-time-note">{s.commuteNames.join('・')}</span>
                   )}

@@ -114,7 +114,7 @@ export function AvailabilitySteps(ctx: StepContext): QuestionView | undefined {
       break;
     case 'window.done':
     case 'busy.done':
-      title = 'ほかの時間帯も追加しますか？';
+      title = w.editScope ? 'この時間帯で保存しますか？' : 'ほかの時間帯も追加しますか？';
       content = (
         <>
           <div className="answer-summary">
@@ -135,19 +135,21 @@ export function AvailabilitySteps(ctx: StepContext): QuestionView | undefined {
                 saveAndGo('window', w.step === 'window.done' ? 'class.ask' : 'exception.ask')
               }
             >
-              保存して次へ
+              {w.editScope ? '保存して修正を終了' : '保存して次へ'}
               <ArrowRight size={17} />
             </button>
-            <button
-              onClick={() =>
-                saveAndGo('window', w.step === 'window.done' ? 'window.period' : 'busy.name', {
-                  window: newWindow(w.window.kind),
-                })
-              }
-            >
-              <Plus size={17} />
-              もう一つ追加する
-            </button>
+            {!w.editScope && (
+              <button
+                onClick={() =>
+                  saveAndGo('window', w.step === 'window.done' ? 'window.period' : 'busy.name', {
+                    window: newWindow(w.window.kind),
+                  })
+                }
+              >
+                <Plus size={17} />
+                もう一つ追加する
+              </button>
+            )}
           </div>
         </>
       );
@@ -479,11 +481,13 @@ export function AvailabilitySteps(ctx: StepContext): QuestionView | undefined {
           </div>
           <div className="wizard-options">
             <button data-submit className="primary" onClick={() => saveAndGo('exception', 'meals')}>
-              保存して次へ
+              {w.editScope ? '保存して修正を終了' : '保存して次へ'}
             </button>
-            <button onClick={() => saveAndGo('exception', 'exception.ask')}>
-              ほかの予定も追加する
-            </button>
+            {!w.editScope && (
+              <button onClick={() => saveAndGo('exception', 'exception.ask')}>
+                ほかの予定も追加する
+              </button>
+            )}
           </div>
         </>
       );

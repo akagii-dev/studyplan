@@ -48,8 +48,17 @@ export function moveTo(w: Wizard, step: Step, partial: Partial<Wizard> = {}): Wi
   return {
     ...w,
     ...partial,
-    step,
+    step: w.editScope && step.split('.')[0] !== w.editScope ? 'edit.saved' : step,
     trail: [...w.trail, { step: w.step, roundIndex: w.roundIndex }],
+  };
+}
+export function beginItemEdit(w: Wizard, step: Step, partial: Partial<Wizard> = {}): Wizard {
+  return {
+    ...w,
+    ...partial,
+    step,
+    trail: [],
+    editScope: step.split('.')[0] as Wizard['editScope'],
   };
 }
 export function previousQuestion(w: Wizard): Wizard {

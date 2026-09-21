@@ -10,7 +10,14 @@ import { FinishSteps } from './FinishSteps';
 import { FocusSteps } from './FocusSteps';
 import { MaterialSteps } from './MaterialSteps';
 import { Addition, Step, Wizard, initialWizard, newExam, newMaterial, newWindow } from './model';
-import { advanceQuestion, moveTo, nextStep, previousQuestion, saveAnswer } from './transitions';
+import {
+  advanceQuestion,
+  beginItemEdit,
+  moveTo,
+  nextStep,
+  previousQuestion,
+  saveAnswer,
+} from './transitions';
 import { StepContext } from './types';
 export function GuidedSetup({
   state,
@@ -47,6 +54,11 @@ export function GuidedSetup({
   const go = (step: Step, partial: Partial<Wizard> = {}) => {
     err('');
     set(moveTo(w, step, partial));
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  };
+  const editItem = (step: Step, partial: Partial<Wizard> = {}) => {
+    err('');
+    set(beginItemEdit(w, step, partial));
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
   const back = () => {
@@ -123,6 +135,10 @@ export function GuidedSetup({
     onAddMaterial,
     onReview,
     onConfigure,
+    onEditItems: () => {
+      setEditing(true);
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    },
   };
   const { title, content, valid } = ExamSteps(ctx) ??
     AvailabilitySteps(ctx) ??
@@ -153,15 +169,13 @@ export function GuidedSetup({
           {editing && (
             <div aria-label="初期設定の項目選択" role="region">
               <h3>どの設定を修正しますか？</h3>
-              <p>
-                登録済みの内容を引き継いで、その質問へ移動します。保存済みの計画は再計画を承認してから更新します。
-              </p>
+              <p>選んだ項目だけ修正します。計画への反映は再計画の承認後です。</p>
               <div className="wizard-options">
                 {state.settings.exams.map((e) => (
                   <button
                     key={e.id}
                     onClick={() => {
-                      go('exam.name', { exam: e });
+                      editItem('exam.name', { exam: e });
                       setEditing(false);
                     }}
                   >
@@ -170,7 +184,7 @@ export function GuidedSetup({
                 ))}
                 <button
                   onClick={() => {
-                    go('exam.name', { exam: newExam() });
+                    editItem('exam.name', { exam: newExam() });
                     setEditing(false);
                   }}
                 >
@@ -180,7 +194,7 @@ export function GuidedSetup({
                   <button
                     key={m.id}
                     onClick={() => {
-                      go('material.exam', { material: m, roundIndex: 0 });
+                      editItem('material.exam', { material: m, roundIndex: 0 });
                       setEditing(false);
                     }}
                   >
@@ -189,7 +203,7 @@ export function GuidedSetup({
                 ))}
                 <button
                   onClick={() => {
-                    go('material.exam', {
+                    editItem('material.exam', {
                       material: newMaterial(state.settings.exams[0]?.id ?? ''),
                       roundIndex: 0,
                     });
@@ -204,7 +218,7 @@ export function GuidedSetup({
                     <button
                       key={x.id}
                       onClick={() => {
-                        go(x.kind === 'study' ? 'window.period' : 'busy.name', { window: x });
+                        editItem(x.kind === 'study' ? 'window.period' : 'busy.name', { window: x });
                         setEditing(false);
                       }}
                     >
@@ -213,7 +227,7 @@ export function GuidedSetup({
                   ))}
                 <button
                   onClick={() => {
-                    go('window.period', { window: newWindow() });
+                    editItem('window.period', { window: newWindow() });
                     setEditing(false);
                   }}
                 >
@@ -231,7 +245,7 @@ export function GuidedSetup({
                     <button
                       key={period}
                       onClick={() => {
-                        go('class.period', {
+                        editItem('class.period', {
                           classFrom: from,
                           classTo: to,
                           classEditingPeriod: { from, to },
@@ -245,7 +259,7 @@ export function GuidedSetup({
                 })}
                 <button
                   onClick={() => {
-                    go('class.ask', { classEditingPeriod: undefined });
+                    editItem('class.ask', { classEditingPeriod: undefined });
                     setEditing(false);
                   }}
                 >
@@ -253,7 +267,7 @@ export function GuidedSetup({
                 </button>
                 <button
                   onClick={() => {
-                    go('busy.ask');
+                    editItem('busy.ask');
                     setEditing(false);
                   }}
                 >
@@ -263,7 +277,7 @@ export function GuidedSetup({
                   <button
                     key={x.id}
                     onClick={() => {
-                      go('exception.date', { exception: x });
+                      editItem('exception.date', { exception: x });
                       setEditing(false);
                     }}
                   >
@@ -272,7 +286,7 @@ export function GuidedSetup({
                 ))}
                 <button
                   onClick={() => {
-                    go('exception.ask');
+                    editItem('exception.ask');
                     setEditing(false);
                   }}
                 >
@@ -280,15 +294,16 @@ export function GuidedSetup({
                 </button>
                 <button
                   onClick={() => {
-                    go('meals');
+                    editItem('meals');
                     setEditing(false);
                   }}
                 >
                   食事時間を修正する
                 </button>
+                <button onClick={() => onConfigure?.('commute')}>通学時間を修正する</button>
                 <button
                   onClick={() => {
-                    go('outside.sleep');
+                    editItem('outside.sleep');
                     setEditing(false);
                   }}
                 >
@@ -296,7 +311,7 @@ export function GuidedSetup({
                 </button>
                 <button
                   onClick={() => {
-                    go('focus.block');
+                    editItem('focus.block');
                     setEditing(false);
                   }}
                 >
@@ -304,7 +319,7 @@ export function GuidedSetup({
                 </button>
                 <button
                   onClick={() => {
-                    go('buffer');
+                    editItem('buffer');
                     setEditing(false);
                   }}
                 >
@@ -316,7 +331,7 @@ export function GuidedSetup({
           <ResetSetup state={state} update={update} />
         </section>
       )}
-      {!mode && (
+      {!mode && !w.editScope && (
         <div className="guided-phases">
           {['試験・目標', '勉強できる時間', '連続時間と休憩', '教材', '余裕率'].map((name, i) => (
             <span key={name} className={i === phase ? 'active' : i < phase ? 'complete' : ''}>
@@ -332,7 +347,9 @@ export function GuidedSetup({
             ? w.step === 'addition.saved'
               ? '登録完了'
               : '一つずつ、決めていきましょう'
-            : `${phase + 1} / 5 · 一つずつ、決めていきましょう`}
+            : w.editScope
+              ? '選んだ項目だけ修正'
+              : `${phase + 1} / 5 · 一つずつ、決めていきましょう`}
         </div>
         <h2>{title}</h2>
         {w.step === 'class.times' && <p className="hint">1コマ100分</p>}
@@ -347,7 +364,7 @@ export function GuidedSetup({
             {error}
           </p>
         )}
-        {w.step !== 'addition.saved' && (
+        {w.step !== 'addition.saved' && w.step !== 'edit.saved' && (
           <div className="question-footer">
             <button disabled={!w.trail.length} onClick={back}>
               <ArrowLeft size={16} />
@@ -355,7 +372,7 @@ export function GuidedSetup({
             </button>
             {(next || w.step === 'material.completed' || w.step === 'material.roundMinutes') && (
               <button data-submit className="primary" disabled={!valid} onClick={advance}>
-                次へ
+                {w.editScope && next && next.split('.')[0] !== w.editScope ? '修正を終了' : '次へ'}
                 <ArrowRight size={16} />
               </button>
             )}

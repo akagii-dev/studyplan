@@ -22,6 +22,43 @@
     "data": {
       "type": "object",
       "properties": {
+        "outsideLabels": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1439
+                },
+                "end": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1440
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                }
+              },
+              "required": [
+                "start",
+                "end",
+                "title"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
         "outsideTime": {
           "type": "object",
           "properties": {
@@ -869,6 +906,21 @@
             "guided": {
               "type": "object",
               "properties": {
+                "editScope": {
+                  "type": "string",
+                  "enum": [
+                    "exam",
+                    "material",
+                    "window",
+                    "class",
+                    "busy",
+                    "exception",
+                    "meals",
+                    "outside",
+                    "focus",
+                    "buffer"
+                  ]
+                },
                 "step": {
                   "type": "string",
                   "maxLength": 10000
@@ -1171,6 +1223,21 @@
             "addExam": {
               "type": "object",
               "properties": {
+                "editScope": {
+                  "type": "string",
+                  "enum": [
+                    "exam",
+                    "material",
+                    "window",
+                    "class",
+                    "busy",
+                    "exception",
+                    "meals",
+                    "outside",
+                    "focus",
+                    "buffer"
+                  ]
+                },
                 "step": {
                   "type": "string",
                   "enum": [
@@ -1483,6 +1550,21 @@
             "addMaterial": {
               "type": "object",
               "properties": {
+                "editScope": {
+                  "type": "string",
+                  "enum": [
+                    "exam",
+                    "material",
+                    "window",
+                    "class",
+                    "busy",
+                    "exception",
+                    "meals",
+                    "outside",
+                    "focus",
+                    "buffer"
+                  ]
+                },
                 "step": {
                   "type": "string",
                   "enum": [
@@ -5427,6 +5509,43 @@
         "resetBackup": {
           "type": "object",
           "properties": {
+            "outsideLabels": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "start": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1439
+                    },
+                    "end": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1440
+                    },
+                    "title": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "end",
+                    "title"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
             "outsideTime": {
               "type": "object",
               "properties": {
@@ -6274,6 +6393,21 @@
                 "guided": {
                   "type": "object",
                   "properties": {
+                    "editScope": {
+                      "type": "string",
+                      "enum": [
+                        "exam",
+                        "material",
+                        "window",
+                        "class",
+                        "busy",
+                        "exception",
+                        "meals",
+                        "outside",
+                        "focus",
+                        "buffer"
+                      ]
+                    },
                     "step": {
                       "type": "string",
                       "maxLength": 10000
@@ -6576,6 +6710,21 @@
                 "addExam": {
                   "type": "object",
                   "properties": {
+                    "editScope": {
+                      "type": "string",
+                      "enum": [
+                        "exam",
+                        "material",
+                        "window",
+                        "class",
+                        "busy",
+                        "exception",
+                        "meals",
+                        "outside",
+                        "focus",
+                        "buffer"
+                      ]
+                    },
                     "step": {
                       "type": "string",
                       "enum": [
@@ -6888,6 +7037,21 @@
                 "addMaterial": {
                   "type": "object",
                   "properties": {
+                    "editScope": {
+                      "type": "string",
+                      "enum": [
+                        "exam",
+                        "material",
+                        "window",
+                        "class",
+                        "busy",
+                        "exception",
+                        "meals",
+                        "outside",
+                        "focus",
+                        "buffer"
+                      ]
+                    },
                     "step": {
                       "type": "string",
                       "enum": [

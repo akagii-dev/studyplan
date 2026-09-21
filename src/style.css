@@ -2533,7 +2533,7 @@ textarea {
   background: var(--time-color);
 }
 .time-bath {
-  --time-color: var(--ring);
+  --time-color: var(--soft);
   background: var(--time-color);
 }
 .daily-time .time-category {
@@ -2545,4 +2545,38 @@ textarea {
 }
 .outside-time-setup h3 {
   font-size: 1.2rem;
+}
+.outside-label-edit {
+  display: block;
+  margin-top: 0.35rem;
+}
+.outside-label-editor {
+  margin-top: 0.5rem;
+}
+.outside-label-editor input {
+  min-width: 0;
+  max-width: 100%;
+}
+.outside-label-editor .actions {
+  flex-wrap: wrap;
+}
+.calendar-day-summary {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.calendar-day-summary > button {
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.calendar-day-summary strong,
+.calendar-day-summary small {
+  display: block;
+}
+.calendar-individual > summary {
+  padding: 0.65rem 0.25rem;
+  min-height: 44px;
 }

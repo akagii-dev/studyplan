@@ -30,6 +30,20 @@ export function FinishSteps(ctx: StepContext): QuestionView | undefined {
     content: ReactNode,
     valid = true;
   switch (w.step) {
+    case 'edit.saved':
+      title = '選んだ項目の修正が完了しました';
+      content = (
+        <>
+          <button className="primary" onClick={ctx.onEditItems}>
+            別の項目を修正する
+          </button>
+          {state.plan && w.editScope !== 'outside' && <p>計画への反映は再計画の承認後です。</p>}
+          {w.editScope !== 'outside' && (
+            <button onClick={onGenerate}>設定から計画案を作成する</button>
+          )}
+        </>
+      );
+      break;
     case 'addition.saved':
       title = `${mode === 'addExam' ? w.exam.name : w.material.name}を登録しました`;
       content = (

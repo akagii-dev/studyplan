@@ -55,8 +55,20 @@ export type Step =
   | 'material.done'
   | 'buffer'
   | 'addition.saved'
+  | 'edit.saved'
   | 'finish';
 export interface Wizard {
+  editScope?:
+    | 'exam'
+    | 'material'
+    | 'window'
+    | 'class'
+    | 'busy'
+    | 'exception'
+    | 'meals'
+    | 'outside'
+    | 'focus'
+    | 'buffer';
   step: Step;
   trail: { step: Step; roundIndex: number }[];
   exam: Exam;

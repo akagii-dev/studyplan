@@ -81,6 +81,10 @@ export default function App() {
       .catch(() => {});
   };
   const configureRegistration = (kind: string) => {
+    if (kind === 'commute') {
+      setPage('commute');
+      return;
+    }
     if (kind === 'exams') addItem('addExam');
     else if (kind === 'materials') addItem('addMaterial');
     else setPage('availability');
@@ -160,7 +164,9 @@ export default function App() {
             {page === 'dashboard' && (
               <Dashboard {...props} navigate={setPage} generate={generate} onAdd={addItem} />
             )}{' '}
-            {page === 'setup' && <GuidedSetup {...props} onGenerate={generate} />}{' '}
+            {page === 'setup' && (
+              <GuidedSetup {...props} onGenerate={generate} onConfigure={configureRegistration} />
+            )}{' '}
             {(page === 'exams' || page === 'materials') && (
               <RegistrationStatus
                 state={state}

@@ -59,6 +59,8 @@ SQLiteのテーブル・保存キーは維持する。任意項目 departureTime
 
 `DailyTimeChart.tsx` は円弧と中心の学習可能量を表示する。実寸に基づく文字拡大時の配置切替も表示層で完結し、計算層へ依存を追加しない。
 
+`OutsideLabelEditor.tsx` は未設定区間の名前の編集・取消を担当し、`dailyTimeDisplay.ts` が日付別の表示名の更新と未設定区間への適用を担う。`calendarSummary.ts` は承認済み計画の日合計を純粋に集計し、`CalendarDaySummary.tsx` が密度に応じて表示する。個別予定の操作は `Calendar.tsx` に残す。初期設定の項目編集の開始と終了判定は `transitions.ts` に置き、`GuidedSetup.tsx` は項目選択と画面の組み立てを担当する。
+
 ## 検証
 
 計算の再現性・非破壊性と質問遷移、指定出発時刻、食事との重複、日またぎ、旧設定の再確認、承認時の再検証を単体テストで確認する。SQLiteを使った実機テストで保存・再起動・質問操作・既存機能を確認する。結果は [VALIDATION.md](VALIDATION.md) に記録する。

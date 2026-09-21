@@ -17,6 +17,8 @@ import { weeklyCapacities } from '../domain/weeklyCapacity';
 import { blockingEvents, overlapsBusy } from '../domain/planAudit';
 import { moveCalendarDate, startOfWeek } from '../domain/calendar';
 import { DailyTime } from './DailyTime';
+import { CalendarDaySummary } from './CalendarDaySummary';
+import { renameOutsideRange } from '../domain/dailyTimeDisplay';
 import { PlanInsights } from './PlanInsights';
 import { Empty, Props, duration, weekdays } from './common';
 import { CalendarExport } from './CalendarExport';
@@ -264,7 +266,15 @@ export function Calendar({
             <p className="hint">まだ報告はありません。0問としては扱いません。</p>
           )}
         </section>
-        <DailyTime settings={state.settings} date={date} outsideTime={state.outsideTime} />
+        <DailyTime
+          settings={state.settings}
+          date={date}
+          outsideTime={state.outsideTime}
+          outsideLabels={state.outsideLabels?.[date]}
+          onRenameOutside={(start, end, title) =>
+            update((s) => renameOutsideRange(s, date, start, end, title))
+          }
+        />
       </>
     );
   }
@@ -393,7 +403,17 @@ export function Calendar({
                       {d}（{weekdays[weekday(d)]}）
                     </button>
                   </h3>
-                  {daySchedule(d, density)}
+                  <CalendarDaySummary
+                    state={state}
+                    date={d}
+                    filter={filter}
+                    density={density}
+                    onSelect={() => setSelected(d)}
+                  />
+                  <details className="calendar-individual" open={selected === d || undefined}>
+                    <summary>個別の予定を確認</summary>
+                    {daySchedule(d, density)}
+                  </details>
                   {recordsOn(d).length > 0 && (
                     <>
                       <h4>この日の学習実績</h4>
@@ -427,85 +447,13 @@ export function Calendar({
                   >
                     {Number(d.slice(8))}
                   </button>
-                  {timeline(d)
-                    .slice(0, view === 'month' ? 4 : 100)
-                    .map((entry) => {
-                      if (entry.busy)
-                        return (
-                          <button
-                            className="calendar-busy"
-                            key={entry.id}
-                            onClick={() => setSelected(d)}
-                          >
-                            {entry.busy.kind === 'class'
-                              ? '授業：' + (entry.busy.name.trim() || '大学の授業')
-                              : entry.busy.name}
-                            {density !== 'compact' && (
-                              <small>
-                                {clock(entry.start)}–{clock(entry.end)} · 学習不可
-                              </small>
-                            )}
-                          </button>
-                        );
-                      const s = entry.session!;
-                      const e = state.settings.exams.find((e) => e.id === s.examId);
-                      return (
-                        <button
-                          key={s.id}
-                          className={`calendar-event ${overlapsBusy(state.settings, s).length ? 'has-conflict' : ''}`}
-                          title={`${s.kind === 'review' ? 'まとめの復習' : (state.settings.materials.find((m) => m.id === s.materialId)?.name ?? '教材')} · ${e?.name ?? '試験'} · ${clock(s.start)}–${clock(s.end)}`}
-                          style={{
-                            borderLeftColor: e?.color,
-                            background: `${e?.color ?? '#287569'}14`,
-                          }}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setSelected(d);
-                          }}
-                        >
-                          <span>
-                            {s.fixed ? '🔒 ' : ''}
-                            {s.kind === 'review'
-                              ? '復習'
-                              : state.settings.materials.find((m) => m.id === s.materialId)?.name}
-                          </span>
-                          <small>
-                            {overlapsBusy(state.settings, s).length > 0
-                              ? '⚠ 授業・予定と重複 · '
-                              : ''}
-                            {s.kind === 'study'
-                              ? `${s.count}問 · ${reported(state, d, s.materialId, s.round) ? '報告済' : '未報告'}`
-                              : duration(s.end - s.start)}
-                          </small>
-                          {density !== 'compact' && <small className="event-exam">{e?.name}</small>}
-                          {density === 'detailed' && (
-                            <>
-                              <small>
-                                {clock(s.start)}–{clock(s.end)}
-                                {s.kind === 'study' ? ` · ${s.round + 1}周目` : ''}
-                              </small>
-                              {s.kind === 'study' && reported(state, d, s.materialId, s.round) && (
-                                <small>
-                                  当日実績 {actual(state, d, s.materialId, s.round)}問 / 当日予定{' '}
-                                  {all
-                                    .filter(
-                                      (x) =>
-                                        x.date === d &&
-                                        x.materialId === s.materialId &&
-                                        x.round === s.round,
-                                    )
-                                    .reduce((n, x) => n + x.count, 0)}
-                                  問
-                                </small>
-                              )}
-                            </>
-                          )}
-                        </button>
-                      );
-                    })}
-                  {view === 'month' && timeline(d).length > 4 && (
-                    <small>ほか {timeline(d).length - 4}件 · 日付を押して確認</small>
-                  )}
+                  <CalendarDaySummary
+                    state={state}
+                    date={d}
+                    filter={filter}
+                    density={density}
+                    onSelect={() => setSelected(d)}
+                  />
                   {state.records.some(
                     (r) =>
                       !r.cancelled &&
@@ -537,7 +485,12 @@ export function Calendar({
           </aside>
         )}
       </div>
-      <DailyTime settings={state.settings} date={selected} outsideTime={state.outsideTime} />
+      <DailyTime
+        settings={state.settings}
+        date={selected}
+        outsideTime={state.outsideTime}
+        outsideLabels={state.outsideLabels?.[selected]}
+      />
       <section className="card capacity-panel" aria-label="選択した日の週の時間の内訳">
         <div className="row">
           <h3>選択した日の週の時間の内訳（現在の設定）</h3>

@@ -150,7 +150,13 @@ export type CalendarView = 'month' | 'week' | 'list';
 export type CalendarDensity = 'compact' | 'standard' | 'detailed';
 /** Daily display annotations only; never subtract these from study capacity. */
 export type OutsideTime = Partial<Record<'sleep' | 'bath', { start: number; duration: number }>>;
+export interface OutsideLabel {
+  start: number;
+  end: number;
+  title: string;
+}
 export interface AppState {
+  outsideLabels?: Record<string, OutsideLabel[]>;
   outsideTime?: OutsideTime;
   resetBackup?: AppState;
   settingsUpdatedAt?: string;

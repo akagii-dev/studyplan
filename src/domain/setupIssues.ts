@@ -42,6 +42,27 @@ export interface SetupIssue {
   studyGap?: StudyCoverageGap;
   longTerm?: boolean;
 }
+
+export class PlanningInputError extends Error {
+  readonly from?: string;
+
+  constructor(
+    readonly issues: SetupIssue[],
+    from?: string,
+  ) {
+    super(planningInputMessage(issues));
+    this.name = 'PlanningInputError';
+    this.from = from;
+  }
+}
+
+export function planningInputMessage(issues: SetupIssue[]) {
+  return issues.map((i) => `${i.title}。${i.impact}\n${i.action}`).join('\n');
+}
+
+export function planningInputIssues(s: Settings, from?: string) {
+  return setupIssues(s, from).filter((i) => i.severity === 'error');
+}
 export function setupIssues(s: Settings, from?: string): SetupIssue[] {
   const issues: SetupIssue[] = [];
   if (!s.exams.length)
@@ -108,9 +129,8 @@ export function setupIssues(s: Settings, from?: string): SetupIssue[] {
   return issues;
 }
 export function requirePlanningInputs(s: Settings, from?: string) {
-  const errors = setupIssues(s, from).filter((i) => i.severity === 'error');
-  if (errors.length)
-    throw new Error(errors.map((i) => `${i.title}。${i.impact}\n${i.action}`).join('\n'));
+  const errors = planningInputIssues(s, from);
+  if (errors.length) throw new PlanningInputError(errors, from);
 }
 export function answerSchedule(
   state: AppState,

@@ -61,6 +61,8 @@ SQLiteのテーブル・保存キーは維持する。任意項目 departureTime
 
 `OutsideLabelEditor.tsx` は未設定区間の名前の編集・取消を担当し、`dailyTimeDisplay.ts` が日付別の表示名の更新と未設定区間への適用を担う。`calendarSummary.ts` は承認済み計画の日合計を純粋に集計し、`CalendarDaySummary.tsx` が密度に応じて表示する。個別予定の操作は `Calendar.tsx` に残す。初期設定の項目編集の開始と終了判定は `transitions.ts` に置き、`GuidedSetup.tsx` は項目選択と画面の組み立てを担当する。
 
+`setupIssues.ts` の `PlanningInputError` は計画作成を止めた必須入力条件と基準日を保持する。`usePersistentAppState.ts` は設定が保存されるたびにその条件を純粋な `planningInputIssues()` で再評価し、残っている内容だけを上部のエラー表示へ渡す。一般の操作・保存エラーとは追跡状態を分ける。
+
 ## 検証
 
 計算の再現性・非破壊性と質問遷移、指定出発時刻、食事との重複、日またぎ、旧設定の再確認、承認時の再検証を単体テストで確認する。SQLiteを使った実機テストで保存・再起動・質問操作・既存機能を確認する。結果は [VALIDATION.md](VALIDATION.md) に記録する。

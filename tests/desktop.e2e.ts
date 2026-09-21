@@ -114,7 +114,18 @@ test('実機：今日の未設定区間に名前を付け、保存・取消・�
   let card = page.locator('.daily-time');
   await card.locator('summary').click();
   let row = card.locator('tr[data-kind=outside]').first();
-  await row.getByRole('button', { name: /名前を編集/ }).click();
+  const editButton = row.getByRole('button', { name: /を編集$/ });
+  await expect(editButton.locator('svg')).toHaveCount(1);
+  await expect(editButton).toHaveText('');
+  expect((await editButton.boundingBox())!.x).toBeLessThan(
+    (await row.locator('.time-category').boundingBox())!.x,
+  );
+  await editButton.focus();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Shift+Tab');
+  await expect(editButton).toBeFocused();
+  await expect(editButton).toHaveCSS('outline-style', 'solid');
+  await page.keyboard.press('Enter');
   await row.getByRole('textbox').fill('');
   await row.getByRole('textbox').press('Enter');
   await expect(row.getByRole('alert')).toContainText('1〜120文字');
@@ -160,6 +171,33 @@ test('実機：今日の未設定区間に名前を付け、保存・取消・�
   await row.getByRole('textbox').press('Enter');
   await saved();
   await card.screenshot({ path: 'test-results/outside-label.png' });
+});
+
+test('実機：解消した計画入力エラーだけを再検証し、全解消時に自動で閉じる', async () => {
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/resolved-errors-'));
+  await launch();
+  const seed = studentFixture(today());
+  seed.settings.windows = seed.settings.windows.filter((w) => w.kind !== 'study');
+  seed.plan = null;
+  seed.proposal = null;
+  await seedState(seed, 'resolved-errors');
+  await page.getByRole('button', { name: '計画案を作成', exact: true }).click();
+  const popup = page.locator('.error-banner');
+  await expect(popup).toContainText('勉強できる時間が未登録です');
+  await nav('時間枠・時間割');
+  const name = page.getByLabel('枠の名前');
+  await name.fill('新しい学習枠');
+  await saved();
+  await expect(popup).toContainText('勉強できる時間が未登録です');
+  const add = page.getByRole('button', { name: '時間枠を追加する', exact: true });
+  await add.click();
+  await saved();
+  await expect(popup).toHaveCount(0);
+  await expect(add).toBeFocused();
+  await expect(page.locator('.app-shell')).not.toHaveAttribute('inert', '');
+  await expect(page.getByLabel('枠の名前')).toBeEnabled();
+  await page.screenshot({ path: 'test-results/resolved-error-dismissed.png', fullPage: true });
 });
 
 test('実機：選んだ連続時間と休憩だけを再開して修正し、他の項目へ進まない', async () => {

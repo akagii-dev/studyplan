@@ -2,6 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Props } from '../components/common';
 import { AppState } from '../domain/model';
 import { sameSettings } from '../domain/planAudit';
+import {
+  PlanningInputError,
+  planningInputIssues,
+  planningInputMessage,
+} from '../domain/setupIssues';
 import { exportBackup, loadState, restoreBackup, saveState } from '../store';
 import { useCloseAfterSave } from './useCloseAfterSave';
 
@@ -13,6 +18,7 @@ export function usePersistentAppState() {
   const queue = useRef(Promise.resolve());
   const pendingSaves = useRef(0);
   const [error, setError] = useState('');
+  const planningErrorFrom = useRef<string | undefined | null>(null);
   const [startupError, setStartupError] = useState('');
   const [loading, setLoading] = useState(true);
   const loadRequest = useRef<Promise<void> | null>(null);
@@ -24,12 +30,17 @@ export function usePersistentAppState() {
   const unconfirmed = useRef(false);
   const recoveryRequest = useRef<Promise<void> | null>(null);
   const [recovery, setRecovery] = useState<{ checking: boolean; detail: string } | null>(null);
+  const showError = useCallback((message: string) => {
+    planningErrorFrom.current = null;
+    setError(message);
+  }, []);
+  const dismissError = useCallback(() => showError(''), [showError]);
   const { closing, closeWithoutSaving } = useCloseAfterSave(
     queue,
     pendingSaves,
     saveGeneration,
     unconfirmed,
-    setError,
+    showError,
   );
   const initialize = useCallback(() => {
     if (loadRequest.current) return;
@@ -69,7 +80,7 @@ export function usePersistentAppState() {
         setSaved(stored.revision > 0);
         unconfirmed.current = false;
         setRecovery(null);
-        setError(
+        showError(
           '保存済みの内容を読み直しました。最後の変更を確認し、反映されていない場合は入力し直してください。',
         );
       })
@@ -98,11 +109,19 @@ export function usePersistentAppState() {
         };
       }
     } catch (e) {
-      setError(String(e));
+      if (e instanceof PlanningInputError) {
+        planningErrorFrom.current = e.from;
+        setError(e.message);
+      } else showError(String(e));
       return Promise.reject(e);
     }
     dataRef.current = next;
     setState(next);
+    if (planningErrorFrom.current !== null) {
+      const remaining = planningInputIssues(next.settings, planningErrorFrom.current);
+      if (remaining.length) setError(planningInputMessage(remaining));
+      else dismissError();
+    }
     pendingSaves.current += 1;
     setSaving((n) => n + 1);
     const generation = saveGeneration.current;
@@ -120,7 +139,7 @@ export function usePersistentAppState() {
         if (generation !== saveGeneration.current) throw e;
         saveGeneration.current += 1;
         unconfirmed.current = true;
-        setError(String(e));
+        showError(String(e));
         await readSavedState();
         throw e;
       })
@@ -148,12 +167,12 @@ export function usePersistentAppState() {
         dataRef.current = result.data;
         setState(result.data);
         setSaved(true);
-        setError('');
+        dismissError();
       })
       .catch(async (e) => {
         saveGeneration.current += 1;
         unconfirmed.current = true;
-        setError(String(e));
+        showError(String(e));
         await readSavedState();
         throw e;
       })
@@ -180,7 +199,7 @@ export function usePersistentAppState() {
     state,
     update,
     error,
-    setError,
+    setError: showError,
     startupError,
     loading,
     initialize,

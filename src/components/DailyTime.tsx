@@ -163,18 +163,20 @@ export function DailyTime({
                   <span>{clock(s.end)}</span>
                 </th>
                 <td>
-                  <span className={`time-category time-${s.kind}`}>
-                    {s.title ?? labels[s.kind]}
+                  <span className="time-category-row">
+                    {s.kind === 'outside' && onRenameOutside && (
+                      <OutsideLabelEditor
+                        start={s.start}
+                        end={s.end}
+                        title={s.title}
+                        save={(title) => onRenameOutside(s.start, s.end, title)}
+                      />
+                    )}
+                    <span className={`time-category time-${s.kind}`}>
+                      {s.title ?? labels[s.kind]}
+                    </span>
                   </span>
                   {s.title && <span className="daily-time-note">学習対象外</span>}
-                  {s.kind === 'outside' && onRenameOutside && (
-                    <OutsideLabelEditor
-                      start={s.start}
-                      end={s.end}
-                      title={s.title}
-                      save={(title) => onRenameOutside(s.start, s.end, title)}
-                    />
-                  )}
                   {s.commuteNames.length > 0 && (
                     <span className="daily-time-note">{s.commuteNames.join('・')}</span>
                   )}

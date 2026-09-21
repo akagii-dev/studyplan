@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { initialState } from '../src/domain/model';
 import {
   answerSchedule,
+  PlanningInputError,
+  planningInputIssues,
+  planningInputMessage,
   requirePlanningInputs,
   scheduleKinds,
   scheduleStatus,
@@ -55,6 +58,26 @@ describe('未設定情報による影響', () => {
     ]);
     expect(() => requirePlanningInputs(initialState().settings)).toThrow('課題を置く時間枠がない');
     expect(issues.every((i) => i.impact && i.action)).toBe(true);
+  });
+  it('修正後に再検証すると解消した項目だけが外れ、全解消時は空になる', () => {
+    const s = initialState();
+    let caught: unknown;
+    try {
+      requirePlanningInputs(s.settings, '2026-10-01');
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(PlanningInputError);
+    expect((caught as PlanningInputError).from).toBe('2026-10-01');
+    s.settings.exams = ready().settings.exams;
+    let remaining = planningInputIssues(s.settings, (caught as PlanningInputError).from);
+    expect(remaining.map((i) => i.id)).toEqual(['materials', 'study']);
+    expect(planningInputMessage(remaining)).not.toContain('試験・目標が未登録');
+    s.settings.materials = ready().settings.materials;
+    s.settings.windows = ready().settings.windows;
+    remaining = planningInputIssues(s.settings, (caught as PlanningInputError).from);
+    expect(remaining).toEqual([]);
+    expect(planningInputMessage(remaining)).toBe('');
   });
   it('以前のデータで未回答の項目を「予定なし」とみなさない', () => {
     const s = ready();

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { Pencil } from 'lucide-react';
 import { clock } from '../domain/model';
 import { Field } from './common';
 
@@ -79,14 +80,16 @@ export function OutsideLabelEditor({
   ) : (
     <button
       ref={button}
+      type="button"
       className="outside-label-edit"
-      aria-label={`${range}の名前を編集`}
+      aria-label={`${range}の「${title ?? '学習対象外・未設定'}」の名前を編集`}
+      title="名前を編集"
       onClick={() => {
         setText(title ?? '');
         setEditing(true);
       }}
     >
-      名前を編集
+      <Pencil size={14} aria-hidden="true" />
     </button>
   );
 }

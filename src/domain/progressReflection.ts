@@ -83,6 +83,12 @@ export function originalSessionCount(plan: Plan | null, session: Session) {
   return plan?.progressBaseline?.sessions[session.id]?.count ?? session.count;
 }
 
+/** Only the approved plan can establish that the current records have been incorporated. */
+export function pendingProgressReflection(state: AppState): ProgressReflectionNotice | undefined {
+  if (!state.plan || proposalUsesCurrentProgress(state.plan, state.records)) return undefined;
+  return state.draft.progressResult as ProgressReflectionNotice | undefined;
+}
+
 /**
  * Recompute, rather than incrementally patch, every reflected count. This makes the operation
  * idempotent across retries/restarts and reversible after corrections or cancellation.

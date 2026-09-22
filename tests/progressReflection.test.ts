@@ -3,6 +3,7 @@ import { AppState, Plan, Progress, Session, initialState } from '../src/domain/m
 import { correctProgress, recordProgress } from '../src/domain/progress';
 import {
   createProgressBaseline,
+  pendingProgressReflection,
   proposalUsesCurrentProgress,
   reflectProgress,
   reflectProgressSafely,
@@ -97,6 +98,30 @@ function fixture(sessions: Session[] = dates.slice(0, 3).map((date, i) => sessio
 const counts = (state: AppState) => state.plan!.sessions.map((item) => item.count);
 
 describe('予定を超えた実績の前倒し反映', () => {
+  it.each([false, true])(
+    '訂正・取消後の導線は承認済み基準への取り込みで消える（取消=%s）',
+    (cancel) => {
+      let state = reflectProgress(recordProgress(fixture(), progress('r', dates[0], 30)));
+      // A cancellation of an already incorporated record must also require review.
+      if (cancel) state.plan!.progressBaseline = createProgressBaseline(state.plan!, state.records);
+      state = reflectProgress(correctProgress(state, 'r', 25, cancel));
+      expect(pendingProgressReflection(state)).toBeDefined();
+      if (!cancel) {
+        state = reflectProgress(correctProgress(state, 'r', 28));
+        expect(pendingProgressReflection(state)).toBeDefined();
+      }
+      const candidate = structuredClone(state.plan!);
+      candidate.id = 'new';
+      candidate.progressBaseline = createProgressBaseline(candidate, state.records);
+      state.proposal = { plan: candidate, basedOn: state.plan!.id, reason: 'test', unreported: [] };
+      expect(pendingProgressReflection(state)).toBeDefined();
+      state.proposal = null;
+      expect(pendingProgressReflection(state)).toBeDefined();
+      state.plan = candidate;
+      expect(pendingProgressReflection(state)).toBeUndefined();
+      expect(pendingProgressReflection(JSON.parse(JSON.stringify(state)))).toBeUndefined();
+    },
+  );
   it('予定20問に実績30問なら次の同一教材・同一周回だけを10問減らす', () => {
     let state = fixture();
     state = reflectProgress(recordProgress(state, progress('r1', dates[0], 30)), 'r1');

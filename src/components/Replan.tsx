@@ -24,6 +24,7 @@ import {
   releaseFixedAndRefresh,
 } from '../domain/repairPlan';
 import { StudyCoverageGap } from '../domain/studyCoverage';
+import { comparePlans, mainDailyChanges, ScheduleChange } from '../domain/planComparison';
 import { proposalUsesCurrentProgress } from '../domain/progressReflection';
 export function Replan({ state, update, onCalendar }: Props & { onCalendar: () => void }) {
   const [ack, setAck] = useState(false);
@@ -56,23 +57,22 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
   const progressStale = !!plan && !proposalUsesCurrentProgress(plan, state.records);
   const missingSettings = setupIssues(displaySettings).filter((i) => i.severity === 'error');
   useEffect(() => setAck(false), [plan?.id]);
-  const summarize = (list: Session[]) => {
-    const map = new Map<string, number>();
-    for (const s of list)
-      if (s.kind === 'study' && s.date >= today()) {
-        const k = `${s.date}｜${s.materialId}｜${s.round}`;
-        map.set(k, (map.get(k) || 0) + s.count);
+  const impacts = plan ? comparePlans(state.plan, plan) : [];
+  const old = new Map<string, number>();
+  const next = new Map<string, number>();
+  for (const impact of impacts)
+    for (const round of impact.rounds)
+      for (const day of round.days) {
+        const key = [day.date, impact.materialId, round.round].join('｜');
+        old.set(key, day.before);
+        next.set(key, day.after);
       }
-    return map;
-  };
-  const old = summarize(state.plan?.sessions ?? []);
   const label = (key: string) => {
     const [date, id, round] = key.split('｜');
     const m = displaySettings.materials.find((m) => m.id === id);
     const exam = displaySettings.exams.find((e) => e.id === m?.examId);
     return `${date}｜${exam?.name} / ${m?.name}｜${Number(round) + 1}周目`;
   };
-  const next = summarize(plan?.sessions ?? []);
   const signature = (s: Session) =>
     JSON.stringify([
       s.date,
@@ -102,30 +102,42 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
     .filter((k) => old.get(k) !== next.get(k));
   const conditionBase = p?.settingsBase ?? state.plan?.settingsSnapshot;
   const conditionChanges = conditionBase ? settingChanges(conditionBase, displaySettings) : null;
-  const taskTotals = (list: Session[]) => {
-    const totals = new Map<string, number>();
-    for (const session of list)
-      if (session.kind === 'study' && session.date >= (plan?.from ?? today())) {
-        const key = JSON.stringify([session.materialId, session.round]);
-        totals.set(key, (totals.get(key) ?? 0) + session.count);
-      }
-    return totals;
+  const materialLabel = (id: string) => {
+    const material =
+      displaySettings.materials.find((m) => m.id === id) ??
+      state.settings.materials.find((m) => m.id === id);
+    const exam =
+      displaySettings.exams.find((e) => e.id === material?.examId) ??
+      state.settings.exams.find((e) => e.id === material?.examId);
+    return (exam?.name ?? '試験') + ' / ' + (material?.name ?? id);
   };
-  const oldTaskTotals = taskTotals(state.plan?.sessions ?? []);
-  const newTaskTotals = taskTotals(plan?.sessions ?? []);
-  const impactRows = [...new Set([...oldTaskTotals.keys(), ...newTaskTotals.keys()])]
-    .filter((key) => oldTaskTotals.get(key) !== newTaskTotals.get(key))
-    .map((key) => {
-      const [materialId, round] = JSON.parse(key) as [string, number];
-      const material = displaySettings.materials.find((item) => item.id === materialId);
-      const exam = displaySettings.exams.find((item) => item.id === material?.examId);
-      return {
-        key,
-        label: `${exam?.name ?? '試験'} / ${material?.name ?? '教材'} ${round + 1}周目`,
-        before: oldTaskTotals.get(key) ?? 0,
-        after: newTaskTotals.get(key) ?? 0,
-      };
-    });
+  const changeSummary = (change: ScheduleChange) => (
+    <ul>
+      {change.before.count !== change.after.count && (
+        <li>
+          予定量 {change.before.count}問 → {change.after.count}問
+        </li>
+      )}
+      {change.before.start !== change.after.start && (
+        <li>
+          開始予定 {change.before.start ?? '配置なし'} → {change.after.start ?? '配置なし'}
+        </li>
+      )}
+      {change.before.end !== change.after.end && (
+        <li>
+          終了予定 {change.before.end ?? '配置なし'} → {change.after.end ?? '配置なし'}
+          {change.before.end &&
+            change.after.end &&
+            (change.after.end < change.before.end ? '（前倒し）' : '（後ろ倒し）')}
+        </li>
+      )}
+      {change.before.unplaced !== change.after.unplaced && (
+        <li>
+          未配置 {change.before.unplaced}問 → {change.after.unplaced}問
+        </li>
+      )}
+    </ul>
+  );
   const act = async (fn: Parameters<Props['update']>[0], success = '') => {
     if (actingRef.current) return;
     actingRef.current = true;
@@ -383,16 +395,50 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
             </section>
             <section className="replan-decision" aria-labelledby="plan-impact-heading">
               <h3 id="plan-impact-heading">計画への主な影響</h3>
-              {impactRows.length ? (
+              <p className="hint">現在の承認済み計画 → 新しい候補計画</p>
+              {impacts.length ? (
                 <ul className="impact-list">
-                  {impactRows.map((impact) => (
-                    <li key={impact.key}>
-                      <b>{impact.label}</b>：今後 {impact.before}問 → {impact.after}問
+                  {impacts.map((impact) => (
+                    <li key={impact.materialId}>
+                      <b>{materialLabel(impact.materialId)}</b>
+                      {impact.total && changeSummary(impact.total)}
+                      {impact.rounds.map((round) => (
+                        <div key={round.round}>
+                          <strong>{round.round! + 1}周目</strong>
+                          {(!impact.total ||
+                            JSON.stringify([round.before, round.after]) !==
+                              JSON.stringify([impact.total.before, impact.total.after])) &&
+                            changeSummary(round)}
+                          {!impact.total &&
+                            mainDailyChanges(round.days).map((day) => (
+                              <div key={day.date}>
+                                {day.date}：{day.before}問 → {day.after}問
+                              </div>
+                            ))}
+                          {!impact.total && round.days.length > 3 && (
+                            <p className="hint">
+                              ほか{round.days.length - 3}日の変更は詳細で確認できます。
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                      {mainDailyChanges(impact.total?.days ?? []).map((day) => (
+                        <div key={day.date}>
+                          {day.date}：{day.before}問 → {day.after}問
+                        </div>
+                      ))}
+                      {(impact.total?.days.length ?? 0) > 3 && (
+                        <p className="hint">
+                          ほか{impact.total!.days.length - 3}日の変更は詳細で確認できます。
+                        </p>
+                      )}
                     </li>
                   ))}
                 </ul>
               ) : state.plan ? (
-                <p>教材・周回ごとの今後の予定問題数に変更はありません。</p>
+                <p>
+                  今後の教材・周回の予定量、開始・終了、学習日、未配置に変更はありません。個別時刻の変更は詳細で確認できます。
+                </p>
               ) : (
                 <p>最初の統合計画を作成します。</p>
               )}

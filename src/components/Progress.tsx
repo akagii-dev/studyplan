@@ -5,7 +5,11 @@ import { useRef, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { Progress as ProgressRecord, completed, remaining, today, uid } from '../domain/model';
 import { correctProgress, recordProgress } from '../domain/progress';
-import { reflectProgressSafely, withProgressBaseline } from '../domain/progressReflection';
+import {
+  pendingProgressReflection,
+  reflectProgressSafely,
+  withProgressBaseline,
+} from '../domain/progressReflection';
 import { parseNumberInput } from '../domain/numeric';
 import { Empty, Field, Props, useDraft } from './common';
 export function Progress({
@@ -265,8 +269,7 @@ export function Progress({
             <p>{message}</p>
             {state.plan &&
               (() => {
-                const result = state.draft.progressResult as
-                  import('../domain/model').ProgressReflectionNotice | undefined;
+                const result = pendingProgressReflection(state);
                 if (!result) return null;
                 return (
                   <>
@@ -399,7 +402,7 @@ export function History({ state, update, onReplan }: Props & { onReplan?: () => 
           {error}
         </p>
       )}
-      {!!state.draft.progressResult && (
+      {!!pendingProgressReflection(state) && (
         <div className="note">
           訂正・取消に合わせて、同じ教材・同じ周回の前倒し反映を再計算しました。
           <button onClick={onReplan}>計画全体を見直す</button>

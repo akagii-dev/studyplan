@@ -952,6 +952,41 @@ test('実機：予定超過を同じ教材・周回の将来予定へ反映し�
   expect((await storedState()).plan!.sessions.map((session) => session.count)).toEqual([
     20, 20, 20,
   ]);
+  const review = () => page.getByRole('button', { name: '計画全体を見直す', exact: true });
+  await expect(review()).toBeVisible();
+  await page.getByRole('button', { name: '訂正', exact: true }).click();
+  await page.getByLabel('訂正後の問題数').fill('25');
+  await page.getByRole('button', { name: '訂正を保存', exact: true }).click();
+  await saved();
+  await review().click();
+  await nav('記録履歴');
+  await expect(review()).toBeVisible();
+  await nav('再計画の確認');
+  await page.getByRole('button', { name: '案を破棄する', exact: true }).click();
+  await saved();
+  await nav('記録履歴');
+  await expect(review()).toBeVisible();
+  const approveReview = async () => {
+    await review().click();
+    await expect.poll(async () => !!(await storedState()).proposal).toBe(true);
+    if ((await storedState()).proposal!.unreported.length)
+      await page.getByRole('checkbox').first().check();
+    await expect(page.getByRole('button', { name: 'この内容で更新', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'この内容で更新', exact: true }).click();
+    await saved();
+    await nav('記録履歴');
+    await expect(review()).toHaveCount(0);
+    await close();
+    await launch();
+    await nav('記録履歴');
+    await expect(review()).toHaveCount(0);
+  };
+  await approveReview();
+  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await page.getByRole('button', { name: '取消を確定', exact: true }).click();
+  await saved();
+  await expect(review()).toBeVisible();
+  await approveReview();
 });
 
 test('実機：周回数の確定場所から変更を保持した案へ進み、判断情報と詳細を使い分ける', async () => {
@@ -1073,8 +1108,12 @@ test('実機：条件変更なし・別教材への影響・未配置を標準�
   await seedState(seed, 'replan-impact');
   await nav('再計画の確認');
   await expect(page.getByText('条件の変更はありません。', { exact: false })).toBeVisible();
-  await expect(page.getByText(/短答・過去問 1周目：今後 20問 → 30問/)).toBeVisible();
-  await expect(page.getByText(/論文演習 1周目：今後 20問 → 10問/)).toBeVisible();
+  await expect(page.locator('.impact-list > li').filter({ hasText: '短答・過去問' })).toContainText(
+    '予定量 20問 → 30問',
+  );
+  await expect(page.locator('.impact-list > li').filter({ hasText: '論文演習' })).toContainText(
+    '予定量 20問 → 10問',
+  );
   await expect(page.getByRole('heading', { name: '未配置の課題' })).toBeVisible();
   await expect(page.getByText('注意付きで更新できます。', { exact: true })).toBeVisible();
   const shortfall = page.getByRole('region', { name: '未配置の課題' });

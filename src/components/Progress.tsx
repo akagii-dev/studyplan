@@ -5,10 +5,15 @@ import { useRef, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { Progress as ProgressRecord, completed, remaining, today, uid } from '../domain/model';
 import { correctProgress, recordProgress } from '../domain/progress';
-import { proposalAfterRecord } from '../domain/planning';
+import { reflectProgressSafely, withProgressBaseline } from '../domain/progressReflection';
 import { parseNumberInput } from '../domain/numeric';
 import { Empty, Field, Props, useDraft } from './common';
-export function Progress({ state, update }: Props) {
+export function Progress({
+  state,
+  update,
+  onHistory,
+  onReplan,
+}: Props & { onHistory?: () => void; onReplan?: () => void }) {
   const initial = {
     date: today(),
     materialId: state.settings.materials[0]?.id ?? '',
@@ -95,7 +100,8 @@ export function Progress({ state, update }: Props) {
     try {
       await update((s) => {
         const now = new Date().toISOString();
-        let next = recordProgress(s, {
+        let next = withProgressBaseline(s);
+        next = recordProgress(next, {
           id,
           date: form.date,
           materialId: form.materialId,
@@ -109,17 +115,10 @@ export function Progress({ state, update }: Props) {
           ...next,
           draft: { ...clearLegacyEdit(next.draft), progress: { ...form, choice: '', custom: '' } },
         };
-        next = proposalAfterRecord(
-          next,
-          '進捗の記録によって残り問題数が変わったため、今後の課題を再配分します。',
-          s.proposal,
-        );
-        return next;
+        return reflectProgressSafely(next, id);
       });
       request.current = uid();
-      msg(
-        `＋${count}問を記録しました。${state.plan ? '再計画の確認画面で変更案を確認できます。' : ''}`,
-      );
+      msg(`＋${count}問を記録しました。`);
     } catch (e) {
       msg(String(e));
     } finally {
@@ -262,8 +261,40 @@ export function Progress({ state, update }: Props) {
           {busy ? '保存中…' : '記録する'}
         </button>
         {message && (
-          <div role="status" className="note">
-            {message}
+          <div role="status" className="note progress-result">
+            <p>{message}</p>
+            {state.plan &&
+              (() => {
+                const result = state.draft.progressResult as
+                  import('../domain/model').ProgressReflectionNotice | undefined;
+                if (!result) return null;
+                return (
+                  <>
+                    <p>
+                      {result.error
+                        ? '記録は保存しましたが、予定へ反映できませんでした。計画全体を見直してください。'
+                        : result.applied > 0
+                          ? `同じ教材・同じ周回の今後の予定を${result.applied}問減らしました。`
+                          : '今後の予定から新たに減らす前倒し分はありません。'}
+                    </p>
+                    {result.error && <p className="error">{result.error}</p>}
+                    {result.fixedSessionIds.length > 0 && (
+                      <p className="error">
+                        固定した予定には自動反映していません。計画全体を見直してください。
+                      </p>
+                    )}
+                    {result.unplaced.length > 0 && (
+                      <p className="error">
+                        配置先のない差分があります。残りの課題と計画を確認してください。
+                      </p>
+                    )}
+                    <div className="actions">
+                      <button onClick={onHistory}>記録を訂正</button>
+                      <button onClick={onReplan}>計画全体を見直す</button>
+                    </div>
+                  </>
+                );
+              })()}
           </div>
         )}
       </section>
@@ -334,7 +365,7 @@ export function Progress({ state, update }: Props) {
     </div>
   );
 }
-export function History({ state, update }: Props) {
+export function History({ state, update, onReplan }: Props & { onReplan?: () => void }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [count, setCount] = useState('');
   const [error, err] = useState('');
@@ -342,15 +373,14 @@ export function History({ state, update }: Props) {
   async function change(r: ProgressRecord, cancelled: boolean) {
     try {
       await update((s) => {
-        let next = correctProgress(s, r.id, cancelled ? r.count : Number(count), cancelled);
-        next = proposalAfterRecord(
-          next,
-          cancelled
-            ? '記録の取消によって残数が増えたため再配分します。'
-            : '記録の訂正に合わせて残りの課題を再配分します。',
-          s.proposal,
+        const prepared = withProgressBaseline(s);
+        const next = correctProgress(
+          prepared,
+          r.id,
+          cancelled ? r.count : Number(count),
+          cancelled,
         );
-        return next;
+        return reflectProgressSafely(next, r.id);
       });
       setEditing(null);
       setCancelId(null);
@@ -368,6 +398,12 @@ export function History({ state, update }: Props) {
         <p className="error" role="alert">
           {error}
         </p>
+      )}
+      {!!state.draft.progressResult && (
+        <div className="note">
+          訂正・取消に合わせて、同じ教材・同じ周回の前倒し反映を再計算しました。
+          <button onClick={onReplan}>計画全体を見直す</button>
+        </div>
       )}
       {!state.records.length ? (
         <Empty>まだ記録がありません。0問の報告もここに残ります。</Empty>

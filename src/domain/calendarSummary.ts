@@ -6,7 +6,10 @@ import { mergeIntervals } from './planner/intervals';
 export function calendarDaySummary(state: AppState, date: string, filter = 'all') {
   const classes = blockingEvents(state.settings, date).filter((x) => x.kind === 'class');
   const sessions = (state.plan?.sessions ?? []).filter(
-    (x) => x.date === date && (filter === 'all' || x.examId === filter),
+    (x) =>
+      (x.kind === 'review' || x.count > 0) &&
+      x.date === date &&
+      (filter === 'all' || x.examId === filter),
   );
   const records = state.records.filter((r) => !r.cancelled && r.date === date);
   const exams = [...new Set(sessions.map((x) => x.examId))].map((examId) => {

@@ -5,7 +5,12 @@ import { overlapsBusy } from '../src/domain/planAudit';
 import { resetSetup, restoreReset } from '../src/domain/reset';
 import { sessionPolicy, sessionUnitCount } from '../src/domain/sessionPolicy';
 import { approve, propose, validateSettings } from '../src/domain/planning';
-import { sameSettings, stalePlan } from '../src/domain/planAudit';
+import {
+  currentPresentation,
+  samePlanningSettings,
+  sameSettings,
+  stalePlan,
+} from '../src/domain/planAudit';
 const date = '2026-10-05';
 function fixture(total = 37, minutes = 2, days = 30): AppState {
   const s = initialState();
@@ -209,6 +214,21 @@ describe('まとまりを優先する学習計画', () => {
     expect(() => approve(proposed, true)).toThrow('計算方式');
     expect(stalePlan(proposed.proposal!.plan, s.settings)).toBe(true);
     expect(sameSettings(s.settings, { ...s.settings, preferredSessionMinutes: 60 })).toBe(false);
+  });
+  it('表示名と色だけの変更は再計画条件にせず、計画の表示情報へ同期できる', () => {
+    const s = fixture();
+    const display = structuredClone(s.settings);
+    display.exams[0].name = '新しい試験名';
+    display.exams[0].color = '#456da9';
+    display.materials[0].name = '新しい教材名';
+    display.windows[0].name = '新しい枠名';
+    expect(sameSettings(s.settings, display)).toBe(false);
+    expect(samePlanningSettings(s.settings, display)).toBe(true);
+    expect(currentPresentation(s.settings, display)).toEqual(display);
+    expect(stalePlan(generatePlan(s, date), display)).toBe(false);
+    const changed = structuredClone(display);
+    changed.materials[0].total += 1;
+    expect(samePlanningSettings(s.settings, changed)).toBe(false);
   });
   it.each([
     { minimumSessionMinutes: 0 },

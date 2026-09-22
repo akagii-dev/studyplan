@@ -3559,6 +3559,85 @@
                     "type": "string",
                     "maxLength": 10000
                   }
+                },
+                "progressBaseline": {
+                  "type": "object",
+                  "properties": {
+                    "records": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000000
+                      }
+                    },
+                    "sessions": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "count": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000000
+                          },
+                          "end": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1440
+                          }
+                        },
+                        "required": [
+                          "count",
+                          "end"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "shortfalls": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "count": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000000
+                          },
+                          "minutes": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1000000000
+                          },
+                          "reason": {
+                            "type": "string",
+                            "maxLength": 10000
+                          }
+                        },
+                        "required": [
+                          "count",
+                          "minutes",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "records",
+                    "sessions",
+                    "shortfalls"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -4243,6 +4322,85 @@
                   "type": "string",
                   "maxLength": 10000
                 }
+              },
+              "progressBaseline": {
+                "type": "object",
+                "properties": {
+                  "records": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1000000000
+                    }
+                  },
+                  "sessions": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        "end": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1440
+                        }
+                      },
+                      "required": [
+                        "count",
+                        "end"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "shortfalls": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        "minutes": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        "reason": {
+                          "type": "string",
+                          "maxLength": 10000
+                        }
+                      },
+                      "required": [
+                        "count",
+                        "minutes",
+                        "reason"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "records",
+                  "sessions",
+                  "shortfalls"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
@@ -4926,6 +5084,85 @@
                         "type": "string",
                         "maxLength": 10000
                       }
+                    },
+                    "progressBaseline": {
+                      "type": "object",
+                      "properties": {
+                        "records": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000000
+                          }
+                        },
+                        "sessions": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "count": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              },
+                              "end": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1440
+                              }
+                            },
+                            "required": [
+                              "count",
+                              "end"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "shortfalls": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "count": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              },
+                              "minutes": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              },
+                              "reason": {
+                                "type": "string",
+                                "maxLength": 10000
+                              }
+                            },
+                            "required": [
+                              "count",
+                              "minutes",
+                              "reason"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "records",
+                        "sessions",
+                        "shortfalls"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -9066,6 +9303,85 @@
                         "type": "string",
                         "maxLength": 10000
                       }
+                    },
+                    "progressBaseline": {
+                      "type": "object",
+                      "properties": {
+                        "records": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000000
+                          }
+                        },
+                        "sessions": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "count": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              },
+                              "end": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1440
+                              }
+                            },
+                            "required": [
+                              "count",
+                              "end"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "shortfalls": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "count": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              },
+                              "minutes": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              },
+                              "reason": {
+                                "type": "string",
+                                "maxLength": 10000
+                              }
+                            },
+                            "required": [
+                              "count",
+                              "minutes",
+                              "reason"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "records",
+                        "sessions",
+                        "shortfalls"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -9750,6 +10066,85 @@
                       "type": "string",
                       "maxLength": 10000
                     }
+                  },
+                  "progressBaseline": {
+                    "type": "object",
+                    "properties": {
+                      "records": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        }
+                      },
+                      "sessions": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "type": "object",
+                          "properties": {
+                            "count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000000
+                            },
+                            "end": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1440
+                            }
+                          },
+                          "required": [
+                            "count",
+                            "end"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "shortfalls": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "type": "object",
+                          "properties": {
+                            "count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000000
+                            },
+                            "minutes": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1000000000
+                            },
+                            "reason": {
+                              "type": "string",
+                              "maxLength": 10000
+                            }
+                          },
+                          "required": [
+                            "count",
+                            "minutes",
+                            "reason"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "records",
+                      "sessions",
+                      "shortfalls"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "required": [
@@ -10433,6 +10828,85 @@
                             "type": "string",
                             "maxLength": 10000
                           }
+                        },
+                        "progressBaseline": {
+                          "type": "object",
+                          "properties": {
+                            "records": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              }
+                            },
+                            "sessions": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "type": "object",
+                                "properties": {
+                                  "count": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000000
+                                  },
+                                  "end": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1440
+                                  }
+                                },
+                                "required": [
+                                  "count",
+                                  "end"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "shortfalls": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "type": "object",
+                                "properties": {
+                                  "count": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000000
+                                  },
+                                  "minutes": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1000000000
+                                  },
+                                  "reason": {
+                                    "type": "string",
+                                    "maxLength": 10000
+                                  }
+                                },
+                                "required": [
+                                  "count",
+                                  "minutes",
+                                  "reason"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "records",
+                            "sessions",
+                            "shortfalls"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [

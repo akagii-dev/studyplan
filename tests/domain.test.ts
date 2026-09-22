@@ -336,7 +336,7 @@ describe('承認・再計画・復元', () => {
     s = proposalAfterRecord(recordProgress(s, entry(3)), '記録');
     expect(completed(s, 'm', 0)).toBe(3);
     expect(s.proposal).toBeNull();
-    expect(s.draft.replanError).toBeTruthy();
+    expect(s.draft.progressResult).toBeTruthy();
   });
   it('複数試験の通常教材が多くても復習期間の枠を確保する', () => {
     const s = fixture();

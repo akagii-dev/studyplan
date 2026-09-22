@@ -1,4 +1,5 @@
 import { AppState, today } from './model';
+import { originalSessionCount } from './progressReflection';
 
 /** Compare today's saved reports with today's approved plan, grouped by material and round. */
 export function todayProgress(state: AppState, date = today()) {
@@ -8,7 +9,7 @@ export function todayProgress(state: AppState, date = today()) {
     if (session.date !== date || session.kind !== 'study') continue;
     const id = key(session.materialId, session.round);
     const task = tasks.get(id) ?? { planned: 0, actual: 0 };
-    task.planned += session.count;
+    task.planned += originalSessionCount(state.plan, session);
     tasks.set(id, task);
   }
   const records = state.records.filter((r) => r.date === date && !r.cancelled);

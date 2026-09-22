@@ -1,5 +1,5 @@
 import { AppState } from '../domain/model';
-import { sameSettings, stalePlan } from '../domain/planAudit';
+import { samePlanningSettings, stalePlan } from '../domain/planAudit';
 import { setupIssues } from '../domain/setupIssues';
 
 export function RegistrationStatus({
@@ -18,11 +18,11 @@ export function RegistrationStatus({
   const missing = setupIssues(state.settings).filter((i) => i.severity === 'error');
   const ready =
     !!state.proposal?.plan.settingsSnapshot &&
-    sameSettings(state.proposal.plan.settingsSnapshot, state.settings);
+    samePlanningSettings(state.proposal.plan.settingsSnapshot, state.settings);
   return (
     <section className="registration-status" aria-label="登録と計画の状態">
-      <h3>登録済み・計画への反映待ち</h3>
-      <p>計画案を確認し、承認するとカレンダーが更新されます。</p>
+      <h3>計画に未反映</h3>
+      <p>確定した変更は保存済みです。計画案を確認し、更新するとカレンダーへ反映します。</p>
       {missing.length ? (
         <>
           {missing.map((issue) => (
@@ -42,7 +42,7 @@ export function RegistrationStatus({
         </>
       ) : (
         <button className="primary" onClick={ready ? onReview : onGenerate}>
-          {ready ? '承認待ちの計画案を見る' : '追加・変更を含めた計画案を確認'}
+          {ready ? '承認待ちの計画案を見る' : 'この変更を含めて計画を見直す'}
         </button>
       )}
     </section>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Props } from '../components/common';
 import { AppState } from '../domain/model';
-import { sameSettings } from '../domain/planAudit';
+import { currentPresentation, samePlanningSettings, sameSettings } from '../domain/planAudit';
 import {
   PlanningInputError,
   planningInputIssues,
@@ -99,13 +99,49 @@ export function usePersistentAppState() {
     try {
       next = fn(dataRef.current!);
       if (!sameSettings(dataRef.current!.settings, next.settings)) {
+        const planningChanged = !samePlanningSettings(dataRef.current!.settings, next.settings);
+        const presentationProposal = next.proposal ?? dataRef.current!.proposal;
+        const syncPlanPresentation =
+          !planningChanged &&
+          !!next.plan?.settingsSnapshot &&
+          samePlanningSettings(next.plan.settingsSnapshot, dataRef.current!.settings);
+        const syncProposalPresentation =
+          !planningChanged &&
+          !!presentationProposal?.plan.settingsSnapshot &&
+          samePlanningSettings(
+            presentationProposal.plan.settingsSnapshot,
+            dataRef.current!.settings,
+          );
         next = {
           ...next,
           settingsUpdatedAt:
             next.settingsUpdatedAt !== dataRef.current!.settingsUpdatedAt
               ? next.settingsUpdatedAt
               : new Date().toISOString(),
-          proposal: null,
+          plan:
+            syncPlanPresentation && next.plan?.settingsSnapshot
+              ? {
+                  ...next.plan,
+                  settingsSnapshot: currentPresentation(next.plan.settingsSnapshot, next.settings),
+                }
+              : next.plan,
+          proposal:
+            planningChanged ||
+            !syncProposalPresentation ||
+            !presentationProposal?.plan.settingsSnapshot
+              ? planningChanged
+                ? null
+                : presentationProposal
+              : {
+                  ...presentationProposal,
+                  plan: {
+                    ...presentationProposal.plan,
+                    settingsSnapshot: currentPresentation(
+                      presentationProposal.plan.settingsSnapshot,
+                      next.settings,
+                    ),
+                  },
+                },
         };
       }
     } catch (e) {

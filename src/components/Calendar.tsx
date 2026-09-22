@@ -24,6 +24,7 @@ import { Empty, Props, duration, weekdays } from './common';
 import { CalendarExport } from './CalendarExport';
 import { sessionPolicy } from '../domain/sessionPolicy';
 import { StudyCoverageNotice } from './SetupImpact';
+import { originalSessionCount } from '../domain/progressReflection';
 export function Calendar({
   state,
   update,
@@ -55,7 +56,7 @@ export function Calendar({
         : monthStart;
   const to = view === 'month' ? addDays(from, 41) : view === 'week' ? addDays(from, 6) : monthEnd;
   const days = datesBetween(from, to);
-  const all = state.plan?.sessions ?? [];
+  const all = (state.plan?.sessions ?? []).filter((s) => s.kind === 'review' || s.count > 0);
   const visible = all.filter((s) => filter === 'all' || s.examId === filter);
   const collisions = all.filter(
     (s) => s.date >= today() && overlapsBusy(state.settings, s).length > 0,
@@ -83,9 +84,10 @@ export function Calendar({
     const e = state.settings.exams.find((e) => e.id === s.examId);
     const m = state.settings.materials.find((m) => m.id === s.materialId);
     const count = actual(state, s.date, s.materialId, s.round);
+    const original = originalSessionCount(state.plan, s);
     const planned = all
       .filter((x) => x.date === s.date && x.materialId === s.materialId && x.round === s.round)
-      .reduce((n, x) => n + x.count, 0);
+      .reduce((n, x) => n + originalSessionCount(state.plan, x), 0);
     return (
       <div
         key={s.id}
@@ -118,7 +120,7 @@ export function Calendar({
         <div className="row">
           <span>
             {s.kind === 'study'
-              ? `${level === 'detailed' ? `${s.round + 1}周目 · ` : ''}予定 ${s.count}問`
+              ? `${level === 'detailed' ? `${s.round + 1}周目 · ` : ''}${s.count === original ? '予定' : '前倒し反映後'} ${s.count}問${s.count !== original ? `（当初 ${original}問）` : ''}`
               : duration(s.end - s.start)}
           </span>
           {s.kind === 'study' && (

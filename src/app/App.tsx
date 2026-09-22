@@ -230,8 +230,19 @@ export default function App() {
               <CommuteSettings {...props} onReview={() => setPage('replan')} />
             )}
             {page === 'warnings' && <WarningSettings {...props} />}
-            {page === 'progress' && <Progress {...props} />}{' '}
-            {page === 'history' && <History {...props} />}{' '}
+            {page === 'progress' && (
+              <Progress
+                {...props}
+                onHistory={() => setPage('history')}
+                onReplan={() => (state.proposal ? setPage('replan') : generate())}
+              />
+            )}{' '}
+            {page === 'history' && (
+              <History
+                {...props}
+                onReplan={() => (state.proposal ? setPage('replan') : generate())}
+              />
+            )}{' '}
             {page === 'report' && (
               <WeeklyReport state={state} saving={saving > 0} readSaved={readSaved} />
             )}

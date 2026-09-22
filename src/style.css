@@ -2247,6 +2247,91 @@ progress::-webkit-progress-value {
 .replan-approval .actions {
   margin: 0;
 }
+.replan-tools {
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.replan-tools > p {
+  color: var(--muted);
+  margin: 0.65rem 0;
+}
+.replan-decision {
+  padding-block: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+.replan-decision:first-of-type {
+  margin-top: 1.25rem;
+}
+.replan-decision h3 {
+  margin: 0 0 0.75rem;
+}
+.replan-decision ul {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+.impact-list li + li {
+  margin-top: 0.55rem;
+}
+.replan-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  margin: 1rem 0 0;
+}
+.replan-totals > div {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.replan-totals dt {
+  color: var(--muted);
+}
+.replan-totals dd {
+  margin: 0;
+  font-weight: 750;
+}
+.replan-apply .primary {
+  min-width: min(100%, 14rem);
+}
+.replan-details > summary {
+  font-weight: 750;
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.replan-details > summary:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+.replan-details .plan-insights {
+  box-shadow: none;
+  border: 0;
+  padding-inline: 0;
+}
+.replan-detail-section,
+.plan-insight-section {
+  margin-top: 1.5rem;
+  min-width: 0;
+}
+.progress-result p:first-child {
+  margin-top: 0;
+}
+@media (max-width: 640px) {
+  .replan-decision .actions,
+  .replan-tools .actions {
+    width: 100%;
+  }
+  .replan-decision .actions button,
+  .replan-tools .actions button {
+    width: 100%;
+  }
+  .replan-totals {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
 
 /* Reusable progress motion; no dependency or timer is needed. */
 .animated-progress {

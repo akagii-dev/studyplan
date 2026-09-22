@@ -128,12 +128,10 @@ export function settingChanges(before: Settings, after: Settings): string[] {
       continue;
     }
     for (const [k, label] of [
-      ['name', '試験名'],
       ['start', '計画開始日'],
       ['target', '目標日'],
       ['priority', '優先度'],
       ['reviewDays', '別枠の復習日数'],
-      ['color', '表示色'],
     ] as const)
       add(`${old.name} / ${label}`, old[k], e[k]);
   }
@@ -143,17 +141,22 @@ export function settingChanges(before: Settings, after: Settings): string[] {
       changes.push(`教材を追加：${m.name}`);
       continue;
     }
-    add(`${old.name} / 教材名`, old.name, m.name);
     add(`${m.name} / 総問題数`, old.total, m.total);
     add(`${m.name} / 順序`, old.order, m.order);
     add(`${m.name} / 周回数`, old.rounds.length, m.rounds.length);
     m.rounds.forEach((r, i) => {
-      if (old.rounds[i])
+      if (old.rounds[i]) {
+        add(
+          `${m.name} ${i + 1}周目 / 初期完了数`,
+          `${old.rounds[i].completed}問`,
+          `${r.completed}問`,
+        );
         add(
           `${m.name} ${i + 1}周目 / 1問の推定時間`,
           `${old.rounds[i].minutes}分`,
           `${r.minutes}分`,
         );
+      }
     });
   }
   const windowText = (w: Settings['windows'][number]) =>
@@ -163,7 +166,12 @@ export function settingChanges(before: Settings, after: Settings): string[] {
   for (const w of after.windows) {
     const old = before.windows.find((x) => x.id === w.id);
     if (!old) changes.push(`時間枠を追加：${windowText(w)}`);
-    else add('時間枠', windowText(old), windowText(w));
+    else {
+      const { name: _oldName, ...oldCondition } = old;
+      const { name: _newName, ...newCondition } = w;
+      if (JSON.stringify(oldCondition) !== JSON.stringify(newCondition))
+        changes.push(`時間枠：${windowText(old)} → ${windowText(w)}`);
+    }
   }
   const eventText = (e: Settings['exceptions'][number]) =>
     `${e.name} ${e.date} ${clock(e.start)}〜${clock(e.end)}`;
@@ -172,7 +180,12 @@ export function settingChanges(before: Settings, after: Settings): string[] {
   for (const e of after.exceptions) {
     const old = before.exceptions.find((x) => x.id === e.id);
     if (!old) changes.push(`予定を追加：${eventText(e)}`);
-    else add('予定', eventText(old), eventText(e));
+    else {
+      const { name: _oldName, ...oldCondition } = old;
+      const { name: _newName, ...newCondition } = e;
+      if (JSON.stringify(oldCondition) !== JSON.stringify(newCondition))
+        changes.push(`予定：${eventText(old)} → ${eventText(e)}`);
+    }
   }
   return changes;
 }

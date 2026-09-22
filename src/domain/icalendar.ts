@@ -73,6 +73,7 @@ export function calendarEvents(state: AppState, options: CalendarExportOptions):
   if (options.study) {
     for (const session of state.plan?.sessions ?? []) {
       if (
+        (session.kind === 'study' && session.count <= 0) ||
         session.date < options.from ||
         session.date > options.to ||
         (options.examId !== 'all' && session.examId !== options.examId)

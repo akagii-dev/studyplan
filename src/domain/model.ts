@@ -138,6 +138,22 @@ export interface Plan {
   shortfalls: Shortfall[];
   conflicts: string[];
   from: DateKey;
+  /** Immutable basis used to recompute progress reflection after correction/cancellation. */
+  progressBaseline?: PlanProgressBaseline;
+}
+export interface PlanProgressBaseline {
+  records: Record<string, number>;
+  sessions: Record<string, { count: number; end: number }>;
+  shortfalls: Record<string, { count: number; minutes: number; reason: string }>;
+}
+export interface ProgressReflectionNotice {
+  recordId?: string;
+  error?: string;
+  applied: number;
+  allocations: { date: DateKey; materialId: string; round: number; count: number }[];
+  fixedSessionIds: string[];
+  unplaced: { materialId: string; round: number; count: number }[];
+  completed: { materialId: string; round: number }[];
 }
 export interface Proposal {
   settingsBase?: Settings;

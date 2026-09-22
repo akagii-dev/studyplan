@@ -7,6 +7,7 @@ import { capacityForDate } from './capacity';
 import { PlanningContext } from './context';
 import { datesBetween, subtractIntervals } from './intervals';
 import { validateSettings } from './validation';
+import { createProgressBaseline } from '../progressReflection';
 const EPS = 1e-7;
 export function generatePlan(
   state: AppState,
@@ -30,7 +31,9 @@ export function generatePlan(
   const capacities = weekDays.filter((c) => c.date >= from && c.date <= to);
   const kept = preserve
     ? (state.plan?.sessions.filter(
-        (x) => x.date < from || (x.date === from && x.start < notBefore) || x.fixed,
+        (x) =>
+          (x.kind === 'review' || x.count > 0) &&
+          (x.date < from || (x.date === from && x.start < notBefore) || x.fixed),
       ) ?? [])
     : [];
   const sessions: Session[] = kept.map((x) => ({ ...x }));
@@ -466,7 +469,7 @@ export function generatePlan(
       conflicts.push(
         `${week.from}〜${week.to}の週の割当上限${week.limit}分を、固定・保持予定が${Math.ceil(week.used - week.limit)}分超えています。固定予定または週の学習可能枠・余裕率を見直してください。`,
       );
-  return {
+  const plan: Plan = {
     id: nextId(),
     createdAt: context.timestamp,
     calculationVersion: PLAN_CALCULATION_VERSION,
@@ -490,4 +493,6 @@ export function generatePlan(
         reason: '期限までの学習枠・週の割当上限・集中ブロック・教材順序の条件に収まりません。',
       })),
   };
+  plan.progressBaseline = createProgressBaseline(plan, state.records);
+  return plan;
 }

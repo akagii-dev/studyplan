@@ -9,7 +9,7 @@ import {
   capacityForWeek,
 } from '../src/domain/planning';
 import { recordProgress, correctProgress } from '../src/domain/progress';
-import { remaining, addDays } from '../src/domain/model';
+import { addDays } from '../src/domain/model';
 import { overlapsBusy } from '../src/domain/planAudit';
 import { fixedTimeIssue } from '../src/domain/planConstraints';
 import { beginConstraintRepair } from '../src/domain/repairPlan';
@@ -110,14 +110,12 @@ it('承認待ちの条件変更は、記録・訂正・取消で消さず新し�
     () => correctProgress(s, entry.id, 1, true),
   ]) {
     const before = s;
+    const proposalId = before.proposal!.plan.id;
     s = proposalAfterRecord(change(), '記録の変更', before.proposal);
     expect(s.settings.buffer).toBe(0.2);
     expect(s.proposal?.plan.settingsSnapshot?.buffer).toBe(0.3);
     expect(s.proposal?.plan.settingsSnapshot?.materials[1].rounds[0].minutes).toBe(45);
-    const sum = s
-      .proposal!.plan.sessions.filter((x) => x.materialId === 'long' && x.round === 0)
-      .reduce((n, x) => n + x.count, 0);
-    expect(sum).toBe(remaining(s, 'long', 0));
+    expect(s.proposal!.plan.id).toBe(proposalId);
   }
 });
 
@@ -187,7 +185,7 @@ it('負荷変更後も開始済みの固定予定を時間不足として扱わ�
   expect(plan.conflicts).toEqual([]);
 });
 
-it('記録で候補の総問題数を超えても、実績を保存し候補条件を修正用下書きへ残す', () => {
+it('記録で候補の総問題数を超えても、実績を保存して未承認の候補を適用しない', () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date(from + 'T06:00:00'));
   let s = studentFixture(from);
@@ -207,7 +205,7 @@ it('記録で候補の総問題数を超えても、実績を保存し候補条�
   };
   const next = proposalAfterRecord(recordProgress(s, entry), '記録', s.proposal);
   expect(next.records).toContainEqual(entry);
-  expect(next.proposal).toBeNull();
-  expect((next.draft.revision as RevisionDraft).settings.materials[1].total).toBe(8);
-  expect(next.draft.replanError).toContain('総問題数が完了数を下回っています');
+  expect(next.settings.materials[1].total).toBe(37);
+  expect(next.proposal!.plan.settingsSnapshot!.materials[1].total).toBe(8);
+  expect(() => approve(next)).toThrow('進捗が変わっています');
 });

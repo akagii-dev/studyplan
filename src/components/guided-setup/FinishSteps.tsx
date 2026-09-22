@@ -37,9 +37,16 @@ export function FinishSteps(ctx: StepContext): QuestionView | undefined {
           <button className="primary" onClick={ctx.onEditItems}>
             別の項目を修正する
           </button>
-          {state.plan && w.editScope !== 'outside' && <p>計画への反映は再計画の承認後です。</p>}
+          {state.plan && w.editScope !== 'outside' && (
+            <div className="registration-status">
+              <h3>計画に未反映</h3>
+              <p>確定した変更は保存済みです。計画の更新は案を確認した後に行います。</p>
+            </div>
+          )}
           {w.editScope !== 'outside' && (
-            <button onClick={onGenerate}>設定から計画案を作成する</button>
+            <button className="primary" onClick={onGenerate}>
+              この変更を含めて計画を見直す
+            </button>
           )}
         </>
       );

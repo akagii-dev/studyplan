@@ -31,7 +31,12 @@ export function Exams({
     }
     await update((s) => ({
       ...s,
-      settings: { ...s.settings, exams: [...s.settings.exams.filter((x) => x.id !== e.id), e] },
+      settings: {
+        ...s.settings,
+        exams: s.settings.exams.some((item) => item.id === e.id)
+          ? s.settings.exams.map((item) => (item.id === e.id ? e : item))
+          : [...s.settings.exams, e],
+      },
       draft: { ...s.draft, exam: blank },
       proposal: null,
     }));

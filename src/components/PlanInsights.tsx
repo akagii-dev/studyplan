@@ -1,5 +1,5 @@
 import { Warning } from './Warnings';
-import { useMemo } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { AppState, Plan, addDays, remaining, today } from '../domain/model';
 import { datesBetween, generatePlan, capacityForWeek } from '../domain/planning';
 import { startOfWeek } from '../domain/calendar';
@@ -11,11 +11,33 @@ export function PlanInsights({
   state,
   plan,
   preview = false,
+  flat = false,
 }: {
   state: AppState;
   plan: Plan;
   preview?: boolean;
+  flat?: boolean;
 }) {
+  const Disclosure = ({
+    summary,
+    children,
+    open = false,
+  }: {
+    summary: string;
+    children: ReactNode;
+    open?: boolean;
+  }) =>
+    flat ? (
+      <section className="plan-insight-section">
+        <h4>{summary}</h4>
+        {children}
+      </section>
+    ) : (
+      <details open={open}>
+        <summary>{summary}</summary>
+        {children}
+      </details>
+    );
   const settings = plan.settingsSnapshot;
   const reference = useMemo(() => {
     if (!preview || !settings) return null;
@@ -66,8 +88,7 @@ export function PlanInsights({
           </div>
           <p>計画開始：{plan.from}。目標日当日は通常教材を割り当てません。</p>
           {weeks.length > 0 && (
-            <details>
-              <summary>週全体の割当上限を確認</summary>
+            <Disclosure summary="週全体の割当上限">
               <p>
                 月〜日の学習可能時間に余裕率を適用します。固定・保持予定と復習も含めて共有し、日ごとの余裕時間は予約しません。
               </p>
@@ -97,7 +118,7 @@ export function PlanInsights({
                   </tbody>
                 </table>
               </div>
-            </details>
+            </Disclosure>
           )}
           {settings.commute?.enabled && (
             <p>
@@ -175,8 +196,7 @@ export function PlanInsights({
               </table>
             </div>
           )}
-          <details>
-            <summary>適用期間・授業・予定を確認</summary>
+          <Disclosure summary="適用期間・授業・予定">
             {settings.windows.map((w) => (
               <p key={w.id}>
                 {w.kind === 'study'
@@ -187,15 +207,14 @@ export function PlanInsights({
                 ：{w.name} ／ {w.from}〜{w.to}
               </p>
             ))}
-          </details>
+          </Disclosure>
         </>
       ) : (
         <Warning id="planinsights-1" title="計画に使用した設定の記録がありません" version={plan.id}>
           この計画は旧バージョンで作成され、使用した設定の記録がありません。現在の設定で計画案を作成すると記録されます。
         </Warning>
       )}
-      <details open={preview}>
-        <summary>一日の予定問題数（全試験で共有）</summary>
+      <Disclosure summary="一日の予定問題数（全試験で共有）" open={preview}>
         <div
           className="daily-plan-table"
           role="region"
@@ -236,7 +255,7 @@ export function PlanInsights({
           </table>
         </div>
         <small>これは予定の問題数です。0問の実績や未報告とは別に表示しています。</small>
-      </details>
+      </Disclosure>
     </section>
   );
 }

@@ -2,6 +2,7 @@ import { AppState, addDays, weekday } from './model';
 import { startOfWeek } from './calendar';
 import { stalePlan } from './planAudit';
 import { studyCoverageGaps, StudyCoverageGap, isLongTermStudyGap } from './studyCoverage';
+import { originalSessionCount } from './progressReflection';
 
 export interface ReportProgress {
   total: number;
@@ -72,7 +73,9 @@ export function createWeeklyReport(
   const inWeek = (date: string) => date >= from && date <= to;
   const records = state.records.filter((r) => !r.cancelled && r.date <= asOf);
   const weekly = records.filter((r) => inWeek(r.date));
-  const sessions = (state.plan?.sessions ?? []).filter((s) => s.kind === 'study' && inWeek(s.date));
+  const sessions = (state.plan?.sessions ?? []).filter(
+    (s) => s.kind === 'study' && originalSessionCount(state.plan, s) > 0 && inWeek(s.date),
+  );
   const rounds = state.settings.materials.flatMap((m) =>
     m.rounds.map((r, round) => {
       const done =
@@ -88,7 +91,9 @@ export function createWeeklyReport(
         done,
         remaining: m.total - done,
         weekPlanned: sum(
-          sessions.filter((x) => x.materialId === m.id && x.round === round).map((x) => x.count),
+          sessions
+            .filter((x) => x.materialId === m.id && x.round === round)
+            .map((x) => originalSessionCount(state.plan, x)),
         ),
         weekDone: sum(
           weekly.filter((x) => x.materialId === m.id && x.round === round).map((x) => x.count),
@@ -101,10 +106,12 @@ export function createWeeklyReport(
     name: e.name,
     target: e.target,
     ...aggregate(rounds.filter((r) => r.examId === e.id)),
-    weekPlanned: sum(sessions.filter((s) => s.examId === e.id).map((s) => s.count)),
+    weekPlanned: sum(
+      sessions.filter((s) => s.examId === e.id).map((s) => originalSessionCount(state.plan, s)),
+    ),
   }));
   const totals = aggregate(rounds);
-  totals.weekPlanned = sum(sessions.map((s) => s.count));
+  totals.weekPlanned = sum(sessions.map((s) => originalSessionCount(state.plan, s)));
   const key = (r: { date: string; materialId: string; round: number }) =>
     JSON.stringify([r.date, r.materialId, r.round]);
   const groups = new Map<
@@ -120,7 +127,7 @@ export function createWeeklyReport(
         state.plan?.settingsSnapshot?.materials.find((m) => m.id === s.materialId)?.name ??
         '教材',
       round: s.round + 1,
-      planned: (old?.planned ?? 0) + s.count,
+      planned: (old?.planned ?? 0) + originalSessionCount(state.plan, s),
       started:
         !!old?.started ||
         s.date < asOf ||

@@ -39,7 +39,9 @@ export function Materials({ state, update, onAdd }: Props & { onAdd: () => void 
       ...s,
       settings: {
         ...s.settings,
-        materials: [...s.settings.materials.filter((x) => x.id !== m.id), m],
+        materials: s.settings.materials.some((item) => item.id === m.id)
+          ? s.settings.materials.map((item) => (item.id === m.id ? m : item))
+          : [...s.settings.materials, m],
       },
       draft: { ...s.draft, material: blank },
       proposal: null,

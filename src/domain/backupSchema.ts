@@ -118,6 +118,20 @@ const plan = z.looseObject({
     }),
   ),
   conflicts: z.array(text),
+  progressBaseline: z
+    .object({
+      records: z.record(z.string(), count),
+      sessions: z.record(z.string(), z.object({ count, end: minute })),
+      shortfalls: z.record(
+        z.string(),
+        z.object({
+          count,
+          minutes: z.number().nonnegative().max(1_000_000_000),
+          reason: text,
+        }),
+      ),
+    })
+    .optional(),
 });
 // Drafts may contain incomplete dates or blank names. Their containers and field types still
 // need validation so a damaged draft cannot make an otherwise valid restore unrenderable.

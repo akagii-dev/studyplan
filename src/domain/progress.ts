@@ -2,7 +2,7 @@ import { AppState, Progress, remaining } from './model';
 export function recordProgress(state: AppState, entry: Progress): AppState {
   if (state.records.some((r) => r.id === entry.id)) return state;
   validateEntry(state, entry);
-  return { ...state, records: [...state.records, entry], proposal: null };
+  return { ...state, records: [...state.records, entry] };
 }
 function validateEntry(state: AppState, entry: Progress) {
   const m = state.settings.materials.find((m) => m.id === entry.materialId);
@@ -24,5 +24,5 @@ export function correctProgress(
   const without = { ...state, records: state.records.filter((r) => r.id !== id) };
   const entry = { ...old, count, cancelled, updatedAt: new Date().toISOString() };
   if (!cancelled) validateEntry(without, entry);
-  return { ...state, records: state.records.map((r) => (r.id === id ? entry : r)), proposal: null };
+  return { ...state, records: state.records.map((r) => (r.id === id ? entry : r)) };
 }

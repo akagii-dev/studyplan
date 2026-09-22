@@ -3,12 +3,13 @@ import { startOfWeek } from '../calendar';
 import { AppState, reported, Settings } from '../model';
 import { overlapsBusy, sameSettings } from '../planAudit';
 import { fixedIssueMessage, fixedOrderIssue, fixedTimeIssue } from '../planConstraints';
-import { RevisionDraft, sameRevisionBase, validateRevisedSettings } from '../revision';
+import { sameRevisionBase, validateRevisedSettings } from '../revision';
 import { PLAN_CALCULATION_VERSION } from '../sessionPolicy';
 import { requirePlanningInputs } from '../setupIssues';
 import { capacityForDate, capacityForWeek } from './capacity';
 import { PlanningContext } from './context';
 import { generatePlan } from './generate';
+import { proposalUsesCurrentProgress, reflectProgressSafely } from '../progressReflection';
 const EPS = 1e-7;
 export function propose(
   state: AppState,
@@ -48,45 +49,10 @@ export function proposalAfterRecord(
   previousProposal = state.proposal,
   context: PlanningContext,
 ): AppState {
-  if (!state.plan) return state;
-  const candidateSettings =
-    previousProposal?.settingsBase &&
-    sameRevisionBase(previousProposal.settingsBase, state.settings)
-      ? previousProposal.plan.settingsSnapshot
-      : undefined;
-  try {
-    const candidate = candidateSettings
-      ? proposeSettings(state, candidateSettings, context.date, context)
-      : propose(state, context.date, reason, context);
-    return { ...candidate, draft: { ...state.draft, replanError: '' } };
-  } catch (error) {
-    // A new record may make a proposed total/round count invalid. Keep those edits as
-    // an editable draft, never as an approvable plan or a replacement for actuals.
-    let draft = state.draft;
-    if (candidateSettings && !draft.revision) {
-      const revision: RevisionDraft = {
-        id: context.idPrefix + '-revision',
-        base: structuredClone(state.settings),
-        settings: structuredClone(candidateSettings),
-        stage: 'review',
-        topic: 'focus',
-        itemId: '',
-        index: 0,
-      };
-      draft = {
-        ...draft,
-        revision: { ...revision, settings: structuredClone(candidateSettings), stage: 'review' },
-      };
-    }
-    return {
-      ...state,
-      proposal: null,
-      draft: {
-        ...draft,
-        replanError: `記録は保存しました。再計画は設定を確認してから作成してください。${String(error)}`,
-      },
-    };
-  }
+  void reason;
+  void previousProposal;
+  void context;
+  return reflectProgressSafely(state);
 }
 export function proposeSettings(
   state: AppState,
@@ -116,6 +82,8 @@ export function approve(state: AppState, acknowledge: boolean, context: Planning
     );
   if (p.basedOn !== (state.plan?.id ?? null))
     throw new Error('計画が変更されました。案を作り直してください。');
+  if (!proposalUsesCurrentProgress(p.plan, state.records))
+    throw new Error('案の作成後に進捗が変わっています。現在の残数で案を作り直してください。');
   if (
     !p.plan.settingsSnapshot ||
     !(p.settingsBase

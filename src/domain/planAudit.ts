@@ -21,6 +21,55 @@ export function sameSettings(a: Settings, b: Settings): boolean {
     });
   return normalize(a) === normalize(b);
 }
+
+/** Compare only values that can change capacity, ordering, duration, or required work. */
+export function samePlanningSettings(a: Settings, b: Settings): boolean {
+  const normalize = (s: Settings) =>
+    JSON.stringify({
+      classTransition: s.classTransition ?? 0,
+      exams: s.exams.map(({ name: _name, color: _color, ...exam }) => exam),
+      materials: s.materials.map(({ name: _name, ...material }) => material),
+      windows: s.windows.map(({ name: _name, ...window }) => window),
+      exceptions: s.exceptions.map(({ name: _name, ...exception }) => exception),
+      meals: s.meals ?? {},
+      commute: s.commute?.enabled ? s.commute : null,
+      block: s.block,
+      sessionPolicy: sessionPolicy(s),
+      rest: s.rest,
+      buffer: s.buffer,
+      periods: s.periods,
+    });
+  return normalize(a) === normalize(b);
+}
+
+/** Copy labels and colors without replacing the calculation inputs stored with a plan. */
+export function currentPresentation(target: Settings, current: Settings): Settings {
+  const exams = new Map(current.exams.map((exam) => [exam.id, exam]));
+  const materials = new Map(current.materials.map((material) => [material.id, material]));
+  const windows = new Map(current.windows.map((window) => [window.id, window]));
+  const exceptions = new Map(current.exceptions.map((exception) => [exception.id, exception]));
+  return {
+    ...target,
+    scheduleAnswers: current.scheduleAnswers,
+    exams: target.exams.map((exam) => ({
+      ...exam,
+      name: exams.get(exam.id)?.name ?? exam.name,
+      color: exams.get(exam.id)?.color ?? exam.color,
+    })),
+    materials: target.materials.map((material) => ({
+      ...material,
+      name: materials.get(material.id)?.name ?? material.name,
+    })),
+    windows: target.windows.map((window) => ({
+      ...window,
+      name: windows.get(window.id)?.name ?? window.name,
+    })),
+    exceptions: target.exceptions.map((exception) => ({
+      ...exception,
+      name: exceptions.get(exception.id)?.name ?? exception.name,
+    })),
+  };
+}
 export interface UnavailableEvent {
   id: string;
   name: string;
@@ -93,7 +142,7 @@ export function stalePlan(plan: Plan | null, settings: Settings) {
     !!plan &&
     (plan.calculationVersion !== PLAN_CALCULATION_VERSION ||
       !plan.settingsSnapshot ||
-      !sameSettings(plan.settingsSnapshot, settings))
+      !samePlanningSettings(plan.settingsSnapshot, settings))
   );
 }
 export const dateTime = (iso?: string) =>

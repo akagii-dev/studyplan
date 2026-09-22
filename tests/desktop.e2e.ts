@@ -21,6 +21,7 @@ import ICAL from 'ical.js';
 import AxeBuilder from '@axe-core/playwright';
 import { startOfWeek } from '../src/domain/calendar';
 import { studentFixture } from './fixtures/student';
+import { createProgressBaseline } from '../src/domain/progressReflection';
 let child: ChildProcess;
 let browser: Browser;
 let page: Page;
@@ -865,9 +866,11 @@ test('実機：学生の代表データで条件変更案を維持して記録�
   expect(recorded.proposal?.plan.settingsSnapshot?.buffer).toBe(0.3);
   expect(recorded.proposal?.plan.settingsSnapshot?.materials[1].rounds[0].minutes).toBe(45);
   await nav('再計画の確認');
+  const refreshFromProgress = page.getByRole('button', { name: '現在の残数から案を作り直す' });
+  if (await refreshFromProgress.count()) await refreshFromProgress.click();
   const acknowledge = page.getByRole('checkbox');
   if (await acknowledge.count()) await acknowledge.first().check();
-  await page.getByRole('button', { name: 'この計画を承認する', exact: true }).click();
+  await page.getByRole('button', { name: 'この内容で更新', exact: true }).click();
   await saved();
   const approved = await storedState();
   expect(approved.settings.buffer).toBe(0.3);
@@ -903,6 +906,186 @@ test('実機：学生の代表データで条件変更案を維持して記録�
   await page.screenshot({ path: 'test-results/student-today.png', fullPage: true });
 });
 
+test('実機：予定超過を同じ教材・周回の将来予定へ反映し、訂正と再起動で再計算する', async () => {
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/progress-reflection-'));
+  await launch();
+  const date = today();
+  const seed = studentFixture(date);
+  seed.plan = generatePlan(seed, date, false, 0);
+  seed.plan.sessions = [0, 1, 2].map((offset) => ({
+    id: `advance-${offset}`,
+    date: addDays(date, offset),
+    start: 600,
+    end: 660,
+    examId: 'law',
+    materialId: 'short',
+    round: 0,
+    count: 20,
+    fixed: false,
+    kind: 'study' as const,
+  }));
+  seed.plan.shortfalls = [];
+  seed.plan.progressBaseline = createProgressBaseline(seed.plan, seed.records);
+  seed.proposal = null;
+  await seedState(seed, 'progress-reflection');
+  await nav('進捗を記録');
+  await page.getByLabel('教材', { exact: true }).selectOption('short');
+  await page.getByRole('button', { name: 'その他', exact: true }).click();
+  await page.getByLabel('追加問題数（1問単位）').fill('30');
+  await page.getByRole('button', { name: '記録する', exact: true }).click();
+  await expect(page.locator('.progress-result')).toContainText('今後の予定を10問減らしました');
+  await expect(page.getByRole('button', { name: '記録を訂正' })).toBeVisible();
+  let stored = await storedState();
+  expect(stored.records.at(-1)).toMatchObject({ date, materialId: 'short', round: 0, count: 30 });
+  expect(stored.plan!.sessions.map((session) => session.count)).toEqual([20, 10, 20]);
+  expect(stored.proposal).toBeNull();
+  await close();
+  await launch();
+  stored = await storedState();
+  expect(stored.plan!.sessions.map((session) => session.count)).toEqual([20, 10, 20]);
+  await nav('記録履歴');
+  await page.getByRole('button', { name: '訂正', exact: true }).click();
+  await page.getByLabel('訂正後の問題数').fill('20');
+  await page.getByRole('button', { name: '訂正を保存', exact: true }).click();
+  await saved();
+  expect((await storedState()).plan!.sessions.map((session) => session.count)).toEqual([
+    20, 20, 20,
+  ]);
+});
+
+test('実機：周回数の確定場所から変更を保持した案へ進み、判断情報と詳細を使い分ける', async () => {
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/replan-decision-'));
+  await launch();
+  const date = today();
+  const seed = studentFixture(date);
+  seed.plan = generatePlan(seed, date, false, 0);
+  seed.proposal = null;
+  await seedState(seed, 'replan-decision');
+  await nav('試験・目標');
+  await page.getByRole('button', { name: '行政書士を編集', exact: true }).click();
+  await page.getByRole('button', { name: '表示色 #4c89ac', exact: true }).click();
+  await page.getByRole('button', { name: '試験を更新する', exact: true }).click();
+  await saved();
+  await expect(page.getByRole('region', { name: '登録と計画の状態' })).toHaveCount(0);
+  const colorOnly = await storedState();
+  expect(colorOnly.plan!.id).toBe(seed.plan.id);
+  expect(colorOnly.plan!.settingsSnapshot!.exams.find((exam) => exam.id === 'law')!.color).toBe(
+    '#4c89ac',
+  );
+  await nav('教材・進捗');
+  await page.getByRole('button', { name: '短答・過去問を編集', exact: true }).click();
+  await page.getByLabel('周回数', { exact: true }).fill('3');
+  await page.getByRole('button', { name: '教材を更新する', exact: true }).click();
+  const status = page.getByRole('region', { name: '登録と計画の状態' });
+  await expect(status.getByRole('heading', { name: '計画に未反映' })).toBeVisible();
+  await status.getByRole('button', { name: 'この変更を含めて計画を見直す' }).click();
+  await expect(page.getByRole('heading', { name: '変更した条件' })).toBeVisible();
+  await expect(page.getByText(/短答・過去問 \/ 周回数：2 → 3/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: '計画への主な影響' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '対応が必要な問題' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '適用操作' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'この内容で更新' })).toBeVisible();
+  const details = page.locator('details.replan-details');
+  await expect(details).not.toHaveAttribute('open', '');
+  await page.setViewportSize({ width: 480, height: 800 });
+  await page.addStyleTag({
+    content:
+      '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }',
+  });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
+    true,
+  );
+  await page.screenshot({ path: 'test-results/replan-decision-mobile.png', fullPage: true });
+  await details.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  await expect(details).toHaveAttribute('open', '');
+  await expect(details.getByText('バッファーなし（余裕率0%）なら、いつ終わる？')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
+    true,
+  );
+  const stored = await storedState();
+  expect(
+    stored.settings.materials.find((material) => material.id === 'short')!.rounds,
+  ).toHaveLength(3);
+  expect(
+    stored.plan!.settingsSnapshot!.materials.find((material) => material.id === 'short')!.rounds,
+  ).toHaveLength(2);
+  expect(
+    stored.proposal!.plan.settingsSnapshot!.materials.find((material) => material.id === 'short')!
+      .rounds,
+  ).toHaveLength(3);
+});
+
+test('実機：条件変更なし・別教材への影響・未配置を標準表示だけで判断できる', async () => {
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/replan-impact-'));
+  await launch();
+  const date = today();
+  const seed = studentFixture(date);
+  seed.plan = generatePlan(seed, date, false, 0);
+  seed.plan.sessions = [
+    {
+      id: 'before-short',
+      date,
+      start: 600,
+      end: 660,
+      examId: 'law',
+      materialId: 'short',
+      round: 0,
+      count: 20,
+      fixed: false,
+      kind: 'study' as const,
+    },
+    {
+      id: 'before-long',
+      date: addDays(date, 1),
+      start: 600,
+      end: 660,
+      examId: 'essay',
+      materialId: 'long',
+      round: 0,
+      count: 20,
+      fixed: false,
+      kind: 'study' as const,
+    },
+  ];
+  seed.plan.shortfalls = [];
+  seed.plan.progressBaseline = createProgressBaseline(seed.plan, seed.records);
+  const candidate = structuredClone(seed.plan);
+  candidate.id = 'replan-impact-candidate';
+  candidate.createdAt = new Date().toISOString();
+  candidate.sessions = [
+    { ...candidate.sessions[0], id: 'after-short', count: 30 },
+    { ...candidate.sessions[1], id: 'after-long', count: 10 },
+  ];
+  candidate.shortfalls = [
+    { materialId: 'long', round: 0, count: 5, minutes: 150, reason: '期限内の枠が不足' },
+  ];
+  candidate.progressBaseline = createProgressBaseline(candidate, seed.records);
+  seed.proposal = {
+    plan: candidate,
+    basedOn: seed.plan.id,
+    reason: '同じ条件で残りの課題を再計算しました。',
+    unreported: [],
+  };
+  await seedState(seed, 'replan-impact');
+  await nav('再計画の確認');
+  await expect(page.getByText('条件の変更はありません。', { exact: false })).toBeVisible();
+  await expect(page.getByText(/短答・過去問 1周目：今後 20問 → 30問/)).toBeVisible();
+  await expect(page.getByText(/論文演習 1周目：今後 20問 → 10問/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: '未配置の課題' })).toBeVisible();
+  await expect(page.getByText('注意付きで更新できます。', { exact: true })).toBeVisible();
+  const shortfall = page.getByRole('region', { name: '未配置の課題' });
+  await expect(shortfall).toContainText('論文演習');
+  await expect(shortfall).toContainText('1周目：5問');
+  await expect(shortfall).toContainText('2時間 30分');
+  await expect(page.getByRole('button', { name: 'この内容で更新' })).toBeEnabled();
+  await expect(page.locator('details.replan-details')).not.toHaveAttribute('open', '');
+  await page.screenshot({ path: 'test-results/replan-impact.png', fullPage: true });
+});
+
 test('実機：固定枠の時間不足を教材の推定時間へ戻って修正できる', async () => {
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/fixed-duration-'));
@@ -919,9 +1102,7 @@ test('実機：固定枠の時間不足を教材の推定時間へ戻って修�
   seed.proposal!.plan.conflicts = [];
   await seedState(seed, 'fixed-duration');
   await nav('再計画の確認');
-  await expect(
-    page.getByRole('button', { name: 'この計画を承認する', exact: true }),
-  ).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'この内容で更新', exact: true })).toBeDisabled();
   const conflict = page.locator('.plan-conflict').filter({ hasText: '推定所要時間' });
   await expect(conflict).toHaveCount(1);
   await conflict.getByRole('button', { name: '条件を修正', exact: true }).click();
@@ -1232,9 +1413,9 @@ test('実機：3テーマの読みやすさ・入力ラベル・小さい画面�
         await expect(page.locator('.hero')).toHaveCount(0);
       }
       if (screen === '再計画の確認') {
-        await expect(
-          page.getByRole('button', { name: 'この計画を承認する', exact: true }),
-        ).toBeInViewport({ ratio: 1 });
+        const updatePlan = page.getByRole('button', { name: 'この内容で更新', exact: true });
+        await updatePlan.scrollIntoViewIfNeeded();
+        await expect(updatePlan).toBeInViewport({ ratio: 1 });
       }
       const result = await new AxeBuilder({ page })
         // WebView2 exposes one native window, not a browser that can open aggregation tabs.
@@ -1260,10 +1441,13 @@ test('実機：3テーマの読みやすさ・入力ラベル・小さい画面�
       }
     }
     await nav('再計画の確認');
+    const replanDetails = page.locator('details.replan-details');
+    await replanDetails.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    await expect(replanDetails).toHaveAttribute('open', '');
     const planTable = page.getByRole('region', { name: '一日の予定問題数の表' });
     if (theme === 'mint' && appearance === 'light') {
-      await page.getByText('一日の予定問題数（全試験で共有）', { exact: true }).focus();
-      await page.keyboard.press('Tab');
+      await planTable.focus();
       await expect(planTable).toBeFocused();
       await page.keyboard.press('ArrowDown');
       await expect
@@ -1725,7 +1909,7 @@ test('実機：通学の承認・警告の管理・サイドバー保存・可�
   expect(proposal.plan.sessions.find((x) => x.id === fixed.id)).toEqual(fixed);
   if (proposal.unreported.length)
     await page.getByLabel('未報告は記録を保留したまま、現在の残数を今後の枠へ再配置する').check();
-  await page.getByRole('button', { name: 'この計画を承認する', exact: true }).click();
+  await page.getByRole('button', { name: 'この内容で更新', exact: true }).click();
   await saved();
   const approved = await storedState();
   expect(approved.settings.commute!.enabled).toBe(true);
@@ -1974,7 +2158,8 @@ test('実機：日別バッファーなし・週の割当上限・旧計画か�
   await page.getByRole('button', { name: '設定を変えずに再計画', exact: true }).click();
   await saved();
   expect((await storedState()).plan).toEqual(s.plan);
-  await page.getByText('週全体の割当上限を確認', { exact: true }).click();
+  await page.locator('details.replan-details > summary').click();
+  await expect(page.getByText('週全体の割当上限', { exact: true })).toBeVisible();
   const row = page
     .locator('.plan-insights tr')
     .filter({ hasText: `${monday}〜${addDays(monday, 6)}` });
@@ -1982,7 +2167,7 @@ test('実機：日別バッファーなし・週の割当上限・旧計画か�
   await expect(row).toContainText('24時間');
   await expect(row.getByRole('cell', { name: '6時間', exact: true })).toBeVisible();
   await page.screenshot({ path: 'test-results/weekly-limit-preview.png', fullPage: true });
-  await page.getByRole('button', { name: 'この計画を承認する', exact: true }).click();
+  await page.getByRole('button', { name: 'この内容で更新', exact: true }).click();
   await saved();
   const approved = await storedState();
   expect(approved.plan!.calculationVersion).toBe(PLAN_CALCULATION_VERSION);
@@ -2386,18 +2571,16 @@ test('実機：固定エラーの理由・該当設定への修正・固定解�
   expect(seed.proposal!.plan.conflicts).toHaveLength(1);
   await seedState(seed, 'constraint-seed');
   await nav('再計画の確認');
-  await expect(
-    page.getByRole('button', { name: 'この計画を承認する', exact: true }),
-  ).toBeInViewport({ ratio: 1 });
+  const updatePlan = page.getByRole('button', { name: 'この内容で更新', exact: true });
+  await updatePlan.scrollIntoViewIfNeeded();
+  await expect(updatePlan).toBeInViewport({ ratio: 1 });
   const errors = page.getByRole('region', { name: '計画エラーの修正' });
   await expect(errors).toContainText('経済学（09:00〜10:40）と重なっています');
-  await expect(page.getByRole('button', { name: 'この計画を承認する' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'この内容で更新' })).toBeDisabled();
   const readiness = page.getByRole('region', { name: '承認前の確認' });
-  await expect(readiness).toContainText('予定の競合：1件');
-  await expect(readiness).toContainText('未報告の扱い：1件が未確認');
-  await readiness.getByRole('button', { name: '競合の理由と修正方法を確認' }).click();
-  await expect(errors.getByRole('heading')).toBeFocused();
-  await expect(errors.getByRole('heading')).toBeInViewport();
+  await expect(readiness).toContainText('現在は更新できません');
+  await expect(page.getByRole('heading', { name: '予定の競合' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '未報告の予定を確認してください' })).toBeVisible();
   await page.screenshot({ path: 'test-results/constraint-repair.png', fullPage: true });
   await errors.getByRole('button', { name: '条件を修正', exact: true }).click();
   const wizard = page.getByRole('region', { name: '対話式の再計画' });
@@ -2420,17 +2603,15 @@ test('実機：固定エラーの理由・該当設定への修正・固定解�
   expect(updated.proposal!.plan.sessions.every((s) => !overlapsBusy(candidate, s).length)).toBe(
     true,
   );
-  await expect(page.getByRole('button', { name: 'この計画を承認する' })).toBeDisabled();
-  await readiness.getByRole('button', { name: '未報告の予定を確認', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '未報告の予定を確認してください' })).toBeFocused();
-  await expect(
-    page.getByRole('heading', { name: '未報告の予定を確認してください' }),
-  ).toBeInViewport();
+  await expect(page.getByRole('button', { name: 'この内容で更新' })).toBeDisabled();
+  await page
+    .getByRole('heading', { name: '未報告の予定を確認してください' })
+    .scrollIntoViewIfNeeded();
   await page.getByLabel('未報告は記録を保留したまま、現在の残数を今後の枠へ再配置する').check();
   await page.getByRole('button', { name: '承認操作へ戻る' }).click();
-  await expect(page.getByRole('button', { name: 'この計画を承認する' })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'この内容で更新' })).toBeFocused();
   await expect(readiness).toHaveCount(0);
-  await page.getByRole('button', { name: 'この計画を承認する' }).click();
+  await page.getByRole('button', { name: 'この内容で更新' }).click();
   await saved();
   const approved = await storedState();
   expect(approved.settings).toEqual(candidate);
@@ -2609,7 +2790,7 @@ test('実機：重複の表示 → 既存設定を対話で修正 → 破棄・�
   expect((await storedState()).settings).toEqual(seed.settings);
   await page.getByRole('button', { name: '対話の続きから見直す' }).click();
   await wizard.getByRole('button', { name: 'この条件で再計画案を作成' }).click();
-  await page.getByRole('button', { name: 'この計画を承認する' }).click();
+  await page.getByRole('button', { name: 'この内容で更新' }).click();
   await saved();
   stored = await storedState();
   expect(stored.settings.block).toBe(90);
@@ -2811,6 +2992,7 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   ).toHaveCount(0);
   await page.getByRole('button', { name: '計画案を作成する' }).click();
   await expect(page.getByRole('heading', { name: '計画案', exact: true })).toBeVisible();
+  await page.locator('details.replan-details > summary').click();
   await expect(
     page.getByRole('heading', { name: 'バッファーなし（余裕率0%）なら、いつ終わる？' }),
   ).toBeVisible();
@@ -2823,7 +3005,7 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   await expect(
     page.getByRole('region', { name: '勉強できない特定の日・時間：あとで設定', exact: true }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'この計画を承認する' }).click();
+  await page.getByRole('button', { name: 'この内容で更新' }).click();
   await saved();
   await nav('学習カレンダー');
   const beforeView = await page.evaluate(async () => {
@@ -2886,9 +3068,9 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   await page.getByRole('button', { name: '訂正を保存' }).click();
   await saved();
   await expect(page.locator('tbody')).toContainText('＋7問');
-  await nav('再計画の確認');
+  await page.getByRole('button', { name: '計画全体を見直す' }).click();
   const beforeApproval = await storedState();
-  const approveButton = page.getByRole('button', { name: 'この計画を承認する' });
+  const approveButton = page.getByRole('button', { name: 'この内容で更新' });
   // A session can start during this real-time flow. Its missing report needs explicit acknowledgement.
   if (beforeApproval.proposal!.unreported.length) {
     await expect(approveButton).toBeDisabled();
@@ -3883,7 +4065,7 @@ test('実機：試験・教材を対話で追加 → 中断再開 → 計画案�
   await saved();
   await expect(q).toContainText('追加の問題集を登録しました');
   await expect(page.getByRole('region', { name: '登録と計画の状態' })).toContainText(
-    '計画への反映待ち',
+    '計画に未反映',
   );
   await page.screenshot({ path: 'test-results/addition-saved.png', fullPage: true });
   data = await storedState();
@@ -3895,7 +4077,7 @@ test('実機：試験・教材を対話で追加 → 中断再開 → 計画案�
   expect(data.settings.buffer).toBe(seed.settings.buffer);
   expect(data.settings.block).toBe(seed.settings.block);
   expect(data.draft.guided).toBeUndefined();
-  await page.getByRole('button', { name: '追加・変更を含めた計画案を確認', exact: true }).click();
+  await page.getByRole('button', { name: 'この変更を含めて計画を見直す', exact: true }).click();
   await expect(page.getByText('教材を追加：追加の問題集', { exact: true })).toBeVisible();
   await expect(page.getByText('試験を追加：新しい資格試験', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: '案を破棄する', exact: true }).click();
@@ -3903,11 +4085,11 @@ test('実機：試験・教材を対話で追加 → 中断再開 → 計画案�
   expect((await storedState()).settings).toEqual(data.settings);
   expect((await storedState()).plan).toEqual(seed.plan);
   await nav('教材・進捗');
-  await page.getByRole('button', { name: '追加・変更を含めた計画案を確認', exact: true }).click();
-  await page.getByRole('button', { name: 'この計画を承認する', exact: true }).click();
+  await page.getByRole('button', { name: 'この変更を含めて計画を見直す', exact: true }).click();
+  await page.getByRole('button', { name: 'この内容で更新', exact: true }).click();
   await saved();
   await expect(
-    page.getByRole('heading', { name: '計画を承認し、カレンダーに反映しました' }),
+    page.getByRole('heading', { name: '計画を更新し、カレンダーに反映しました' }),
   ).toBeFocused();
   await page.screenshot({ path: 'test-results/addition-approved.png', fullPage: true });
   data = await storedState();
@@ -3962,7 +4144,7 @@ test('実機：追加前の不足設定を案内し、空の設定から追加�
     '勉強できる時間が未登録',
   );
   await expect(
-    page.getByRole('button', { name: '追加・変更を含めた計画案を確認', exact: true }),
+    page.getByRole('button', { name: 'この変更を含めて計画を見直す', exact: true }),
   ).toHaveCount(0);
   const result = await new AxeBuilder({ page })
     .setLegacyMode()
@@ -4058,9 +4240,7 @@ test('実機：論文2問は通常の60分予定として扱い、時間設定�
     page.getByText('期限内に配置するため、設定した下限より短い予定です。', { exact: true }),
   ).toHaveCount(0);
   await nav('再計画の確認');
-  await expect(
-    page.getByRole('button', { name: 'この計画を承認する', exact: true }),
-  ).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'この内容で更新', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: '時間を基準に案を更新する', exact: true }).click();
   await saved();
   expect((await storedState()).proposal!.plan.calculationVersion).toBe(PLAN_CALCULATION_VERSION);
@@ -4075,7 +4255,7 @@ test('実機：論文2問は通常の60分予定として扱い、時間設定�
   await page.getByLabel('まとまりの目安（分）').press('Enter');
   await saved();
   await page.getByRole('button', { name: '設定から計画案を作成', exact: true }).click();
-  await page.getByRole('button', { name: 'この計画を承認する', exact: true }).click();
+  await page.getByRole('button', { name: 'この内容で更新', exact: true }).click();
   await saved();
   const updated = await storedState();
   expect(updated.settings.minimumSessionMinutes).toBe(15);
@@ -4197,7 +4377,7 @@ test('実機：長期計画の未登録期間から周回と時間枠を対話�
   expect(preview.plan).toEqual(seed.plan);
   expect(preview.proposal!.plan.settingsSnapshot!.materials[0].rounds).toHaveLength(1);
   expect(preview.proposal!.plan.sessions.some((x) => x.date > cutoff)).toBe(true);
-  await page.getByRole('button', { name: 'この計画を承認する', exact: true }).click();
+  await page.getByRole('button', { name: 'この内容で更新', exact: true }).click();
   await saved();
   const approved = await storedState();
   expect(approved.records).toEqual(seed.records);

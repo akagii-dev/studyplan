@@ -9,7 +9,6 @@ import {
 } from '../domain/setupIssues';
 import { exportBackup, loadState, restoreBackup, saveState } from '../store';
 import { useCloseAfterSave } from './useCloseAfterSave';
-import { useWindowSizePersistence } from './useWindowSizePersistence';
 
 export function usePersistentAppState() {
   const [state, setState] = useState<AppState | null>(null);
@@ -31,7 +30,6 @@ export function usePersistentAppState() {
   const unconfirmed = useRef(false);
   const recoveryRequest = useRef<Promise<void> | null>(null);
   const [recovery, setRecovery] = useState<{ checking: boolean; detail: string } | null>(null);
-  const beforeClose = useRef<() => Promise<void>>(async () => {});
   const showError = useCallback((message: string) => {
     planningErrorFrom.current = null;
     setError(message);
@@ -43,7 +41,6 @@ export function usePersistentAppState() {
     saveGeneration,
     unconfirmed,
     showError,
-    beforeClose,
   );
   const initialize = useCallback(() => {
     if (loadRequest.current) return;
@@ -198,7 +195,6 @@ export function usePersistentAppState() {
     await queue.current;
     await exportBackup(path);
   };
-  useWindowSizePersistence(state, update, beforeClose);
   return {
     state,
     update,

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { isTauri } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
 export function useCloseAfterSave(
@@ -8,7 +8,6 @@ export function useCloseAfterSave(
   generation: RefObject<number>,
   unconfirmed: RefObject<boolean>,
   onError: (message: string) => void,
-  beforeClose: RefObject<() => Promise<void>>,
 ) {
   const [closing, setClosing] = useState(false);
   const inFlight = useRef(false);
@@ -32,7 +31,7 @@ export function useCloseAfterSave(
         inFlight.current = true;
         const started = generation.current;
         try {
-          await beforeClose.current();
+          await invoke('save_window_state');
           if (!pending.current) return;
           setClosing(true);
           // Wait for every queued edit, including any already-dispatched input handlers.
@@ -66,7 +65,7 @@ export function useCloseAfterSave(
       disposed = true;
       unlisten?.();
     };
-  }, [queue, pending, generation, unconfirmed, onError, beforeClose]);
+  }, [queue, pending, generation, unconfirmed, onError]);
   return {
     closing,
     closeWithoutSaving: async () => {

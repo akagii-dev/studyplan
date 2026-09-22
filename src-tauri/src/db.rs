@@ -27,6 +27,7 @@ pub fn open(path: &Path) -> Result<Connection, String> {
       CREATE TABLE IF NOT EXISTS operations (request_id TEXT PRIMARY KEY, revision INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS audit (revision INTEGER PRIMARY KEY, data TEXT NOT NULL, saved_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')));
       CREATE TABLE IF NOT EXISTS restore_point (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL CHECK(json_valid(data)), saved_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS desktop_window (id INTEGER PRIMARY KEY CHECK(id=1), width INTEGER NOT NULL CHECK(width>0), height INTEGER NOT NULL CHECK(height>0), maximized INTEGER NOT NULL CHECK(maximized IN (0,1)));
       PRAGMA user_version=1;").map_err(|e|e.to_string())?;
     Ok(db)
 }
@@ -229,7 +230,8 @@ mod tests {
         data["records"] = serde_json::json!([record("r", 3)]);
         data["sidebarCollapsed"] = true.into();
         data["outsideTime"] = serde_json::json!({"sleep":{"start":1380,"duration":480},"bath":{"start":1320,"duration":30}});
-        data["draft"]["outside-sleep"] = serde_json::json!({"phase":"end","start":"23:00","end":""});
+        data["draft"]["outside-sleep"] =
+            serde_json::json!({"phase":"end","start":"23:00","end":""});
         data["ignoredWarnings"] = serde_json::json!({"notice":{"title":"注意","version":"1","ignoredAt":"2026-09-21T00:00:00Z"}});
         data["settings"]["commute"] = serde_json::json!({"enabled":true,"mode":"classDays","from":"2026-09-21","to":"2026-12-31","weekdays":[1,2],"outboundMinutes":30,"returnMinutes":45,"outboundStart":480,"returnStart":1080});
         commit(&mut db, 0, "one", data.clone()).unwrap();

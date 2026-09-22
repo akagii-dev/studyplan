@@ -3,8 +3,13 @@ mod calendar_file;
 mod database;
 mod db;
 mod report_file;
+mod window_state;
 use database::Database;
 use tauri::Manager;
+#[tauri::command]
+fn save_window_state(window: tauri::Window) -> Result<(), String> {
+    window_state::persist(&window)
+}
 #[tauri::command]
 async fn load_state(db: tauri::State<'_, Database>) -> Result<Option<db::Envelope>, String> {
     db.with(|conn| db::load(conn))
@@ -71,10 +76,32 @@ pub fn run() {
                 .map(|p| Ok(std::path::PathBuf::from(p)))
                 .unwrap_or(dir);
             app.manage(Database::new(dir.map(|dir| dir.join("studyplan.sqlite3"))));
+            if let Some(window) = app.get_webview_window("main") {
+                if let Err(error) = window_state::initialize(&window.as_ref().window()) {
+                    eprintln!("Window restore: {error}");
+                }
+                window.show()?;
+            }
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if window.label() != "main" {
+                return;
+            }
+            let result = match event {
+                tauri::WindowEvent::Resized(_) | tauri::WindowEvent::ScaleFactorChanged { .. } => {
+                    window_state::capture(window)
+                }
+                tauri::WindowEvent::CloseRequested { .. } => window_state::persist(window),
+                _ => Ok(()),
+            };
+            if let Err(error) = result {
+                eprintln!("Window state: {error}");
+            }
         })
         .invoke_handler(tauri::generate_handler![
             load_state,
+            save_window_state,
             commit_state,
             export_backup,
             export_calendar,

@@ -2,7 +2,8 @@ import { dailyTimeDisplay } from '../src/domain/dailyTimeDisplay';
 import { dailyTime } from '../src/domain/dailyTime';
 import { PLAN_CALCULATION_VERSION } from '../src/domain/sessionPolicy';
 import { test, expect, chromium, Browser, Page } from '@playwright/test';
-import { spawn, ChildProcess } from 'node:child_process';
+import { spawn, execFile, ChildProcess } from 'node:child_process';
+import { promisify } from 'node:util';
 import {
   mkdirSync,
   mkdtempSync,
@@ -24,6 +25,33 @@ let child: ChildProcess;
 let browser: Browser;
 let page: Page;
 let dataDir: string;
+async function osWindow(action = 'inspect', width = 910, height = 680) {
+  const { stdout } = await promisify(execFile)(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      resolve('scripts/window-test-control.ps1'),
+      '-ProcessId',
+      String(child.pid),
+      '-Action',
+      action,
+      '-Width',
+      String(width),
+      '-Height',
+      String(height),
+    ],
+    { windowsHide: true },
+  );
+  return JSON.parse(stdout) as {
+    width: number;
+    height: number;
+    maximized: boolean;
+    minimized: boolean;
+  };
+}
 async function launch(readyHeading = 'ホーム') {
   await close();
   browser = undefined!;
@@ -255,12 +283,42 @@ test('実機：変更したウィンドウサイズを通常終了後の再起�
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/window-size-'));
   await launch();
-  await resizeNativeWindow(910, 680);
-  await closeWindowNormally();
+  const seed = studentFixture(today());
+  await seedState(seed, 'window-size-study-data');
+  const studyBefore = await storedState();
+  await osWindow('resize', 910, 680);
+  await osWindow('close');
+  await expect.poll(() => child.exitCode).not.toBeNull();
   await launch();
   await expect.poll(nativeWindowSize, { timeout: 10000 }).toEqual({ width: 910, height: 680 });
-  expect((await storedState()).windowSize).toEqual({ width: 910, height: 680 });
+  expect(await storedState()).toEqual(studyBefore);
+  await resizeNativeWindow(820, 610);
+  await closeWindowNormally();
+  await launch();
+  await expect.poll(nativeWindowSize).toEqual({ width: 820, height: 610 });
   await page.screenshot({ path: 'test-results/window-size-restored.png', fullPage: true });
+});
+
+test('実機：OSで最大化して閉じても最大化と元のサイズを復元する', async () => {
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/window-maximized-'));
+  await launch();
+  await osWindow('resize', 880, 620);
+  await expect.poll(nativeWindowSize).toEqual({ width: 880, height: 620 });
+  await osWindow('maximize');
+  expect((await osWindow()).maximized).toBe(true);
+  await osWindow('close');
+  await expect.poll(() => child.exitCode).not.toBeNull();
+  await launch();
+  expect((await osWindow()).maximized).toBe(true);
+  await osWindow('restore');
+  await expect.poll(nativeWindowSize).toEqual({ width: 880, height: 620 });
+  await osWindow('minimize');
+  await osWindow('close');
+  await expect.poll(() => child.exitCode).not.toBeNull();
+  await launch();
+  expect((await osWindow()).minimized).toBe(false);
+  await expect.poll(nativeWindowSize).toEqual({ width: 880, height: 620 });
 });
 
 test('実機：解消した計画入力エラーだけを再検証し、全解消時に自動で閉じる', async () => {

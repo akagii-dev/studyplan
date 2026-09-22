@@ -3,7 +3,8 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-// Read-only smoke check of the bundled release; no test backend or development server.
+// Bundled-release smoke check: no study-data edits, no test backend or development server.
+// Normal close persists native window geometry.
 mkdirSync('.test-data', { recursive: true });
 const child = spawn(resolve(process.argv[2] ?? 'release/StudyPlan.exe'), [], {
   env: {

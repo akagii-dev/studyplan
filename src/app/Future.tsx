@@ -1,18 +1,21 @@
 import { Props, duration } from '../components/common';
 import { Session, today } from '../domain/model';
 import { ShortfallDetails } from '../components/ShortfallDetails';
+import { progressReceipts } from '../domain/progressReceipt';
+import { ProgressReceiptView, receiptLabel } from '../components/ProgressReceiptView';
 
 export function Future({
   state,
   onCalendar,
   onProposal,
-}: Props & { onCalendar: () => void; onProposal: () => void }) {
+}: Props & { onCalendar: (date?: string) => void; onProposal: () => void }) {
   const groups = new Map<string, Session[]>();
   for (const session of state.plan?.sessions ?? []) {
     if (session.date <= today() || (session.kind === 'study' && session.count <= 0)) continue;
     groups.set(session.date, [...(groups.get(session.date) ?? []), session]);
   }
   const shortfalls = state.plan?.shortfalls ?? [];
+  const receipts = progressReceipts(state);
   return (
     <div className="future-page">
       {state.proposal && (
@@ -40,7 +43,15 @@ export function Future({
           }
           return (
             <section className="future-day" key={date}>
-              <h2>{date}</h2>
+              <h2>
+                <button
+                  className="future-day-date"
+                  data-return-focus={`future:${date}`}
+                  onClick={() => onCalendar(date)}
+                >
+                  {date}
+                </button>
+              </h2>
               <ul>
                 {[...rows.values()].map(({ session, count, minutes }) => (
                   <li key={`${session.kind}/${session.materialId}/${session.round}/${session.examId}/${session.fixed}`}>
@@ -61,7 +72,18 @@ export function Future({
         <p>{shortfalls.length ? '今後の配置済み予定はありません。' : '今後の予定はありません。'}</p>
       )}
       <ShortfallDetails state={state} />
-      <button onClick={onCalendar}>時刻・固定を含む詳細を見る</button>
+      {receipts.length > 0 && (
+        <details className="plan-change-history">
+          <summary>実績による予定調整の履歴</summary>
+          {[...receipts].reverse().map((receipt) => (
+            <details key={receipt.id}>
+              <summary>{receipt.date} · {state.settings.materials.find((material) => material.id === receipt.materialId)?.name ?? receipt.materialId} · {receiptLabel(receipt)}</summary>
+              <ProgressReceiptView state={state} receipt={receipt} />
+            </details>
+          ))}
+        </details>
+      )}
+      <button onClick={() => onCalendar()}>詳細カレンダーを見る</button>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
 } from '../src/domain/progressAdjustment';
 import { PlanningContext } from '../src/domain/planner/context';
 import { approve, propose } from '../src/domain/planner/proposal';
+import { latestReceipt, planChanges, progressReceipts } from '../src/domain/progressReceipt';
 
 const day = '2030-10-07';
 const next = addDays(day, 1);
@@ -134,7 +135,7 @@ it.each([
 ])('今日%1問を記録すると過去の予定10問を保ち、翌日へ%2問を自動配置する', (done, expected) => {
   const original = fixture();
   const state = recordAndAdjust(original, report(done), context);
-  expect(currentProgressAdjustment(state)?.status).toBe('applied');
+  expect(currentProgressAdjustment(state)?.status).toBe(done === 10 ? 'unchanged' : 'applied');
   expect(today(state)).toBe(10);
   expect(future(state)).toBe(expected);
   expect(remaining(state, 'book', 0)).toBe(expected);
@@ -166,7 +167,7 @@ it('翌日の容量不足を5問・10分の未配置として残す', () => {
     { materialId: 'book', round: 0, count: 5, minutes: 10 },
   ]);
   expect(currentProgressAdjustment(state)).toMatchObject({
-    status: 'applied',
+    status: 'unplaced',
     unplacedCount: 5,
     unplacedMinutes: 10,
   });
@@ -179,7 +180,7 @@ it('残量を超える固定予定は保持し、実績を保存して案を確�
   expect(changed.records).toEqual([report(15)]);
   expect(changed.plan!.sessions[1]).toEqual(state.plan!.sessions[1]);
   expect(changed.proposal).toBeNull();
-  expect(currentProgressAdjustment(changed)?.status).toBe('review');
+  expect(currentProgressAdjustment(changed)?.status).toBe('failed');
   const recovered = correctAndAdjust(changed, 'report', 5, false, context);
   expect(currentProgressAdjustment(recovered)?.status).toBe('applied');
   expect(recovered.plan!.sessions.find((session) => session.id === 'tomorrow')?.count).toBe(10);
@@ -223,6 +224,7 @@ it('保留案の破棄だけでは確認待ちを残し、現在の実績を含�
   expect(approved.records).toEqual([report(5)]);
   expect(future(approved)).toBe(15);
   expect(currentProgressAdjustment(approved)).toBeUndefined();
+  expect(progressReceipts(approved)).toEqual(progressReceipts(recorded));
 });
 
 it('同じ報告IDの再送と同条件での再算出は予定・残量・履歴を重複させない', () => {
@@ -283,4 +285,80 @@ it('保存形式のJSON往復で実績・計画・設定を維持する', () => 
   expect(reloaded.plan).toEqual(changed.plan);
   expect(reloaded.settings).toEqual(changed.settings);
   expect(future(reloaded)).toBe(15);
+});
+
+it('操作時の予定差分を記録・訂正・取消ごとに保存し、取消後も読み直せる', () => {
+  let state = recordAndAdjust(fixture(), report(5), context);
+  expect(latestReceipt(state)).toMatchObject({
+    action: 'record', beforeCount: null, afterCount: 5, status: 'applied',
+    changes: [{ date: next, materialId: 'book', round: 0, beforeCount: 10, afterCount: 15 }],
+  });
+  state = correctAndAdjust(state, 'report', 8, false, context);
+  expect(latestReceipt(state)).toMatchObject({
+    action: 'correct', beforeCount: 5, afterCount: 8,
+    changes: [{ beforeCount: 15, afterCount: 12 }],
+  });
+  state = correctAndAdjust(state, 'report', 8, true, context);
+  expect(latestReceipt(state)).toMatchObject({
+    action: 'cancel', beforeCount: 8, afterCount: null,
+    changes: [{ beforeCount: 12, afterCount: 20 }],
+  });
+  expect(state.records[0].cancelled).toBe(true);
+  const saved = JSON.parse(JSON.stringify(state));
+  expect(progressReceipts(saved)).toHaveLength(3);
+  expect(progressReceipts(saved)[0].changes[0].afterCount).toBe(15);
+  expect(progressReceipts(saved)[2].changes[0].afterCount).toBe(20);
+});
+
+it('予定通り10問なら変更なし、未配置が残る場合は変更なしでも未配置を優先する', () => {
+  const unchanged = recordAndAdjust(fixture(), report(10), context);
+  expect(latestReceipt(unchanged)).toMatchObject({ status: 'unchanged', changes: [] });
+  const unplaced = recordAndAdjust(fixture(1100), report(5), context);
+  expect(latestReceipt(unplaced)).toMatchObject({
+    status: 'unplaced',
+    changes: [],
+    shortfalls: [{ materialId: 'book', round: 0, count: 5, minutes: 10 }],
+  });
+});
+
+it('セッションIDだけの変更は差分に含めず、同じIDの再送はreceiptを増やさない', () => {
+  const state = fixture();
+  const revised = structuredClone(state.plan!);
+  revised.id = 'new-plan';
+  revised.sessions = revised.sessions.map((session, index) => ({ ...session, id: `new-${index}` }));
+  expect(planChanges(state.plan, revised, next)).toEqual([]);
+  const once = recordAndAdjust(state, report(5), context);
+  expect(progressReceipts(recordAndAdjust(once, report(5), context))).toEqual(progressReceipts(once));
+});
+
+it('固定競合の調整失敗を保存し、後の訂正や承認でその事実を書き換えない', () => {
+  const source = fixture();
+  source.plan!.sessions[1].fixed = true;
+  const failed = recordAndAdjust(source, report(15), context);
+  const first = latestReceipt(failed)!;
+  expect(first.status).toBe('failed');
+  expect(first.changes).toEqual([]);
+  const recovered = correctAndAdjust(failed, 'report', 5, false, context);
+  expect(latestReceipt(recovered)?.status).toBe('applied');
+  expect(progressReceipts(recovered)[0]).toEqual(first);
+});
+
+it('同じ問数でも時間帯変更なら変更前後の時間を保持する', () => {
+  const state = fixture();
+  const shifted = structuredClone(state.plan!);
+  shifted.sessions[1].start = 1100;
+  shifted.sessions[1].end = 1120;
+  expect(planChanges(state.plan, shifted, next)).toMatchObject([
+    { beforeCount: 10, afterCount: 10, timeChanged: true, beforeSlots: ['1080-1100'], afterSlots: ['1100-1120'] },
+  ]);
+});
+
+it('問数だけ変わり時間帯が同じ場合、時刻変更と誤表示しない', () => {
+  const state = fixture();
+  const changed = structuredClone(state.plan!);
+  changed.sessions[1].count = 12;
+  expect(planChanges(state.plan, changed, next)).toMatchObject([
+    { beforeCount: 10, afterCount: 12, timeChanged: false,
+      beforeSlots: ['1080-1100'], afterSlots: ['1080-1100'] },
+  ]);
 });

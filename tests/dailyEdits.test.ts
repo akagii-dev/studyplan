@@ -82,7 +82,7 @@ it('6試験の日合計を省略せず、分割した枠と復習を同じ試験
     }),
   );
   expect(html.match(/data-exam=/g)).toHaveLength(6);
-  expect(html.match(/予定 10問/g)).toHaveLength(6);
+  expect(html.match(/予定 <span class="calendar-event-quantity">10問<\/span>/g)).toHaveLength(6);
 });
 it('日付と区間ごとの名前を保存・解除し、他の日や学習量を変更しない', () => {
   const original = initialState();

@@ -1,6 +1,15 @@
 node_modules/
 .pnpm-store/
 dist/
+dist-*/
+.agents/
+docs/calendar-compact-review/
+docs/navigation-result-after/
+docs/navigation-result-baseline/
+docs/settings-ui-after/
+docs/settings-ui-baseline/
+docs/settings-ui-final/
+docs/ux-after-eval/
 src-tauri/target/
 test-results/
 playwright-report/

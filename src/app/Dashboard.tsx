@@ -26,10 +26,15 @@ export function Dashboard({
   const reviews = state.plan.sessions.filter((session) => session.date === today() && session.kind === 'review');
   return (
     <div className="daily-page">
-      {result?.status === 'review' && (
+      {(result?.status === 'review' || result?.status === 'failed') && (
         <div className="daily-adjustment" role="status">
-          予定の確認が必要です。
-          <button onClick={onReview}>計画案を確認</button>
+          {result.status === 'failed' ? '実績は保存されました。予定調整に失敗しました。' : '予定の確認が必要です。'}
+          {result.status === 'failed' ? (
+            <span className="actions">
+              <button onClick={() => navigate('future')}>今後の予定を確認</button>
+              <button onClick={() => navigate('settings')}>設定を確認</button>
+            </span>
+          ) : <button onClick={onReview}>計画案を確認</button>}
           {result.detail && <small>{result.detail}</small>}
         </div>
       )}

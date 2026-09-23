@@ -10,6 +10,9 @@ export function AppShell({
   update,
   page,
   setPage,
+  onBack,
+  backLabel,
+  restorePosition,
   blocked,
   recovering,
   saving,
@@ -20,6 +23,9 @@ export function AppShell({
 }: Props & {
   page: Page;
   setPage: (page: Page) => void;
+  onBack?: () => void;
+  backLabel?: string;
+  restorePosition?: { top: number; key: number; focus: HTMLElement | null; focusKey?: string } | null;
   blocked: boolean;
   recovering: boolean;
   saving: number;
@@ -50,9 +56,24 @@ export function AppShell({
   }, [state?.theme, state?.appearance]);
   useLayoutEffect(() => {
     // Only navigation/loading moves focus; background saves must not interrupt typing.
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-    pageHeading.current?.focus({ preventScroll: true });
-  }, [page]);
+    const frame = requestAnimationFrame(() => {
+      const retained = restorePosition?.focus;
+      const target = retained?.isConnected && retained.getClientRects().length
+        ? retained
+        : restorePosition?.focusKey
+          ? [...document.querySelectorAll<HTMLElement>('[data-return-focus]')]
+              .find((element) => element.dataset.returnFocus === restorePosition.focusKey)
+          : null;
+      if (restorePosition && target) {
+        window.scrollTo({ top: restorePosition.top, left: 0, behavior: 'instant' });
+        target.focus({ preventScroll: true });
+      } else {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        pageHeading.current?.focus({ preventScroll: true });
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [page, restorePosition?.key]);
 
   return (
     <div
@@ -128,6 +149,7 @@ export function AppShell({
           )}
           <div className="page-heading">
             <div>
+              {onBack && <button className="detail-back" onClick={onBack}>← {backLabel}へ戻る</button>}
               <h1 ref={pageHeading} tabIndex={-1}>
                 {active.name}
               </h1>

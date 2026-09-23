@@ -1226,6 +1226,12 @@ main {
   display: block;
   color: var(--muted);
 }
+.calendar-event .calendar-event-quantity {
+  display: inline;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
 .actual-marker {
   font-size: 10px;
   color: var(--accent);
@@ -1241,8 +1247,9 @@ main {
   padding: 19px;
   height: max-content;
 }
-.day-panel h3 {
-  font-size: 14px;
+.day-panel > h3 {
+  font-size: 16px;
+  margin: 0 0 8px;
 }
 .session-detail {
   border-left: 3px solid var(--ring);
@@ -1252,7 +1259,7 @@ main {
   border-radius: 3px;
 }
 .session-detail h3 {
-  font-size: 12px;
+  font-size: 14px;
   margin: 5px 0;
 }
 .session-detail .row {
@@ -1260,6 +1267,10 @@ main {
   align-items: flex-start;
   flex-wrap: wrap;
   gap: 5px;
+}
+.session-detail .session-quantity {
+  font-size: 16px;
+  font-weight: 600;
 }
 .session-detail .eyebrow {
   font-size: 11px;
@@ -2209,6 +2220,18 @@ progress::-webkit-progress-value {
 .tutorial-lesson .question-footer {
   margin-top: 28px;
 }
+.tutorial-footer > button:first-child {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--ink);
+  padding-left: 14px;
+}
+.tutorial-footer > button {
+  min-height: 44px;
+}
+.detail-back {
+  margin-bottom: 0.5rem;
+}
 @media (max-width: 1000px) {
   .tutorial {
     grid-template-columns: 1fr;
@@ -2474,6 +2497,12 @@ progress::-webkit-progress-value {
 }
 .calendar-layout {
   grid-template-columns: minmax(0, 1fr) minmax(210px, 0.4fr);
+}
+.calendar-layout.selected-date-first {
+  grid-template-columns: minmax(0, 1fr);
+}
+.selected-date-first .day-panel {
+  grid-column: 1;
 }
 .card,
 .metric-card,
@@ -2804,6 +2833,17 @@ textarea {
 .daily-adjustment small { display: block; margin-top: 5px; }
 .future-day { padding: 0 0 14px; margin-bottom: 18px; border-bottom: 1px solid var(--border); }
 .future-day h2 { font-size: 17px; margin: 0 0 6px; }
+.future-day-date {
+  min-height: 44px;
+  border: 0;
+  padding: 0 4px;
+  background: transparent;
+  color: var(--accent);
+  font-size: inherit;
+  font-weight: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .future-day ul { list-style: none; margin: 0; padding: 0; }
 .future-day li { display: flex; gap: 10px; align-items: baseline; padding: 7px 0; }
 .future-day li > span:first-child { flex: 1; overflow-wrap: anywhere; }

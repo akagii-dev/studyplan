@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
   ArrowRight,
   BookOpen,
@@ -176,8 +175,8 @@ const lessons = [
   actions: { page: Destination; label: string }[];
 }[];
 
-export function Tutorial({ navigate }: { navigate: (page: Destination) => void }) {
-  const [step, setStep] = useState(0);
+export function Tutorial({ navigate, step, onStepChange, onClose }: { navigate: (page: Destination) => void; step: number; onStepChange: (step: number) => void; onClose: () => void }) {
+  const setStep = onStepChange;
   const lesson = lessons[step];
   return (
     <div className="tutorial">
@@ -222,12 +221,12 @@ export function Tutorial({ navigate }: { navigate: (page: Destination) => void }
             </button>
           ))}
         </div>
-        <div className="question-footer">
+        <div className="question-footer tutorial-footer">
           <button disabled={step === 0} onClick={() => setStep(step - 1)}>
             前の項目
           </button>
-          <button disabled={step === lessons.length - 1} onClick={() => setStep(step + 1)}>
-            次の項目
+          <button onClick={() => step === lessons.length - 1 ? onClose() : setStep(step + 1)}>
+            {step === lessons.length - 1 ? '終了して戻る' : '次の項目'}
           </button>
         </div>
       </section>

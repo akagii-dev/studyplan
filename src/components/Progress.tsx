@@ -4,6 +4,8 @@ import { CheckCircle2 } from 'lucide-react';
 import { Progress as ProgressRecord, completed, remaining, today, uid } from '../domain/model';
 import { correctAndAdjust, recordAndAdjust } from '../domain/planning';
 import { currentProgressAdjustment } from '../domain/progressAdjustment';
+import { latestReceipt, progressReceipts } from '../domain/progressReceipt';
+import { ProgressReceiptView, receiptDetailLabel, receiptLabel, receiptOutcome } from './ProgressReceiptView';
 import { parseNumberInput } from '../domain/numeric';
 import { Empty, Field, Props, useDraft } from './common';
 export function Progress({
@@ -21,6 +23,7 @@ export function Progress({
   };
   const [form, set] = useDraft(state, update, 'progress', initial);
   const [message, msg] = useState('');
+  const [savedRecordId, setSavedRecordId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const sending = useRef(false);
   const request = useRef(uid());
@@ -78,6 +81,7 @@ export function Progress({
     sending.current = true;
     setBusy(true);
     msg('');
+    setSavedRecordId(null);
     const id = request.current;
     try {
       await update((s) => {
@@ -100,6 +104,7 @@ export function Progress({
       });
       request.current = uid();
       msg(`＋${count}問を記録しました。`);
+      setSavedRecordId(id);
     } catch (e) {
       msg(String(e));
     } finally {
@@ -244,28 +249,16 @@ export function Progress({
         {message && (
           <div role="status" className="note progress-result">
             <p>{message}</p>
-            {state.plan &&
-              (() => {
-                const result = currentProgressAdjustment(state);
-                if (!result) return null;
-                return (
-                  <>
-                    <p>
-                      {result.status === 'review'
-                        ? '記録済み・予定の確認が必要です。'
-                        : result.status === 'applied'
-                          ? '明日以降の予定を調整しました。'
-                          : '記録しました。'}
-                    </p>
-                    {result.detail && <p className="error">{result.detail}</p>}
-                    {!!result.unplacedMinutes && <p>未配置 {result.unplacedMinutes}分</p>}
-                    <div className="actions">
-                      <button onClick={onHistory}>記録を訂正</button>
-                      <button onClick={onReplan}>計画全体を見直す</button>
-                    </div>
-                  </>
-                );
-              })()}
+            {savedRecordId && latestReceipt(state, savedRecordId) && (
+              <details>
+                <summary>{receiptLabel(latestReceipt(state, savedRecordId)!)} · {receiptDetailLabel(latestReceipt(state, savedRecordId)!)}</summary>
+                <ProgressReceiptView state={state} receipt={latestReceipt(state, savedRecordId)!} />
+              </details>
+            )}
+            <div className="actions">
+              <button onClick={onHistory}>記録を訂正</button>
+              <button onClick={onReplan}>{currentProgressAdjustment(state)?.status === 'failed' ? '今後の予定を確認' : '計画全体を見直す'}</button>
+            </div>
           </div>
         )}
       </section>
@@ -278,9 +271,15 @@ export function History({ state, update, onReplan, onRecordPast }: Props & { onR
   const [error, err] = useState('');
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [resultMessage, setResultMessage] = useState('');
+  const [savedReceiptId, setSavedReceiptId] = useState<string | null>(null);
+  const activeRecords = state.records.filter((record) => !record.cancelled);
+  const receipts = progressReceipts(state);
   async function change(r: ProgressRecord, cancelled: boolean) {
+    setResultMessage('');
+    setSavedReceiptId(null);
+    err('');
     try {
-      let adjusted = 'recorded';
+      let receiptId: string | null = null;
       await update((s) => {
         const next = correctAndAdjust(
           s,
@@ -288,13 +287,14 @@ export function History({ state, update, onReplan, onRecordPast }: Props & { onR
           cancelled ? r.count : Number(count),
           cancelled,
         );
-        adjusted = currentProgressAdjustment(next)?.status ?? 'recorded';
+        receiptId = latestReceipt(next, r.id)?.id ?? null;
         return next;
       });
       setEditing(null);
       setCancelId(null);
       err('');
-      setResultMessage(`${cancelled ? '記録を取り消しました' : '記録を訂正しました'}。${adjusted === 'applied' ? '明日以降を調整しました。' : adjusted === 'review' ? '予定の確認が必要です。' : ''}`);
+      setSavedReceiptId(receiptId);
+      setResultMessage(cancelled ? '記録を取り消しました。' : '記録を訂正しました。');
     } catch (e) {
       err(String(e));
     }
@@ -304,20 +304,32 @@ export function History({ state, update, onReplan, onRecordPast }: Props & { onR
       <div className="eyebrow">PROGRESS HISTORY</div>
       <h2>これまでの記録</h2>
       <button onClick={onRecordPast}>過去日の学習を記録</button>
-      {resultMessage && <p role="status">{resultMessage}</p>}
+      {resultMessage && (
+        <div className="history-result" role="status">
+          <p>{resultMessage} {receipts.find((receipt) => receipt.id === savedReceiptId) && receiptOutcome(receipts.find((receipt) => receipt.id === savedReceiptId)!)}</p>
+          {receipts.find((receipt) => receipt.id === savedReceiptId) && (
+            <details>
+              <summary>{receiptDetailLabel(receipts.find((receipt) => receipt.id === savedReceiptId)!)}</summary>
+              <ProgressReceiptView state={state} receipt={receipts.find((receipt) => receipt.id === savedReceiptId)!} />
+            </details>
+          )}
+        </div>
+      )}
       {error && (
         <p className="error" role="alert">
           {error}
         </p>
       )}
-      {currentProgressAdjustment(state)?.status === 'review' && (
+      {['review', 'failed'].includes(currentProgressAdjustment(state)?.status ?? '') && (
         <div className="note">
-          記録済み・予定の確認が必要です。
-          <button onClick={onReplan}>計画全体を見直す</button>
+          {currentProgressAdjustment(state)?.status === 'failed'
+            ? '記録は保存済みです。予定調整に失敗しました。'
+            : '記録済み・予定の確認が必要です。'}
+          <button onClick={onReplan}>{currentProgressAdjustment(state)?.status === 'failed' ? '今後の予定を確認' : '計画全体を見直す'}</button>
         </div>
       )}
-      {!state.records.length ? (
-        <Empty>まだ記録がありません。0問の報告もここに残ります。</Empty>
+      {!activeRecords.length ? (
+        <Empty>有効な記録はありません。0問の報告も記録するとここに残ります。</Empty>
       ) : (
         <table>
           <thead>
@@ -329,8 +341,8 @@ export function History({ state, update, onReplan, onRecordPast }: Props & { onR
             </tr>
           </thead>
           <tbody>
-            {[...state.records].reverse().map((r) => (
-              <tr key={r.id} className={r.cancelled ? 'cancelled' : ''}>
+            {[...activeRecords].reverse().map((r) => (
+              <tr key={r.id}>
                 <td>
                   {r.date}
                   <small className="block">{r.updatedAt !== r.createdAt ? '訂正あり' : ''}</small>
@@ -352,13 +364,12 @@ export function History({ state, update, onReplan, onRecordPast }: Props & { onR
                     />
                   ) : (
                     <b>
-                      ＋{r.count}問 {r.cancelled ? '（取消済）' : ''}
+                      ＋{r.count}問
                     </b>
                   )}
                 </td>
                 <td>
-                  {!r.cancelled &&
-                    (editing === r.id ? (
+                  {editing === r.id ? (
                       <div className="actions">
                         <button
                           data-submit
@@ -392,7 +403,17 @@ export function History({ state, update, onReplan, onRecordPast }: Props & { onR
                           取消
                         </button>
                       </div>
-                    ))}
+                    )}
+                  {receipts.some((receipt) => receipt.recordId === r.id) && (
+                    <details className="record-receipts">
+                      <summary>予定調整の履歴</summary>
+                      {[...receipts].filter((receipt) => receipt.recordId === r.id).reverse().map((receipt) =>
+                        <details key={receipt.id}>
+                          <summary>{receiptLabel(receipt)}</summary>
+                          <ProgressReceiptView state={state} receipt={receipt} />
+                        </details>)}
+                    </details>
+                  )}
                 </td>
               </tr>
             ))}

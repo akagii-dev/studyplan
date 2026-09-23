@@ -4,10 +4,11 @@ import { recordProgress, correctProgress } from './progress';
 import { createProgressBaseline } from './progressReflection';
 import { PlanningContext } from './planner/context';
 import { approve, propose } from './planner/proposal';
+import { AdjustmentStatus, ProgressAction, appendProgressReceipt, planChanges } from './progressReceipt';
 
 export interface ProgressAdjustmentResult {
   recordId: string;
-  status: 'applied' | 'review' | 'recorded';
+  status: AdjustmentStatus;
   detail?: string;
   unplacedCount?: number;
   unplacedMinutes?: number;
@@ -71,9 +72,10 @@ export function adjustAfterProgress(
     const approved = approve(candidate, true, context);
     approved.draft = { ...approved.draft, revision: changed.draft.revision };
     const plan = approved.plan!;
+    const changes = planChanges(changed.plan, plan, from);
     const result: ProgressAdjustmentResult = {
       recordId,
-      status: 'applied',
+      status: plan.shortfalls.length ? 'unplaced' : changes.length ? 'applied' : 'unchanged',
       unplacedCount: plan.shortfalls.reduce((sum, item) => sum + item.count, 0),
       unplacedMinutes: plan.shortfalls.reduce((sum, item) => sum + item.minutes, 0),
     };
@@ -94,16 +96,48 @@ export function adjustAfterProgress(
   } catch (error) {
     return withResult(changed, {
       recordId,
-      status: 'review',
+      status: 'failed',
       detail: error instanceof Error ? error.message : String(error),
     });
   }
 }
 
+function withReceipt(
+  before: AppState,
+  after: AppState,
+  recordId: string,
+  action: ProgressAction,
+  timestamp: string,
+  beforeCount: number | null,
+  afterCount: number | null,
+  date: string,
+  materialId: string,
+  round: number,
+  context: PlanningContext,
+) {
+  const result = currentProgressAdjustment(after);
+  return appendProgressReceipt(after, {
+    recordId,
+    action,
+    timestamp,
+    date,
+    materialId,
+    round,
+    beforeCount,
+    afterCount,
+    status: result?.status ?? 'recorded',
+    detail: result?.detail,
+    changes: planChanges(before.plan, after.plan, addDays(context.date, 1)),
+    shortfalls: structuredClone(after.plan?.shortfalls ?? []),
+    futureFrom: addDays(context.date, 1),
+  });
+}
+
 export function recordAndAdjust(state: AppState, entry: Progress, context: PlanningContext) {
   const recorded = recordProgress(state, entry);
   if (recorded === state) return state;
-  return adjustAfterProgress(recorded, entry.id, context);
+  return withReceipt(state, adjustAfterProgress(recorded, entry.id, context), entry.id, 'record',
+    entry.updatedAt, null, entry.count, entry.date, entry.materialId, entry.round, context);
 }
 
 export function correctAndAdjust(
@@ -115,7 +149,12 @@ export function correctAndAdjust(
 ) {
   const old = state.records.find((record) => record.id === id);
   if (old && old.count === count && old.cancelled === cancelled) return state;
-  return adjustAfterProgress(correctProgress(state, id, count, cancelled, context.timestamp), id, context);
+  const corrected = correctProgress(state, id, count, cancelled, context.timestamp);
+  const record = corrected.records.find((item) => item.id === id)!;
+  return withReceipt(state, adjustAfterProgress(corrected, id, context), id,
+    cancelled ? 'cancel' : 'correct', context.timestamp,
+    old?.cancelled ? null : old?.count ?? null, cancelled ? null : count,
+    record.date, record.materialId, record.round, context);
 }
 
 export function currentProgressAdjustment(state: AppState) {

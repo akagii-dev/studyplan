@@ -4,21 +4,27 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { AppState, addDays, today } from '../domain/model';
 import { startOfWeek } from '../domain/calendar';
-import { createWeeklyReport, reportRate } from '../domain/weeklyReport';
+import { createWeeklyReport, dailyReportDetails, reportRate } from '../domain/weeklyReport';
 import { exportMarkdown } from '../store';
-import { Field } from './common';
+import { Field, duration } from './common';
 import { demoMode } from '../demo';
 
 export function WeeklyReport({
   state,
   saving,
   readSaved,
+  onDetailChange,
 }: {
   state: AppState;
   saving: boolean;
   readSaved: () => Promise<AppState>;
+  onDetailChange?: (open: boolean) => void;
 }) {
   const [selected, setSelected] = useState(today());
+  const [detailDate, setDetailDate] = useState<string | null>(null);
+  const detailRef = useRef<HTMLElement>(null);
+  const detailHeading = useRef<HTMLHeadingElement>(null);
+  const reportScroll = useRef(0);
   const [now, setNow] = useState(() => new Date());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -38,8 +44,27 @@ export function WeeklyReport({
   const report = preview.report;
   const change = (date: string) => {
     setSelected(date);
+    setDetailDate(null);
+    onDetailChange?.(false);
     setError('');
     setMessage('');
+  };
+  const showDay = (date: string) => {
+    reportScroll.current = window.scrollY;
+    setDetailDate(date);
+    onDetailChange?.(true);
+    requestAnimationFrame(() => {
+      detailHeading.current?.focus({ preventScroll: true });
+      detailRef.current?.scrollIntoView({ block: 'start' });
+    });
+  };
+  const closeDay = () => {
+    setDetailDate(null);
+    onDetailChange?.(false);
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLButtonElement>(`[data-report-date="${detailDate}"]`)?.focus({ preventScroll: true });
+      window.scrollTo({ top: reportScroll.current, behavior: 'instant' });
+    });
   };
   async function write() {
     if (locked.current || saving) return;
@@ -114,6 +139,28 @@ export function WeeklyReport({
       </section>
       {report && (
         <section aria-label="週間レポートのプレビュー">
+          {detailDate && (
+            <section ref={detailRef} className="card report-day-detail" aria-label={`${detailDate}の学習詳細`}>
+              <button onClick={closeDay}>← 週間レポートへ戻る</button>
+              <h2 ref={detailHeading} tabIndex={-1}>{detailDate}</h2>
+              {dailyReportDetails(state, detailDate).length ? (
+                <ul>
+                  {dailyReportDetails(state, detailDate).map((row) => (
+                    <li key={`${row.materialId}/${row.round}`}>
+                      {state.settings.materials.find((material) => material.id === row.materialId)?.name ?? row.materialId} · {row.round + 1}周目
+                      {' '}予定 {row.planned}問 · 実績 {row.done === null ? '未入力' : `${row.done}問`}
+                    </li>
+                  ))}
+                </ul>
+              ) : !state.plan?.sessions.some((session) => session.date === detailDate && session.kind === 'review') && <p>この日の予定・実績はありません。</p>}
+              {state.plan?.sessions.filter((session) => session.date === detailDate && session.kind === 'review').map((session) => (
+                <p key={session.id}>
+                  {state.settings.exams.find((exam) => exam.id === session.examId)?.name ?? '試験'} · 復習 {duration(session.end - session.start)}
+                </p>
+              ))}
+            </section>
+          )}
+          <div hidden={!!detailDate}>
           <h2>
             {report.from}〜{report.to}
           </h2>
@@ -201,7 +248,7 @@ export function WeeklyReport({
                 <tbody>
                   {report.days.map((d) => (
                     <tr key={d.date}>
-                      <td>{d.date}</td>
+                      <td><button data-report-date={d.date} onClick={() => showDay(d.date)}>{d.date}</button></td>
                       <td>{d.planned}問</td>
                       <td>{d.done === null ? '記録なし' : `${d.done}問`}</td>
                       <td>{d.status}</td>
@@ -217,6 +264,7 @@ export function WeeklyReport({
               {report.markdown}
             </pre>
           </details>
+          </div>
         </section>
       )}
     </>

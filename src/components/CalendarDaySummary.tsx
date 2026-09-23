@@ -45,7 +45,7 @@ export function CalendarDaySummary({
         >
           <strong className="event-exam">{e.name}</strong>
           <small>
-            予定 {e.count}問 · {duration(e.minutes)}
+            予定 <span className="calendar-event-quantity">{e.count}問</span> · {duration(e.minutes)}
           </small>
           {e.conflict && <small>⚠ 授業・予定と重複</small>}
           {density !== 'compact' && (

@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { AppState, initialState, Session } from '../src/domain/model';
-import { createWeeklyReport, reportRate } from '../src/domain/weeklyReport';
+import { createWeeklyReport, dailyReportDetails, reportRate } from '../src/domain/weeklyReport';
 const asOf = new Date(2026, 8, 27, 12, 0, 0);
 function fixture(): AppState {
   const s = initialState();
@@ -115,6 +115,18 @@ it('zero reports, cancelled-only reports, unreported groups and future sessions 
   expect(r.unreported).toHaveLength(1);
   expect(r.unreported[0]).toMatchObject({ material: '問題集A', round: 2, planned: 7 });
   expect(r.markdown).toContain('| 問題集A | 2周目 | 記録なし |');
+});
+it('日別詳細は教材・周回ごとに予定と有効な実績を分け、明示0と取消を区別する', () => {
+  const state = fixture();
+  expect(dailyReportDetails(state, '2026-09-21')).toEqual([
+    { materialId: 'm1', round: 0, planned: 10, done: 10 },
+  ]);
+  expect(dailyReportDetails(state, '2026-09-22')).toEqual([
+    { materialId: 'm2', round: 0, planned: 5, done: 0 },
+  ]);
+  expect(dailyReportDetails(state, '2026-09-23')).toEqual([
+    { materialId: 'm1', round: 1, planned: 7, done: null },
+  ]);
 });
 it('reports on an earlier week compare against current totals and reflect corrections/cancellations', () => {
   const s = fixture();

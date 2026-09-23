@@ -31,6 +31,32 @@ export interface WeeklyReport {
   markdown: string;
   filename: string;
 }
+export function dailyReportDetails(state: AppState, date: string) {
+  const rows = new Map<string, { materialId: string; round: number; planned: number; done: number | null }>();
+  for (const session of state.plan?.sessions ?? []) {
+    if (session.date !== date || session.kind !== 'study') continue;
+    const key = JSON.stringify([session.materialId, session.round]);
+    const previous = rows.get(key);
+    rows.set(key, {
+      materialId: session.materialId,
+      round: session.round,
+      planned: (previous?.planned ?? 0) + originalSessionCount(state.plan, session),
+      done: previous?.done ?? null,
+    });
+  }
+  for (const record of state.records) {
+    if (record.cancelled || record.date !== date) continue;
+    const key = JSON.stringify([record.materialId, record.round]);
+    const previous = rows.get(key);
+    rows.set(key, {
+      materialId: record.materialId,
+      round: record.round,
+      planned: previous?.planned ?? 0,
+      done: (previous?.done ?? 0) + record.count,
+    });
+  }
+  return [...rows.values()].sort((a, b) => a.materialId.localeCompare(b.materialId) || a.round - b.round);
+}
 export const reportRate = (value: number, total: number) =>
   total > 0 ? `${((value / total) * 100).toFixed(1)}%` : '—';
 const validDate = (value: string) => {

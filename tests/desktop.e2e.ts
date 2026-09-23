@@ -187,7 +187,15 @@ async function nav(name: string) {
   }
   if (name === '学習カレンダー') {
     await main.getByRole('button', { name: '今後の予定', exact: true }).click();
-    await page.getByRole('button', { name: '時刻・固定を含む詳細を見る' }).click();
+    const nextDay = page.locator('.future-day').first();
+    if (await nextDay.count()) {
+      const date = (await nextDay.locator('h2').innerText()).trim();
+      await nextDay.getByRole('button', { name: date, exact: true }).click();
+      await expect(page.getByRole('button', { name: `${date}を表示`, exact: true })).toHaveAttribute('aria-pressed', 'true');
+    } else {
+      await page.getByRole('button', { name: '詳細カレンダーを見る', exact: true }).click();
+    }
+    await expect(page.getByRole('heading', { name: '詳細カレンダー', exact: true, level: 1 })).toBeVisible();
     return;
   }
   if (name === '進捗を記録') {
@@ -1716,7 +1724,15 @@ test('実機：今日に5問記録すると翌日15問に調整され、SQLite�
   await row.getByRole('button', { name: '記録', exact: true }).click();
   await saved();
   await expect(row).toContainText('実績 5問');
-  await expect(page.locator('.daily-record-saved')).toContainText('明日以降を調整しました');
+  const recordResult = page.locator('.daily-record-saved');
+  await expect(recordResult).toContainText('5問を記録しました。明日以降を調整 1件');
+  const changeDetail = recordResult.locator('details');
+  await expect(changeDetail).not.toHaveAttribute('open', '');
+  await expect(changeDetail.locator('summary')).toHaveText('予定の変更を見る');
+  await changeDetail.locator('summary').click();
+  await expect(changeDetail).toContainText(tomorrow);
+  await expect(changeDetail).toContainText('問題集A · 1周目');
+  await expect(changeDetail).toContainText('10 → 15問');
   await nav('今後の予定');
   await expect(page.locator('.future-day').filter({ hasText: tomorrow })).toContainText('15問');
   let persisted = await storedState();
@@ -1733,6 +1749,10 @@ test('実機：今日に5問記録すると翌日15問に調整され、SQLite�
   expect(persisted.plan!.sessions.filter((session) => session.date === tomorrow).reduce((sum, session) => sum + session.count, 0)).toBe(15);
   await nav('今後の予定');
   await expect(page.locator('.future-day').filter({ hasText: tomorrow })).toContainText('15問');
+  await page.locator('.plan-change-history > summary').click();
+  const persistedChange = page.locator('.plan-change-history details').first();
+  await persistedChange.locator('summary').click();
+  await expect(persistedChange).toContainText('10 → 15問');
   const futureQuantity = async (materialId = 'book') => (await storedState()).plan!.sessions
     .filter((session) => session.date === tomorrow && session.materialId === materialId)
     .reduce((sum, session) => sum + session.count, 0);
@@ -3230,7 +3250,7 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   await page.getByLabel('表示する試験').selectOption({ label: 'すべての試験' });
   // Late in the day, the first available session may be tomorrow rather than the selected today.
   await page.locator('.calendar-event').first().click();
-  await page.getByRole('button', { name: '予定を固定', exact: true }).first().click();
+  await page.getByRole('button', { name: '固定する', exact: true }).first().click();
   await saved();
   await page.screenshot({ path: 'test-results/calendar.png', fullPage: true });
   await nav('進捗を記録');
@@ -3665,12 +3685,14 @@ test('実機：選択日と週内訳・月移動・授業だけの日・予定�
   await expect(page.getByText('教材b · 1周目：＋7問', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: `${date}の時間の内訳を表示`, exact: true }).click();
   await expect(page.getByRole('region', { name: '1日の可処分時間' })).toContainText(date);
-  await page
-    .locator('.calendar-individual')
-    .filter({ has: page.locator('button').filter({ hasText: '記録は当日から' }) })
-    .locator('summary')
-    .click();
-  await expect(page.getByRole('button', { name: '記録は当日から', exact: true })).toBeDisabled();
+  const futureSection = page.locator('.calendar-list > section').filter({
+    has: page.getByRole('button', { name: `${addDays(today(), 1)}の時間の内訳を表示`, exact: true }),
+  });
+  const futureDetails = futureSection.locator('.calendar-individual');
+  if (!(await futureDetails.getAttribute('open'))) await futureDetails.locator('summary').click();
+  await expect(futureDetails.locator('.session-detail')).toContainText('予定 5問');
+  await expect(futureDetails.getByRole('button', { name: '固定する', exact: true })).toBeVisible();
+  await expect(futureDetails.getByRole('button', { name: '進捗を記録', exact: true })).toHaveCount(0);
   expect((await storedState()).plan).toEqual(seed.plan);
   await page.screenshot({ path: 'test-results/calendar-consistency.png', fullPage: true });
   await nav('進捗を記録');
@@ -4077,7 +4099,13 @@ test('実機：独立したチュートリアルと各画面への移動で、�
     .getByRole('navigation', { name: 'チュートリアルの項目' })
     .getByRole('button', { name: '保存と復元', exact: true })
     .click();
-  await expect(page.getByRole('button', { name: '次の項目', exact: true })).toBeDisabled();
+  const finish = page.getByRole('button', { name: '終了して戻る', exact: true });
+  await expect(finish).toBeVisible();
+  await expect(finish).toBeEnabled();
+  await finish.click();
+  await expect(page.getByRole('heading', { name: '設定', exact: true, level: 1 })).toBeVisible();
+  await expect(page.getByRole('button', { name: '使い方', exact: true })).toBeFocused();
+  expect(await storedState()).toEqual(before);
   await page.reload();
   expect(await storedState()).toEqual(before);
 });

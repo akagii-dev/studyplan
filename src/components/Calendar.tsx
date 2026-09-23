@@ -31,17 +31,27 @@ export function Calendar({
   onRecord,
   onReplan,
   todayOnly = false,
-}: Props & { onRecord: (session: Session) => void; onReplan: () => void; todayOnly?: boolean }) {
+  initialDate = today(),
+  onDateChange,
+  revealDay = false,
+  initialView = 'month',
+  onViewChange,
+  initialFilter = 'all',
+  onFilterChange,
+}: Props & { onRecord: (session: Session) => void; onReplan: () => void; todayOnly?: boolean; initialDate?: string; onDateChange?: (date: string) => void; revealDay?: boolean; initialView?: CalendarView; onViewChange?: (view: CalendarView) => void; initialFilter?: string; onFilterChange?: (filter: string) => void }) {
   const [, tick] = useState(0);
   useEffect(() => {
     if (!todayOnly) return;
     const id = setInterval(() => tick((n) => n + 1), 60000);
     return () => clearInterval(id);
   }, [todayOnly]);
-  const [view, setView] = useState<CalendarView>('month');
+  const [view, setView] = useState<CalendarView>(initialView);
+  useEffect(() => { onViewChange?.(view); }, [view, onViewChange]);
   const density = state.calendarDensity?.[view] ?? (view === 'month' ? 'compact' : 'standard');
-  const [filter, setFilter] = useState('all');
-  const [selected, setSelected] = useState(today());
+  const [filter, setFilter] = useState(initialFilter);
+  useEffect(() => { onFilterChange?.(filter); }, [filter, onFilterChange]);
+  const [selected, setSelected] = useState(initialDate);
+  useEffect(() => { onDateChange?.(selected); }, [selected, onDateChange]);
   const anchor = selected;
   const monthStart = anchor.slice(0, 7) + '-01';
   const nextMonth = new Date(`${monthStart}T12:00:00Z`);
@@ -118,7 +128,7 @@ export function Calendar({
           </div>
         )}
         <div className="row">
-          <span>
+          <span className="session-quantity">
             {s.kind === 'study'
               ? `${level === 'detailed' ? `${s.round + 1}周目 · ` : ''}${s.count === original ? '予定' : '前倒し反映後'} ${s.count}問${s.count !== original ? `（当初 ${original}問）` : ''}`
               : duration(s.end - s.start)}
@@ -173,15 +183,14 @@ export function Calendar({
             }
           >
             {s.fixed ? <LockKeyhole size={14} /> : <Unlock size={14} />}{' '}
-            {s.fixed ? '固定を解除' : '予定を固定'}
+            {s.fixed ? '固定を解除' : '固定する'}
           </button>
-          {s.kind === 'study' && (
+          {s.kind === 'study' && s.date <= today() && (
             <button
               className="primary small"
-              disabled={s.date > today()}
               onClick={() => onRecord(s)}
             >
-              {s.date > today() ? '記録は当日から' : '進捗を記録'}
+              進捗を記録
             </button>
           )}
         </div>
@@ -280,6 +289,18 @@ export function Calendar({
       </>
     );
   }
+  const selectedDayPanel = view !== 'list' && (
+    <aside className="card day-panel" aria-label="選択した日の学習詳細">
+      <h3>
+        {Number(selected.slice(5, 7))}月{Number(selected.slice(8))}日（
+        {weekdays[weekday(selected)]}）
+      </h3>
+      {timeline(selected).length ? daySchedule(selected) : <p className="hint">学習予定はありません。</p>}
+      <h4>この日の学習実績</h4>
+      {dayRecords(selected)}
+      {!recordsOn(selected).length && <p className="hint">まだ報告はありません。</p>}
+    </aside>
+  );
   return (
     <>
       <div className="calendar-toolbar">
@@ -388,7 +409,8 @@ export function Calendar({
           <p>初期設定を終えたら、最初の計画を作成しましょう。</p>
         </Empty>
       )}
-      <div className={view === 'month' ? 'calendar-layout' : ''}>
+      <div className={view === 'month' ? `calendar-layout ${revealDay ? 'selected-date-first' : ''}` : ''}>
+        {revealDay && selectedDayPanel}
         {view === 'list' ? (
           <div className={`card calendar-list density-${density}`}>
             {days
@@ -469,23 +491,7 @@ export function Calendar({
             </div>
           </div>
         )}
-        {view !== 'list' && (
-          <aside className="card day-panel">
-            <div className="eyebrow">DAY DETAILS</div>
-            <h3>
-              {Number(selected.slice(5, 7))}月{Number(selected.slice(8))}日（
-              {weekdays[weekday(selected)]}）
-            </h3>
-            {timeline(selected).length ? (
-              daySchedule(selected)
-            ) : (
-              <p className="hint">学習予定はありません。</p>
-            )}
-            <h4>この日の学習実績</h4>
-            {dayRecords(selected)}
-            {!recordsOn(selected).length && <p className="hint">まだ報告はありません。</p>}
-          </aside>
-        )}
+        {!revealDay && selectedDayPanel}
       </div>
       <DailyTime
         settings={state.settings}

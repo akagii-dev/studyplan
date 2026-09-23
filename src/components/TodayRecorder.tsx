@@ -4,13 +4,14 @@ import { remaining, today, uid } from '../domain/model';
 import { parseNumberInput } from '../domain/numeric';
 import { recordAndAdjust } from '../domain/planning';
 import { todayStudyRows } from '../domain/todayProgress';
-import { currentProgressAdjustment } from '../domain/progressAdjustment';
+import { latestReceipt } from '../domain/progressReceipt';
+import { ProgressReceiptView, receiptDetailLabel, receiptOutcome } from './ProgressReceiptView';
 
 export function TodayRecorder({ state, update }: Props) {
   const rows = todayStudyRows(state);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [message, setMessage] = useState('');
+  const [savedRecord, setSavedRecord] = useState<{ id: string; count: number } | null>(null);
   const [outsideMaterial, setOutsideMaterial] = useState(state.settings.materials[0]?.id ?? '');
   const [outsideRound, setOutsideRound] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -34,10 +35,9 @@ export function TodayRecorder({ state, update }: Props) {
     sending.current = true;
     setBusy(true);
     setErrors((current) => ({ ...current, [id]: '' }));
-    setMessage('');
+    setSavedRecord(null);
     const recordId = request.current;
     const now = new Date().toISOString();
-    let adjustment = 'recorded';
     try {
       await update((current) => {
         const next = recordAndAdjust(current, {
@@ -50,12 +50,11 @@ export function TodayRecorder({ state, update }: Props) {
           createdAt: now,
           updatedAt: now,
         });
-        adjustment = currentProgressAdjustment(next)?.status ?? 'recorded';
         return next;
       });
       request.current = uid();
       setDrafts((current) => ({ ...current, [id]: '' }));
-      setMessage(`${count}問を記録${adjustment === 'applied' ? 'し、明日以降を調整しました。' : adjustment === 'review' ? 'しました。予定の確認が必要です。' : 'しました。'}`);
+      setSavedRecord({ id: recordId, count });
     } catch (error) {
       setErrors((current) => ({ ...current, [id]: String(error) }));
     } finally {
@@ -149,7 +148,17 @@ export function TodayRecorder({ state, update }: Props) {
           <p>先に問題集を登録してください。</p>
         )}
       </details>
-      {message && <p className="daily-record-saved" role="status">{message}</p>}
+      {savedRecord && (
+        <div className="daily-record-saved" role="status">
+          <p>{savedRecord.count}問を記録しました。{latestReceipt(state, savedRecord.id) && receiptOutcome(latestReceipt(state, savedRecord.id)!)}</p>
+          {latestReceipt(state, savedRecord.id) && (
+            <details>
+              <summary>{receiptDetailLabel(latestReceipt(state, savedRecord.id)!)}</summary>
+              <ProgressReceiptView state={state} receipt={latestReceipt(state, savedRecord.id)!} />
+            </details>
+          )}
+        </div>
+      )}
     </>
   );
 }

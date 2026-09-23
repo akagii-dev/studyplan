@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { Calendar } from '../components/Calendar';
 import { CommuteSettings } from '../components/CommuteSettings';
 import { Addition, GuidedSetup, beginAddition } from '../components/guided-setup';
@@ -13,26 +13,76 @@ import { Startup } from '../components/Startup';
 import { Tutorial } from '../components/Tutorial';
 import { Warning, WarningSettings, WarningsProvider } from '../components/Warnings';
 import { WeeklyReport } from '../components/WeeklyReport';
-import { Session, addDays, today } from '../domain/model';
+import { CalendarView, Session, addDays, today } from '../domain/model';
 import { dateTime, stalePlan } from '../domain/planAudit';
 import { propose } from '../domain/planning';
+import { currentProgressAdjustment } from '../domain/progressAdjustment';
 import { requirePlanningInputs } from '../domain/setupIssues';
 import { usePersistentAppState } from '../hooks/usePersistentAppState';
 import { AppShell } from './AppShell';
 import { Dashboard } from './Dashboard';
 import { Future } from './Future';
 import { AvailabilityTarget, SettingsHub } from './SettingsHub';
-import { Page } from './navigation';
+import { Page, pageNames } from './navigation';
 const Backup = lazy(() =>
   import('../components/Backup').then((module) => ({ default: module.Backup })),
 );
+const mainPages = new Set<Page>(['dashboard', 'future', 'history', 'settings']);
+const directDetails = new Set<Page>(['calendar', 'report', 'tutorial', 'progress', 'replan', 'today']);
+const directPage = (): Page => {
+  const hash = window.location.hash.slice(1) as Page;
+  return directDetails.has(hash) ? hash : 'dashboard';
+};
+const fallbackFor = (page: Page): Page =>
+  page === 'calendar' || page === 'replan' ? 'future' :
+    page === 'progress' ? 'history' : page === 'today' ? 'dashboard' : 'settings';
+type ReturnPoint = { page: Page; top: number; focus: HTMLElement | null; focusKey?: string };
 export default function App() {
-  const [page, setPageState] = useState<Page>('dashboard');
+  const [page, setPageState] = useState<Page>(directPage);
+  const [restorePosition, setRestorePosition] = useState<(ReturnPoint & { key: number }) | null>(null);
+  const [origin, setOrigin] = useState<ReturnPoint | null>(null);
+  const originStack = useRef<ReturnPoint[]>([]);
+  const [calendarDate, setCalendarDate] = useState(today());
+  const [calendarRevealDay, setCalendarRevealDay] = useState(false);
+  const [calendarView, setCalendarView] = useState<CalendarView>('month');
+  const [calendarFilter, setCalendarFilter] = useState('all');
+  const [tutorialStep, setTutorialStep] = useState(0);
+  const [reportDayOpen, setReportDayOpen] = useState(false);
   const [availabilityTarget, setAvailabilityTarget] = useState<AvailabilityTarget | null>(null);
-  const setPage = (destination: Page) => {
-    setAvailabilityTarget(null);
+  const setPage = (destination: Page, keepAvailability = false) => {
+    if (destination === page) return;
+    if (page === 'report') setReportDayOpen(false);
+    if (destination === 'calendar' && page !== 'future') setCalendarRevealDay(false);
+    if (mainPages.has(destination)) originStack.current = [];
+    else {
+      const focus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      originStack.current.push({ page, top: window.scrollY, focus,
+        focusKey: focus?.dataset.returnFocus });
+    }
+    setOrigin(originStack.current.at(-1) ?? null);
+    setRestorePosition(null);
+    if (!keepAvailability) setAvailabilityTarget(null);
     setPageState(destination);
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${directDetails.has(destination) ? `#${destination}` : ''}`);
   };
+  const goBack = () => {
+    const previous = originStack.current.pop() ?? { page: fallbackFor(page), top: 0, focus: null };
+    setOrigin(originStack.current.at(-1) ?? null);
+    setAvailabilityTarget(null);
+    setRestorePosition({ ...previous, key: Date.now() });
+    setPageState(previous.page);
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${directDetails.has(previous.page) ? `#${previous.page}` : ''}`);
+  };
+  useEffect(() => {
+    const onHashChange = () => {
+      originStack.current = [];
+      setOrigin(null);
+      setRestorePosition(null);
+      setPageState(directPage());
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
   const [settingsInputTarget, setSettingsInputTarget] = useState<'addExam' | 'addMaterial' | 'exam' | 'material' | null>(null);
   useEffect(() => {
     if (!settingsInputTarget) return;
@@ -124,9 +174,9 @@ export default function App() {
               : {}),
         },
       }))
-        .then(() => setPageState('availability'))
+        .then(() => setPage('availability', true))
         .catch(() => setAvailabilityTarget(null));
-    } else setPageState('availability');
+    } else setPage('availability', true);
   };
   const editSettingItem = (kind: 'exam' | 'material', id: string) => {
     setSettingsInputTarget(kind);
@@ -184,6 +234,9 @@ export default function App() {
           {...props}
           page={page}
           setPage={setPage}
+          onBack={!mainPages.has(page) && !(page === 'report' && reportDayOpen) ? goBack : undefined}
+          backLabel={origin ? pageNames[origin.page] : pageNames[fallbackFor(page)]}
+          restorePosition={restorePosition?.page === page ? restorePosition : null}
           blocked={closing || restoring || !!recovery}
           recovering={!!recovery}
           saving={saving}
@@ -219,10 +272,11 @@ export default function App() {
               <Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} />
             )}{' '}
             {page === 'future' && (
-              <Future {...props} onCalendar={() => setPage('calendar')} onProposal={() => setPage('replan')} />
+              <Future {...props} onCalendar={(date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(!!date); setPage('calendar'); }} onProposal={() => setPage('replan')} />
             )}
-            {page === 'settings' && (
-              <SettingsHub
+            {(page === 'settings' || originStack.current.some((entry) => entry.page === 'settings')) && (
+              <div hidden={page !== 'settings'}>
+                <SettingsHub
                 {...props}
                 navigate={(destination) =>
                   destination === 'availability' ? openAvailability('study') : setPage(destination)
@@ -238,7 +292,8 @@ export default function App() {
                 editItem={editSettingItem}
                 openAvailability={openAvailability}
                 generate={generate}
-              />
+                />
+              </div>
             )}
             {page === 'setup' && (
               <GuidedSetup {...props} onGenerate={generate} onConfigure={configureRegistration} />
@@ -295,12 +350,13 @@ export default function App() {
               <Calendar
                 {...props}
                 todayOnly
+                initialDate={today()}
                 onRecord={onRecord}
                 onReplan={() => setPage('replan')}
               />
             )}
             {page === 'calendar' && (
-              <Calendar {...props} onRecord={onRecord} onReplan={() => setPage('replan')} />
+              <Calendar {...props} initialDate={calendarDate} initialView={calendarView} onViewChange={setCalendarView} initialFilter={calendarFilter} onFilterChange={setCalendarFilter} revealDay={calendarRevealDay} onDateChange={setCalendarDate} onRecord={onRecord} onReplan={() => setPage('replan')} />
             )}{' '}
             {page === 'commute' && (
               <CommuteSettings {...props} onReview={() => setPage('replan')} />
@@ -310,20 +366,20 @@ export default function App() {
               <Progress
                 {...props}
                 onHistory={() => setPage('history')}
-                onReplan={() => (state.proposal ? setPage('replan') : generate())}
+                onReplan={() => (currentProgressAdjustment(state)?.status === 'failed' ? setPage('future') : state.proposal ? setPage('replan') : generate())}
               />
             )}{' '}
             {page === 'history' && (
               <History
                 {...props}
-                onReplan={() => (state.proposal ? setPage('replan') : generate())}
+                onReplan={() => (currentProgressAdjustment(state)?.status === 'failed' ? setPage('future') : state.proposal ? setPage('replan') : generate())}
                 onRecordPast={() => setPage('progress')}
               />
             )}{' '}
             {page === 'report' && (
-              <WeeklyReport state={state} saving={saving > 0} readSaved={readSaved} />
+              <WeeklyReport state={state} saving={saving > 0} readSaved={readSaved} onDetailChange={setReportDayOpen} />
             )}
-            {page === 'tutorial' && <Tutorial navigate={setPage} />}
+            {page === 'tutorial' && <Tutorial navigate={setPage} step={tutorialStep} onStepChange={setTutorialStep} onClose={goBack} />}
             {page === 'backup' && (
               <Suspense fallback={<p>読み込んでいます…</p>}>
                 <Backup

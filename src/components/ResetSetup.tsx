@@ -47,7 +47,7 @@ export function ResetSetup({ state, update }: Props) {
           </h3>
           <p>
             {mode === 'all'
-              ? `試験${state.settings.exams.length}件・教材${state.settings.materials.length}件・時間枠${state.settings.windows.length}件・食事・連続時間・余裕率・計画・固定予定・記録${state.records.length}件・下書きを現在の一覧から消去します。直前のデータは端末内に1世代保存し、復元できます。`
+              ? `試験${state.settings.exams.length}件・教材${state.settings.materials.length}件・時間枠${state.settings.windows.length}件・食事・連続時間・余裕率・計画・固定予定・有効な記録${state.records.filter((record) => !record.cancelled).length}件・取消履歴${state.records.filter((record) => record.cancelled).length}件・下書きを現在の一覧から消去します。直前のデータは端末内に1世代保存し、復元できます。`
               : mode === 'restore'
                 ? '初期化後に入力した内容を、初期化直前の設定・計画・記録で置き換えます。'
                 : '質問の位置と入力途中の回答を戻します。登録済みの設定・教材・計画・固定予定・実績は残ります。'}

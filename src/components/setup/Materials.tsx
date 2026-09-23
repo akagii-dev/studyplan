@@ -69,6 +69,7 @@ export function Materials({ state, update, onAdd }: Props & { onAdd: () => void 
           </Field>
           <Field label="教材名">
             <input
+              data-settings-edit="material"
               value={form.name}
               placeholder="例：過去問題集"
               onChange={(e) => set({ ...form, name: e.target.value })}

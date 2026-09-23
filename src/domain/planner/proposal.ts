@@ -96,9 +96,12 @@ export function approve(state: AppState, acknowledge: boolean, context: Planning
   if (errors.length) throw new Error(errors.join(' '));
   requirePlanningInputs(settings, context.date);
   validateRevisedSettings(state, settings, context.date, context.minute);
-  const minute = context.minute;
+  // An automatic progress proposal starts tomorrow. Earlier sessions are archived
+  // verbatim and must not be revalidated or rewritten as future work.
+  const validationFrom = p.plan.from > context.date ? p.plan.from : context.date;
+  const minute = validationFrom === context.date ? context.minute : 0;
   for (const x of p.plan.sessions.filter(
-    (x) => x.fixed && (x.date > context.date || (x.date === context.date && x.start >= minute)),
+    (x) => x.fixed && (x.date > validationFrom || (x.date === validationFrom && x.start >= minute)),
   )) {
     const issue =
       fixedTimeIssue(settings, x, capacityForDate(settings, x.date)) ??
@@ -108,14 +111,14 @@ export function approve(state: AppState, acknowledge: boolean, context: Planning
   if (
     p.plan.sessions.some(
       (x) =>
-        (x.date > context.date || (x.date === context.date && x.start >= minute)) &&
+        (x.date > validationFrom || (x.date === validationFrom && x.start >= minute)) &&
         overlapsBusy(settings, x).length > 0,
     )
   )
     throw new Error('授業・予定と重複しています。固定予定や設定を確認して案を作り直してください。');
   for (const weekDate of new Set(
     p.plan.sessions
-      .filter((x) => x.date > context.date || (x.date === context.date && x.start >= minute))
+      .filter((x) => x.date > validationFrom || (x.date === validationFrom && x.start >= minute))
       .map((x) => startOfWeek(x.date)),
   )) {
     const week = capacityForWeek(settings, weekDate, p.plan.sessions);
@@ -141,7 +144,9 @@ export function approve(state: AppState, acknowledge: boolean, context: Planning
     },
     history: state.plan ? [...state.history, state.plan] : state.history,
     proposal: null,
-    draft: { ...state.draft, revision: undefined },
+    // Approval checks that this proposal includes the current records. A prior
+    // progress-adjustment warning is resolved only at this successful boundary.
+    draft: { ...state.draft, revision: undefined, progressAdjustment: undefined },
   };
 }
 export function undoPlan(state: AppState): AppState {

@@ -3,12 +3,12 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-// Bundled-release smoke check: no study-data edits, no test backend or development server.
-// Normal close persists native window geometry.
+// Bundled-release smoke check with an isolated SQLite and WebView2 profile.
 mkdirSync('.test-data', { recursive: true });
 const child = spawn(resolve(process.argv[2] ?? 'release/StudyPlan.exe'), [], {
   env: {
     ...process.env,
+    STUDYPLAN_TEST_DATA_DIR: mkdtempSync(resolve('.test-data/release-data-')),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=9224',
     WEBVIEW2_USER_DATA_FOLDER: mkdtempSync(resolve('.test-data/release-webview-')),
   },
@@ -32,21 +32,21 @@ try {
     if (page && page.url() !== 'about:blank') break;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  await expect(page.getByRole('heading', { name: 'ホーム' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '今日', level: 1 })).toBeVisible();
   await expect(page).toHaveTitle('StudyPlan');
   await expect(page.locator('.brand')).toHaveText('StudyPlan');
   await expect(page.locator('.brand small')).toHaveCount(0);
+  await expect(page.locator('.sidebar')).toContainText('StudyPlan v0.4.15');
   const windowTitle = await page.evaluate(() =>
     window.__TAURI_INTERNALS__.invoke('plugin:window|title', { label: 'main' }),
   );
   expect(windowTitle).toBe('StudyPlan');
   if (page.url().includes(':1420')) throw new Error('Release is using the development server.');
-  await page.locator('nav').getByRole('button', { name: '対話式の初期設定', exact: true }).click();
-  await expect(page.locator('.question-card')).toBeVisible();
+  await page.locator('nav').getByRole('button', { name: '設定', exact: true }).click();
+  await expect(page.getByRole('region', { name: '基本設定' })).toContainText('0/3');
+  await expect(page.getByRole('button', { name: '試験を追加', exact: true })).toBeVisible();
   mkdirSync('test-results', { recursive: true });
-  await page.screenshot({ path: 'test-results/release-initial-setup.png', fullPage: true });
-  await page.locator('nav').getByRole('button', { name: '進捗を記録', exact: true }).click();
-  await expect(page.getByRole('region', { name: '今日の進捗', exact: true })).toBeVisible();
+  await page.screenshot({ path: 'test-results/release-settings.png', fullPage: true });
   await expect(page.getByLabel('表示モード').locator('option')).toHaveText([
     'ライト',
     'ダーク',

@@ -1,5 +1,14 @@
 import { startOfWeek } from '../calendar';
-import { addDays, AppState, Capacity, Interval, Plan, remaining, Session } from '../model';
+import {
+  addDays,
+  AppState,
+  Capacity,
+  Interval,
+  Plan,
+  remaining,
+  reported,
+  Session,
+} from '../model';
 import { fixedIssueMessage, fixedOrderIssue, fixedTimeIssue } from '../planConstraints';
 import { PLAN_CALCULATION_VERSION, sessionPolicy, sessionUnitCount } from '../sessionPolicy';
 import { weeklyCapacities } from '../weeklyCapacity';
@@ -70,7 +79,12 @@ export function generatePlan(
       );
   }
   const deadline = (t: (typeof tasks)[number]) => addDays(t.exam.target, -t.exam.reviewDays - 1);
-  const eligible = (t: (typeof tasks)[number], d: string) => d >= t.exam.start && d <= deadline(t);
+  const eligible = (t: (typeof tasks)[number], d: string) =>
+    d >= t.exam.start &&
+    d <= deadline(t) &&
+    // A report, including an explicit zero, closes this material/round for the reported day.
+    // Keep elapsed and fixed sessions above, but redistribute unperformed work from tomorrow.
+    !(d === from && reported(state, d, t.m.id, t.round));
   for (const x of kept.filter(
     (x) => x.fixed && x.date >= from && !(x.date === from && x.start < notBefore),
   )) {
@@ -469,6 +483,36 @@ export function generatePlan(
       conflicts.push(
         `${week.from}〜${week.to}の週の割当上限${week.limit}分を、固定・保持予定が${Math.ceil(week.used - week.limit)}分超えています。固定予定または週の学習可能枠・余裕率を見直してください。`,
       );
+  const shortfallReason = (t: (typeof tasks)[number]) => {
+    const due = deadline(t);
+    const need = t.left * t.minutes;
+    const relevant = capacities.filter((cap) => eligible(t, cap.date));
+    if (!relevant.length)
+      return `${due}までが学習期限ですが、再配分の対象日に学習できる日がありません。`;
+    const raw = relevant.flatMap((cap) => cap.slots);
+    if (!raw.length) return `${due}までの学習可能枠がありません。`;
+    if (raw.every(([start, end]) => end - start + EPS < t.minutes))
+      return `1問に必要な${t.minutes}分の連続学習枠が${due}までにありません。`;
+    const open = relevant.map((cap) => {
+      const occupied: Interval[] = sessions
+        .filter((session) => session.date === cap.date)
+        .map((session) => [session.start, session.end]);
+      if (cap.date === from && notBefore > 0) occupied.push([0, notBefore]);
+      return { date: cap.date, slots: subtractIntervals(cap.slots, occupied) };
+    });
+    const free = open.flatMap((day) => day.slots);
+    const total = free.reduce((sum, [start, end]) => sum + end - start, 0);
+    if (total + EPS >= t.minutes && relevant.every((cap) => weeklyRoom(cap.date) + EPS < t.minutes))
+      return `${due}までの週の割当上限に、1問分の${t.minutes}分を入れる空きがありません。`;
+    if (total + EPS < need)
+      return `${due}までの空き枠は${Math.floor(total)}分、未配置の必要時間は${need}分です。`;
+    if (free.every(([start, end]) => end - start + EPS < t.minutes))
+      return `ほかの予定を除くと、1問に必要な${t.minutes}分の連続枠が${due}までに残っていません。`;
+    const predecessor = tasks.find((before) => precedes(before, t) && before.left > 0);
+    if (predecessor)
+      return `先行する「${predecessor.m.name}」${predecessor.round + 1}周目が未完了のため、${due}までに配分できません。`;
+    return `${due}までに${need}分が未配置です。残る空き枠は${Math.floor(total)}分、1問に${t.minutes}分必要です。`;
+  };
   const plan: Plan = {
     id: nextId(),
     createdAt: context.timestamp,
@@ -490,7 +534,7 @@ export function generatePlan(
         round: t.round,
         count: t.left,
         minutes: t.left * t.minutes,
-        reason: '期限までの学習枠・週の割当上限・集中ブロック・教材順序の条件に収まりません。',
+        reason: shortfallReason(t),
       })),
   };
   plan.progressBaseline = createProgressBaseline(plan, state.records);

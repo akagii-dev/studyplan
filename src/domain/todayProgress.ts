@@ -34,3 +34,37 @@ export function todayProgress(state: AppState, date = today()) {
     percent: planned ? (matched / planned) * 100 : null,
   };
 }
+
+/** Current approved work and saved reports for each material/round on one day. */
+export function todayStudyRows(state: AppState, date = today()) {
+  const rows = new Map<
+    string,
+    { materialId: string; round: number; planned: number; actual: number; reported: boolean }
+  >();
+  const key = (materialId: string, round: number) => JSON.stringify([materialId, round]);
+  const rowFor = (materialId: string, round: number) => {
+    const id = key(materialId, round);
+    let row = rows.get(id);
+    if (!row) {
+      row = { materialId, round, planned: 0, actual: 0, reported: false };
+      rows.set(id, row);
+    }
+    return row;
+  };
+  for (const session of state.plan?.sessions ?? []) {
+    if (session.date === date && session.kind === 'study' && session.count > 0)
+      rowFor(session.materialId, session.round).planned += session.count;
+  }
+  for (const record of state.records) {
+    if (record.date !== date || record.cancelled) continue;
+    const row = rowFor(record.materialId, record.round);
+    row.actual += record.count;
+    row.reported = true;
+  }
+  return [...rows.values()].map((row) => ({
+    ...row,
+    materialName:
+      state.settings.materials.find((material) => material.id === row.materialId)?.name ??
+      row.materialId,
+  }));
+}

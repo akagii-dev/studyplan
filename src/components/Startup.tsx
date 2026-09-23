@@ -1,5 +1,6 @@
 import { isTauri } from '@tauri-apps/api/core';
 import { Leaf, RefreshCw } from 'lucide-react';
+import { demoMode } from '../demo';
 
 export function Startup({
   error,
@@ -11,6 +12,7 @@ export function Startup({
   retry: () => void;
 }) {
   const desktop = isTauri();
+  const canRetry = desktop || demoMode;
   return (
     <main className="startup-screen">
       <section className="card startup-card" aria-busy={loading}>
@@ -20,22 +22,27 @@ export function Startup({
           <p role="status">学習データを読み込んでいます…</p>
         ) : (
           <>
-            <h2>{desktop ? '学習データを開けませんでした' : 'デスクトップ版で開いてください'}</h2>
+            <h2>{canRetry ? '学習データを開けませんでした' : 'デスクトップ版で開いてください'}</h2>
             <p>
               {desktop
                 ? '保存済みのデータはそのままです。'
-                : 'StudyPlan.exeを起動すると、設定と記録を保存できます。'}
+                : demoMode
+                  ? 'このブラウザーの保存データを確認してください。'
+                  : 'StudyPlan.exeを起動すると、設定と記録を保存できます。'}
             </p>
-            {desktop && (
+            {demoMode && <p className="error" role="alert">{error}</p>}
+            {canRetry && (
               <button className="primary" onClick={retry} disabled={loading}>
                 <RefreshCw size={16} />
                 {loading ? '読み込み中…' : 'もう一度読み込む'}
               </button>
             )}
-            <details className="startup-details">
-              <summary>エラーの詳細</summary>
-              <pre>{error}</pre>
-            </details>
+            {!demoMode && (
+              <details className="startup-details">
+                <summary>エラーの詳細</summary>
+                <pre>{error}</pre>
+              </details>
+            )}
           </>
         )}
       </section>

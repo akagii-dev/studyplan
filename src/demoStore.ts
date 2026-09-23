@@ -1,6 +1,49 @@
-import { AppState, Envelope, initialState } from './domain/model';
+import { AppState, Envelope, addDays, defaultMeals, initialState, today } from './domain/model';
+import { generatePlan } from './domain/planner/generate';
 
 export const DEMO_STORAGE_KEY = 'studyplan-demo-state-v1';
+
+/** A fictional, dated example for first-time demo visitors. Existing browser data wins. */
+export function demoInitialState(date = today()): AppState {
+  const state = initialState();
+  const target = addDays(date, 21);
+  state.settings.exams = [{
+    id: 'demo-exam',
+    name: 'サンプル試験',
+    start: date,
+    target,
+    priority: 2,
+    color: '#287569',
+    reviewDays: 1,
+  }];
+  state.settings.materials = [{
+    id: 'demo-material',
+    examId: 'demo-exam',
+    name: 'サンプル問題集',
+    total: 60,
+    order: 1,
+    rounds: [{ completed: 0, minutes: 3 }],
+  }];
+  state.settings.windows = [{
+    id: 'demo-study-window',
+    name: '毎日の学習時間',
+    from: date,
+    to: target,
+    weekdays: [0, 1, 2, 3, 4, 5, 6],
+    start: 420,
+    end: 1380,
+    kind: 'study',
+  }];
+  state.settings.meals = structuredClone(defaultMeals);
+  state.settings.scheduleAnswers = { class: 'none', busy: 'none', exception: 'none' };
+  state.plan = generatePlan(state, date, false, 0, 'balanced', {
+    date,
+    minute: 0,
+    timestamp: `${date}T00:00:00.000Z`,
+    idPrefix: `demo-${date}`,
+  });
+  return state;
+}
 
 function isAppState(value: unknown): value is AppState {
   if (!value || typeof value !== 'object') return false;
@@ -20,7 +63,7 @@ function isAppState(value: unknown): value is AppState {
 
 export function loadDemoState(storage: Pick<Storage, 'getItem'>): Envelope {
   const text = storage.getItem(DEMO_STORAGE_KEY);
-  if (!text) return { revision: 0, data: initialState() };
+  if (!text) return { revision: 0, data: demoInitialState() };
   try {
     const value = JSON.parse(text) as Envelope;
     if (!Number.isInteger(value.revision) || value.revision < 0 || !isAppState(value.data))

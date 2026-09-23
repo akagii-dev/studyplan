@@ -1,4 +1,8 @@
-import { AppState, Settings, today, uid } from './model';
+import { AppState, Progress, Settings, today, uid } from './model';
+import {
+  correctAndAdjust as correctAndAdjustWithContext,
+  recordAndAdjust as recordAndAdjustWithContext,
+} from './progressAdjustment';
 import { PlanningContext } from './planner/context';
 import { generatePlan as generate } from './planner/generate';
 import * as proposals from './planner/proposal';
@@ -42,4 +46,10 @@ export function proposalAfterRecord(
 }
 export function approve(state: AppState, acknowledge = false) {
   return proposals.approve(state, acknowledge, context());
+}
+export function recordAndAdjust(state: AppState, entry: Progress) {
+  return recordAndAdjustWithContext(state, entry, context());
+}
+export function correctAndAdjust(state: AppState, id: string, count: number, cancelled = false) {
+  return correctAndAdjustWithContext(state, id, count, cancelled, context());
 }

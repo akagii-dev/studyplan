@@ -18,11 +18,12 @@ export function correctProgress(
   id: string,
   count: number,
   cancelled = false,
+  updatedAt = new Date().toISOString(),
 ): AppState {
   const old = state.records.find((r) => r.id === id);
   if (!old) throw new Error('記録がありません。');
   const without = { ...state, records: state.records.filter((r) => r.id !== id) };
-  const entry = { ...old, count, cancelled, updatedAt: new Date().toISOString() };
+  const entry = { ...old, count, cancelled, updatedAt };
   if (!cancelled) validateEntry(without, entry);
   return { ...state, records: state.records.map((r) => (r.id === id ? entry : r)) };
 }

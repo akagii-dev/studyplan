@@ -110,7 +110,8 @@ export const newMaterial = (examId: string): Material => ({
 export type Addition = 'addExam' | 'addMaterial';
 export function initialWizard(state: AppState, mode?: Addition, examId?: string): Wizard {
   return {
-    step: mode === 'addMaterial' ? 'material.exam' : 'exam.name',
+    step: mode === 'addMaterial' && state.settings.exams.length !== 1 ? 'material.exam' :
+      mode === 'addMaterial' ? 'material.name' : 'exam.name',
     trail: [],
     exam: mode ? newExam() : (state.settings.exams[0] ?? newExam()),
     window: newWindow(),

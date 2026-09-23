@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { initialState } from '../src/domain/model';
-import { todayProgress } from '../src/domain/todayProgress';
+import { todayProgress, todayStudyRows } from '../src/domain/todayProgress';
 const date = '2030-10-07';
 function fixture() {
   const s = initialState();
@@ -112,4 +112,61 @@ it('計画案と初期完了数は今日の実績に混ぜず、訂正・取消�
   expect(todayProgress(s, date).matched).toBe(7);
   s.records[0].cancelled = true;
   expect(todayProgress(s, date)).toMatchObject({ planned: 15, matched: 0, reported: false });
+});
+
+it('問題集と周回ごとに予定・実績を分け、予定外と未入力を区別する', () => {
+  const s = fixture();
+  s.settings.materials.push(
+    {
+      id: 'b',
+      name: '問題集B',
+      examId: 'e',
+      total: 50,
+      order: 2,
+      rounds: [{ completed: 0, minutes: 2 }],
+    },
+    {
+      id: 'c',
+      name: '問題集C',
+      examId: 'e',
+      total: 50,
+      order: 3,
+      rounds: [{ completed: 0, minutes: 2 }],
+    },
+  );
+  s.plan!.sessions = [
+    { ...s.plan!.sessions[0], count: 10 },
+    { ...s.plan!.sessions[0], id: 'b', materialId: 'b', count: 10 },
+  ];
+  s.records = [record(15), record(3, { id: 'c', materialId: 'c' })];
+  expect(todayStudyRows(s, date)).toEqual([
+    { materialId: 'm', materialName: '教材', round: 0, planned: 10, actual: 15, reported: true },
+    { materialId: 'b', materialName: '問題集B', round: 0, planned: 10, actual: 0, reported: false },
+    { materialId: 'c', materialName: '問題集C', round: 0, planned: 0, actual: 3, reported: true },
+  ]);
+  s.records.push(record(0, { id: 'zero', materialId: 'b' }));
+  expect(todayStudyRows(s, date)[1]).toMatchObject({ actual: 0, reported: true });
+  s.records[2].cancelled = true;
+  expect(todayStudyRows(s, date)[1]).toMatchObject({ actual: 0, reported: false });
+  s.records[0].count = 8;
+  expect(todayStudyRows(s, date)[0]).toMatchObject({ actual: 8 });
+});
+
+it('前倒し後の現在予定を示し、同じ問題集の周回を混ぜない', () => {
+  const s = fixture();
+  s.settings.materials[0].rounds.push({ completed: 0, minutes: 3 });
+  s.plan!.sessions = [
+    { ...s.plan!.sessions[0], count: 6 },
+    { ...s.plan!.sessions[0], id: 'second-round', round: 1, count: 4 },
+  ];
+  s.plan!.progressBaseline = {
+    records: {},
+    sessions: { s: { count: 10, end: 660 } },
+    shortfalls: {},
+  };
+  s.records = [record(7), record(0, { id: 'second-round-report', round: 1 })];
+  expect(todayStudyRows(s, date)).toEqual([
+    { materialId: 'm', materialName: '教材', round: 0, planned: 6, actual: 7, reported: true },
+    { materialId: 'm', materialName: '教材', round: 1, planned: 4, actual: 0, reported: true },
+  ]);
 });

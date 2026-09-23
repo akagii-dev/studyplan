@@ -64,7 +64,7 @@ export function Warning({
                 .catch((e) => setError(String(e)));
             }}
           >
-            無視する
+            通知を非表示
           </button>
         )}
       </div>
@@ -85,15 +85,15 @@ export function WarningSettings({ state, update }: Props) {
     })).catch((e) => setError(String(e)));
   return (
     <section className="card">
-      <h2>無視した警告</h2>
-      <p>再表示すると、該当する画面で現在も必要な警告が表示されます。</p>
+      <h2>非表示にした通知</h2>
+      <p>再表示すると、該当する画面で現在も必要な通知が表示されます。</p>
       {error && (
         <p role="alert" className="error">
           {error}
         </p>
       )}
       {!entries.length ? (
-        <p>無視した警告はありません。</p>
+        <p>非表示の通知はありません。</p>
       ) : (
         <>
           <button onClick={() => restore()}>すべて再表示</button>

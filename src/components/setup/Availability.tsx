@@ -1,12 +1,31 @@
 import { Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { AvailabilityTarget } from '../../app/SettingsHub';
 import { WindowRule, addDays, clock, minutes, today, uid } from '../../domain/model';
 import { validateSettings } from '../../domain/planning';
 import { ClassNames } from '../ClassNames';
 import { Empty, Field, Props, useDraft, weekdays } from '../common';
 import { ScheduleReview } from '../SetupImpact';
 import { TimetablePreview } from '../TimetablePreview';
-export function Availability({ state, update }: Props) {
+
+function DeleteAction({ label, onDelete }: { label: string; onDelete: () => Promise<void> }) {
+  const [confirming, setConfirming] = useState(false);
+  if (!confirming)
+    return (
+      <button className="text-danger" aria-label={`${label}を削除`} onClick={() => setConfirming(true)}>
+        削除
+      </button>
+    );
+  return (
+    <div className="delete-confirm" role="group" aria-label={`${label}の削除確認`}>
+      <span>{label}を削除しますか？</span>
+      <button className="text-danger" onClick={() => void onDelete().catch(() => {})}>削除する</button>
+      <button onClick={() => setConfirming(false)}>やめる</button>
+    </div>
+  );
+}
+
+export function Availability({ state, update, focusTarget }: Props & { focusTarget?: AvailabilityTarget | null }) {
   const blank: WindowRule = {
     id: '',
     kind: 'study',
@@ -25,6 +44,12 @@ export function Availability({ state, update }: Props) {
     from: today(),
     to: addDays(today(), 90),
   });
+  useEffect(() => {
+    if (!focusTarget) return;
+    const target = document.querySelector<HTMLElement>(`[data-settings-target~="${focusTarget}"]`);
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: 'center' });
+  }, [focusTarget]);
   async function saveRule() {
     const errors = validateSettings({ ...state.settings, windows: [form] });
     if (errors.length) {
@@ -81,7 +106,6 @@ export function Availability({ state, update }: Props) {
   };
   return (
     <>
-      <ScheduleReview state={state} update={update} />
       <div className="split">
         <section className="card">
           <div className="eyebrow">STEP 02 · AVAILABILITY</div>
@@ -91,6 +115,7 @@ export function Availability({ state, update }: Props) {
           </p>
           <Field label="枠の種類">
             <select
+              data-settings-target="busy"
               value={form.kind}
               onChange={(e) =>
                 set({
@@ -106,7 +131,11 @@ export function Availability({ state, update }: Props) {
             </select>
           </Field>
           <Field label="枠の名前">
-            <input value={form.name} onChange={(e) => set({ ...form, name: e.target.value })} />
+            <input
+              data-settings-target="study"
+              value={form.name}
+              onChange={(e) => set({ ...form, name: e.target.value })}
+            />
           </Field>
           <div className="two">
             <Field label="適用開始日">
@@ -206,10 +235,10 @@ export function Availability({ state, update }: Props) {
                 </small>
                 <div className="row actions">
                   <button onClick={() => set(w)}>編集</button>
-                  <button
-                    className="text-danger"
-                    onClick={() =>
-                      void update((s) => ({
+                  <DeleteAction
+                    label={`${w.name}（${w.from}〜${w.to} ${w.weekdays.map((day) => weekdays[day]).join('・')} ${clock(w.start)}–${clock(w.end)}）`}
+                    onDelete={() =>
+                      update((s) => ({
                         ...s,
                         settings: {
                           ...s.settings,
@@ -218,9 +247,7 @@ export function Availability({ state, update }: Props) {
                         proposal: null,
                       }))
                     }
-                  >
-                    削除
-                  </button>
+                  />
                 </div>
               </div>
             ))}
@@ -235,6 +262,7 @@ export function Availability({ state, update }: Props) {
         <div className="two">
           <Field label="時間割の適用開始">
             <input
+              data-settings-target="class"
               type="date"
               value={period.from}
               onChange={(e) => setPeriod({ ...period, from: e.target.value })}
@@ -330,9 +358,10 @@ export function Availability({ state, update }: Props) {
                   {w.weekdays.map((d) => weekdays[d])} {clock(w.start)}–{clock(w.end)}　{w.from}〜
                   {w.to}
                 </span>
-                <button
-                  onClick={() =>
-                    void update((s) => ({
+                <DeleteAction
+                  label={`授業（${w.from}〜${w.to} ${w.weekdays.map((day) => weekdays[day]).join('・')} ${clock(w.start)}–${clock(w.end)}）`}
+                  onDelete={() =>
+                    update((s) => ({
                       ...s,
                       settings: {
                         ...s.settings,
@@ -341,9 +370,7 @@ export function Availability({ state, update }: Props) {
                       proposal: null,
                     }))
                   }
-                >
-                  削除
-                </button>
+                />
               </div>
             ))}
         </details>
@@ -353,6 +380,7 @@ export function Availability({ state, update }: Props) {
         <div className="two">
           <Field label="予定名">
             <input
+              data-settings-target="exception"
               value={exception.name}
               onChange={(e) => setException({ ...exception, name: e.target.value })}
             />
@@ -406,13 +434,16 @@ export function Availability({ state, update }: Props) {
               ...s,
               settings: {
                 ...s.settings,
-                exceptions: [...s.settings.exceptions, { ...exception, id: uid() }],
+                exceptions: s.settings.exceptions.some((item) => item.id === exception.id)
+                  ? s.settings.exceptions.map((item) => item.id === exception.id ? exception : item)
+                  : [...s.settings.exceptions, { ...exception, id: uid() }],
               },
+              draft: { ...s.draft, exception: exBlank },
               proposal: null,
             }))
           }
         >
-          予定を追加する
+          {state.settings.exceptions.some((item) => item.id === exception.id) ? '予定を更新する' : '予定を追加する'}
         </button>
         {state.settings.exceptions.map((x) => (
           <div className="row history-row" key={x.id}>
@@ -420,9 +451,10 @@ export function Availability({ state, update }: Props) {
               {x.date}　{x.name}　
               {x.start === 0 && x.end === 1440 ? '終日' : `${clock(x.start)}–${clock(x.end)}`}
             </span>
-            <button
-              onClick={() =>
-                void update((s) => ({
+            <DeleteAction
+              label={`${x.name}（${x.date} ${x.start === 0 && x.end === 1440 ? '終日' : `${clock(x.start)}–${clock(x.end)}`}）`}
+              onDelete={() =>
+                update((s) => ({
                   ...s,
                   settings: {
                     ...s.settings,
@@ -431,12 +463,11 @@ export function Availability({ state, update }: Props) {
                   proposal: null,
                 }))
               }
-            >
-              削除
-            </button>
+            />
           </div>
         ))}
       </section>
+      <ScheduleReview state={state} update={update} />
     </>
   );
 }

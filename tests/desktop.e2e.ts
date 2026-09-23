@@ -53,7 +53,7 @@ async function osWindow(action = 'inspect', width = 910, height = 680) {
     minimized: boolean;
   };
 }
-async function launch(readyHeading = 'ホーム') {
+async function launch(readyHeading = '今日') {
   await close();
   browser = undefined!;
   const webviewDir = mkdtempSync(resolve('.test-data/native-webview-'));
@@ -95,6 +95,7 @@ async function launch(readyHeading = 'ホーム') {
     if (page && page.url() !== 'about:blank') break;
     await new Promise((r) => setTimeout(r, 250));
   }
+  page.setDefaultTimeout(10000);
   await expect(page.getByRole('heading', { name: readyHeading })).toBeVisible({
     timeout: 30000,
   });
@@ -175,7 +176,55 @@ async function closeWindowNormally() {
   child = undefined!;
 }
 async function nav(name: string) {
-  await page.locator('.sidebar nav').getByRole('button', { name, exact: true }).click();
+  const aliases: Record<string, string> = { '今日の詳細': '今日のスケジュール', '詳細カレンダー': '学習カレンダー', '予定外・過去日の記録': '進捗を記録' };
+  name = aliases[name] ?? name;
+  const main = page.locator('.sidebar nav');
+  if (name === 'ホーム') name = '今日';
+  if (name === '今日のスケジュール') {
+    await main.getByRole('button', { name: '設定', exact: true }).click();
+    await page.getByRole('button', { name: '今日の時間内訳', exact: true }).click();
+    return;
+  }
+  if (name === '学習カレンダー') {
+    await main.getByRole('button', { name: '今後の予定', exact: true }).click();
+    await page.getByRole('button', { name: '時刻・固定を含む詳細を見る' }).click();
+    return;
+  }
+  if (name === '進捗を記録') {
+    await main.getByRole('button', { name: '記録履歴', exact: true }).click();
+    await page.getByRole('button', { name: '過去日の学習を記録' }).click();
+    return;
+  }
+  if (['今日', '今後の予定', '記録履歴', '設定'].includes(name)) {
+    await main.getByRole('button', { name, exact: true }).click();
+    return;
+  }
+  await main.getByRole('button', { name: '設定', exact: true }).click();
+  if (name === '試験・目標') {
+    await page.getByRole('button', { name: '試験・目標の一覧・編集' }).click();
+    return;
+  }
+  if (name === '教材・進捗') {
+    await page.getByRole('button', { name: '教材の一覧・編集' }).click();
+    return;
+  }
+  if (name === '時間枠・時間割') {
+    await page.getByRole('button', { name: /時間枠を(設定|修正)/ }).click();
+    return;
+  }
+  const label = name === '対話式の初期設定' ? '初期設定' :
+    name === '警告の管理' ? '通知の管理' :
+    name === '再計画の確認' ? '計画案の確認' :
+    name === 'チュートリアル' ? '使い方' : name;
+  await page.getByRole('button', { name: label, exact: true }).click();
+}
+async function displaySettings(appearance?: string, theme?: string) {
+  const previous = await page.locator('h1').innerText();
+  await nav('設定');
+  if (appearance) await page.getByLabel('表示モード').selectOption(appearance);
+  if (theme) await page.getByLabel('カラーテーマ').selectOption(theme);
+  await saved();
+  if (previous !== '設定') await nav(previous);
 }
 async function close() {
   if (browser) await browser.close();
@@ -327,11 +376,11 @@ test('実機：解消した計画入力エラーだけを再検証し、全解�
   dataDir = mkdtempSync(resolve('.test-data/resolved-errors-'));
   await launch();
   const seed = studentFixture(today());
+  seed.plan = generatePlan(seed, today());
   seed.settings.windows = seed.settings.windows.filter((w) => w.kind !== 'study');
-  seed.plan = null;
   seed.proposal = null;
   await seedState(seed, 'resolved-errors');
-  await page.getByRole('button', { name: '計画案を作成', exact: true }).click();
+  await page.getByRole('button', { name: '現在の設定で計画案を作成', exact: true }).click();
   const popup = page.locator('.error-banner');
   await expect(popup).toContainText('勉強できる時間が未登録です');
   await nav('時間枠・時間割');
@@ -426,14 +475,16 @@ test('実機：睡眠・風呂を任意設定し、日またぎ・中断再開�
   expect(configured.settings).toEqual(seed.settings);
   expect(configured.plan).toEqual(seed.plan);
   expect(configured.records).toEqual(seed.records);
-  for (const name of ['ホーム', '今日のスケジュール', '学習カレンダー']) {
+  await nav('ホーム');
+  await expect(page.locator('.daily-time')).toHaveCount(0);
+  for (const name of ['今日のスケジュール', '学習カレンダー']) {
     await nav(name);
     const card = page.getByRole('region', { name: '1日の可処分時間', exact: true });
     await expect(card.locator('.time-legend [data-kind=sleep]')).toContainText('8時間');
     await expect(card.locator('.time-legend [data-kind=sleep]')).toContainText('風呂30分');
     await expect(card.locator('.time-legend [data-kind=bath]')).toHaveCount(0);
   }
-  await nav('ホーム');
+  await nav('今日のスケジュール');
   await page.locator('.daily-time').screenshot({ path: 'test-results/daily-time-lifestyle.png' });
   await launch();
   expect((await storedState()).outsideTime).toEqual(configured.outsideTime);
@@ -464,6 +515,7 @@ test('実機：可処分時間の情報階層・全テーマ・キーボード�
   const expected = dailyTime(seed.settings, today());
   const shown = dailyTimeDisplay(expected.segments, seed.outsideTime);
   await seedState(seed, 'daily-time-a11y');
+  await nav('今日のスケジュール');
   const card = page.getByRole('region', { name: '1日の可処分時間', exact: true });
   const summary = card.locator('.daily-time-details > summary');
   const details = card.locator('.daily-time-details');
@@ -548,8 +600,8 @@ test('実機：可処分時間の情報階層・全テーマ・キーボード�
       const appearance = mode.endsWith('dark') ? 'dark' : 'light';
       await page.setViewportSize({ width: 1280, height: 900 });
       await page.emulateMedia({ colorScheme: appearance });
-      await page.getByLabel('表示モード').selectOption(mode.startsWith('system') ? 'system' : mode);
-      await page.getByLabel('カラーテーマ').selectOption(theme);
+      await displaySettings(mode.startsWith('system') ? 'system' : mode);
+      await displaySettings(undefined, theme);
       await saved();
       await expect(page.locator('html')).toHaveAttribute('data-appearance', appearance);
       await expect(card.locator('.daily-time-visual')).not.toHaveAttribute('data-expanded');
@@ -717,7 +769,8 @@ test('実機：可処分時間の情報階層・全テーマ・キーボード�
     expect(result.pageWidth).toBeLessThanOrEqual(result.width + 1);
   };
   await checkFit();
-  await page.getByRole('button', { name: 'サイドバーを折りたたむ', exact: true }).click();
+  // Narrow layouts now use the persistent bottom navigation rather than a sidebar rail.
+  await expect(page.locator('.sidebar-toggle')).toBeHidden();
   await page.setViewportSize({ width: 320, height: 800 });
   await checkFit();
   await card.screenshot({ path: 'test-results/daily-time-narrow.png' });
@@ -748,7 +801,11 @@ test('実機：可処分時間の情報階層・全テーマ・キーボード�
         e.querySelector('svg')!.getBoundingClientRect().bottom - 1,
     );
   expect(separated).toBe(true);
-  await summary.focus();
+  // Text enlargement moves an already focused element without a new focus event.
+  // Exercise actual keyboard re-entry so the browser scrolls it into view.
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await expect(summary).toBeFocused();
   await expect(summary).toBeInViewport({ ratio: 1 });
   await card.screenshot({ path: 'test-results/daily-time-text-spacing.png' });
   await override.evaluate((e) => e.parentNode?.removeChild(e));
@@ -934,40 +991,47 @@ test('実機：予定超過を同じ教材・周回の将来予定へ反映し�
   await page.getByRole('button', { name: 'その他', exact: true }).click();
   await page.getByLabel('追加問題数（1問単位）').fill('30');
   await page.getByRole('button', { name: '記録する', exact: true }).click();
-  await expect(page.locator('.progress-result')).toContainText('今後の予定を10問減らしました');
+  await expect(page.locator('.progress-result')).toContainText('明日以降の予定を調整しました');
   await expect(page.getByRole('button', { name: '記録を訂正' })).toBeVisible();
   let stored = await storedState();
   expect(stored.records.at(-1)).toMatchObject({ date, materialId: 'short', round: 0, count: 30 });
-  expect(stored.plan!.sessions.map((session) => session.count)).toEqual([20, 10, 20]);
+  const futureShort = (state: AppState) => state.plan!.sessions
+    .filter((session) => session.date > date && session.materialId === 'short' && session.round === 0)
+    .reduce((sum, session) => sum + session.count, 0);
+  // The redesigned flow allocates the actual remaining 137 - 23 - 30 = 84 questions.
+  // The old fixture's two future rows did not account for the whole remaining book.
+  expect(futureShort(stored)).toBe(84);
+  expect(stored.plan!.sessions.filter((session) => session.date === date)).toEqual([seed.plan.sessions[0]]);
   expect(stored.proposal).toBeNull();
   await close();
   await launch();
   stored = await storedState();
-  expect(stored.plan!.sessions.map((session) => session.count)).toEqual([20, 10, 20]);
+  expect(futureShort(stored)).toBe(84);
   await nav('記録履歴');
   await page.getByRole('button', { name: '訂正', exact: true }).click();
   await page.getByLabel('訂正後の問題数').fill('20');
   await page.getByRole('button', { name: '訂正を保存', exact: true }).click();
   await saved();
-  expect((await storedState()).plan!.sessions.map((session) => session.count)).toEqual([
-    20, 20, 20,
-  ]);
+  expect(futureShort(await storedState())).toBe(94);
   const review = () => page.getByRole('button', { name: '計画全体を見直す', exact: true });
-  await expect(review()).toBeVisible();
+  await expect(review()).toHaveCount(0);
   await page.getByRole('button', { name: '訂正', exact: true }).click();
   await page.getByLabel('訂正後の問題数').fill('25');
   await page.getByRole('button', { name: '訂正を保存', exact: true }).click();
   await saved();
-  await review().click();
+  expect(futureShort(await storedState())).toBe(89);
+  await nav('再計画の確認');
+  await page.getByRole('button', { name: '設定を変えずに再計画', exact: true }).click();
   await nav('記録履歴');
-  await expect(review()).toBeVisible();
+  await expect(review()).toHaveCount(0);
   await nav('再計画の確認');
   await page.getByRole('button', { name: '案を破棄する', exact: true }).click();
   await saved();
   await nav('記録履歴');
-  await expect(review()).toBeVisible();
+  await expect(review()).toHaveCount(0);
   const approveReview = async () => {
-    await review().click();
+    await nav('再計画の確認');
+    await page.getByRole('button', { name: '設定を変えずに再計画', exact: true }).click();
     await expect.poll(async () => !!(await storedState()).proposal).toBe(true);
     if ((await storedState()).proposal!.unreported.length)
       await page.getByRole('checkbox').first().check();
@@ -985,7 +1049,8 @@ test('実機：予定超過を同じ教材・周回の将来予定へ反映し�
   await page.getByRole('button', { name: '取消', exact: true }).click();
   await page.getByRole('button', { name: '取消を確定', exact: true }).click();
   await saved();
-  await expect(review()).toBeVisible();
+  await expect(review()).toHaveCount(0);
+  expect(futureShort(await storedState())).toBe(114);
   await approveReview();
 });
 
@@ -1259,15 +1324,15 @@ test('実機：ホームの導線・表示別のカレンダー密度・再起�
   ];
   await seedState(seed, 'density-seed');
   await page.setViewportSize({ width: 1320, height: 900 });
-  const actions = page.locator('.addition-actions');
-  const schedule = actions.getByRole('button', { name: '今日のスケジュール', exact: true });
-  const record = actions.getByRole('button', { name: '今日の進捗を記録', exact: true });
-  expect((await schedule.boundingBox())!.x).toBeLessThan((await record.boundingBox())!.x);
-  await schedule.click();
+  const dailyRows = page.locator('.daily-record-row');
+  await expect(dailyRows).toHaveCount(2);
+  await expect(dailyRows.first()).toContainText('予定 10問');
+  await expect(dailyRows.first()).toContainText('実績 0問');
+  await expect(dailyRows.first().getByRole('textbox')).toBeVisible();
+  await nav('今日のスケジュール');
   await expect(page.getByRole('region', { name: '今日の予定一覧' })).toBeVisible();
   await nav('ホーム');
-  await record.click();
-  await expect(page.getByRole('heading', { name: '進捗を記録', exact: true })).toBeVisible();
+  await expect(dailyRows.first().getByRole('textbox')).toBeVisible();
   await nav('学習カレンダー');
   let density = page.getByRole('group', { name: 'カレンダーの表示密度' });
   let views = page.locator('.calendar-toolbar');
@@ -1328,7 +1393,7 @@ test('実機：ホームの導線・表示別のカレンダー密度・再起�
   await density.getByRole('button', { name: 'コンパクト', exact: true }).click();
   await saved();
   for (const mode of ['light', 'dark']) {
-    await page.getByLabel('表示モード').selectOption(mode);
+    await displaySettings(mode);
     await saved();
     const result = await new AxeBuilder({ page })
       .setLegacyMode()
@@ -1435,8 +1500,8 @@ test('実機：3テーマの読みやすさ・入力ラベル・小さい画面�
   for (const { theme, appearance } of ['mint', 'sky', 'lime'].flatMap((theme) =>
     ['light', 'dark'].map((appearance) => ({ theme, appearance })),
   )) {
-    await page.getByLabel('表示モード').selectOption(appearance);
-    await page.getByLabel('カラーテーマ').selectOption(theme);
+    await displaySettings(appearance);
+    await displaySettings(undefined, theme);
     await saved();
     for (const screen of [
       'ホーム',
@@ -1448,7 +1513,7 @@ test('実機：3テーマの読みやすさ・入力ラベル・小さい画面�
     ]) {
       await nav(screen);
       if (screen === 'ホーム') {
-        await expect(page.getByRole('heading', { name: 'ホーム', exact: true })).toBeVisible();
+        await expect(page.getByRole('heading', { name: '今日', exact: true })).toBeVisible();
         await expect(page.locator('.hero')).toHaveCount(0);
       }
       if (screen === '再計画の確認') {
@@ -1549,19 +1614,19 @@ test('実機：3テーマの読みやすさ・入力ラベル・小さい画面�
     'rgb(50, 156, 162)',
   );
   await page.emulateMedia({ colorScheme: 'dark' });
-  await page.getByLabel('表示モード').selectOption('system');
+  await displaySettings('system');
   await saved();
   await expect(page.locator('html')).toHaveAttribute('data-appearance', 'dark');
   await page.emulateMedia({ colorScheme: 'light' });
   await expect(page.locator('html')).toHaveAttribute('data-appearance', 'light');
-  await page.getByLabel('表示モード').selectOption('dark');
+  await displaySettings('dark');
   await saved();
   await expect(page.locator('html')).toHaveAttribute('data-appearance', 'dark');
-  await page.getByLabel('表示モード').selectOption('light');
+  await displaySettings('light');
   await saved();
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect(page.locator('html')).toHaveAttribute('data-appearance', 'light');
-  await page.getByLabel('表示モード').selectOption('system');
+  await displaySettings('system');
   await saved();
   await expect(page.locator('html')).toHaveAttribute('data-appearance', 'dark');
   await page.setViewportSize({ width: 900, height: 640 });
@@ -1588,6 +1653,7 @@ test('実機：3テーマの読みやすさ・入力ラベル・小さい画面�
   ).toEqual([]);
   await close();
   await launch();
+  await nav('設定');
   await expect(page.getByLabel('表示モード')).toHaveValue('system');
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect(page.locator('html')).toHaveAttribute('data-appearance', 'dark');
@@ -1621,6 +1687,102 @@ async function seedState(data: AppState, requestId: string) {
   );
   await page.reload();
 }
+test('実機：今日に5問記録すると翌日15問に調整され、SQLite再起動後も残る', async () => {
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/native-daily-flow-'));
+  await launch();
+  const date = today();
+  const tomorrow = addDays(date, 1);
+  const seed = initialState();
+  seed.settings.exams = [{ id: 'exam', name: '資格試験', start: date, target: addDays(date, 2), priority: 2, color: '#287569', reviewDays: 0 }];
+  seed.settings.materials = [{ id: 'book', examId: 'exam', name: '問題集A', total: 20, order: 1, rounds: [{ completed: 0, minutes: 2 }] }];
+  seed.settings.windows = [date, tomorrow].map((day) => ({ id: day, name: '学習枠', kind: 'study' as const, from: day, to: day, weekdays: [0, 1, 2, 3, 4, 5, 6], start: 1080, end: 1140 }));
+  seed.settings.buffer = 0;
+  seed.settings.scheduleAnswers = { class: 'none', busy: 'none', exception: 'none' };
+  const originalToday = { id: 'today-work', date, start: 1080, end: 1100, examId: 'exam', materialId: 'book', round: 0, count: 10, fixed: false, kind: 'study' as const };
+  seed.plan = {
+    id: 'approved', createdAt: new Date().toISOString(), calculationVersion: PLAN_CALCULATION_VERSION,
+    settingsSnapshot: structuredClone(seed.settings), settingsUpdatedAt: seed.settingsUpdatedAt,
+    from: date, notBefore: 0,
+    sessions: [originalToday, { ...originalToday, id: 'tomorrow-work', date: tomorrow }],
+    capacities: [], shortfalls: [], conflicts: [],
+  };
+  seed.plan.progressBaseline = createProgressBaseline(seed.plan, seed.records);
+  await seedState(seed, 'native-daily-seed');
+  const row = page.locator('.daily-record-row').filter({ hasText: '問題集A' });
+  await expect(row).toContainText('予定 10問');
+  await expect(row).toContainText('実績 未入力');
+  await row.getByRole('textbox', { name: '問題集A 1周目の実績（問）' }).fill('5');
+  await row.getByRole('button', { name: '記録', exact: true }).click();
+  await saved();
+  await expect(row).toContainText('実績 5問');
+  await expect(page.locator('.daily-record-saved')).toContainText('明日以降を調整しました');
+  await nav('今後の予定');
+  await expect(page.locator('.future-day').filter({ hasText: tomorrow })).toContainText('15問');
+  let persisted = await storedState();
+  expect(persisted.records).toHaveLength(1);
+  expect(persisted.records[0]).toMatchObject({ date, materialId: 'book', round: 0, count: 5, cancelled: false });
+  expect(persisted.plan!.sessions.filter((session) => session.date === date)).toEqual([originalToday]);
+  expect(persisted.plan!.sessions.filter((session) => session.date === tomorrow).reduce((sum, session) => sum + session.count, 0)).toBe(15);
+  await close();
+  browser = undefined!;
+  await launch();
+  persisted = await storedState();
+  expect(persisted.records[0].count).toBe(5);
+  expect(persisted.plan!.sessions.filter((session) => session.date === date)).toEqual([originalToday]);
+  expect(persisted.plan!.sessions.filter((session) => session.date === tomorrow).reduce((sum, session) => sum + session.count, 0)).toBe(15);
+  await nav('今後の予定');
+  await expect(page.locator('.future-day').filter({ hasText: tomorrow })).toContainText('15問');
+  const futureQuantity = async (materialId = 'book') => (await storedState()).plan!.sessions
+    .filter((session) => session.date === tomorrow && session.materialId === materialId)
+    .reduce((sum, session) => sum + session.count, 0);
+  await nav('記録履歴');
+  await page.getByRole('button', { name: '訂正', exact: true }).click();
+  await page.getByLabel('訂正後の問題数').fill('8');
+  await page.getByRole('button', { name: '訂正を保存', exact: true }).click();
+  await saved();
+  expect(await futureQuantity()).toBe(12);
+  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await page.getByRole('button', { name: '取消を確定', exact: true }).click();
+  await saved();
+  expect(await futureQuantity()).toBe(20);
+  expect((await storedState()).records[0].cancelled).toBe(true);
+  await nav('ホーム');
+  await expect(page.locator('.daily-record-row')).toContainText('実績 未入力');
+  for (const [actual, expected] of [[0, 20], [10, 10], [15, 5]]) {
+    await seedState(seed, `native-daily-${actual}`);
+    const activeRow = page.locator('.daily-record-row');
+    await activeRow.getByRole('textbox').fill(String(actual));
+    await activeRow.getByRole('button', { name: '記録', exact: true }).click();
+    await saved();
+    await expect(activeRow).toContainText(`実績 ${actual}問`);
+    expect(await futureQuantity()).toBe(expected);
+    expect((await storedState()).plan!.sessions.filter((session) => session.date === date)).toEqual([originalToday]);
+    await nav('今後の予定');
+    await expect(page.locator('.future-day')).toContainText(`${expected}問`);
+  }
+  const outsideSeed = structuredClone(seed);
+  outsideSeed.settings.block = 60;
+  outsideSeed.settings.materials.push({ id: 'outside', examId: 'exam', name: '予定外問題集', total: 4, order: 2, rounds: [{ completed: 0, minutes: 5 }] });
+  outsideSeed.plan!.settingsSnapshot = structuredClone(outsideSeed.settings);
+  await seedState(outsideSeed, 'native-outside');
+  await page.locator('.outside-record > summary').click();
+  await page.getByRole('combobox', { name: /^問題集/ }).selectOption('outside');
+  await page.getByLabel('追加問数').fill('2');
+  await page.locator('.outside-record').getByRole('button', { name: '記録', exact: true }).click();
+  await saved();
+  await expect(page.getByRole('listitem').filter({ hasText: '予定外問題集' })).toContainText('予定なし');
+  await expect(page.getByRole('listitem').filter({ hasText: '予定外問題集' })).toContainText('実績 2問');
+  expect(await futureQuantity()).toBe(20);
+  expect(await futureQuantity('outside')).toBe(2);
+  const beforeRestart = await storedState();
+  await closeWindowNormally();
+  await launch();
+  const afterRestart = await storedState();
+  expect(afterRestart.records).toEqual(beforeRestart.records);
+  expect(afterRestart.settings).toEqual(beforeRestart.settings);
+  expect(afterRestart.plan).toEqual(beforeRestart.plan);
+});
 async function calendarSavePath(path: string | null) {
   await page.evaluate((path) => {
     const nativeFetch = window.fetch.bind(window);
@@ -1638,14 +1800,12 @@ async function calendarSavePath(path: string | null) {
     };
   }, path);
 }
-test('実機：進捗円グラフの今日・周回・記録・訂正・取消・空表示', async () => {
+test('実機：教材別の今日・周回・記録・訂正・取消・空表示', async () => {
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/progress-chart-'));
   await launch();
   await nav('進捗を記録');
-  const chart = page.locator('.progress-chart-card');
-  await expect(chart).toContainText('今日の学習予定はありません。');
-  await expect(chart.getByRole('img')).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: '教材', exact: true }).locator('option')).toHaveText(['教材を選択']);
   const seed = initialState();
   const date = today();
   seed.settings.exams = [
@@ -1729,84 +1889,72 @@ test('実機：進捗円グラフの今日・周回・記録・訂正・取消�
     ],
   };
   await seedState(seed, 'progress-chart');
+  await nav('ホーム');
+  const shortRow = page.getByRole('listitem').filter({ hasText: '短答' });
+  const essayRow = page.getByRole('listitem').filter({ hasText: '論文' });
+  await expect(shortRow).toContainText('予定 10問');
+  await expect(shortRow).toContainText('実績 未入力');
+  await expect(essayRow).toContainText('予定 8問');
+  await expect(essayRow).toContainText('実績 未入力');
+  // Initial completion belongs to the round; it must never become today's actual work.
   await nav('進捗を記録');
-  await expect(chart.getByRole('img')).toHaveAccessibleName(
-    `${date}の予定：完了0問、残り18問、進捗率0%`,
-  );
-  await chart.getByRole('button', { name: '選択中の周回' }).click();
-  await expect(chart.getByRole('img')).toHaveAccessibleName(
-    '短答 · 1周目：完了3問、残り17問、進捗率15%',
-  );
+  await expect(page.locator('.progress-summary')).toContainText('完了 3問');
+  await expect(page.locator('.progress-summary')).toContainText('残り 17問');
   await page.getByLabel('周回', { exact: true }).selectOption('1');
-  await expect(chart.getByRole('img')).toHaveAccessibleName(
-    '短答 · 2周目：完了0問、残り20問、進捗率0%',
-  );
+  await expect(page.locator('.progress-summary')).toContainText('完了 0問');
+  await expect(page.locator('.progress-summary')).toContainText('残り 20問');
   await page.getByLabel('教材', { exact: true }).selectOption('essay');
-  await expect(chart.getByRole('img')).toHaveAccessibleName(
-    '論文 · 1周目：完了2問、残り8問、進捗率20%',
-  );
+  await expect(page.locator('.progress-summary')).toContainText('完了 2問');
+  await expect(page.locator('.progress-summary')).toContainText('残り 8問');
   await page.getByRole('button', { name: 'その他', exact: true }).click();
   await page.getByLabel('追加問題数（1問単位）').fill('3');
   await page.getByLabel('追加問題数（1問単位）').press('Enter');
   await saved();
-  await expect(chart.getByRole('img')).toHaveAccessibleName(
-    '論文 · 1周目：完了5問、残り5問、進捗率50%',
-  );
-  await chart.getByRole('button', { name: '今日', exact: true }).click();
-  await expect(chart.getByRole('img')).toHaveAccessibleName(
-    `${date}の予定：完了3問、残り15問、進捗率16.7%`,
-  );
+  await expect(page.locator('.progress-summary')).toContainText('完了 5問');
+  await expect(page.locator('.progress-summary')).toContainText('残り 5問');
+  await nav('ホーム');
+  await expect(essayRow).toContainText('実績 3問');
+  await expect(shortRow).toContainText('実績 未入力');
   await nav('記録履歴');
   await page.getByRole('button', { name: '訂正', exact: true }).click();
   await page.getByLabel('訂正後の問題数').fill('7');
   await page.getByRole('button', { name: '訂正を保存' }).click();
   await saved();
-  await nav('進捗を記録');
-  await expect(chart.getByRole('img')).toHaveAccessibleName(
-    `${date}の予定：完了7問、残り11問、進捗率38.9%`,
-  );
+  await nav('ホーム');
+  await expect(essayRow).toContainText('実績 7問');
+  await expect(shortRow).toContainText('実績 未入力');
   await nav('記録履歴');
   await page.getByRole('button', { name: '取消', exact: true }).click();
   await page.getByRole('button', { name: '取消を確定' }).click();
   await saved();
-  await nav('進捗を記録');
-  await expect(chart.getByRole('img')).toHaveAccessibleName(
-    `${date}の予定：完了0問、残り18問、進捗率0%`,
-  );
+  await nav('ホーム');
+  await expect(essayRow).toContainText('実績 未入力');
   for (const theme of ['mint', 'sky', 'lime']) {
-    await page.getByLabel('カラーテーマ').selectOption(theme);
-    await saved();
-    expect(
-      (await new AxeBuilder({ page }).include('.progress-chart-card').analyze()).violations,
-    ).toEqual([]);
-    await page.screenshot({ path: `test-results/progress-chart-${theme}.png`, fullPage: true });
+    await displaySettings(undefined, theme);
+    expect((await new AxeBuilder({ page }).include('.daily-record-list').analyze()).violations).toEqual([]);
+    await page.screenshot({ path: 'test-results/progress-chart-' + theme + '.png', fullPage: true });
   }
-  await chart.getByRole('button', { name: '選択中の周回' }).click();
+  await nav('進捗を記録');
   await page.getByRole('button', { name: '残りすべて：8問' }).click();
   await page.getByRole('button', { name: '記録する', exact: true }).click();
   await saved();
-  await expect(chart.getByRole('img')).toHaveAccessibleName(
-    '論文 · 1周目：完了10問、残り0問、進捗率100%',
-  );
+  await expect(page.locator('.progress-summary')).toContainText('完了 10問');
+  await expect(page.locator('.progress-summary')).toContainText('残り 0問');
   await page.getByRole('button', { name: /^0\s*問$/ }).click();
   await page.getByRole('button', { name: '記録する', exact: true }).click();
   await saved();
-  await expect(chart.getByRole('img')).toHaveAccessibleName(
-    '論文 · 1周目：完了10問、残り0問、進捗率100%',
-  );
+  await expect(page.locator('.progress-summary')).toContainText('完了 10問');
+  await expect(page.locator('.progress-summary')).toContainText('残り 0問');
+  await nav('ホーム');
+  await expect(essayRow).toContainText('実績 8問');
+  await expect(shortRow).toContainText('実績 未入力');
   await page.setViewportSize({ width: 900, height: 900 });
-  await expect(chart).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-    true,
-  );
-  await chart.scrollIntoViewIfNeeded();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/progress-chart-900.png', fullPage: true });
   await close();
   await launch();
-  await nav('進捗を記録');
-  await expect(page.locator('.progress-chart-card').getByRole('img')).toHaveAccessibleName(
-    `${date}の予定：完了8問、残り10問、進捗率44.4%`,
-  );
+  await expect(page.getByRole('listitem').filter({ hasText: '論文' })).toContainText('実績 8問');
+  await expect(page.getByRole('listitem').filter({ hasText: '短答' })).toContainText('実績 未入力');
 });
 
 test('実機：通学の承認・警告の管理・サイドバー保存・可変幅・進捗アニメーション', async () => {
@@ -1883,7 +2031,7 @@ test('実機：通学の承認・警告の管理・サイドバー保存・可�
   await warning.getByRole('button', { name: /保存済みの計画/ }).click();
   await expect(warning.locator('.warning-content')).toHaveCount(0);
   await warning.getByRole('button', { name: /保存済みの計画/ }).click();
-  await warning.getByRole('button', { name: '無視する', exact: true }).click();
+  await warning.getByRole('button', { name: '通知を非表示', exact: true }).click();
   await saved();
   await expect(warning).toHaveCount(0);
   expect((await storedState()).plan).toEqual(s.plan);
@@ -1941,7 +2089,7 @@ test('実機：通学の承認・警告の管理・サイドバー保存・可�
   await page.getByLabel('復路の所要時間（分）').fill('45');
   await page.getByRole('button', { name: '次へ', exact: true }).click();
   await page.getByRole('button', { name: 'この通学設定を使う', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '再計画の確認', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '計画案の確認', exact: true })).toBeVisible();
   expect((await storedState()).settings.commute).toBeUndefined();
   const proposal = (await storedState()).proposal!;
   expect(proposal.plan.settingsSnapshot!.commute!.returnMinutes).toBe(45);
@@ -2012,7 +2160,7 @@ test('実機：通学の承認・警告の管理・サイドバー保存・可�
         .toBeLessThanOrEqual(width + 1);
     }
   }
-  await page.getByLabel('表示モード').selectOption('dark');
+  await displaySettings('dark');
   await nav('進捗を記録');
   await page.screenshot({ path: 'test-results/adaptive-480-dark.png', fullPage: true });
   expect(
@@ -2040,7 +2188,7 @@ test('実機：通学の承認・警告の管理・サイドバー保存・可�
   expect((await storedState()).settings.commute).toEqual(approved.settings.commute);
 });
 
-test('実機：ホームで指定時刻の往復100分と移動しない昼食を表示する', async () => {
+test('実機：時間内訳で指定時刻の往復100分と移動しない昼食を表示する', async () => {
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/commute-meal-overlap-'));
   await launch();
@@ -2096,6 +2244,7 @@ test('実機：ホームで指定時刻の往復100分と移動しない昼食�
     returnStart: 810,
   };
   await seedState(s, 'overlap-home');
+  await nav('今日のスケジュール');
   const card = page.getByRole('region', { name: '1日の可処分時間', exact: true });
   await expect(card.locator('.daily-commute')).not.toBeVisible();
   await card.screenshot({ path: 'test-results/daily-time-normal.png' });
@@ -2115,7 +2264,7 @@ test('実機：ホームで指定時刻の往復100分と移動しない昼食�
   ).toBeVisible();
   expect(await card.locator('tbody tr[data-kind=rest]').count()).toBeGreaterThan(0);
   for (const appearance of ['light', 'dark']) {
-    await page.getByLabel('表示モード').selectOption(appearance);
+    await displaySettings(appearance);
     await page.setViewportSize({ width: 480, height: 800 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       481,
@@ -2191,6 +2340,7 @@ test('実機：日別バッファーなし・週の割当上限・旧計画か�
   s.plan = generatePlan(s, monday, false, 0, 'earliest');
   s.plan.calculationVersion = 6;
   await seedState(s, 'weekly-limit-seed');
+  await nav('今日のスケジュール');
   await expect(page.locator('.daily-time .time-buffer')).toHaveCount(0);
   await expect(page.locator('.daily-time')).not.toContainText('余裕として残す時間');
   await nav('再計画の確認');
@@ -2868,7 +3018,7 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/native-'));
   await launch();
-  await page.getByRole('button', { name: '質問に答えて計画をつくる' }).click();
+  await page.getByRole('button', { name: '設定を始める' }).click();
   const next = async () => page.getByRole('button', { name: '次へ', exact: true }).click();
   await expect(page.getByRole('button', { name: '次へ', exact: true })).toBeDisabled();
   await expect(page.locator('.question-answer input')).toHaveCount(1);
@@ -3059,6 +3209,7 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   await page.getByRole('button', { name: '週', exact: true }).click();
   await expect(page.locator('.calendar-grid.week')).toBeVisible();
   await page.getByRole('button', { name: '一覧', exact: true }).click();
+  await page.locator('.calendar-list details.calendar-individual > summary').first().click();
   await expect(page.locator('.session-detail').first()).toBeVisible();
   await page.getByRole('button', { name: '月', exact: true }).click();
   const afterView = await page.evaluate(async () => {
@@ -3107,7 +3258,11 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   await page.getByRole('button', { name: '訂正を保存' }).click();
   await saved();
   await expect(page.locator('tbody')).toContainText('＋7問');
-  await page.getByRole('button', { name: '計画全体を見直す' }).click();
+  const adjusted = await storedState();
+  expect(adjusted.records.find((record) => record.count === 7)?.cancelled).toBe(false);
+  expect(adjusted.plan?.id).not.toBe(beforeView.data.plan.id);
+  await nav('再計画の確認');
+  await page.getByRole('button', { name: '設定を変えずに再計画' }).click();
   const beforeApproval = await storedState();
   const approveButton = page.getByRole('button', { name: 'この内容で更新' });
   // A session can start during this real-time flow. Its missing report needs explicit acknowledgement.
@@ -3127,9 +3282,10 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   await close();
   browser = undefined!;
   await launch();
-  await expect(
-    page.getByRole('region', { name: '勉強できない特定の日・時間：あとで設定', exact: true }),
-  ).toBeVisible();
+  await nav('設定');
+  await page.locator('details.settings-extra > summary').click();
+  await expect(page.locator('.settings-extra')).toContainText('勉強できない特定の日・時間');
+  await expect(page.locator('.settings-extra')).toContainText('あとで設定');
   await nav('記録履歴');
   await expect(page.locator('tbody tr')).toHaveCount(2);
   await expect(page.locator('tbody')).toContainText('＋7問');
@@ -3144,7 +3300,7 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   await saved();
   await expect(page.getByRole('button', { name: /^5\s*問$/ })).toBeDisabled();
   await expect(page.locator('.progress-summary')).toContainText('残り 0問');
-  await nav('ホーム');
+  await nav('今日のスケジュール');
   await expect(page.getByRole('region', { name: '1日の可処分時間' })).toBeVisible();
   await page.screenshot({ path: 'test-results/dashboard.png', fullPage: true });
   await nav('時間枠・時間割');
@@ -3162,7 +3318,7 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
       .filter({ hasText: '勉強できない特定の日・時間' })
       .locator('.badge'),
   ).toHaveText('予定なし');
-  await nav('ホーム');
+  await nav('設定');
   await expect(
     page.getByRole('region', { name: '勉強できない特定の日・時間：あとで設定', exact: true }),
   ).toHaveCount(0);
@@ -3184,9 +3340,10 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   await expect(page.getByText('保存済みの計画と現在の設定が一致していません。')).toBeVisible();
   const beforeTheme = await storedState();
   const accents = new Set<string>();
-  const chartColors = new Set<string>();
+  const actionColors = new Set<string>();
   for (const theme of ['mint', 'sky', 'lime']) {
-    await page.getByLabel('カラーテーマ').selectOption(theme);
+    await nav('設定');
+    await displaySettings(undefined, theme);
     await saved();
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     const palette = await page.evaluate(() => {
@@ -3199,23 +3356,21 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
     expect(palette.accent).toMatch(/^#[0-9a-f]{6}$/i);
     accents.add(palette.accent);
     await page.screenshot({ path: `test-results/theme-${theme}.png`, fullPage: true });
-    await nav('進捗を記録');
-    await page.getByRole('button', { name: '選択中の周回' }).click();
-    await expect(page.locator('.progress-donut')).toBeVisible();
-    chartColors.add(
-      await page
-        .locator('.progress-donut-value')
-        .evaluate((circle) => getComputedStyle(circle).stroke),
-    );
-    await page.screenshot({ path: `test-results/progress-${theme}.png`, fullPage: true });
     await nav('ホーム');
+    // The daily row replaces the former progress chart; retain the value and theme checks.
+    const dailyRow = page.getByRole('listitem').filter({ hasText: '基本情報 午後問題集' });
+    await expect(dailyRow).toContainText('実績 37問');
+    actionColors.add(await dailyRow.getByRole('button', { name: '記録', exact: true })
+      .evaluate((button) => getComputedStyle(button).backgroundColor));
+    await page.screenshot({ path: `test-results/progress-${theme}.png`, fullPage: true });
   }
   expect(accents.size).toBe(3);
-  expect(chartColors.size).toBe(3);
+  expect(actionColors.size).toBe(3);
   expect((await storedState()).settingsUpdatedAt).toBe(beforeTheme.settingsUpdatedAt);
   await close();
   browser = undefined!;
   await launch();
+  await nav('設定');
   await expect(page.getByLabel('カラーテーマ')).toHaveValue('lime');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'lime');
 });
@@ -3283,7 +3438,8 @@ test('実機：授業名・初期設定の再編集・今日の予定・初期�
       updatedAt: new Date().toISOString(),
     },
   ];
-  seed.plan = generatePlan(seed, date);
+  // This report was entered after the approved day's schedule was created.
+  seed.plan = generatePlan({ ...seed, records: [] }, date);
   seed.plan.sessions[0].fixed = true;
   await seedState(seed, 'edit-seed');
   await nav('対話式の初期設定');
@@ -3501,7 +3657,7 @@ test('実機：選択日と週内訳・月移動・授業だけの日・予定�
   await expect(
     page.getByText('この期間に勉強・大学の予定と学習実績はありません。', { exact: true }),
   ).toHaveCount(0);
-  await page.getByRole('button', { name: '今日', exact: true }).click();
+  await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
   await expect(page.getByText('教材a · 1周目：＋0問', { exact: true })).toBeVisible();
   await expect(page.getByText('教材b · 1周目：＋7問', { exact: true })).toBeVisible();
   await expect(page.getByText('教材a · 1周目：＋3問', { exact: true })).toHaveCount(0);
@@ -3797,10 +3953,12 @@ test('実機：バックアップ保存・破損拒否・内容確認・復元�
   const { readFileSync } = await import('node:fs');
   const packet = JSON.parse(readFileSync(path, 'utf8'));
   expect(packet.data).toEqual(seeded);
-  await page.getByLabel('カラーテーマ').selectOption('lime');
-  await page.getByLabel('表示モード').selectOption('light');
+  await nav('設定');
+  await displaySettings(undefined, 'lime');
+  await displaySettings('light');
   await saved();
   const beforeRestore = await storedState();
+  await nav('バックアップ');
   await page
     .getByLabel('復元するバックアップ')
     .setInputFiles({ name: 'broken.json', mimeType: 'application/json', buffer: Buffer.from('{') });
@@ -3856,13 +4014,15 @@ test('実機：独立したチュートリアルと各画面への移動で、�
   await nav('今日のスケジュール');
   await page.screenshot({ path: 'test-results/navigation-arrival.png' });
   await expect(
-    page.getByRole('heading', { name: '今日のスケジュール', level: 1 }),
+    page.getByRole('heading', { name: '今日の詳細', level: 1 }),
   ).toBeInViewport();
-  await expect(page.getByRole('heading', { name: '今日のスケジュール', level: 1 })).toBeFocused();
+  await expect(page.getByRole('heading', { name: '今日の詳細', level: 1 })).toBeFocused();
   await page
     .locator('.sidebar nav')
-    .getByRole('button', { name: 'チュートリアル', exact: true })
+    .getByRole('button', { name: '設定', exact: true })
     .focus();
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: '使い方', exact: true }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'チュートリアル', level: 1 })).toBeFocused();
   await page.keyboard.press('Tab');
@@ -3883,15 +4043,17 @@ test('実機：独立したチュートリアルと各画面への移動で、�
   await expect(page.getByRole('heading', { name: '空き時間の中に、休憩と余裕を' })).toBeVisible();
   await page.getByRole('button', { name: '前の項目', exact: true }).click();
   for (const [topic, action, heading] of [
-    ['はじめの設定', '初期設定へ', '対話式の初期設定'],
+    ['はじめの設定', '初期設定へ', '初期設定'],
     ['勉強できる時間', '時間枠・時間割へ', '時間枠・時間割'],
     ['勉強できる時間', '連続時間・余裕率へ', '連続時間・余裕率'],
-    ['計画を見る', '今日のスケジュールへ', '今日のスケジュール'],
-    ['計画を見る', '学習カレンダーへ', '学習カレンダー'],
-    ['進捗を記録', '進捗を記録へ', '進捗を記録'],
+    ['計画を見る', '今日へ', '今日'],
+    ['計画を見る', '今後の予定へ', '今後の予定'],
+    ['計画を見る', '今日の時間内訳へ', '今日の詳細'],
+    ['進捗を記録', '今日へ', '今日'],
+    ['進捗を記録', '過去日の記録へ', '予定外・過去日の記録'],
     ['進捗を記録', '記録履歴へ', '記録履歴'],
     ['進捗を記録', '週間レポートへ', '週間レポート'],
-    ['計画を見直す', '再計画の確認へ', '再計画の確認'],
+    ['計画を見直す', '再計画の確認へ', '計画案の確認'],
     ['保存と復元', 'バックアップへ', 'バックアップ'],
   ]) {
     await nav('チュートリアル');
@@ -3937,7 +4099,7 @@ test('実機：起動時の保存先エラーから再試行・保存内容の�
   await page.screenshot({ path: 'test-results/startup-retry.png' });
   rmdirSync(path);
   await page.getByRole('button', { name: 'もう一度読み込む', exact: true }).dblclick();
-  await expect(page.getByRole('heading', { name: 'ホーム' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '今日' })).toBeVisible();
   await nav('対話式の初期設定');
   await page.getByLabel('試験名', { exact: true }).fill('読み込み失敗でも残す回答');
   await saved();
@@ -4039,6 +4201,7 @@ test('実機：試験・教材を対話で追加 → 中断再開 → 計画案�
   seed.plan.sessions[0].fixed = true;
   const fixed = structuredClone(seed.plan.sessions[0]);
   await seedState(seed, 'addition-seed');
+  await nav('試験・目標');
   await page.getByRole('button', { name: '試験を追加', exact: true }).click();
   const next = async () => page.getByRole('button', { name: '次へ', exact: true }).click();
   let q = page.getByRole('region', { name: '追加の質問' });
@@ -4155,9 +4318,9 @@ test('実機：追加前の不足設定を案内し、空の設定から追加�
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/empty-additions-'));
   await launch();
-  await page.getByRole('button', { name: '教材を追加', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '先に試験を追加しましょう' })).toBeVisible();
-  await page.getByRole('button', { name: '試験を追加', exact: true }).click();
+  await nav('設定');
+  await page.getByRole('button', { name: '先に試験を追加', exact: true }).click();
+  await expect(page.getByLabel('試験名', { exact: true })).toBeFocused();
   const next = async () => page.getByRole('button', { name: '次へ', exact: true }).click();
   await page.getByLabel('試験名', { exact: true }).fill('最初の試験');
   await next();
@@ -4167,9 +4330,9 @@ test('実機：追加前の不足設定を案内し、空の設定から追加�
   await next();
   await page.getByRole('button', { name: '今回は設定しない' }).click();
   await page.getByRole('button', { name: '試験を登録する', exact: true }).click();
-  await page.getByRole('button', { name: '入力途中の教材の追加を再開', exact: true }).click();
-  await page.getByRole('button', { name: '最初の試験', exact: true }).click();
-  await next();
+  await nav('設定');
+  await page.getByRole('button', { name: '教材を追加', exact: true }).click();
+  await expect(page.getByLabel('教材名', { exact: true })).toBeFocused();
   await page.getByLabel('教材名', { exact: true }).fill('最初の問題集');
   await next();
   await next();

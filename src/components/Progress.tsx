@@ -1,15 +1,9 @@
-import { todayProgress } from '../domain/todayProgress';
-import { ProgressRing } from './AnimatedProgress';
 import { NumberInput } from './NumberInput';
 import { useRef, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { Progress as ProgressRecord, completed, remaining, today, uid } from '../domain/model';
-import { correctProgress, recordProgress } from '../domain/progress';
-import {
-  pendingProgressReflection,
-  reflectProgressSafely,
-  withProgressBaseline,
-} from '../domain/progressReflection';
+import { correctAndAdjust, recordAndAdjust } from '../domain/planning';
+import { currentProgressAdjustment } from '../domain/progressAdjustment';
 import { parseNumberInput } from '../domain/numeric';
 import { Empty, Field, Props, useDraft } from './common';
 export function Progress({
@@ -28,7 +22,6 @@ export function Progress({
   const [form, set] = useDraft(state, update, 'progress', initial);
   const [message, msg] = useState('');
   const [busy, setBusy] = useState(false);
-  const [chartScope, setChartScope] = useState<'today' | 'round'>('today');
   const sending = useRef(false);
   const request = useRef(uid());
   const numberEdits = (state.draft.numberEdits ?? {}) as Record<
@@ -57,21 +50,6 @@ export function Progress({
   };
   const material = state.settings.materials.find((m) => m.id === form.materialId);
   const rest = material ? remaining(state, material.id, form.round) : 0;
-  const daily = todayProgress(state);
-  const isToday = chartScope === 'today';
-  const chartProgress = isToday
-    ? { total: daily.planned, done: daily.matched }
-    : {
-        total: material?.total ?? 0,
-        done: material ? completed(state, material.id, form.round) : 0,
-      };
-  const chartLabel = isToday
-    ? today() + 'の予定'
-    : material
-      ? `${material.name} · ${form.round + 1}周目`
-      : '教材を選択してください';
-  const chartPercent = chartProgress.total ? (chartProgress.done / chartProgress.total) * 100 : 0;
-  const displayPercent = chartPercent.toLocaleString('ja-JP', { maximumFractionDigits: 1 });
   const customCount = (() => {
     try {
       return parseNumberInput(customText, 0, rest, 1);
@@ -104,8 +82,7 @@ export function Progress({
     try {
       await update((s) => {
         const now = new Date().toISOString();
-        let next = withProgressBaseline(s);
-        next = recordProgress(next, {
+        let next = recordAndAdjust(s, {
           id,
           date: form.date,
           materialId: form.materialId,
@@ -119,7 +96,7 @@ export function Progress({
           ...next,
           draft: { ...clearLegacyEdit(next.draft), progress: { ...form, choice: '', custom: '' } },
         };
-        return reflectProgressSafely(next, id);
+        return next;
       });
       request.current = uid();
       msg(`＋${count}問を記録しました。`);
@@ -269,28 +246,19 @@ export function Progress({
             <p>{message}</p>
             {state.plan &&
               (() => {
-                const result = pendingProgressReflection(state);
+                const result = currentProgressAdjustment(state);
                 if (!result) return null;
                 return (
                   <>
                     <p>
-                      {result.error
-                        ? '記録は保存しましたが、予定へ反映できませんでした。計画全体を見直してください。'
-                        : result.applied > 0
-                          ? `同じ教材・同じ周回の今後の予定を${result.applied}問減らしました。`
-                          : '今後の予定から新たに減らす前倒し分はありません。'}
+                      {result.status === 'review'
+                        ? '記録済み・予定の確認が必要です。'
+                        : result.status === 'applied'
+                          ? '明日以降の予定を調整しました。'
+                          : '記録しました。'}
                     </p>
-                    {result.error && <p className="error">{result.error}</p>}
-                    {result.fixedSessionIds.length > 0 && (
-                      <p className="error">
-                        固定した予定には自動反映していません。計画全体を見直してください。
-                      </p>
-                    )}
-                    {result.unplaced.length > 0 && (
-                      <p className="error">
-                        配置先のない差分があります。残りの課題と計画を確認してください。
-                      </p>
-                    )}
+                    {result.detail && <p className="error">{result.detail}</p>}
+                    {!!result.unplacedMinutes && <p>未配置 {result.unplacedMinutes}分</p>}
                     <div className="actions">
                       <button onClick={onHistory}>記録を訂正</button>
                       <button onClick={onReplan}>計画全体を見直す</button>
@@ -301,93 +269,32 @@ export function Progress({
           </div>
         )}
       </section>
-      <section className="card progress-chart-card" aria-labelledby="progress-chart-heading">
-        <h2 id="progress-chart-heading">{isToday ? '今日の進捗' : '教材の進捗'}</h2>
-        <div className="actions" role="group" aria-label="進捗グラフの対象">
-          <button
-            aria-pressed={chartScope === 'today'}
-            className={chartScope === 'today' ? 'selected' : ''}
-            onClick={() => setChartScope('today')}
-          >
-            今日
-          </button>
-          <button
-            aria-pressed={chartScope === 'round'}
-            className={chartScope === 'round' ? 'selected' : ''}
-            onClick={() => setChartScope('round')}
-            disabled={!material}
-          >
-            選択中の周回
-          </button>
-        </div>
-        <p className="progress-chart-scope">{chartLabel}</p>
-        {isToday && (
-          <p className="today-actual">
-            {daily.reported ? `今日の記録：${daily.actual}問` : '今日は未報告です'}
-            {daily.actual > daily.matched
-              ? `（予定外・超過 ${daily.actual - daily.matched}問）`
-              : ''}
-          </p>
-        )}
-        {chartProgress.total > 0 ? (
-          <>
-            <ProgressRing
-              percent={chartPercent}
-              label={`${chartLabel}：完了${chartProgress.done}問、残り${chartProgress.total - chartProgress.done}問、進捗率${displayPercent}%`}
-            />
-            <dl className="progress-chart-counts" aria-live="polite">
-              <div>
-                <dt>
-                  <span className="progress-dot done" />
-                  完了
-                </dt>
-                <dd>
-                  {chartProgress.done.toLocaleString('ja-JP')}
-                  <small>問</small>
-                </dd>
-              </div>
-              <div>
-                <dt>
-                  <span className="progress-dot" />
-                  残り
-                </dt>
-                <dd>
-                  {(chartProgress.total - chartProgress.done).toLocaleString('ja-JP')}
-                  <small>問</small>
-                </dd>
-              </div>
-            </dl>
-            <p className="hint">全{chartProgress.total.toLocaleString('ja-JP')}問 · 問題数ベース</p>
-          </>
-        ) : (
-          <Empty>
-            {isToday ? '今日の学習予定はありません。' : '教材を登録すると進捗を表示します。'}
-          </Empty>
-        )}
-      </section>
     </div>
   );
 }
-export function History({ state, update, onReplan }: Props & { onReplan?: () => void }) {
+export function History({ state, update, onReplan, onRecordPast }: Props & { onReplan?: () => void; onRecordPast?: () => void }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [count, setCount] = useState('');
   const [error, err] = useState('');
   const [cancelId, setCancelId] = useState<string | null>(null);
+  const [resultMessage, setResultMessage] = useState('');
   async function change(r: ProgressRecord, cancelled: boolean) {
     try {
+      let adjusted = 'recorded';
       await update((s) => {
-        const prepared = withProgressBaseline(s);
-        const next = correctProgress(
-          prepared,
+        const next = correctAndAdjust(
+          s,
           r.id,
           cancelled ? r.count : Number(count),
           cancelled,
         );
-        return reflectProgressSafely(next, r.id);
+        adjusted = currentProgressAdjustment(next)?.status ?? 'recorded';
+        return next;
       });
       setEditing(null);
       setCancelId(null);
       err('');
+      setResultMessage(`${cancelled ? '記録を取り消しました' : '記録を訂正しました'}。${adjusted === 'applied' ? '明日以降を調整しました。' : adjusted === 'review' ? '予定の確認が必要です。' : ''}`);
     } catch (e) {
       err(String(e));
     }
@@ -396,15 +303,16 @@ export function History({ state, update, onReplan }: Props & { onReplan?: () => 
     <section className="card">
       <div className="eyebrow">PROGRESS HISTORY</div>
       <h2>これまでの記録</h2>
-      <p>記録を訂正・取消できます。</p>
+      <button onClick={onRecordPast}>過去日の学習を記録</button>
+      {resultMessage && <p role="status">{resultMessage}</p>}
       {error && (
         <p className="error" role="alert">
           {error}
         </p>
       )}
-      {!!pendingProgressReflection(state) && (
+      {currentProgressAdjustment(state)?.status === 'review' && (
         <div className="note">
-          訂正・取消に合わせて、同じ教材・同じ周回の前倒し反映を再計算しました。
+          記録済み・予定の確認が必要です。
           <button onClick={onReplan}>計画全体を見直す</button>
         </div>
       )}

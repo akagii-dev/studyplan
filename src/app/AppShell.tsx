@@ -1,10 +1,10 @@
-import { ChevronRight, Leaf } from 'lucide-react';
+import { Leaf } from 'lucide-react';
 import { ReactNode, useLayoutEffect, useRef } from 'react';
 import { version } from '../../package.json';
 import { Props } from '../components/common';
-import { AppState, today, weekday } from '../domain/model';
+import { today, weekday } from '../domain/model';
 import { demoMode } from '../demo';
-import { Page, navigation } from './navigation';
+import { Page, navigation, pageNames } from './navigation';
 export function AppShell({
   state,
   update,
@@ -29,9 +29,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   const pageHeading = useRef<HTMLHeadingElement>(null);
-  const active = navigation.find((n) => n.id === page) ?? {
-    name: page === 'addExam' ? '試験を追加' : '教材を追加',
-  };
+  const active = { name: pageNames[page] };
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = state?.theme ?? 'mint';
     const preference = state?.appearance ?? 'light';
@@ -88,55 +86,21 @@ export function AppShell({
           <span>StudyPlan</span>
         </a>
         <nav>
-          {navigation
-            .filter((n) => !demoMode || n.id !== 'backup')
-            .map((n) => (
+          {navigation.map((n) => (
               <button
                 key={n.id}
                 aria-label={n.name}
                 title={n.name}
-                className={`${page === n.id ? 'active' : ''} ${n.id === 'exams' ? 'nav-divider' : ''}`}
+                className={page === n.id ? 'active' : ''}
                 aria-current={page === n.id ? 'page' : undefined}
                 onClick={() => setPage(n.id)}
               >
                 <n.icon size={18} />
                 <span className="nav-label">{n.name}</span>
-                {n.id === 'replan' && state.proposal && <span className="nav-dot" />}
               </button>
             ))}
         </nav>
         <div className="sidebar-bottom">
-          <label className="theme-picker">
-            表示モード
-            <select
-              aria-label="表示モード"
-              value={state.appearance ?? 'light'}
-              onChange={(e) =>
-                void update((s) => ({
-                  ...s,
-                  appearance: e.target.value as AppState['appearance'],
-                }))
-              }
-            >
-              <option value="light">ライト</option>
-              <option value="dark">ダーク</option>
-              <option value="system">システム</option>
-            </select>
-          </label>
-          <label className="theme-picker">
-            カラーテーマ
-            <select
-              aria-label="カラーテーマ"
-              value={state.theme ?? 'mint'}
-              onChange={(e) =>
-                void update((s) => ({ ...s, theme: e.target.value as AppState['theme'] }))
-              }
-            >
-              <option value="mint">ミントグリーン</option>
-              <option value="sky">ペールブルー</option>
-              <option value="lime">ライム</option>
-            </select>
-          </label>
           <div className="local-indicator">
             <span />
             {demoMode ? 'デモ・このブラウザーに保存' : 'この端末に保存'}
@@ -145,10 +109,7 @@ export function AppShell({
         </div>
       </aside>
       <main>
-        <header className="topbar">
-          <div>
-            マイワークスペース <ChevronRight size={13} /> <strong>{active.name}</strong>
-          </div>
+        <header className="topbar compact-topbar">
           <span className={`save-status ${saving ? 'pending' : ''}`} role="status">
             {recovering
               ? '保存未確認'
@@ -171,10 +132,12 @@ export function AppShell({
                 {active.name}
               </h1>
             </div>
-            <span className="today-label">
-              {today().replaceAll('-', ' / ')}（
-              {['日', '月', '火', '水', '木', '金', '土'][weekday(today())]}）
-            </span>
+            {['dashboard', 'today'].includes(page) && (
+              <span className="today-label">
+                {today().replaceAll('-', ' / ')}（
+                {['日', '月', '火', '水', '木', '金', '土'][weekday(today())]}）
+              </span>
+            )}
           </div>
           {error && (
             <div className="error-banner" role="alert">

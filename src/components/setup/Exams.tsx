@@ -51,6 +51,7 @@ export function Exams({
           <p>目標を一つずつ登録しましょう。あとから変更できます。</p>
           <Field label="試験名">
             <input
+              data-settings-edit="exam"
               value={form.name}
               onChange={(e) => set({ ...form, name: e.target.value })}
               placeholder="例：基本情報技術者試験"

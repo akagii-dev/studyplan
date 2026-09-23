@@ -74,6 +74,7 @@ export function MealSetup({ state, update, onDone }: Props & { onDone: () => voi
             </div>
             <Field label={`${mealNames[key]}の長さ（分）`}>
               <input
+                data-settings-target="meals"
                 type="number"
                 min={30}
                 max={60}
@@ -85,6 +86,7 @@ export function MealSetup({ state, update, onDone }: Props & { onDone: () => voi
         ) : (
           <Field label={`${mealNames[key]}の開始時刻`}>
             <input
+              data-settings-target="meals"
               type="time"
               value={timeText}
               onChange={(e) => {

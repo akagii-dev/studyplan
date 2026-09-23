@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { Calendar } from '../components/Calendar';
 import { CommuteSettings } from '../components/CommuteSettings';
 import { Addition, GuidedSetup, beginAddition } from '../components/guided-setup';
@@ -9,24 +9,44 @@ import { RegistrationStatus } from '../components/RegistrationStatus';
 import { Replan } from '../components/Replan';
 import { SaveRecovery } from '../components/SaveRecovery';
 import { Availability, Buffer, Exams, Focus, Materials } from '../components/setup';
-import { SetupImpact } from '../components/SetupImpact';
 import { Startup } from '../components/Startup';
 import { Tutorial } from '../components/Tutorial';
 import { Warning, WarningSettings, WarningsProvider } from '../components/Warnings';
 import { WeeklyReport } from '../components/WeeklyReport';
-import { Session, today } from '../domain/model';
+import { Session, addDays, today } from '../domain/model';
 import { dateTime, stalePlan } from '../domain/planAudit';
 import { propose } from '../domain/planning';
 import { requirePlanningInputs } from '../domain/setupIssues';
 import { usePersistentAppState } from '../hooks/usePersistentAppState';
 import { AppShell } from './AppShell';
 import { Dashboard } from './Dashboard';
+import { Future } from './Future';
+import { AvailabilityTarget, SettingsHub } from './SettingsHub';
 import { Page } from './navigation';
 const Backup = lazy(() =>
   import('../components/Backup').then((module) => ({ default: module.Backup })),
 );
 export default function App() {
-  const [page, setPage] = useState<Page>('dashboard');
+  const [page, setPageState] = useState<Page>('dashboard');
+  const [availabilityTarget, setAvailabilityTarget] = useState<AvailabilityTarget | null>(null);
+  const setPage = (destination: Page) => {
+    setAvailabilityTarget(null);
+    setPageState(destination);
+  };
+  const [settingsInputTarget, setSettingsInputTarget] = useState<'addExam' | 'addMaterial' | 'exam' | 'material' | null>(null);
+  useEffect(() => {
+    if (!settingsInputTarget) return;
+    const expectedPage = settingsInputTarget === 'exam' ? 'exams' :
+      settingsInputTarget === 'material' ? 'materials' : settingsInputTarget;
+    if (page !== expectedPage) return;
+    const selector = settingsInputTarget === 'exam' || settingsInputTarget === 'material'
+      ? `[data-settings-edit="${settingsInputTarget}"]`
+      : '.guided-setup input:not([type="hidden"]), .guided-setup select';
+    const target = document.querySelector<HTMLElement>(selector);
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: 'center' });
+    setSettingsInputTarget(null);
+  }, [page, settingsInputTarget]);
   const {
     state,
     update,
@@ -60,7 +80,16 @@ export default function App() {
       .then(() => setPage('replan'))
       .catch(() => {});
   };
-  const onRecord = (session: Session) => {
+  const reviewAdjustment = () => {
+    if (state?.proposal) {
+      setPage('replan');
+      return;
+    }
+    void update((current) => propose(current, addDays(today(), 1), '実績を踏まえた今後の予定を確認します。'))
+      .then(() => setPage('replan'))
+      .catch(() => {});
+  };
+  const onRecord = (session: Pick<Session, 'date' | 'materialId' | 'round'>) => {
     void update((s) => ({
       ...s,
       draft: {
@@ -78,6 +107,38 @@ export default function App() {
   const addItem = (mode: Addition, examId?: string) => {
     void update((s) => beginAddition(s, mode, examId))
       .then(() => setPage(mode))
+      .catch(() => {});
+  };
+  const openAvailability = (target: AvailabilityTarget, itemId?: string) => {
+    setAvailabilityTarget(target);
+    if (target === 'meals' || itemId) {
+      void update((current) => ({
+        ...current,
+        draft: {
+          ...current.draft,
+          ...(target === 'meals' ? { mealOpen: true } : {}),
+          ...(itemId && target === 'exception'
+            ? { exception: current.settings.exceptions.find((exception) => exception.id === itemId) }
+            : itemId
+              ? { window: current.settings.windows.find((window) => window.id === itemId) }
+              : {}),
+        },
+      }))
+        .then(() => setPageState('availability'))
+        .catch(() => setAvailabilityTarget(null));
+    } else setPageState('availability');
+  };
+  const editSettingItem = (kind: 'exam' | 'material', id: string) => {
+    setSettingsInputTarget(kind);
+    void update((current) => {
+      const item = kind === 'exam'
+        ? current.settings.exams.find((exam) => exam.id === id)
+        : current.settings.materials.find((material) => material.id === id);
+      return item
+        ? { ...current, draft: { ...current.draft, [kind]: item } }
+        : current;
+    })
+      .then(() => setPage(kind === 'exam' ? 'exams' : 'materials'))
       .catch(() => {});
   };
   const configureRegistration = (kind: string) => {
@@ -139,13 +200,6 @@ export default function App() {
               {state.draft.replanError}
             </Warning>
           )}
-          {page === 'dashboard' && state.plan && (
-            <SetupImpact
-              settings={state.settings}
-              onConfigure={() => setPage('availability')}
-              onConfigureStudy={() => setPage('replan')}
-            />
-          )}
           {['dashboard', 'today', 'calendar', 'replan'].includes(page) &&
             stalePlan(state.plan, state.settings) && (
               <Warning
@@ -162,8 +216,30 @@ export default function App() {
             )}
           <NumericDraftProvider state={state} update={update} scope={numericScope}>
             {page === 'dashboard' && (
-              <Dashboard {...props} navigate={setPage} generate={generate} onAdd={addItem} />
+              <Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} />
             )}{' '}
+            {page === 'future' && (
+              <Future {...props} onCalendar={() => setPage('calendar')} onProposal={() => setPage('replan')} />
+            )}
+            {page === 'settings' && (
+              <SettingsHub
+                {...props}
+                navigate={(destination) =>
+                  destination === 'availability' ? openAvailability('study') : setPage(destination)
+                }
+                addExam={() => {
+                  setSettingsInputTarget('addExam');
+                  addItem('addExam');
+                }}
+                addMaterial={() => {
+                  setSettingsInputTarget('addMaterial');
+                  addItem('addMaterial');
+                }}
+                editItem={editSettingItem}
+                openAvailability={openAvailability}
+                generate={generate}
+              />
+            )}
             {page === 'setup' && (
               <GuidedSetup {...props} onGenerate={generate} onConfigure={configureRegistration} />
             )}{' '}
@@ -205,7 +281,7 @@ export default function App() {
               ))}
             {page === 'availability' && (
               <>
-                <Availability {...props} />
+                <Availability {...props} focusTarget={availabilityTarget} />
                 <Meals {...props} />
               </>
             )}{' '}
@@ -241,6 +317,7 @@ export default function App() {
               <History
                 {...props}
                 onReplan={() => (state.proposal ? setPage('replan') : generate())}
+                onRecordPast={() => setPage('progress')}
               />
             )}{' '}
             {page === 'report' && (

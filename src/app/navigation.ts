@@ -1,24 +1,13 @@
-import {
-  BellOff,
-  BookOpen,
-  Bus,
-  CalendarDays,
-  CheckCircle2,
-  CircleHelp,
-  DatabaseBackup,
-  FileText,
-  GraduationCap,
-  History as HistoryIcon,
-  LayoutDashboard,
-  ListChecks,
-  RefreshCw,
-  Settings2,
-} from 'lucide-react';
+import { CalendarDays, History, Settings2, ListChecks } from 'lucide-react';
+
 export type Page =
+  | 'dashboard'
+  | 'future'
+  | 'history'
+  | 'settings'
   | 'commute'
   | 'warnings'
   | 'today'
-  | 'dashboard'
   | 'setup'
   | 'addExam'
   | 'addMaterial'
@@ -28,26 +17,37 @@ export type Page =
   | 'focus'
   | 'calendar'
   | 'progress'
-  | 'history'
   | 'report'
   | 'backup'
   | 'tutorial'
   | 'replan';
+
 export const navigation = [
-  { id: 'dashboard', name: 'ホーム', icon: LayoutDashboard },
-  { id: 'today', name: '今日のスケジュール', icon: CalendarDays },
-  { id: 'calendar', name: '学習カレンダー', icon: CalendarDays },
-  { id: 'progress', name: '進捗を記録', icon: CheckCircle2 },
-  { id: 'history', name: '記録履歴', icon: HistoryIcon },
-  { id: 'report', name: '週間レポート', icon: FileText },
-  { id: 'replan', name: '再計画の確認', icon: RefreshCw },
-  { id: 'exams', name: '試験・目標', icon: GraduationCap },
-  { id: 'materials', name: '教材・進捗', icon: BookOpen },
-  { id: 'availability', name: '時間枠・時間割', icon: CalendarDays },
-  { id: 'commute', name: '通学時間', icon: Bus },
-  { id: 'warnings', name: '警告の管理', icon: BellOff },
-  { id: 'focus', name: '連続時間・余裕率', icon: Settings2 },
-  { id: 'setup', name: '対話式の初期設定', icon: ListChecks },
-  { id: 'backup', name: 'バックアップ', icon: DatabaseBackup },
-  { id: 'tutorial', name: 'チュートリアル', icon: CircleHelp },
+  { id: 'dashboard', name: '今日', icon: ListChecks },
+  { id: 'future', name: '今後の予定', icon: CalendarDays },
+  { id: 'history', name: '記録履歴', icon: History },
+  { id: 'settings', name: '設定', icon: Settings2 },
 ] as const;
+
+export const pageNames: Record<Page, string> = {
+  dashboard: '今日',
+  future: '今後の予定',
+  history: '記録履歴',
+  settings: '設定',
+  commute: '通学時間',
+  warnings: '通知の管理',
+  today: '今日の詳細',
+  setup: '初期設定',
+  addExam: '試験を追加',
+  addMaterial: '教材を追加',
+  exams: '試験・目標',
+  materials: '教材・進捗',
+  availability: '時間枠・時間割',
+  focus: '連続時間・余裕率',
+  calendar: '詳細カレンダー',
+  progress: '予定外・過去日の記録',
+  report: '週間レポート',
+  backup: 'バックアップ',
+  tutorial: 'チュートリアル',
+  replan: '計画案の確認',
+};

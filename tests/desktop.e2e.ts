@@ -999,6 +999,7 @@ test('実機：予定6への追加4・2・2で数量と変更詳細を保存し�
   await details.locator('summary').focus();
   await page.keyboard.press('Enter');
   await expect(details).toContainText('6 → 4問');
+  await expect(details).not.toContainText('時間 ');
   await expect(details).not.toContainText('別問題集');
   await page.screenshot({ path: resolve('.test-data/stable-adjustment-native.png'), fullPage: true });
   const savedState = await storedState();
@@ -1291,6 +1292,11 @@ test('実機：ホームの導線・表示別のカレンダー密度・再起�
   const dailyRows = page.locator('.daily-record-row');
   await expect(dailyRows).toHaveCount(2);
   await expect(dailyRows.first()).toContainText('0/10問');
+  await expect(dailyRows.first().getByRole('textbox')).toBeVisible();
+  await page.getByRole('button', { name: '今日のスケジュール・時間内訳' }).click();
+  await expect(page.getByRole('heading', { name: '1日の可処分時間' })).toBeVisible();
+  await expect(page.locator('.daily-time-donut')).toBeVisible();
+  await page.locator('.detail-back').click();
   await expect(dailyRows.first().getByRole('textbox')).toBeVisible();
   await nav('今日のスケジュール');
   await expect(page.getByRole('region', { name: '今日の予定一覧' })).toBeVisible();

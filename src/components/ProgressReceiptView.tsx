@@ -82,7 +82,7 @@ export function ProgressReceiptView({
                   ? `${item.beforeCount} → ${item.afterCount}問`
                   : `${item.afterCount}問 · 配置変更`}
               {item.fixed ? ' · 固定' : ''}
-              {item.timeChanged && (
+              {item.timeChanged && item.beforeCount === item.afterCount && (
                 <small className="block">
                   時間 {slots(item.beforeSlots)} → {slots(item.afterSlots)}
                 </small>

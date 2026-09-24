@@ -40,6 +40,11 @@ export function Dashboard({
         </div>
       )}
       <section className="card dashboard-today">
+        <div className="dashboard-today-actions">
+          <button type="button" onClick={() => navigate('today')}>
+            今日のスケジュール・時間内訳
+          </button>
+        </div>
         <TodayRecorder state={state} update={update} target={recordTarget} />
         {reviews.length > 0 && (
           <div className="daily-reviews">

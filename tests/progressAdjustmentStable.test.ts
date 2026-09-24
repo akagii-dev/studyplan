@@ -246,6 +246,33 @@ it('IDと配列順だけの差分は0、実時刻の移動だけを配置変更�
   expect(diff[0]).toMatchObject({ beforeCount: 6, afterCount: 6, timeChanged: true });
 });
 
+it('問数が変わる予定の詳細は時刻を列挙せず、配置だけの変更では時刻を示す', () => {
+  const source = adjustmentFixture();
+  const adjusted = recordAndAdjust(source, adjustmentReport(8), adjustmentContext);
+  const quantityReceipt = latestReceipt(adjusted)!;
+  expect(quantityReceipt.changes).toMatchObject([
+    { beforeCount: 6, afterCount: 4, timeChanged: true },
+  ]);
+  const quantityHtml = renderToStaticMarkup(
+    createElement(ProgressReceiptView, { state: adjusted, receipt: quantityReceipt }),
+  );
+  expect(quantityHtml).toContain('6 → 4問');
+  expect(quantityHtml).not.toContain('時間 ');
+
+  const moved = structuredClone(source.plan!);
+  moved.sessions[1].start += 3;
+  moved.sessions[1].end += 3;
+  const placementReceipt = {
+    ...quantityReceipt,
+    changes: planChanges(source.plan, moved, day),
+  };
+  const placementHtml = renderToStaticMarkup(
+    createElement(ProgressReceiptView, { state: source, receipt: placementReceipt }),
+  );
+  expect(placementHtml).toContain('6問 · 配置変更');
+  expect(placementHtml).toContain('時間 ');
+});
+
 it('同じ量の日付移動は配置1件、IDや配列順を変えても同じ差分になる', () => {
   const before = adjustmentFixture().plan!;
   const after = structuredClone(before);

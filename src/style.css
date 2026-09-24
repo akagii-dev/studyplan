@@ -2555,7 +2555,7 @@ textarea {
   color: var(--muted);
 }
 .dashboard-today-actions {
-  margin-top: 22px;
+  margin-bottom: 16px;
 }
 .shortfall-summary {
   margin: 18px 0 0;

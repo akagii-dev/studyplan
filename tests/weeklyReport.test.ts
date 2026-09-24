@@ -94,7 +94,8 @@ it('Monday–Sunday aggregates all exams and rounds without rounding 3/7 questio
     before = structuredClone(s);
   const r = createWeeklyReport(s, '2026-09-24', asOf);
   expect([r.from, r.to]).toEqual(['2026-09-21', '2026-09-27']);
-  expect(r.totals).toEqual({
+  expect(r.totals[0]).toEqual({
+    unit: '問',
     total: 94,
     done: 16,
     remaining: 78,
@@ -104,27 +105,36 @@ it('Monday–Sunday aggregates all exams and rounds without rounding 3/7 questio
   });
   expect(r.rounds.map((m) => m.done)).toEqual([15, 1, 0]);
   expect(r.exams[0].total).toBe(74);
-  expect(r.markdown).toContain('| この週の記録が全体の総問題数に占める割合 | 10.6% |');
+  expect(r.markdown).toContain('| この週の記録が全体の総量に占める割合 | 10.6% |');
   expect(s).toEqual(before);
 });
 it('zero reports, cancelled-only reports, unreported groups and future sessions stay distinct', () => {
   const r = createWeeklyReport(fixture(), '2026-09-21', asOf);
-  expect(r.days[1]).toMatchObject({ done: 0, status: '0問報告 1件' });
-  expect(r.days[2]).toMatchObject({ done: null, status: '未報告 1件' });
-  expect(r.days[6]).toMatchObject({ done: null, status: 'これから 1件' });
-  expect(r.unreported).toHaveLength(1);
+  expect(r.days[1]).toMatchObject({
+    quantities: [{ actual: 0, reported: true }],
+    status: '0実績報告 1件',
+  });
+  expect(r.days[2]).toMatchObject({
+    quantities: [{ actual: 0, reported: false }],
+    status: '未報告 1件',
+  });
+  expect(r.days[6]).toMatchObject({
+    quantities: [{ actual: 0, reported: false }],
+    status: '未報告 1件',
+  });
+  expect(r.unreported).toHaveLength(2);
   expect(r.unreported[0]).toMatchObject({ material: '問題集A', round: 2, planned: 7 });
   expect(r.markdown).toContain('| 問題集A | 2周目 | 記録なし |');
 });
 it('日別詳細は教材・周回ごとに予定と有効な実績を分け、明示0と取消を区別する', () => {
   const state = fixture();
-  expect(dailyReportDetails(state, '2026-09-21')).toEqual([
+  expect(dailyReportDetails(state, '2026-09-21')).toMatchObject([
     { materialId: 'm1', round: 0, planned: 10, done: 10 },
   ]);
-  expect(dailyReportDetails(state, '2026-09-22')).toEqual([
+  expect(dailyReportDetails(state, '2026-09-22')).toMatchObject([
     { materialId: 'm2', round: 0, planned: 5, done: 0 },
   ]);
-  expect(dailyReportDetails(state, '2026-09-23')).toEqual([
+  expect(dailyReportDetails(state, '2026-09-23')).toMatchObject([
     { materialId: 'm1', round: 1, planned: 7, done: null },
   ]);
 });
@@ -133,7 +143,7 @@ it('reports on an earlier week compare against current totals and reflect correc
   s.records.find((r) => r.id === 'r1')!.count = 5;
   s.records.find((r) => r.id === 'r2')!.cancelled = true;
   const r = createWeeklyReport(s, '2026-09-21', new Date(2026, 9, 1, 12));
-  expect(r.totals).toMatchObject({ done: 16, weekDone: 5, remaining: 78 });
+  expect(r.totals[0]).toMatchObject({ done: 16, weekDone: 5, remaining: 78 });
   expect(r.markdown).toContain('過去の週を選んでも、全体の進捗は出力時点です');
   expect(r.markdown).toContain('出力日時：2026-10-01 12:00:00');
 });
@@ -148,14 +158,14 @@ it('unapproved proposals do not replace approved schedules and old plan settings
     reason: 'pending',
   };
   const r = createWeeklyReport(s, '2026-09-21', asOf);
-  expect(r.totals.weekPlanned).toBe(27);
+  expect(r.totals[0].weekPlanned).toBe(27);
   expect(r.settingsChanged).toBe(true);
   expect(r.markdown).toContain('現在の設定と承認済み計画が一致していません');
 });
 it('an old approved plan retains questions for rounds removed from the current settings', () => {
   const s = fixture();
   s.settings.materials[0].rounds.pop();
-  expect(createWeeklyReport(s, '2026-09-21', asOf).totals.weekPlanned).toBe(27);
+  expect(createWeeklyReport(s, '2026-09-21', asOf).totals[0].weekPlanned).toBe(27);
 });
 it('empty state and records without a plan export without inventing completion ratios', () => {
   const empty = createWeeklyReport(initialState(), '2026-09-21', asOf);
@@ -164,7 +174,7 @@ it('empty state and records without a plan export without inventing completion r
   const s = fixture();
   s.plan = null;
   const r = createWeeklyReport(s, '2026-09-21', asOf);
-  expect(r.totals.weekDone).toBe(10);
+  expect(r.totals[0].weekDone).toBe(10);
   expect(r.markdown).toContain('| 週間予定に対する記録割合 | — |');
   expect(reportRate(7, 5)).toBe('140.0%');
 });
@@ -182,4 +192,41 @@ it('handles week/year boundaries and rejects empty, impossible and future dates'
   expect([r.from, r.to]).toEqual(['2026-12-28', '2027-01-03']);
   for (const date of ['', '2026-02-30', '2026-09-28', 'no-date'])
     expect(() => createWeeklyReport(s, date, asOf)).toThrow();
+});
+
+it('単位ごとに未報告と0を分け、別単位の報告から0実績を作らない', () => {
+  const s = fixture();
+  s.settings.materials[1].unit = 'ページ';
+  s.records = s.records.filter((r) => r.materialId !== 'm2');
+  const report = createWeeklyReport(s, '2026-09-21', asOf);
+  expect(report.totals.find((t) => t.unit === 'ページ')).toMatchObject({
+    recordCount: 0,
+    weekDone: 0,
+    weekPlanned: 10,
+  });
+  expect(report.markdown).toContain('問：10問 / ページ：記録なし');
+  expect(report.markdown).not.toContain('ページ：0ページ');
+  expect(report.markdown.split('\n').find(line => line.startsWith('| 週間予定に対する記録割合'))).toContain('ページ：—');
+});
+
+it('現計画がなくても保存済み履歴の週予定を隠さない', () => {
+  const s = fixture();
+  s.history = [s.plan!];
+  s.plan = null;
+  const report = createWeeklyReport(s, '2026-09-21', new Date(2026, 8, 28, 12));
+  expect(report.hasWeekPlan).toBe(true);
+  expect(report.totals[0].weekPlanned).toBe(27);
+  expect(report.markdown).toContain('| 週間の学習予定 | 27問 |');
+});
+
+it('単位が変わった教材の周回別集計へ旧単位の実績有無を流用しない', () => {
+  const s = fixture();
+  s.plan!.settingsSnapshot = structuredClone(s.settings);
+  s.settings.materials[0].unit = 'ページ';
+  const report = createWeeklyReport(s, '2026-09-21', asOf);
+  expect(report.rounds[0]).toMatchObject({ unit: 'ページ', weekDone: 0, recordCount: 0 });
+  expect(report.totals.find((t) => t.unit === '問')).toMatchObject({
+    weekDone: 10,
+    recordCount: 3,
+  });
 });

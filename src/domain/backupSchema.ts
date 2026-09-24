@@ -120,6 +120,13 @@ const plan = z.looseObject({
     }),
   ),
   conflicts: z.array(text),
+  adjustmentBasis: z
+    .object({
+      date,
+      records: z.record(z.string(), count),
+      sessions: z.array(session),
+    })
+    .optional(),
   progressBaseline: z
     .object({
       records: z.record(z.string(), count),

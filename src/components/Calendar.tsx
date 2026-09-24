@@ -1,18 +1,18 @@
+import { progressView } from '../domain/progressView';
+import { ProgressValue } from './ProgressValue';
 import { Warning } from './Warnings';
 import { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, LockKeyhole, Unlock, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import {
   CalendarDensity,
   CalendarView,
   Session,
-  actual,
   addDays,
   clock,
-  reported,
   today,
   weekday,
 } from '../domain/model';
-import { datesBetween } from '../domain/planning';
+import { datesBetween } from '../domain/planner/intervals';
 import { blockingEvents, overlapsBusy } from '../domain/planAudit';
 import { moveCalendarDate, startOfWeek, shortDayLabel } from '../domain/calendar';
 import { DailyTime } from './DailyTime';
@@ -24,7 +24,6 @@ import { Empty, Props, duration, weekdays } from './common';
 import { CalendarExport } from './CalendarExport';
 import { sessionPolicy } from '../domain/sessionPolicy';
 import { StudyCoverageNotice } from './SetupImpact';
-import { originalSessionCount } from '../domain/progressReflection';
 export function Calendar({
   state,
   update,
@@ -143,12 +142,7 @@ export function Calendar({
   const detail = (s: Session, level: CalendarDensity = 'detailed') => {
     const e = state.settings.exams.find((e) => e.id === s.examId);
     const m = state.settings.materials.find((m) => m.id === s.materialId);
-    const unit = materialUnit(m?.unit);
-    const count = actual(state, s.date, s.materialId, s.round);
-    const original = originalSessionCount(state.plan, s);
-    const planned = all
-      .filter((x) => x.date === s.date && x.materialId === s.materialId && x.round === s.round)
-      .reduce((n, x) => n + originalSessionCount(state.plan, x), 0);
+    const progress = calendarQuantity(state, s.date).rows.find(r => r.materialId === s.materialId && r.round === s.round);
     return (
       <div
         key={s.id}
@@ -179,22 +173,7 @@ export function Calendar({
           </div>
         )}
         <div className="row">
-          <span className="session-quantity">
-            {s.kind === 'study'
-              ? `${level === 'detailed' ? `${s.round + 1}周目 · ` : ''}${s.count === original ? '予定' : '前倒し反映後'} ${s.count}${unit}${s.count !== original ? `（当初 ${original}${unit}）` : ''}`
-              : duration(s.end - s.start)}
-          </span>
-          {s.kind === 'study' && (
-            <span
-              className={`status ${reported(state, s.date, s.materialId, s.round) ? 'done' : ''}`}
-            >
-              {reported(state, s.date, s.materialId, s.round)
-                ? level === 'detailed'
-                  ? `当日実績 ${count}${unit} / 当日予定 ${planned}${unit}`
-                  : '報告済'
-                : '未報告'}
-            </span>
-          )}
+          {s.kind === 'study' && progress ? <ProgressValue value={progressView(progress, s.date, today())} /> : <span>{duration(s.end - s.start)}</span>}
         </div>
         {level === 'detailed' &&
           s.kind === 'study' &&
@@ -217,25 +196,6 @@ export function Calendar({
             </p>
           )}
         <div className="actions">
-          <button
-            onClick={() =>
-              void update((x) => ({
-                ...x,
-                plan: x.plan
-                  ? {
-                      ...x.plan,
-                      sessions: x.plan.sessions.map((y) =>
-                        y.id === s.id ? { ...y, fixed: !y.fixed } : y,
-                      ),
-                    }
-                  : null,
-                proposal: null,
-              }))
-            }
-          >
-            {s.fixed ? <LockKeyhole size={14} /> : <Unlock size={14} />}{' '}
-            {s.fixed ? '固定を解除' : '固定する'}
-          </button>
           {s.kind === 'study' && s.date <= today() && (
             <button className="primary small" onClick={() => onRecord(s)}>
               進捗を記録
@@ -354,6 +314,9 @@ export function Calendar({
         daySchedule(selected)
       ) : (
         <p className="hint">学習予定はありません。</p>
+      )}
+      {mode === 'content' && !sessionsOn(selected).some(s => s.kind === 'study') && hasQuantity(selected) && (
+        <CalendarQuantityDetails state={state} date={selected} filter={filter} onRecord={onRecord} />
       )}
       {mode === 'content' && (
         <>
@@ -591,15 +554,7 @@ export function Calendar({
                       onSelect={() => selectDay(d)}
                     />
                   )}
-                  {mode === 'content' &&
-                    state.records.some(
-                      (r) =>
-                        !r.cancelled &&
-                        r.date === d &&
-                        (filter === 'all' ||
-                          state.settings.materials.find((m) => m.id === r.materialId)?.examId ===
-                            filter),
-                    ) && <small className="actual-marker">● 実績あり</small>}
+
                 </div>
               ))}
             </div>

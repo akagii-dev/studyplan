@@ -38,6 +38,7 @@ it('6試験の日合計を省略せず、分割した枠と復習を同じ試験
       ...template,
       id: `${i}-a`,
       examId: e.id,
+      materialId: `m${i}`,
       date,
       start: 800 + i * 40,
       end: 810 + i * 40,
@@ -48,6 +49,7 @@ it('6試験の日合計を省略せず、分割した枠と復習を同じ試験
       ...template,
       id: `${i}-b`,
       examId: e.id,
+      materialId: `m${i}`,
       date,
       start: 810 + i * 40,
       end: 820 + i * 40,
@@ -68,7 +70,7 @@ it('6試験の日合計を省略せず、分割した枠と復習を同じ試験
   const summary = calendarDaySummary(s, date);
   expect(summary.exams).toHaveLength(6);
   for (const e of summary.exams) {
-    expect(e.count).toBe(10);
+    expect(e.quantities[0].planned).toBe(10);
     expect(e.minutes).toBe(30);
     expect(e.reviewMinutes).toBe(10);
   }
@@ -82,7 +84,7 @@ it('6試験の日合計を省略せず、分割した枠と復習を同じ試験
     }),
   );
   expect(html.match(/data-exam=/g)).toHaveLength(6);
-  expect(html.match(/予定 <span class="calendar-event-quantity">10問<\/span>/g)).toHaveLength(6);
+  expect(html.match(/10問<\/strong>/g)).toHaveLength(6);
 });
 it('日付と区間ごとの名前を保存・解除し、他の日や学習量を変更しない', () => {
   const original = initialState();
@@ -194,20 +196,20 @@ it('日合計は複数の予定を試験別にまとめ、実績と重複授業�
   ];
   const summary = calendarDaySummary(s, day);
   const exam = summary.exams.find((x) => x.examId === first.examId)!;
-  expect(exam.count).toBe(
+  expect(exam.quantities[0].planned).toBe(
     s.plan.sessions
       .filter((x) => x.date === day && x.examId === first.examId)
       .reduce((n, x) => n + x.count, 0),
   );
-  expect(exam.actualCount).toBe(0);
-  expect(exam.hasActual).toBe(true);
-  expect(exam.reportedCount).toBe(1);
+  expect(exam.quantities[0].actual).toBe(0);
+  expect(exam.quantities[0].reported).toBe(true);
+
   expect(calendarDaySummary(s, day, first.examId).exams).toHaveLength(1);
   expect(summary.classMinutes).toBeLessThan(
     summary.classes.reduce((n, x) => n + x.end - x.start, 0),
   );
   s.records[0].cancelled = true;
-  expect(calendarDaySummary(s, day).exams.find((x) => x.examId === first.examId)!.hasActual).toBe(
+  expect(calendarDaySummary(s, day).exams.find((x) => x.examId === first.examId)!.quantities[0].reported).toBe(
     false,
   );
 });

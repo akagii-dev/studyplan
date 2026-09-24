@@ -1,7 +1,7 @@
 import { ChevronRight } from 'lucide-react';
 import { Props, duration } from '../components/common';
 import { ShortfallDetails } from '../components/ShortfallDetails';
-import { TodayRecorder } from '../components/TodayRecorder';
+import { TodayRecorder, RecordTarget } from '../components/TodayRecorder';
 import { today } from '../domain/model';
 import { currentProgressAdjustment } from '../domain/progressAdjustment';
 import { Page } from './navigation';
@@ -11,7 +11,8 @@ export function Dashboard({
   update,
   navigate,
   onReview,
-}: Props & { navigate: (page: Page) => void; onReview: () => void }) {
+  recordTarget,
+}: Props & { navigate: (page: Page) => void; onReview: () => void; recordTarget?: RecordTarget | null }) {
   if (!state.plan)
     return (
       <section className="card">
@@ -39,7 +40,7 @@ export function Dashboard({
         </div>
       )}
       <section className="card dashboard-today">
-        <TodayRecorder state={state} update={update} />
+        <TodayRecorder state={state} update={update} target={recordTarget} />
         {reviews.length > 0 && (
           <div className="daily-reviews">
             {reviews.map((session) => (

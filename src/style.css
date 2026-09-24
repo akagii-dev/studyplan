@@ -2940,3 +2940,15 @@ textarea {
 .quantity-breakdown .calendar-amounts { display: flex; flex-wrap: wrap; gap: 4px 18px; }
 .quantity-breakdown button { min-height: 32px; }
 .calendar-quantity .text-button { display: block; min-height: 28px; min-width: 28px; padding-block: 2px; font-size: 0.875rem; text-decoration: underline; text-underline-offset: 0.2em; }
+.progress-value { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-variant-numeric: tabular-nums; }
+.calendar-quantity { display: flex; flex-direction: column; gap: 6px; }
+.calendar-quantity .progress-value > strong { font-size: 1.1rem; }
+.daily-progress-ring { display: none; }
+@media (min-width: 1100px) {
+  .daily-record-row { grid-template-columns: minmax(130px, 1.3fr) minmax(130px, 1fr) minmax(185px, auto) 58px; }
+  .daily-progress-ring { display: grid; place-items: center; font-variant-numeric: tabular-nums; font-size: .875rem; }
+  .daily-progress-ring svg { width: 40px; height: 40px; transform: rotate(-90deg); }
+  .daily-progress-ring circle { fill: none; stroke-width: 4; }
+  .ring-track { stroke: var(--border); }
+  .ring-value { stroke: var(--accent); }
+}

@@ -134,6 +134,7 @@ export function fixedOrderIssue(
   sessions: Session[],
   from: string,
   notBefore = 0,
+  remainingCounts?: Record<string, number>,
 ): ConstraintIssue | null {
   if (session.kind !== 'study') return null;
   const target = state.settings.materials.find((m) => m.id === session.materialId);
@@ -155,7 +156,11 @@ export function fixedOrderIssue(
             (x.date < session.date || (x.date === session.date && x.end <= session.start + 1e-7)),
         )
         .reduce((n, x) => n + x.count, 0);
-      if (before < remaining(state, material.id, round))
+      if (
+        before <
+        (remainingCounts?.[JSON.stringify([material.id, round])] ??
+          remaining(state, material.id, round))
+      )
         return {
           message: `取り組む順序を守れません。「${material.name}」${round + 1}周目が終わる前に「${target.name}」${session.round + 1}周目が固定されています。順序を確認するか、固定を解除して再配置してください。`,
           topic: 'material',

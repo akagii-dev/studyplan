@@ -2,7 +2,7 @@ StudyPlan v{{VERSION}} 更新パッケージ
 
 1. StudyPlan を閉じます。
 2. ZIP 全体を展開します。
-3. Update.cmd を開き、これまで使っていた StudyPlan の実行ファイルを選びます。
+3. Update-StudyPlan.ps1 を右クリックして「PowerShellで実行」を選び、これまで使っていた StudyPlan の実行ファイルを選びます。
 4. 完了後、いつもの実行ファイルから起動します。
 
 登録済みの設定・計画・実績は端末の SQLite に残ります。データ形式の移行は不要です。

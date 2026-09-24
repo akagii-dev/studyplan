@@ -18,6 +18,13 @@ import { datesBetween, subtractIntervals } from './intervals';
 import { validateSettings } from './validation';
 import { createProgressBaseline } from '../progressReflection';
 const EPS = 1e-7;
+export interface RetainedAllocation {
+  sessions: Session[];
+  /** Remaining work after reserving unfinished work on the current day. */
+  remaining: Record<string, number>;
+  /** Existing shortfalls of unaffected tasks are not automatically refilled. */
+  unplaced?: Record<string, number>;
+}
 export function generatePlan(
   state: AppState,
   from: string,
@@ -25,9 +32,25 @@ export function generatePlan(
   notBefore = 0,
   allocation: 'balanced' | 'earliest',
   context: PlanningContext,
+  retention?: RetainedAllocation,
 ): Plan {
   let sequence = 0;
-  const nextId = () => `${context.idPrefix}-${sequence++}`;
+  const existingIds = new Set(
+    retention
+      ? [
+          ...retention.sessions.map((x) => x.id),
+          ...(state.plan?.sessions.map((x) => x.id) ?? []),
+          ...(state.plan?.adjustmentBasis?.sessions.map((x) => x.id) ?? []),
+        ]
+      : [],
+  );
+  const nextId = () => {
+    let id: string;
+    do {
+      id = `${context.idPrefix}-${sequence++}`;
+    } while (existingIds.has(id));
+    return id;
+  };
   const { settings: s } = state;
   const policy = sessionPolicy(s);
   const errors = validateSettings(s);
@@ -38,13 +61,15 @@ export function generatePlan(
     capacityForDate(s, d),
   );
   const capacities = weekDays.filter((c) => c.date >= from && c.date <= to);
-  const kept = preserve
-    ? (state.plan?.sessions.filter(
-        (x) =>
-          (x.kind === 'review' || x.count > 0) &&
-          (x.date < from || (x.date === from && x.start < notBefore) || x.fixed),
-      ) ?? [])
-    : [];
+  const kept =
+    retention?.sessions ??
+    (preserve
+      ? (state.plan?.sessions.filter(
+          (x) =>
+            (x.kind === 'review' || x.count > 0) &&
+            (x.date < from || (x.date === from && x.start < notBefore) || x.fixed),
+        ) ?? [])
+      : []);
   const sessions: Session[] = kept.map((x) => ({ ...x }));
   const weeks = new Map(weeklyCapacities(weekDays, s.buffer, kept).map((w) => [w.from, w]));
   const weekFor = (date: string) => weeks.get(startOfWeek(date))!;
@@ -59,7 +84,7 @@ export function generatePlan(
       m,
       round,
       minutes: r.minutes,
-      left: remaining(state, m.id, round),
+      left: retention?.remaining[JSON.stringify([m.id, round])] ?? remaining(state, m.id, round),
       exam: s.exams.find((e) => e.id === m.examId)!,
     })),
   );
@@ -86,7 +111,7 @@ export function generatePlan(
     // Keep elapsed and fixed sessions above, but redistribute unperformed work from tomorrow.
     !(d === from && reported(state, d, t.m.id, t.round));
   for (const x of kept.filter(
-    (x) => x.fixed && x.date >= from && !(x.date === from && x.start < notBefore),
+    (x) => (x.fixed || retention) && x.date >= from && !(x.date === from && x.start < notBefore),
   )) {
     const e = s.exams.find((e) => e.id === x.examId);
     const inPeriod =
@@ -101,7 +126,10 @@ export function generatePlan(
     const exams = s.exams
       .filter(
         (e) =>
-          e.reviewDays > 0 && cap.date >= addDays(e.target, -e.reviewDays) && cap.date < e.target,
+          !retention &&
+          e.reviewDays > 0 &&
+          cap.date >= addDays(e.target, -e.reviewDays) &&
+          cap.date < e.target,
       )
       .sort((a, b) => b.priority - a.priority);
     if (!exams.length) continue;
@@ -149,6 +177,7 @@ export function generatePlan(
       (p) =>
         precedes(p, t) &&
         (p.left > 0 ||
+          (retention?.unplaced?.[JSON.stringify([p.m.id, p.round])] ?? 0) > 0 ||
           sessions.some(
             (x) =>
               x.kind === 'study' &&
@@ -157,6 +186,21 @@ export function generatePlan(
               (x.date > date || (x.date === date && x.end > time + EPS)),
           )),
     );
+  // Kept successors are an upper bound for new predecessor work. Do not insert
+  // an earlier round after an already reserved later round.
+  const availableRoom = (t: (typeof tasks)[number], date: string, start: number, end: number) => {
+    let room = Math.min(end - start, weeklyRoom(date));
+    if (retention)
+      for (const x of kept) {
+        const successor = tasks.find(
+          (other) => other.m.id === x.materialId && other.round === x.round,
+        );
+        if (x.kind !== 'study' || x.date < from || !successor || !precedes(t, successor)) continue;
+        if (x.date < date) return 0;
+        if (x.date === date) room = Math.min(room, x.start - start);
+      }
+    return Math.max(0, room);
+  };
   const normalCount = (t: (typeof tasks)[number], room: number, quota: number) =>
     sessionUnitCount(t.left, t.minutes, room, quota, policy);
   for (const cap of capacities) {
@@ -217,7 +261,7 @@ export function generatePlan(
             eligible(t, cap.date) &&
             normalCount(
               t,
-              Math.min(end - cursor, weeklyRoom(cap.date)),
+              availableRoom(t, cap.date, cursor, end),
               (quota.get(t.exam.id) || 0) - (used.get(t.exam.id) || 0),
             ) > 0 &&
             (used.get(t.exam.id) || 0) < (quota.get(t.exam.id) || 0) - EPS &&
@@ -241,7 +285,7 @@ export function generatePlan(
         if (!t) break;
         const count = normalCount(
           t,
-          Math.min(end - cursor, weeklyRoom(cap.date)),
+          availableRoom(t, cap.date, cursor, end),
           (quota.get(t.exam.id) || 0) - (used.get(t.exam.id) || 0),
         );
         if (count <= 0) break;
@@ -267,7 +311,10 @@ export function generatePlan(
     const reviewExams = s.exams
       .filter(
         (e) =>
-          e.reviewDays > 0 && cap.date >= addDays(e.target, -e.reviewDays) && cap.date < e.target,
+          !retention &&
+          e.reviewDays > 0 &&
+          cap.date >= addDays(e.target, -e.reviewDays) &&
+          cap.date < e.target,
       )
       .sort((a, b) => b.priority - a.priority);
     if (reviewExams.length) {
@@ -310,11 +357,11 @@ export function generatePlan(
               t.left > 0 &&
               eligible(t, cap.date) &&
               canStart(t, cap.date, cursor) &&
-              t.minutes <= Math.min(end - cursor, weeklyRoom(cap.date)) + EPS &&
+              t.minutes <= availableRoom(t, cap.date, cursor, end) + EPS &&
               (allowShort ||
                 Math.min(
                   t.left,
-                  Math.floor((Math.min(end - cursor, weeklyRoom(cap.date)) + EPS) / t.minutes),
+                  Math.floor((availableRoom(t, cap.date, cursor, end) + EPS) / t.minutes),
                 ) *
                   t.minutes >=
                   policy.minimum - EPS),
@@ -324,7 +371,7 @@ export function generatePlan(
           );
           const t = candidates[0];
           if (!t) break;
-          const fits = Math.floor((Math.min(end - cursor, weeklyRoom(cap.date)) + EPS) / t.minutes);
+          const fits = Math.floor((availableRoom(t, cap.date, cursor, end) + EPS) / t.minutes);
           const count = Math.min(t.left, fits);
           const length = count * t.minutes;
           const small = length < policy.minimum - EPS;
@@ -441,8 +488,8 @@ export function generatePlan(
     const a = sessions[i - 1],
       b = sessions[i];
     if (
-      !keptIds.has(a.id) &&
-      !keptIds.has(b.id) &&
+      ((!keptIds.has(a.id) && !keptIds.has(b.id)) ||
+        (retention && !a.fixed && !b.fixed && (!keptIds.has(a.id) || !keptIds.has(b.id)))) &&
       a.kind === 'study' &&
       b.kind === 'study' &&
       a.date === b.date &&
@@ -454,6 +501,7 @@ export function generatePlan(
         .find((c) => c.date === a.date)
         ?.slots.some(([lo, hi]) => a.start >= lo - EPS && b.end <= hi + EPS)
     ) {
+      if (retention && keptIds.has(b.id)) a.id = b.id;
       a.end = b.end;
       a.count += b.count;
       if (a.end - a.start >= policy.minimum - EPS) delete a.allocationReason;
@@ -463,7 +511,7 @@ export function generatePlan(
   for (const fixed of kept.filter(
     (x) => x.fixed && (x.date > from || (x.date === from && x.start >= notBefore)),
   )) {
-    const issue = fixedOrderIssue(state, fixed, sessions, from, notBefore);
+    const issue = fixedOrderIssue(state, fixed, sessions, from, notBefore, retention?.remaining);
     if (issue) conflicts.push(fixedIssueMessage(fixed, issue));
   }
   for (const e of s.exams.filter((e) => e.reviewDays > 0 && e.target > from))
@@ -508,7 +556,12 @@ export function generatePlan(
       return `${due}までの空き枠は${Math.floor(total)}分、未配置の必要時間は${need}分です。`;
     if (free.every(([start, end]) => end - start + EPS < t.minutes))
       return `ほかの予定を除くと、1問に必要な${t.minutes}分の連続枠が${due}までに残っていません。`;
-    const predecessor = tasks.find((before) => precedes(before, t) && before.left > 0);
+    const predecessor = tasks.find(
+      (before) =>
+        precedes(before, t) &&
+        (before.left > 0 ||
+          (retention?.unplaced?.[JSON.stringify([before.m.id, before.round])] ?? 0) > 0),
+    );
     if (predecessor)
       return `先行する「${predecessor.m.name}」${predecessor.round + 1}周目が未完了のため、${due}までに配分できません。`;
     return `${due}までに${need}分が未配置です。残る空き枠は${Math.floor(total)}分、1問に${t.minutes}分必要です。`;

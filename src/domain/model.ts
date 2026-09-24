@@ -143,6 +143,12 @@ export interface Plan {
   from: DateKey;
   /** Immutable basis used to recompute progress reflection after correction/cancellation. */
   progressBaseline?: PlanProgressBaseline;
+  /** Reversible allocation basis for ordinary progress edits; manual replanning replaces it. */
+  adjustmentBasis?: {
+    date: DateKey;
+    records: Record<string, number>;
+    sessions: Session[];
+  };
 }
 export interface PlanProgressBaseline {
   records: Record<string, number>;

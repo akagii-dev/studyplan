@@ -1,4 +1,7 @@
-import { AppState, CalendarDensity, clock } from '../domain/model';
+import { calendarQuantity } from '../domain/calendarQuantity';
+import { progressView } from '../domain/progressView';
+import { ProgressValue } from './ProgressValue';
+import { AppState, CalendarDensity, clock, today } from '../domain/model';
 import { calendarDaySummary } from '../domain/calendarSummary';
 import { duration } from './common';
 
@@ -16,7 +19,11 @@ export function CalendarDaySummary({
   onSelect: () => void;
 }) {
   const day = calendarDaySummary(state, date, filter);
-  if (!day.classes.length && !day.exams.length) return null;
+  const quantities = calendarQuantity(state, date, today(), filter);
+  const examIds = [
+    ...new Set([...day.exams.map((e) => e.examId), ...quantities.rows.map((r) => r.examId)]),
+  ];
+  if (!day.classes.length && !examIds.length) return null;
   return (
     <div className="calendar-day-summary" role="group" aria-label={`${date}の日合計`}>
       {day.classes.length > 0 && (
@@ -35,55 +42,32 @@ export function CalendarDaySummary({
           )}
         </button>
       )}
-      {day.exams.map((e) => (
-        <button
-          key={e.examId}
-          className={`calendar-event ${e.conflict ? 'has-conflict' : ''}`}
-          data-exam={e.examId}
-          style={{ borderLeftColor: e.color, background: `${e.color ?? '#287569'}14` }}
-          onClick={onSelect}
-        >
-          <strong className="event-exam">{e.name}</strong>
-          <small>
-            予定 <span className="calendar-event-quantity">{e.quantityLabel}</span> · {duration(e.minutes)}
-          </small>
-          {e.conflict && <small>⚠ 授業・予定と重複</small>}
-          {density !== 'compact' && (
-            <>
-              <small>
-                {[
-                  ...new Set(
-                    e.sessions.map((s) =>
-                      s.kind === 'review'
-                        ? 'まとめの復習'
-                        : (state.settings.materials.find((m) => m.id === s.materialId)?.name ??
-                          '教材'),
-                    ),
-                  ),
-                ].join('・')}
-              </small>
-              {e.groupCount > 0 && (
-                <small>
-                  {e.reportedCount === 0
-                    ? '未報告'
-                    : e.reportedCount === e.groupCount
-                      ? '報告済'
-                      : '一部報告済'}
-                </small>
-              )}
-            </>
-          )}
-          {density === 'detailed' && (
-            <>
-              <small>
-                {e.sessions.length}枠{e.sessions.some((s) => s.fixed) ? ' · 固定あり' : ''}
-                {e.reviewMinutes ? ` · 復習 ${duration(e.reviewMinutes)}` : ''}
-              </small>
-              <small>当日実績 {e.hasActual ? e.actualLabel : '未報告'}</small>
-            </>
-          )}
-        </button>
-      ))}
+      {examIds.map((id) => {
+        const exam = state.settings.exams.find((e) => e.id === id);
+        const scheduled = day.exams.find((e) => e.examId === id);
+        const quantity = calendarQuantity(state, date, today(), id);
+        return (
+          <button
+            key={id}
+            className="calendar-event"
+            data-exam={id}
+            style={{ borderLeftColor: exam?.color }}
+            onClick={onSelect}
+          >
+            <strong>{exam?.name ?? '試験'}</strong>
+            {quantity.totals.map((total) => (
+              <ProgressValue key={total.unit} value={progressView(total, date, today())} />
+            ))}
+            {scheduled?.reviewMinutes ? (
+              <small>復習 {duration(scheduled.reviewMinutes)}</small>
+            ) : null}
+            {scheduled?.conflict && <small>授業・予定と重複</small>}
+            {density !== 'compact' && (
+              <small>{[...new Set(quantity.rows.map((r) => r.name))].join('・')}</small>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

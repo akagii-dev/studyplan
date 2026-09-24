@@ -1,14 +1,16 @@
-import { AppState, addDays, weekday } from './model';
+import { AppState, addDays, weekday, today, completed } from './model';
 import { startOfWeek } from './calendar';
 import { stalePlan } from './planAudit';
 import { studyCoverageGaps, StudyCoverageGap, isLongTermStudyGap } from './studyCoverage';
-import { originalSessionCount } from './progressReflection';
+import { calendarQuantity, materialUnit } from './calendarQuantity';
+import { progressView } from './progressView';
 
 export interface ReportProgress {
+  unit: string;
   total: number;
   done: number;
   remaining: number;
-  weekPlanned: number;
+  weekPlanned: number | null;
   weekDone: number;
   recordCount: number;
 }
@@ -17,13 +19,24 @@ export interface WeeklyReport {
   to: string;
   asOf: string;
   generatedAt: string;
-  totals: ReportProgress;
+  totals: ReportProgress[];
   recordCount: number;
   exams: (ReportProgress & { name: string; target: string })[];
   rounds: (ReportProgress & { exam: string; material: string; round: number })[];
-  days: { date: string; planned: number; done: number | null; status: string }[];
-  unreported: { date: string; material: string; round: number; planned: number }[];
+  days: {
+    date: string;
+    quantities: ReturnType<typeof calendarQuantity>['totals'];
+    status: string;
+  }[];
+  unreported: {
+    date: string;
+    material: string;
+    round: number;
+    planned: number | null;
+    unit: string;
+  }[];
   hasPlan: boolean;
+  hasWeekPlan: boolean;
   planCreatedAt: string | null;
   settingsChanged: boolean;
   studyCoverageGaps: StudyCoverageGap[];
@@ -31,45 +44,31 @@ export interface WeeklyReport {
   markdown: string;
   filename: string;
 }
-export function dailyReportDetails(state: AppState, date: string) {
-  const rows = new Map<string, { materialId: string; round: number; planned: number; done: number | null }>();
-  for (const session of state.plan?.sessions ?? []) {
-    if (session.date !== date || session.kind !== 'study') continue;
-    const key = JSON.stringify([session.materialId, session.round]);
-    const previous = rows.get(key);
-    rows.set(key, {
-      materialId: session.materialId,
-      round: session.round,
-      planned: (previous?.planned ?? 0) + originalSessionCount(state.plan, session),
-      done: previous?.done ?? null,
-    });
-  }
-  for (const record of state.records) {
-    if (record.cancelled || record.date !== date) continue;
-    const key = JSON.stringify([record.materialId, record.round]);
-    const previous = rows.get(key);
-    rows.set(key, {
-      materialId: record.materialId,
-      round: record.round,
-      planned: previous?.planned ?? 0,
-      done: (previous?.done ?? 0) + record.count,
-    });
-  }
-  return [...rows.values()].sort((a, b) => a.materialId.localeCompare(b.materialId) || a.round - b.round);
+export function dailyReportDetails(state: AppState, date: string, reference = today()) {
+  return calendarQuantity(state, date, reference)
+    .rows.map((row) => ({
+      ...row,
+      done: row.reported ? row.actual : null,
+      progress: progressView(row, date, reference),
+    }))
+    .sort((a, b) => a.materialId.localeCompare(b.materialId) || a.round - b.round);
 }
-export const reportRate = (value: number, total: number) =>
-  total > 0 ? `${((value / total) * 100).toFixed(1)}%` : '—';
+export const reportRate = (value: number, total: number | null) =>
+  total !== null && total > 0 ? `${((value / total) * 100).toFixed(1)}%` : '—';
 const validDate = (value: string) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith('0000')) return false;
   const d = new Date(`${value}T00:00:00Z`);
   return Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === value;
 };
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
-const aggregate = (rows: ReportProgress[]): ReportProgress => ({
+const nullableSum = (values: (number | null)[]) =>
+  values.some((v) => v === null) ? null : sum(values as number[]);
+const aggregate = (rows: ReportProgress[], unit: string): ReportProgress => ({
+  unit,
   total: sum(rows.map((r) => r.total)),
   done: sum(rows.map((r) => r.done)),
   remaining: sum(rows.map((r) => r.remaining)),
-  weekPlanned: sum(rows.map((r) => r.weekPlanned)),
+  weekPlanned: nullableSum(rows.map((r) => r.weekPlanned)),
   weekDone: sum(rows.map((r) => r.weekDone)),
   recordCount: sum(rows.map((r) => r.recordCount)),
 });
@@ -99,96 +98,116 @@ export function createWeeklyReport(
   const inWeek = (date: string) => date >= from && date <= to;
   const records = state.records.filter((r) => !r.cancelled && r.date <= asOf);
   const weekly = records.filter((r) => inWeek(r.date));
-  const sessions = (state.plan?.sessions ?? []).filter(
-    (s) => s.kind === 'study' && originalSessionCount(state.plan, s) > 0 && inWeek(s.date),
+  const current = { ...state, records };
+  const quantities = Array.from({ length: 7 }, (_, i) =>
+    calendarQuantity(current, addDays(from, i), asOf),
   );
+  const weekRows = quantities.flatMap((day) => day.rows.map((row) => ({ ...row, date: day.date })));
   const rounds = state.settings.materials.flatMap((m) =>
-    m.rounds.map((r, round) => {
-      const done =
-        r.completed +
-        sum(records.filter((x) => x.materialId === m.id && x.round === round).map((x) => x.count));
+    m.rounds.map((_, round) => {
+      const unit = materialUnit(m.unit);
+      const matching = weekRows.filter(
+        (row) => row.materialId === m.id && row.round === round && row.unit === unit,
+      );
+      const done = completed(current, m.id, round);
       return {
         materialId: m.id,
         examId: m.examId,
         exam: state.settings.exams.find((e) => e.id === m.examId)?.name ?? '',
         material: m.name,
         round: round + 1,
+        unit,
         total: m.total,
         done,
         remaining: m.total - done,
-        weekPlanned: sum(
-          sessions
-            .filter((x) => x.materialId === m.id && x.round === round)
-            .map((x) => originalSessionCount(state.plan, x)),
-        ),
-        weekDone: sum(
-          weekly.filter((x) => x.materialId === m.id && x.round === round).map((x) => x.count),
-        ),
-        recordCount: weekly.filter((x) => x.materialId === m.id && x.round === round).length,
+        weekPlanned: nullableSum(matching.map((row) => row.planned)),
+        weekDone: sum(matching.map((row) => row.actual)),
+        recordCount: weekly.filter((r) =>
+          matching.some(
+            (row) =>
+              row.date === r.date && row.materialId === r.materialId && row.round === r.round,
+          ),
+        ).length,
       };
     }),
   );
-  const exams = state.settings.exams.map((e) => ({
-    name: e.name,
-    target: e.target,
-    ...aggregate(rounds.filter((r) => r.examId === e.id)),
-    weekPlanned: sum(
-      sessions.filter((s) => s.examId === e.id).map((s) => originalSessionCount(state.plan, s)),
+  const units = [...new Set([...rounds.map((r) => r.unit), ...weekRows.map((r) => r.unit)])];
+  const totals = units.map((unit) => ({
+    ...aggregate(
+      rounds.filter((r) => r.unit === unit),
+      unit,
     ),
+    weekPlanned: nullableSum(weekRows.filter((r) => r.unit === unit).map((r) => r.planned)),
+    weekDone: sum(weekRows.filter((r) => r.unit === unit).map((r) => r.actual)),
+    recordCount: weekly.filter((r) =>
+      weekRows.some(
+        (row) =>
+          row.unit === unit &&
+          row.materialId === r.materialId &&
+          row.round === r.round &&
+          row.date === r.date,
+      ),
+    ).length,
   }));
-  const totals = aggregate(rounds);
-  totals.weekPlanned = sum(sessions.map((s) => originalSessionCount(state.plan, s)));
-  const key = (r: { date: string; materialId: string; round: number }) =>
-    JSON.stringify([r.date, r.materialId, r.round]);
-  const groups = new Map<
-    string,
-    { date: string; material: string; round: number; planned: number; started: boolean }
-  >();
-  for (const s of sessions) {
-    const old = groups.get(key(s));
-    groups.set(key(s), {
-      date: s.date,
-      material:
-        state.settings.materials.find((m) => m.id === s.materialId)?.name ??
-        state.plan?.settingsSnapshot?.materials.find((m) => m.id === s.materialId)?.name ??
-        '教材',
-      round: s.round + 1,
-      planned: (old?.planned ?? 0) + originalSessionCount(state.plan, s),
-      started:
-        !!old?.started ||
-        s.date < asOf ||
-        (s.date === asOf && s.start <= now.getHours() * 60 + now.getMinutes()),
-    });
-  }
-  const reportedKeys = new Set(weekly.map(key));
-  const unreported = [...groups]
-    .filter(([k, g]) => g.started && !reportedKeys.has(k))
-    .map(([, g]) => g)
-    .sort(
-      (a, b) =>
-        a.date.localeCompare(b.date) || a.material.localeCompare(b.material) || a.round - b.round,
-    );
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const date = addDays(from, i);
-    const dayRecords = weekly.filter((r) => r.date === date);
-    const dayGroups = [...groups].filter(([, g]) => g.date === date);
-    const zeroKeys = new Set(dayRecords.map(key));
-    const zero = [...zeroKeys].filter(
-      (k) => sum(dayRecords.filter((r) => key(r) === k).map((r) => r.count)) === 0,
-    ).length;
-    const missing = unreported.filter((g) => g.date === date).length;
-    const future = dayGroups.filter(([k, g]) => !g.started && !reportedKeys.has(k)).length;
+  const exams = state.settings.exams.flatMap((e) =>
+    units
+      .filter(
+        (unit) =>
+          rounds.some((r) => r.examId === e.id && r.unit === unit) ||
+          weekRows.some((r) => r.examId === e.id && r.unit === unit),
+      )
+      .map((unit) => ({
+        name: e.name,
+        target: e.target,
+        ...aggregate(
+          rounds.filter((r) => r.examId === e.id && r.unit === unit),
+          unit,
+        ),
+        weekPlanned: nullableSum(
+          weekRows.filter((r) => r.examId === e.id && r.unit === unit).map((r) => r.planned),
+        ),
+        weekDone: sum(
+          weekRows.filter((r) => r.examId === e.id && r.unit === unit).map((r) => r.actual),
+        ),
+        recordCount: weekly.filter((r) =>
+          weekRows.some(
+            (row) =>
+              row.examId === e.id &&
+              row.unit === unit &&
+              row.materialId === r.materialId &&
+              row.round === r.round &&
+              row.date === r.date,
+          ),
+        ).length,
+      })),
+  );
+  const unreported = weekRows
+    .filter(
+      (row) =>
+        progressView(row, row.date, asOf).reportStatus === 'unreported' &&
+        (row.planned === null || row.planned > 0),
+    )
+    .map((row) => ({
+      date: row.date,
+      material: row.name,
+      round: row.round + 1,
+      planned: row.planned,
+      unit: row.unit,
+    }));
+  const days = quantities.map((day) => {
+    const views = day.rows.map((row) => progressView(row, day.date, asOf));
+    const missing = views.filter((v) => v.reportStatus === 'unreported').length;
+    const zero = views.filter((v) => v.hasReport && v.actual === 0).length;
     const states = [
-      dayRecords.some((r) => r.count > 0) ? '記録あり' : '',
-      zero ? `0問報告 ${zero}件` : '',
+      views.some((v) => v.hasReport && v.actual > 0) ? '記録あり' : '',
+      zero ? `0実績報告 ${zero}件` : '',
       missing ? `未報告 ${missing}件` : '',
-      future ? `これから ${future}件` : '',
+      day.date > asOf && views.length ? 'これから' : '',
     ].filter(Boolean);
     return {
-      date,
-      planned: sum(dayGroups.map(([, g]) => g.planned)),
-      done: dayRecords.length ? sum(dayRecords.map((r) => r.count)) : null,
-      status: states.join('・') || (date > asOf ? 'これから' : '予定・記録なし'),
+      date: day.date,
+      quantities: day.totals,
+      status: states.join('・') || '予定・記録なし',
     };
   });
   const report: WeeklyReport = {
@@ -203,6 +222,7 @@ export function createWeeklyReport(
     days,
     unreported,
     hasPlan: !!state.plan,
+    hasWeekPlan: quantities.some((day) => day.known),
     planCreatedAt: state.plan?.createdAt ?? null,
     settingsChanged: stalePlan(state.plan, state.settings),
     studyCoverageGaps: state.plan?.settingsSnapshot
@@ -221,7 +241,12 @@ export function createWeeklyReport(
 }
 
 function renderWeeklyReport(r: WeeklyReport) {
-  const t = r.totals;
+  const amounts = (value: number | null, unit: string) =>
+    value === null ? '—' : `${value}${cell(unit)}`;
+  const all = (format: (t: ReportProgress) => string, empty = '—') =>
+    r.totals
+      .map((t) => `${r.totals.length > 1 ? `${cell(t.unit)}：` : ''}${format(t)}`)
+      .join(' / ') || empty;
   const lines = [
     '# StudyPlan 週間レポート',
     '',
@@ -232,13 +257,13 @@ function renderWeeklyReport(r: WeeklyReport) {
     '',
     '| 指標 | 値 |',
     '| --- | --- |',
-    `| 週間の追加完了数 | ${r.recordCount ? `${t.weekDone}問` : '記録なし'} |`,
-    `| 週間の学習予定 | ${r.hasPlan ? `${t.weekPlanned}問` : '計画なし'} |`,
-    `| 週間予定に対する記録割合 | ${r.recordCount ? reportRate(t.weekDone, t.weekPlanned) : '—'} |`,
-    `| 全体の完了数（出力時点） | ${t.done} / ${t.total}問 |`,
-    `| 全体の進捗率（出力時点） | ${reportRate(t.done, t.total)} |`,
-    `| 全体の残り | ${t.remaining}問 |`,
-    `| この週の記録が全体の総問題数に占める割合 | ${r.recordCount ? reportRate(t.weekDone, t.total) : '—'} |`,
+    `| 週間の追加完了数 | ${all((t) => (t.recordCount ? amounts(t.weekDone, t.unit) : '記録なし'), '記録なし')} |`,
+    `| 週間の学習予定 | ${r.hasWeekPlan ? all((t) => amounts(t.weekPlanned, t.unit)) : '—'} |`,
+    `| 週間予定に対する記録割合 | ${all((t) => (t.recordCount ? reportRate(t.weekDone, t.weekPlanned) : '—'))} |`,
+    `| 全体の完了数（出力時点） | ${all((t) => `${t.done} / ${t.total}${cell(t.unit)}`)} |`,
+    `| 全体の進捗率（出力時点） | ${all((t) => reportRate(t.done, t.total))} |`,
+    `| 全体の残り | ${all((t) => amounts(t.remaining, t.unit))} |`,
+    `| この週の記録が全体の総量に占める割合 | ${all((t) => (t.recordCount ? reportRate(t.weekDone, t.total) : '—'))} |`,
     '',
     '全体は現在の教材・周回数と初期設定の完了数を含みます。過去の週を選んでも、全体の進捗は出力時点です。',
     '週間実績は記録対象日で集計し、訂正を反映・取消を除外します。未報告は0問として確定しません。',
@@ -249,7 +274,7 @@ function renderWeeklyReport(r: WeeklyReport) {
     '| --- | --- | ---: | ---: | ---: | ---: | ---: |',
     ...r.exams.map(
       (e) =>
-        `| ${cell(e.name)} | ${e.target} | ${e.weekPlanned}問 | ${e.recordCount ? `${e.weekDone}問` : '記録なし'} | ${e.done} / ${e.total}問 | ${reportRate(e.done, e.total)} | ${e.remaining}問 |`,
+        `| ${cell(e.name)} | ${e.target} | ${amounts(e.weekPlanned, e.unit)} | ${e.recordCount ? `${e.weekDone}${cell(e.unit)}` : '記録なし'} | ${e.done} / ${e.total}${cell(e.unit)} | ${reportRate(e.done, e.total)} | ${e.remaining}${cell(e.unit)} |`,
     ),
     '',
     '## 教材・周回ごとの進捗',
@@ -258,33 +283,43 @@ function renderWeeklyReport(r: WeeklyReport) {
     '| --- | --- | ---: | ---: | ---: | ---: |',
     ...r.rounds.map(
       (m) =>
-        `| ${cell(m.exam)} | ${cell(m.material)} | ${m.round}周目 | ${m.recordCount ? `${m.weekDone}問` : '記録なし'} | ${m.done} / ${m.total}問 | ${m.remaining}問 |`,
+        `| ${cell(m.exam)} | ${cell(m.material)} | ${m.round}周目 | ${m.recordCount ? `${m.weekDone}${cell(m.unit)}` : '記録なし'} | ${m.done} / ${m.total}${cell(m.unit)} | ${m.remaining}${cell(m.unit)} |`,
     ),
     '',
     '## 日別の予定・実績',
     '',
-    '| 日付 | 予定問題数 | 追加完了数 | 報告状態 |',
-    '| --- | ---: | ---: | --- |',
+    '| 日付 | 実績 / 予定 | 報告状態 |',
+    '| --- | --- | --- |',
     ...r.days.map(
       (d) =>
-        `| ${d.date}（${'日月火水木金土'[weekday(d.date)]}） | ${d.planned}問 | ${d.done === null ? '—（記録なし）' : `${d.done}問`} | ${d.status} |`,
+        `| ${d.date}（${'日月火水木金土'[weekday(d.date)]}） | ${
+          d.quantities
+            .map((q) => {
+              const view = progressView(q, d.date, r.asOf);
+              return cell([view.text, view.supplement].filter(Boolean).join(' '));
+            })
+            .join(' · ') || '—'
+        } | ${d.status} |`,
     ),
     '',
     '## 未報告の予定',
     '',
     ...(r.unreported.length
       ? r.unreported.map(
-          (g) => `- ${g.date}：${cell(g.material)}・${g.round}周目（当日予定 ${g.planned}問）`,
+          (g) =>
+            `- ${g.date}：${cell(g.material)}・${g.round}周目（当日予定 ${amounts(g.planned, g.unit)}）`,
         )
-      : ['開始時刻を過ぎた学習予定に未報告はありません。']),
+      : ['対象期間の過去・今日の予定に未報告はありません。']),
     '',
-    '同じ日・教材・周回の予定はまとめて判定します。これから始まる予定は未報告に含めません。',
+    '同じ日・教材・周回の予定はまとめて判定します。未来の日の予定は未報告に含めません。',
     '',
     '## 集計に使った計画',
     '',
     r.hasPlan
-      ? `承認済み計画の作成日時：${r.planCreatedAt}。出力時点で保存されている計画を使用しています。`
-      : '承認済みの計画はありません。記録と全体の進捗のみを集計しています。',
+      ? `承認済み計画の作成日時：${r.planCreatedAt}。保存済みの日別予定・確定計画・履歴を使用しています。`
+      : r.hasWeekPlan
+        ? '保存済みの日別予定・計画履歴と実績を集計しています。'
+        : 'この週の元の予定を取得できません。実績のみを表示します。',
     ...(r.settingsChanged
       ? [
           '注意：現在の設定と承認済み計画が一致していません。週間予定と全体の総問題数は異なる条件に基づきます。',
@@ -307,8 +342,8 @@ function renderWeeklyReport(r: WeeklyReport) {
           '',
         ]
       : []),
-    '承認待ち案は含めません。週の開始時点の計画を復元した比較ではありません。問題数のない別枠の復習は予定問題数に含めません。',
-    '割合は問題数ベースです。教材ごとの難しさ・所要時間の差や、実際の学習時間は表しません。',
+    '承認待ち案は含めません。取得できない元の予定量は「—」で表示します。問題数のない別枠の復習は予定問題数に含めません。',
+    '割合は同じ単位の数量ベースです。異なる単位は合算しません。教材ごとの難しさ・所要時間の差や、実際の学習時間は表しません。',
     '',
   ];
   return lines.join('\n');

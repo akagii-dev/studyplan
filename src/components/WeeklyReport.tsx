@@ -7,6 +7,8 @@ import { startOfWeek } from '../domain/calendar';
 import { createWeeklyReport, dailyReportDetails, reportRate } from '../domain/weeklyReport';
 import { exportMarkdown } from '../store';
 import { Field, duration } from './common';
+import { ProgressValue } from './ProgressValue';
+import { progressView } from '../domain/progressView';
 import { demoMode } from '../demo';
 
 export function WeeklyReport({
@@ -42,6 +44,11 @@ export function WeeklyReport({
     }
   }, [state, selected, now]);
   const report = preview.report;
+  const amount = (value: number | null, unit: string) => (value === null ? '—' : value + unit);
+  const totals = (format: (t: NonNullable<typeof report>['totals'][number]) => string) =>
+    report?.totals
+      .map((t) => (report.totals.length > 1 ? t.unit + '：' : '') + format(t))
+      .join(' / ') || '—';
   const change = (date: string) => {
     setSelected(date);
     setDetailDate(null);
@@ -62,7 +69,9 @@ export function WeeklyReport({
     setDetailDate(null);
     onDetailChange?.(false);
     requestAnimationFrame(() => {
-      document.querySelector<HTMLButtonElement>(`[data-report-date="${detailDate}"]`)?.focus({ preventScroll: true });
+      document
+        .querySelector<HTMLButtonElement>(`[data-report-date="${detailDate}"]`)
+        ?.focus({ preventScroll: true });
       window.scrollTo({ top: reportScroll.current, behavior: 'instant' });
     });
   };
@@ -140,130 +149,155 @@ export function WeeklyReport({
       {report && (
         <section aria-label="週間レポートのプレビュー">
           {detailDate && (
-            <section ref={detailRef} className="card report-day-detail" aria-label={`${detailDate}の学習詳細`}>
+            <section
+              ref={detailRef}
+              className="card report-day-detail"
+              aria-label={`${detailDate}の学習詳細`}
+            >
               <button onClick={closeDay}>← 週間レポートへ戻る</button>
-              <h2 ref={detailHeading} tabIndex={-1}>{detailDate}</h2>
+              <h2 ref={detailHeading} tabIndex={-1}>
+                {detailDate}
+              </h2>
               {dailyReportDetails(state, detailDate).length ? (
                 <ul>
                   {dailyReportDetails(state, detailDate).map((row) => (
                     <li key={`${row.materialId}/${row.round}`}>
-                      {state.settings.materials.find((material) => material.id === row.materialId)?.name ?? row.materialId} · {row.round + 1}周目
-                      {' '}予定 {row.planned}問 · 実績 {row.done === null ? '未入力' : `${row.done}問`}
+                      {state.settings.materials.find((material) => material.id === row.materialId)
+                        ?.name ?? row.materialId}{' '}
+                      · {row.round + 1}周目 <ProgressValue value={row.progress} />
                     </li>
                   ))}
                 </ul>
-              ) : !state.plan?.sessions.some((session) => session.date === detailDate && session.kind === 'review') && <p>この日の予定・実績はありません。</p>}
-              {state.plan?.sessions.filter((session) => session.date === detailDate && session.kind === 'review').map((session) => (
-                <p key={session.id}>
-                  {state.settings.exams.find((exam) => exam.id === session.examId)?.name ?? '試験'} · 復習 {duration(session.end - session.start)}
-                </p>
-              ))}
+              ) : (
+                !state.plan?.sessions.some(
+                  (session) => session.date === detailDate && session.kind === 'review',
+                ) && <p>この日の予定・実績はありません。</p>
+              )}
+              {state.plan?.sessions
+                .filter((session) => session.date === detailDate && session.kind === 'review')
+                .map((session) => (
+                  <p key={session.id}>
+                    {state.settings.exams.find((exam) => exam.id === session.examId)?.name ??
+                      '試験'}{' '}
+                    · 復習 {duration(session.end - session.start)}
+                  </p>
+                ))}
             </section>
           )}
           <div hidden={!!detailDate}>
-          <h2>
-            {report.from}〜{report.to}
-          </h2>
-          <p>月曜〜日曜 ／ 全体の進捗は出力時点</p>
-          <div className="metrics report-metrics">
-            <div className="metric-card">
-              <span>この週に記録した問題</span>
-              <strong>
-                {report.recordCount ? report.totals.weekDone : '—'}
-                <small>{report.recordCount ? '問' : '記録なし'}</small>
-              </strong>
-              <p>週間予定 {report.hasPlan ? `${report.totals.weekPlanned}問` : 'なし'}</p>
+            <h2>
+              {report.from}〜{report.to}
+            </h2>
+            <p>月曜〜日曜 ／ 全体の進捗は出力時点</p>
+            <div className="metrics report-metrics">
+              <div className="metric-card">
+                <span>この週に記録した量</span>
+                <strong>
+                  {totals((t) => (t.recordCount ? amount(t.weekDone, t.unit) : '記録なし'))}
+                </strong>
+                <p>
+                  週間予定 {report.hasWeekPlan ? totals((t) => amount(t.weekPlanned, t.unit)) : '—'}
+                </p>
+              </div>
+              <div className="metric-card">
+                <span>全体の進捗率</span>
+                <strong>{totals((t) => reportRate(t.done, t.total))}</strong>
+                <p>完了 {totals((t) => `${t.done} / ${t.total}${t.unit}`)}</p>
+              </div>
+              <div className="metric-card">
+                <span>この週の記録 / 全体の総量</span>
+                <strong>
+                  {totals((t) => (t.recordCount ? reportRate(t.weekDone, t.total) : '—'))}
+                </strong>
+                <p>全体の残り {totals((t) => amount(t.remaining, t.unit))}</p>
+              </div>
             </div>
-            <div className="metric-card">
-              <span>全体の進捗率</span>
-              <strong>{reportRate(report.totals.done, report.totals.total)}</strong>
-              <p>
-                完了 {report.totals.done} / {report.totals.total}問
-              </p>
-            </div>
-            <div className="metric-card">
-              <span>この週の記録 / 全体の総問題数</span>
-              <strong>
-                {report.recordCount ? reportRate(report.totals.weekDone, report.totals.total) : '—'}
-              </strong>
-              <p>全体の残り {report.totals.remaining}問</p>
-            </div>
-          </div>
-          {report.settingsChanged && (
-            <Warning
-              id="weeklyreport-0"
-              title="週間予定に最新の設定が未反映です"
-              version={[state.plan?.id, state.settings]}
-            >
-              週間予定には、現在の設定がまだ反映されていません。
-            </Warning>
-          )}
-          <section className="card">
-            <h3>試験ごとの比較</h3>
-            <div
-              className="report-table"
-              role="region"
-              aria-label="試験ごとの週間・全体比較"
-              tabIndex={0}
-            >
-              <table>
-                <thead>
-                  <tr>
-                    <th>試験</th>
-                    <th>週の予定</th>
-                    <th>週の記録</th>
-                    <th>全体の完了 / 総数</th>
-                    <th>全体の進捗</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.exams.map((e, i) => (
-                    <tr key={i}>
-                      <td>{e.name}</td>
-                      <td>{e.weekPlanned}問</td>
-                      <td>{e.recordCount ? `${e.weekDone}問` : '記録なし'}</td>
-                      <td>
-                        {e.done} / {e.total}問
-                      </td>
-                      <td>{reportRate(e.done, e.total)}</td>
+            {report.settingsChanged && (
+              <Warning
+                id="weeklyreport-0"
+                title="週間予定に最新の設定が未反映です"
+                version={[state.plan?.id, state.settings]}
+              >
+                週間予定には、現在の設定がまだ反映されていません。
+              </Warning>
+            )}
+            <section className="card">
+              <h3>試験ごとの比較</h3>
+              <div
+                className="report-table"
+                role="region"
+                aria-label="試験ごとの週間・全体比較"
+                tabIndex={0}
+              >
+                <table>
+                  <thead>
+                    <tr>
+                      <th>試験</th>
+                      <th>週の予定</th>
+                      <th>週の記録</th>
+                      <th>全体の完了 / 総数</th>
+                      <th>全体の進捗</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {!report.exams.length && <p>試験はまだ登録されていません。</p>}
-          </section>
-          <section className="card">
-            <h3>日別の予定・実績</h3>
-            <div className="report-table" role="region" aria-label="週間の日別実績" tabIndex={0}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>日付</th>
-                    <th>予定</th>
-                    <th>追加完了</th>
-                    <th>報告状態</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.days.map((d) => (
-                    <tr key={d.date}>
-                      <td><button data-report-date={d.date} onClick={() => showDay(d.date)}>{d.date}</button></td>
-                      <td>{d.planned}問</td>
-                      <td>{d.done === null ? '記録なし' : `${d.done}問`}</td>
-                      <td>{d.status}</td>
+                  </thead>
+                  <tbody>
+                    {report.exams.map((e, i) => (
+                      <tr key={i}>
+                        <td>{e.name}</td>
+                        <td>{amount(e.weekPlanned, e.unit)}</td>
+                        <td>{e.recordCount ? `${e.weekDone}${e.unit}` : '記録なし'}</td>
+                        <td>
+                          {e.done} / {e.total}
+                          {e.unit}
+                        </td>
+                        <td>{reportRate(e.done, e.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {!report.exams.length && <p>試験はまだ登録されていません。</p>}
+            </section>
+            <section className="card">
+              <h3>日別の予定・実績</h3>
+              <div className="report-table" role="region" aria-label="週間の日別実績" tabIndex={0}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>日付</th>
+                      <th>実績 / 予定</th>
+                      <th>報告状態</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-          <details className="card report-markdown">
-            <summary>Markdownの内容を確認</summary>
-            <pre tabIndex={0} aria-label="書き出すMarkdown">
-              {report.markdown}
-            </pre>
-          </details>
+                  </thead>
+                  <tbody>
+                    {report.days.map((d) => (
+                      <tr key={d.date}>
+                        <td>
+                          <button data-report-date={d.date} onClick={() => showDay(d.date)}>
+                            {d.date}
+                          </button>
+                        </td>
+                        <td>
+                          {d.quantities.map((q) => (
+                            <ProgressValue
+                              key={q.unit}
+                              value={progressView(q, d.date, report.asOf)}
+                            />
+                          ))}
+                          {!d.quantities.length && '—'}
+                        </td>
+                        <td>{d.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+            <details className="card report-markdown">
+              <summary>Markdownの内容を確認</summary>
+              <pre tabIndex={0} aria-label="書き出すMarkdown">
+                {report.markdown}
+              </pre>
+            </details>
           </div>
         </section>
       )}

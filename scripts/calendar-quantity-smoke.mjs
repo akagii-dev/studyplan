@@ -56,7 +56,7 @@ try {
     await page.getByRole('button', { name: '学習量', exact: true }).click();
     await expect(page.getByRole('button', { name: '学習量', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
-    await expect(page.locator('.quantity-breakdown .calendar-amounts dd').nth(1)).toHaveText('0問');
+    await expect(page.locator('.quantity-breakdown')).toContainText('0/20問');
     const selected = await page.locator('.day-panel h2, .day-panel h3').first().innerText();
     await page.getByRole('button', { name: '内容', exact: true }).click();
     await expect(page.locator('.day-panel h2, .day-panel h3').first()).toHaveText(selected);
@@ -66,11 +66,8 @@ try {
     // Select a past archived day, including when the selected week crosses months.
     await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
     await page.getByRole('button', { name: new RegExp(`^${past}を表示 `) }).click();
-    await expect(page.locator('.quantity-breakdown')).toContainText('その日の不足');
-    const amounts = page.locator('.quantity-breakdown .calendar-amounts');
-    await expect(amounts.locator('dd').nth(0)).toHaveText('20問');
-    await expect(amounts.locator('dd').nth(1)).toHaveText('12問');
-    await expect(amounts.locator('dd').nth(2)).toHaveText('8問');
+    await expect(page.locator('.quantity-breakdown')).toContainText('12/20問');
+    await expect(page.locator('.quantity-breakdown')).toContainText('8問不足');
     await page.getByRole('button', { name: '一覧', exact: true }).click();
     await expect(page.getByRole('button', { name: `${past}の学習量の内訳` })).toBeVisible();
     await page.getByRole('button', { name: '月', exact: true }).click();
@@ -79,7 +76,7 @@ try {
     await page.screenshot({ path: `${output}/viewport-${width}.png` });
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'no horizontal overflow');
     await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
-    await expect(page.locator('.quantity-breakdown .calendar-amounts dd').nth(1)).toHaveText('0問');
+    await expect(page.locator('.quantity-breakdown')).toContainText('0/20問');
     await page.getByRole('button', { name: '内容', exact: true }).focus();
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('Tab');
@@ -125,19 +122,17 @@ try {
     await page.goto(`${url}#calendar`, { waitUntil: 'networkidle' });
     await page.getByRole('button', { name: '学習量', exact: true }).click();
     await page.getByRole('button', { name: new RegExp(`^${past}を表示 `) }).click();
-    await expect(page.locator('.quantity-breakdown .calendar-amounts dd').nth(0)).toHaveText('基準なし');
-    await expect(page.locator('.quantity-breakdown .calendar-amounts dd').nth(1)).toHaveText('12問');
-    await expect(page.locator('.quantity-breakdown .calendar-amounts dd').nth(2)).toHaveText('基準なし');
+    await expect(page.locator('.quantity-breakdown')).toContainText('12問');
+    await expect(page.locator('.quantity-breakdown')).not.toContainText('基準なし');
+    await expect(page.locator('.quantity-breakdown')).not.toContainText('問不足');
     await page.reload();
     await page.getByRole('button', { name: '学習量', exact: true }).click();
     await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
     const pages = page.locator('.quantity-breakdown section').filter({ hasText: '読書' });
-    await expect(pages.locator('dd').nth(0)).toHaveText('5ページ');
-    await expect(pages.locator('dd').nth(1)).toHaveText('2ページ');
-    await expect(pages.locator('dd').nth(2)).toHaveText('3ページ');
+    await expect(pages).toContainText('2/5ページ');
     await pages.getByRole('button', { name: '記録を確認・追加' }).click();
-    await expect(page.getByLabel('教材', { exact: true })).toHaveValue('pages');
-    await expect(page.locator('.progress-summary')).toContainText('残り 3ページ');
+    await expect(page.getByRole('textbox', { name: '読書 1周目の追加分（ページ）' })).toHaveValue('3');
+    await expect(page.locator('.daily-record-row').filter({ hasText: '読書' })).toContainText('2/5ページ');
     await context.close();
     console.log('PASS missing historical baseline, mixed units, record detail route');
   }

@@ -1,3 +1,4 @@
+import { RecordTarget } from '../components/TodayRecorder';
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { Calendar } from '../components/Calendar';
 import { CommuteSettings } from '../components/CommuteSettings';
@@ -39,6 +40,7 @@ const fallbackFor = (page: Page): Page =>
     page === 'progress' ? 'history' : page === 'today' ? 'dashboard' : 'settings';
 type ReturnPoint = { page: Page; top: number; focus: HTMLElement | null; focusKey?: string };
 export default function App() {
+  const [recordTarget, setRecordTarget] = useState<RecordTarget | null>(null);
   const [page, setPageState] = useState<Page>(directPage);
   const [restorePosition, setRestorePosition] = useState<(ReturnPoint & { key: number }) | null>(null);
   const [origin, setOrigin] = useState<ReturnPoint | null>(null);
@@ -54,6 +56,7 @@ export default function App() {
   const [availabilityTarget, setAvailabilityTarget] = useState<AvailabilityTarget | null>(null);
   const setPage = (destination: Page, keepAvailability = false) => {
     if (destination === page) return;
+    if (destination !== 'dashboard') setRecordTarget(null);
     if (page === 'report') setReportDayOpen(false);
     if (destination === 'calendar' && page !== 'future') setCalendarRevealDay(false);
     if (mainPages.has(destination)) originStack.current = [];
@@ -143,6 +146,11 @@ export default function App() {
       .catch(() => {});
   };
   const onRecord = (session: Pick<Session, 'date' | 'materialId' | 'round'>) => {
+    if (session.date === today()) {
+      setRecordTarget({ materialId: session.materialId, round: session.round, token: Date.now() });
+      setPage('dashboard');
+      return;
+    }
     void update((s) => ({
       ...s,
       draft: {
@@ -272,7 +280,7 @@ export default function App() {
             )}
           <NumericDraftProvider state={state} update={update} scope={numericScope}>
             {page === 'dashboard' && (
-              <Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} />
+              <Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} recordTarget={recordTarget} />
             )}{' '}
             {page === 'future' && (
               <Future {...props} initialWeek={futureWeek} onWeekChange={setFutureWeek} onCalendar={(date, revealDay = !!date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} />

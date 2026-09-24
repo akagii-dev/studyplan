@@ -1,6 +1,6 @@
 {
   "name": "studyplan",
-  "version": "0.4.18",
+  "version": "0.4.19",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,7 +15,10 @@
     "test:ui": "playwright test",
     "tauri": "tauri",
     "desktop": "tauri dev",
-    "desktop:build": "tauri build --no-bundle"
+    "desktop:build": "tauri build --no-bundle",
+    "test:contracts": "playwright test --config playwright.web.config.ts",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "verify:ui": "pnpm demo:build && pnpm test:contracts"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",

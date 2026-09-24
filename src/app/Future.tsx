@@ -1,4 +1,6 @@
-import { calendarQuantity, materialUnit, recordedShortage } from '../domain/calendarQuantity';
+import { progressView } from '../domain/progressView';
+import { ProgressValue } from '../components/ProgressValue';
+import { calendarQuantity } from '../domain/calendarQuantity';
 import { Props, duration } from '../components/common';
 import { useState } from 'react';
 import { upcomingSunday, shortDayLabel, weekRangeLabel } from '../domain/calendar';
@@ -102,9 +104,8 @@ export function Future({
                   {date === reference && <span className="future-today">今日</span>}
                 </h2>
                 <ul>
-                  {date <= reference &&
-                    quantity.rows.map((row) => {
-                      const shortage = recordedShortage(row);
+                  {date <= reference && quantity.rows.map((row) => {
+                      const progress = progressView(row, date, reference);
                       const matching = sessions.filter(
                         (s) =>
                           s.kind === 'study' &&
@@ -117,28 +118,7 @@ export function Future({
                             {row.name} · {row.round + 1}周目
                           </span>
                           <span className="future-quantity">
-                            <strong
-                              className={
-                                !row.reported && date < reference ? 'quantity-warning' : undefined
-                              }
-                            >
-                              {row.reported
-                                ? row.planned === null
-                                  ? `${row.actual}${row.unit}`
-                                  : `${row.actual}/${row.planned}${row.unit}`
-                                : row.planned === null
-                                  ? '未報告'
-                                  : `未報告 / ${row.planned}${row.unit}`}
-                            </strong>
-                            {date < reference &&
-                              row.reported &&
-                              shortage !== null &&
-                              shortage > 0 && (
-                                <strong className="quantity-warning">
-                                  {shortage}
-                                  {row.unit}不足
-                                </strong>
-                              )}
+                            <ProgressValue value={progress} />
                             {matching.some((s) => s.fixed) && (
                               <span className="future-fixed">
                                 {matching.every((s) => s.fixed) ? '固定' : '一部固定'}
@@ -160,9 +140,10 @@ export function Future({
                             : `${state.settings.materials.find((material) => material.id === session.materialId)?.name ?? session.materialId} · ${session.round + 1}周目`}
                         </span>
                         <strong>
-                          {session.kind === 'review'
-                            ? duration(minutes)
-                            : `${count}${materialUnit(state.settings.materials.find((m) => m.id === session.materialId)?.unit)}`}
+                          {session.kind === 'review' ? duration(minutes) : progressView({
+                            planned: count, actual: 0, reported: false,
+                            unit: quantity.rows.find(row => row.materialId === session.materialId && row.round === session.round)?.unit ?? '問',
+                          }, date, reference).text}
                         </strong>
                         {session.fixed && <span className="future-fixed">固定</span>}
                       </li>

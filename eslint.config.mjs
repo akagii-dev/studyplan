@@ -23,6 +23,45 @@ export default defineConfig(
     },
   },
   {
+    files: [
+      'src/app/{Dashboard,Future}.tsx',
+      'src/components/{Calendar,CalendarDaySummary,CalendarQuantity,TodayRecorder,TodayStudyList,WeeklyReport}.tsx',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/domain/model'],
+              importNames: ['actual', 'reported', 'completed'],
+              message:
+                '日別進捗はcalendarQuantity→progressState/progressViewを使用してください（docs/ARCHITECTURE.md）。',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      'src/components/Calendar*.tsx',
+      'src/app/Future.tsx',
+      'src/components/WeeklyReport.tsx',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'ImportDeclaration[source.value=/\\/(planning|progress|TodayRecorder|Progress)$/]',
+          message:
+            '俯瞰・詳細画面には実績入力を複製せず、既存の記録画面へ誘導してください。計算用の日付列挙はplanner/intervalsから取得できます。',
+        },
+      ],
+    },
+  },
+  {
     files: ['src/domain/planner/**/*.ts'],
     rules: {
       'no-restricted-imports': [

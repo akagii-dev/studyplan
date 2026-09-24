@@ -117,7 +117,7 @@ export function calendarQuantity(
     ? historicalDayBaseline(state, date)
     : date === reference && state.studyDayBaselines?.[date]
       ? state.studyDayBaselines[date]
-      : state.plan
+      : state.plan && (covers(state.plan, date) || state.plan.sessions.some((s) => s.date === date))
         ? snapshot(state, state.plan, date, date === reference)
         : null;
   const rows = new Map<string, QuantityRow>();

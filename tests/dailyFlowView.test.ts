@@ -156,12 +156,12 @@ it('今日の教材ごとに予定・実績・追加分入力を分け、0問と
     createElement(TodayRecorder, { state, update: async () => {} }),
   );
   expect(html).toContain('問題集A');
-  expect(html).toContain('予定 10問');
-  expect(html).toContain('実績 15問');
-  expect(html).toContain('実績 0問');
+  expect(html).toContain('15/10問');
+  expect(html).toContain('150%');
+  expect(html).toContain('0/10問');
   expect(html).toContain('問題集C');
-  expect(html).toContain('予定なし');
-  expect(html).toContain('実績 3問');
+  expect(html).toContain('3/0問');
+  expect(html).not.toContain('Infinity');
   expect(html).toContain('予定外の学習を記録');
   expect(html).toContain('問題集A 1周目の追加分（問）');
 });

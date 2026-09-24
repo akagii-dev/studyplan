@@ -1,3 +1,4 @@
+import { ProgressValue } from './ProgressValue';
 import { todayStudyRows } from '../domain/todayProgress';
 import { AppState, today } from '../domain/model';
 
@@ -22,8 +23,7 @@ export function TodayStudyList({
             <span>{row.round + 1}周目</span>
           </div>
           <div className="today-study-values">
-            <span>{row.planned > 0 ? `予定 ${row.planned}問` : '予定なし'}</span>
-            <span>{row.reported ? `実績 ${row.actual}問` : '実績 未入力'}</span>
+            <ProgressValue value={row.progress} />
           </div>
           {onRecord &&
             state.settings.materials.some((material) => material.id === row.materialId) && (

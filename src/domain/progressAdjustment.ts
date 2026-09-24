@@ -1,10 +1,9 @@
-import { AppState, Progress, addDays, Plan } from './model';
+import { AppState, Progress, addDays } from './model';
 import { retainStudyDayBaselines } from './calendarQuantity';
 import { stalePlan } from './planAudit';
 import { recordProgress, correctProgress } from './progress';
-import { createProgressBaseline } from './progressReflection';
 import { PlanningContext } from './planner/context';
-import { approve, propose } from './planner/proposal';
+import { allocateProgress, prepareAdjustment } from './progressAllocation';
 import {
   AdjustmentStatus,
   ProgressAction,
@@ -20,14 +19,6 @@ export interface ProgressAdjustmentResult {
   unplacedMinutes?: number;
 }
 
-function plannedWork(plan: Plan) {
-  return JSON.stringify({
-    sessions: plan.sessions.map(({ id: _id, ...session }) => session),
-    shortfalls: plan.shortfalls,
-    conflicts: plan.conflicts,
-  });
-}
-
 function withResult(state: AppState, result: ProgressAdjustmentResult): AppState {
   return {
     ...state,
@@ -40,6 +31,7 @@ export function adjustAfterProgress(
   changed: AppState,
   recordId: string,
   context: PlanningContext,
+  beforeProgress: AppState = changed,
 ): AppState {
   if (!changed.plan) return withResult(changed, { recordId, status: 'recorded' });
   if (changed.proposal)
@@ -57,48 +49,44 @@ export function adjustAfterProgress(
 
   try {
     const from = addDays(context.date, 1);
-    let candidate = propose(changed, from, '実績から残りの予定を調整', context);
-    // Past and today are immutable plan history, including legacy zero-count sessions.
-    // The general generator may normalize such sessions, so restore them here exactly.
-    candidate = {
-      ...candidate,
-      proposal: {
-        ...candidate.proposal!,
-        plan: {
-          ...candidate.proposal!.plan,
-          sessions: [
-            ...changed.plan.sessions.filter((session) => session.date < from),
-            ...candidate.proposal!.plan.sessions.filter((session) => session.date >= from),
-          ],
-        },
-      },
-    };
-    // Explicit user authorization for automatic adjustment covers still-unreported work.
-    // No report is fabricated: remaining() continues to derive only from saved records.
-    const approved = approve(candidate, true, context);
-    approved.draft = { ...approved.draft, revision: changed.draft.revision };
-    const plan = approved.plan!;
+    const prepared = { ...changed, plan: prepareAdjustment(beforeProgress, context).plan };
+    if (!prepared.plan?.adjustmentBasis)
+      return withResult(changed, {
+        recordId,
+        status: 'review',
+        detail:
+          '旧計画への実績の反映状況を確認できません。計画全体の見直しで現在の残量を確認してください。',
+      });
+    const { plan, reason } = allocateProgress(prepared, context);
     const changes = planChanges(changed.plan, plan, from);
     const result: ProgressAdjustmentResult = {
       recordId,
       status: plan.shortfalls.length ? 'unplaced' : changes.length ? 'applied' : 'unchanged',
       unplacedCount: plan.shortfalls.reduce((sum, item) => sum + item.count, 0),
       unplacedMinutes: plan.shortfalls.reduce((sum, item) => sum + item.minutes, 0),
+      ...(changes.length ? { detail: reason } : {}),
     };
-    if (changed.plan && plannedWork(changed.plan) === plannedWork(plan)) {
-      // Refresh the incorporated record basis without creating an identical plan revision.
+    const sortedShortfalls = (items: typeof plan.shortfalls) =>
+      [...items].sort((a, b) => a.materialId.localeCompare(b.materialId) || a.round - b.round);
+    if (
+      !changes.length &&
+      JSON.stringify(sortedShortfalls(changed.plan.shortfalls)) ===
+        JSON.stringify(sortedShortfalls(plan.shortfalls)) &&
+      JSON.stringify(changed.plan.conflicts) === JSON.stringify(plan.conflicts)
+    ) {
       return withResult(
         {
           ...changed,
           plan: {
             ...changed.plan,
-            progressBaseline: createProgressBaseline(changed.plan, changed.records),
+            progressBaseline: plan.progressBaseline,
+            adjustmentBasis: plan.adjustmentBasis,
           },
         },
         result,
       );
     }
-    return withResult(approved, result);
+    return withResult({ ...changed, plan, history: [...changed.history, changed.plan] }, result);
   } catch (error) {
     return withResult(changed, {
       recordId,
@@ -146,9 +134,13 @@ export function recordAndAdjust(state: AppState, entry: Progress, context: Plann
   return withReceipt(
     state,
     adjustAfterProgress(
-      { ...recorded, studyDayBaselines: retained.studyDayBaselines },
+      {
+        ...recorded,
+        studyDayBaselines: retained.studyDayBaselines,
+      },
       entry.id,
       context,
+      state,
     ),
     entry.id,
     'record',
@@ -177,9 +169,13 @@ export function correctAndAdjust(
   return withReceipt(
     state,
     adjustAfterProgress(
-      { ...corrected, studyDayBaselines: retained.studyDayBaselines },
+      {
+        ...corrected,
+        studyDayBaselines: retained.studyDayBaselines,
+      },
       id,
       context,
+      state,
     ),
     id,
     cancelled ? 'cancel' : 'correct',

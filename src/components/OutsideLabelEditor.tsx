@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import { clock } from '../domain/model';
 import { Field } from './common';
@@ -19,10 +19,17 @@ export function OutsideLabelEditor({
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
+  const restoreFocus = useRef(false);
+  useLayoutEffect(() => {
+    if (!editing && restoreFocus.current) {
+      restoreFocus.current = false;
+      button.current?.focus();
+    }
+  }, [editing]);
   const finish = () => {
+    restoreFocus.current = true;
     setEditing(false);
     setError('');
-    requestAnimationFrame(() => button.current?.focus());
   };
   const commit = async (value: string | null) => {
     if (busy) return;

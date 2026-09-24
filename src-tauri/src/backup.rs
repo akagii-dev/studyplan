@@ -16,14 +16,59 @@ pub fn check(file: &Value) -> Result<(), String> {
             .build(&schema)
             .expect("valid backup schema")
     });
-    if !schema.is_valid(file) {
-        return Err("バックアップの形式に対応していないか、内容が壊れています。現在のデータは変更していません。".into());
+    if let Some(error) = schema.iter_errors(file).next() {
+        return Err(format!("保存形式に合わない値があります（{}）。値を修正してください。現在のデータは変更していません。", error.instance_path()));
     }
     check_state(&file["data"])?;
     if let Some(previous) = file["data"].get("resetBackup") {
         check_state(previous)?;
     }
     Ok(())
+}
+/// The same accepted state must be writable, exportable and restorable.
+pub fn check_data(data: &Value) -> Result<(), String> {
+    let file = json!({"format":"StudyPlanBackup","version":1,"createdAt":"2026-09-25T00:00:00Z","appVersion":env!("CARGO_PKG_VERSION"),"data":data});
+    check(&file)?;
+    if serde_json::to_vec_pretty(&file)
+        .map_err(|e| e.to_string())?
+        .len()
+        > MAX_BYTES - 32
+    {
+        return Err("保存内容がバックアップの50MB上限を超えています。".into());
+    }
+    Ok(())
+}
+/// Old invalid data stays readable. Only editing drafts/display is allowed until repaired.
+pub fn check_commit(previous: Option<&Value>, data: &Value) -> Result<(), String> {
+    match check_data(data) {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            if let Some(previous) = previous.filter(|old| check_data(old).is_err()) {
+                let committed = |value: &Value| {
+                    let mut value = value.clone();
+                    if let Some(fields) = value.as_object_mut() {
+                        for key in [
+                            "draft",
+                            "step",
+                            "theme",
+                            "appearance",
+                            "sidebarCollapsed",
+                            "calendarDensity",
+                            "warningExpanded",
+                            "ignoredWarnings",
+                        ] {
+                            fields.remove(key);
+                        }
+                    }
+                    value
+                };
+                if committed(previous) == committed(data) {
+                    return Ok(());
+                }
+            }
+            Err(error)
+        }
+    }
 }
 fn unique(items: &Value) -> Result<(), String> {
     let mut ids = HashSet::new();

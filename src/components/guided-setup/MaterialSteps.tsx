@@ -3,6 +3,7 @@ import { ReactNode } from 'react';
 import { Field } from '../common';
 import { newMaterial } from './model';
 import { QuestionView, StepContext } from './types';
+import { MAX_MINUTES_PER_UNIT } from '../../domain/materialConstraints';
 
 export function MaterialSteps(ctx: StepContext): QuestionView | undefined {
   const { w, state, mode, mat, go, choice, saveAndGo, savingItem } = ctx;
@@ -117,6 +118,7 @@ export function MaterialSteps(ctx: StepContext): QuestionView | undefined {
           <input
             type="number"
             min="0.1"
+            max={MAX_MINUTES_PER_UNIT}
             step="0.1"
             value={w.material.rounds[0].minutes}
             onChange={(e) =>
@@ -125,7 +127,8 @@ export function MaterialSteps(ctx: StepContext): QuestionView | undefined {
           />
         </Field>
       );
-      valid = w.material.rounds[0].minutes > 0;
+      valid =
+        w.material.rounds[0].minutes > 0 && w.material.rounds[0].minutes <= MAX_MINUTES_PER_UNIT;
       break;
     case 'material.custom':
       title = '周回ごとに、所要時間を変えますか？';
@@ -162,6 +165,7 @@ export function MaterialSteps(ctx: StepContext): QuestionView | undefined {
           <input
             type="number"
             min="0.1"
+            max={MAX_MINUTES_PER_UNIT}
             step="0.1"
             value={w.material.rounds[i].minutes}
             onChange={(e) =>
@@ -174,7 +178,8 @@ export function MaterialSteps(ctx: StepContext): QuestionView | undefined {
           />
         </Field>
       );
-      valid = w.material.rounds[i].minutes > 0;
+      valid =
+        w.material.rounds[i].minutes > 0 && w.material.rounds[i].minutes <= MAX_MINUTES_PER_UNIT;
       break;
     }
     case 'material.order':

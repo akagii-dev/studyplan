@@ -2,6 +2,8 @@ import { BookOpen, Pencil, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Material, completed, uid } from '../../domain/model';
 import { validateSettings } from '../../domain/planning';
+import { minimumRetainedRounds } from '../../domain/revision';
+import { MAX_MINUTES_PER_UNIT } from '../../domain/materialConstraints';
 import { AnimatedProgress } from '../AnimatedProgress';
 import { Empty, Field, Props, useDraft } from '../common';
 export function Materials({ state, update, onAdd }: Props & { onAdd: () => void }) {
@@ -97,16 +99,13 @@ export function Materials({ state, update, onAdd }: Props & { onAdd: () => void 
           <Field label="周回数">
             <input
               type="number"
-              min="1"
+              min={form.id ? minimumRetainedRounds(state, form.id) : 1}
               max="20"
               value={form.rounds.length}
               onChange={(e) => {
                 const n = Math.max(1, Math.min(20, +e.target.value));
-                if (
-                  form.id &&
-                  state.records.some((r) => r.materialId === form.id && r.round >= n)
-                ) {
-                  err('記録のある周回は削除できません。');
+                if (form.id && n < minimumRetainedRounds(state, form.id)) {
+                  err('初期完了・記録・開始済み予定・固定予定のある周回は減らせません。');
                   return;
                 }
                 set({
@@ -116,6 +115,7 @@ export function Materials({ state, update, onAdd }: Props & { onAdd: () => void 
                     (_, i) => form.rounds[i] ?? { completed: 0, minutes: form.rounds[0].minutes },
                   ),
                 });
+                err('');
               }}
             />
           </Field>
@@ -146,6 +146,7 @@ export function Materials({ state, update, onAdd }: Props & { onAdd: () => void 
                 <input
                   type="number"
                   min="0.1"
+                  max={MAX_MINUTES_PER_UNIT}
                   step="0.1"
                   value={r.minutes}
                   onChange={(e) =>

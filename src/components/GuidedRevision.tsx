@@ -1,4 +1,5 @@
 import { Warning } from './Warnings';
+import { MAX_MINUTES_PER_UNIT } from '../domain/materialConstraints';
 import { useState } from 'react';
 import { CommuteEditor } from './CommuteSettings';
 import {
@@ -244,6 +245,7 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
         value: r.minutes,
         type: 'number',
         min: 0.1,
+        max: MAX_MINUTES_PER_UNIT,
         step: 0.1,
         set: (s, v) => {
           s.materials.find((x) => x.id === m.id)!.rounds[i].minutes = Number(v);

@@ -23,12 +23,38 @@ it('初期設定前・空欄の入力途中も保存できる', () => {
   file.data.draft.numberEdits = { 'setup/test': { text: '', base: '50' } };
   expect(parseBackup(JSON.stringify(file)).data).toEqual(file.data);
 });
+it('補足条件への部分回答を未回答のままバックアップ往復できる', () => {
+  const file = packet();
+  file.data.settings.scheduleAnswers = { class: 'registered' };
+  expect(parseBackup(JSON.stringify(file)).data.settings.scheduleAnswers).toEqual({
+    class: 'registered',
+  });
+  file.data.settings.scheduleAnswers.busy = 'none';
+  expect(parseBackup(JSON.stringify(file)).data.settings.scheduleAnswers).toEqual({
+    class: 'registered',
+    busy: 'none',
+  });
+});
 it('日別の確定基準・単位・承認日時をバックアップ往復で保持する', () => {
   const file = packet();
   file.data.studyDayBaselines = {
-    '2026-09-24': { planId: 'approved', rows: [{ materialId: 'book', examId: 'exam', round: 0, name: '読書', unit: 'ページ', count: 20 }] },
+    '2026-09-24': {
+      planId: 'approved',
+      rows: [
+        { materialId: 'book', examId: 'exam', round: 0, name: '読書', unit: 'ページ', count: 20 },
+      ],
+    },
   };
-  file.data.plan = { id: 'approved', createdAt: '2026-09-24T01:00:00Z', approvedAt: '2026-09-24T02:00:00Z', from: '2026-09-24', sessions: [], capacities: [], shortfalls: [], conflicts: [] };
+  file.data.plan = {
+    id: 'approved',
+    createdAt: '2026-09-24T01:00:00Z',
+    approvedAt: '2026-09-24T02:00:00Z',
+    from: '2026-09-24',
+    sessions: [],
+    capacities: [],
+    shortfalls: [],
+    conflicts: [],
+  };
   expect(parseBackup(JSON.stringify(file))).toEqual(file);
   file.data.studyDayBaselines['2026-09-24'].rows[0].count = -1;
   expect(() => parseBackup(JSON.stringify(file))).toThrow();

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Props } from '../components/common';
-import { AppState } from '../domain/model';
+import { AppState, today } from '../domain/model';
+import { validateMaterialChanges } from '../domain/materialConstraints';
 import { currentPresentation, samePlanningSettings, sameSettings } from '../domain/planAudit';
 import {
   PlanningInputError,
@@ -99,6 +100,13 @@ export function usePersistentAppState() {
     try {
       next = fn(dataRef.current!);
       if (!sameSettings(dataRef.current!.settings, next.settings)) {
+        const now = new Date();
+        validateMaterialChanges(
+          dataRef.current!,
+          next.settings,
+          today(),
+          now.getHours() * 60 + now.getMinutes(),
+        );
         const planningChanged = !samePlanningSettings(dataRef.current!.settings, next.settings);
         const presentationProposal = next.proposal ?? dataRef.current!.proposal;
         const syncPlanPresentation =

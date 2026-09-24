@@ -31,6 +31,74 @@ it('予定6に4問を追加しても、他の教材・周回と未来24問の配
 });
 
 const day = adjustmentContext.date;
+
+it.each(['unreported', 'zero', 'partial'] as const)(
+  '前日%sの翌日に4・2問を記録し、画面と配分の今日残量を一致させる',
+  (previous) => {
+    let start = adjustmentFixture();
+    const previousDone = previous === 'partial' ? 3 : 0;
+    if (previous !== 'unreported')
+      start = recordAndAdjust(start, adjustmentReport(previousDone, 'previous'), adjustmentContext);
+    const nextDay = addDays(day, 1);
+    const context = { ...adjustmentContext, date: nextDay, timestamp: `${nextDay}T03:00:00.000Z` };
+    const report = (n: number, id: string) => ({ ...adjustmentReport(n, id), date: nextDay });
+    const check = (s: AppState, todayDone: number) => {
+      conservation(s, nextDay);
+      const expectedToday = Math.max(0, 6 - todayDone);
+      const effective = activePlanWork(s, nextDay).filter(
+        (x) => x.materialId === 'book' && x.round === 0,
+      );
+      expect(
+        calendarQuantity(s, nextDay, nextDay).rows.find(
+          (r) => r.materialId === 'book' && r.round === 0,
+        )?.remainder,
+      ).toBe(expectedToday);
+      expect(effective.filter((x) => x.date === nextDay).reduce((n, x) => n + x.count, 0)).toBe(
+        expectedToday,
+      );
+      const future = effective.filter((x) => x.date > nextDay).reduce((n, x) => n + x.count, 0);
+      const unplaced = s
+        .plan!.shortfalls.filter((x) => x.materialId === 'book' && x.round === 0)
+        .reduce((n, x) => n + x.count, 0);
+      expect(future + unplaced).toBe(30 - previousDone - todayDone - expectedToday);
+      expect(s.plan!.sessions.filter((x) => x.date < nextDay)).toEqual(
+        start.plan!.sessions.filter((x) => x.date < nextDay),
+      );
+    };
+    let split = recordAndAdjust(start, report(4, 'four'), context);
+    check(split, 4); // 0 + 4 + 2 + 24 = 30; previous 3 instead leaves 21 in the future.
+    split = recordAndAdjust(split, report(2, 'two'), context);
+    check(split, 6);
+    const bulk = recordAndAdjust(start, report(6, 'six'), context);
+    check(bulk, 6);
+    expect(planChanges(split.plan, bulk.plan, nextDay)).toEqual([]);
+    expect(split.plan!.shortfalls).toEqual(bulk.plan!.shortfalls);
+    expect(remaining(split, 'book', 0)).toBe(remaining(bulk, 'book', 0));
+    split = correctAndAdjust(split, 'four', 6, false, context);
+    check(split, 8);
+    split = correctAndAdjust(split, 'four', 6, true, context);
+    check(split, 2);
+    const repeated = adjustAfterProgress(JSON.parse(JSON.stringify(split)), 'two', context);
+    check(repeated, 2);
+    expect(planChanges(split.plan, repeated.plan, nextDay)).toEqual([]);
+  },
+);
+
+it('日付越え後の部分4問で容量不足6問を隠さず、今日2・未来18・未配置6にする', () => {
+  const source = tightFixture();
+  const context = { ...adjustmentContext, date: addDays(day, 1) };
+  const result = recordAndAdjust(source, { ...adjustmentReport(4), date: context.date }, context);
+  conservation(result, context.date);
+  expect(result.plan!.shortfalls).toMatchObject([
+    { materialId: 'book', round: 0, count: 6, minutes: 18 },
+  ]);
+  expect(count(result, 'book', 0, addDays(day, 2))).toBe(18);
+  expect(
+    activePlanWork(result, context.date)
+      .filter((s) => s.date === context.date)
+      .reduce((n, s) => n + s.count, 0),
+  ).toBe(2);
+});
 const count = (state: AppState, materialId: string, round: number, date = day) =>
   activePlanWork(state, date)
     .filter((s) => s.materialId === materialId && s.round === round)

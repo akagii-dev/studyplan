@@ -1,6 +1,7 @@
 import { commuteErrors, commuteScheduleErrors } from '../commute';
 import { addDays, Settings } from '../model';
 import { sessionPolicy } from '../sessionPolicy';
+import { MAX_MINUTES_PER_UNIT } from '../materialConstraints';
 export function validateSettings(s: Settings): string[] {
   const errors: string[] = [...commuteErrors(s.commute), ...commuteScheduleErrors(s)];
   const policy = sessionPolicy(s);
@@ -70,6 +71,13 @@ export function validateSettings(s: Settings): string[] {
       )
     )
       errors.push(`${m.name || '教材'}：問題数と所要時間を確認してください。`);
+  for (const m of s.materials)
+    m.rounds.forEach((r, i) => {
+      if (r.minutes > MAX_MINUTES_PER_UNIT)
+        errors.push(
+          `${m.name || '教材'}：${i + 1}周目の1問あたりを${MAX_MINUTES_PER_UNIT}分以下にしてください。`,
+        );
+    });
   for (const w of s.windows)
     if (
       !w.from ||

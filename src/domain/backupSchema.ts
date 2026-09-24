@@ -1,11 +1,15 @@
 import { z } from 'zod';
+import { MAX_MINUTES_PER_UNIT } from './materialConstraints';
 
 const text = z.string().max(10000);
 const id = z.string().max(200);
 const count = z.number().int().min(0).max(1_000_000_000);
 const date = z.iso.date();
 const minute = z.number().min(0).max(1440);
-const round = z.looseObject({ completed: count, minutes: z.number().positive().max(1440) });
+const round = z.looseObject({
+  completed: count,
+  minutes: z.number().positive().max(MAX_MINUTES_PER_UNIT),
+});
 const exam = z.looseObject({
   id,
   name: text,
@@ -70,9 +74,9 @@ const settings = z.looseObject({
     })
     .optional(),
   scheduleAnswers: z
-    .record(
+    .partialRecord(
       z.enum(['class', 'busy', 'exception']),
-      z.enum(['none', 'deferred', 'registered']).optional(),
+      z.enum(['none', 'deferred', 'registered']),
     )
     .optional(),
 });

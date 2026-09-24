@@ -5,6 +5,7 @@ import type { PlanningContext } from './planner/context';
 import { fixedOrderIssue } from './planConstraints';
 import { requirePlanningInputs } from './setupIssues';
 import { validateRevisedSettings } from './revision';
+import { calendarQuantity } from './calendarQuantity';
 
 export const workKey = (materialId: string, round: number) => JSON.stringify([materialId, round]);
 const bySlot = (a: Session, b: Session) =>
@@ -41,15 +42,28 @@ function basisRemainders(state: AppState, basis: NonNullable<Plan['adjustmentBas
   });
 }
 
-function todayRemainders(state: AppState, date: string, residual: Session[]) {
+function todayRemainders(state: AppState, date: string, original: Session[]) {
   const used = new Map<string, number>();
-  return residual
+  // Daily progress and current work use the same denominator and dated actuals.
+  // Cumulative consumption of older work cannot decide what is left today.
+  const quantities = new Map(
+    calendarQuantity(state, date, date).rows.map((row) => [
+      workKey(row.materialId, row.round),
+      row.remainder ?? 0,
+    ]),
+  );
+  return [...original]
+    .sort(bySlot)
     .filter((s) => s.date === date)
     .map((s) => {
       const key = workKey(s.materialId, s.round);
       const count = Math.min(
         s.count,
-        Math.max(0, remaining(state, s.materialId, s.round) - (used.get(key) ?? 0)),
+        Math.max(
+          0,
+          Math.min(remaining(state, s.materialId, s.round), quantities.get(key) ?? 0) -
+            (used.get(key) ?? 0),
+        ),
       );
       used.set(key, (used.get(key) ?? 0) + count);
       return resize(s, count);
@@ -73,7 +87,7 @@ export function activePlanWork(state: AppState, date: string): Session[] {
         }
       : undefined);
   const today = new Map(
-    basis ? todayRemainders(state, date, basisRemainders(state, basis)).map((s) => [s.id, s]) : [],
+    basis ? todayRemainders(state, date, basis.sessions).map((s) => [s.id, s]) : [],
   );
   return state.plan.sessions
     .filter((s) => s.kind === 'study' && s.date >= date)
@@ -87,7 +101,19 @@ export function activePlanWork(state: AppState, date: string): Session[] {
 /** Capture before editing records. A new day expires yesterday's still-effective work. */
 export function prepareAdjustment(state: AppState, context: PlanningContext): AppState {
   const plan = state.plan;
-  if (!plan || plan.adjustmentBasis?.date === context.date) return state;
+  if (!plan) return state;
+  for (const key of Object.keys(plan.adjustmentBasis?.records ?? {})) {
+    const parts: unknown = JSON.parse(key);
+    if (
+      !Array.isArray(parts) ||
+      parts.length !== 3 ||
+      typeof parts[0] !== 'string' ||
+      typeof parts[1] !== 'string' ||
+      !Number.isInteger(parts[2])
+    )
+      throw new Error('調整基準の実績を読み取れません。');
+  }
+  if (plan.adjustmentBasis?.date === context.date) return state;
   let sessions: Session[];
   let records: Record<string, number>;
   if (plan.adjustmentBasis) {
@@ -145,7 +171,7 @@ export function allocateProgress(
       budgets[workKey(m.id, round)] = remaining(state, m.id, round);
   // Today's unperformed part is still actionable, even after a partial or zero report.
   // Its display denominator remains in the saved day baseline and original session.
-  for (const s of todayRemainders(state, context.date, residual)) {
+  for (const s of todayRemainders(state, context.date, basis.sessions)) {
     const key = workKey(s.materialId, s.round);
     budgets[key] = Math.max(0, budgets[key] - s.count);
   }

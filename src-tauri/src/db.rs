@@ -130,6 +130,53 @@ pub fn validate(data: &Value) -> Result<(), String> {
     }
     Ok(())
 }
+fn validate_round_retention(
+    before: &Value,
+    after: &Value,
+    date: &str,
+    minute: i64,
+) -> Result<(), String> {
+    for old in array(&before["settings"], "materials")? {
+        let Some(new) = array(&after["settings"], "materials")?
+            .iter()
+            .find(|m| m["id"] == old["id"])
+        else {
+            continue;
+        };
+        let count = array(new, "rounds")?.len();
+        if count >= array(old, "rounds")?.len() {
+            continue;
+        }
+        let completed = array(old, "rounds")?
+            .iter()
+            .skip(count)
+            .any(|r| r["completed"].as_f64().unwrap_or(0.0) > 0.0);
+        // Cancelled records also retain their referenced round for backup compatibility.
+        let records = array(before, "records")?.iter().any(|r| {
+            r["materialId"] == old["id"] && r["round"].as_u64().unwrap_or(0) >= count as u64
+        });
+        let sessions = before["plan"]["sessions"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|s| {
+                s["kind"] == "study"
+                    && s["materialId"] == old["id"]
+                    && s["round"].as_u64().unwrap_or(0) >= count as u64
+                    && (s["fixed"] == true
+                        || s["date"].as_str().unwrap_or("") < date
+                        || (s["date"] == date
+                            && s["start"].as_f64().unwrap_or(0.0) < minute as f64))
+            });
+        if completed || records || sessions {
+            return Err(format!(
+                "{}：初期完了・記録・開始済み予定・固定予定のある周回は減らせません。",
+                old["name"].as_str().unwrap_or("教材")
+            ));
+        }
+    }
+    Ok(())
+}
 pub fn commit(
     db: &mut Connection,
     expected: i64,
@@ -173,6 +220,18 @@ fn commit_inner(
     }
     validate(&data)?;
     if restore {
+        crate::backup::check_data(&data)?;
+    } else {
+        if let Some(ref old) = previous {
+            let (date, minute): (String, i64) = tx.query_row(
+                "SELECT date('now','localtime'), cast(strftime('%H','now','localtime') as integer)*60+cast(strftime('%M','now','localtime') as integer)", [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            ).map_err(|e| e.to_string())?;
+            validate_round_retention(&old.data, &data, &date, minute)?;
+        }
+        crate::backup::check_commit(previous.as_ref().map(|p| &p.data), &data)?;
+    }
+    if restore {
         // The previous state and the replacement are committed in the same transaction.
         // Keep this separate from ordinary edits and the onboarding reset snapshot.
         let before = match previous {
@@ -205,10 +264,16 @@ fn commit_inner(
 mod tests {
     use super::*;
     fn state() -> Value {
-        serde_json::json!({"settings":{"exams":[],"windows":[],"exceptions":[],"materials":[{"id":"m","total":7,"rounds":[{"completed":0}]}]},"records":[],"draft":{"name":"入力途中"},"plan":{"id":"p","sessions":[]},"history":[]})
+        let mut data: Value =
+            serde_json::from_str(include_str!("../../src/domain/initialState.json")).unwrap();
+        data["settings"]["exams"] = serde_json::json!([{"id":"e","name":"試験","start":"2026-09-01","target":"2026-12-01","priority":1,"color":"#287569","reviewDays":0}]);
+        data["settings"]["materials"] = serde_json::json!([{"id":"m","examId":"e","name":"教材","order":1,"total":7,"rounds":[{"completed":0,"minutes":2}]}]);
+        data["draft"] = serde_json::json!({"name":"入力途中"});
+        data["plan"] = serde_json::json!({"id":"p","createdAt":"2026-09-20T00:00:00Z","from":"2026-09-20","sessions":[],"capacities":[],"shortfalls":[],"conflicts":[]});
+        data
     }
     fn record(id: &str, n: u64) -> Value {
-        serde_json::json!({"id":id,"materialId":"m","round":0,"count":n,"cancelled":false,"date":"2026-09-20"})
+        serde_json::json!({"id":id,"materialId":"m","round":0,"count":n,"cancelled":false,"date":"2026-09-20","createdAt":"2026-09-20T00:00:00Z","updatedAt":"2026-09-20T00:00:00Z"})
     }
     #[test]
     fn newer_schema_is_not_downgraded_or_modified() {
@@ -288,5 +353,115 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM audit", [], |r| r.get(0))
             .unwrap();
         assert_eq!(audits, 3);
+    }
+
+    #[test]
+    fn round_retention_is_enforced_at_commit_and_survives_reopen() {
+        for kind in [
+            "initial",
+            "record",
+            "zero",
+            "cancelled",
+            "started",
+            "fixed",
+            "unused",
+        ] {
+            let folder = tempfile::tempdir().unwrap();
+            let path = folder.path().join("rounds.sqlite3");
+            let mut db = open(&path).unwrap();
+            let mut s = state();
+            s["settings"]["materials"][0]["rounds"].as_array_mut().unwrap().push(serde_json::json!({"completed": if kind == "initial" {7} else {0}, "minutes":2}));
+            if ["record", "zero", "cancelled"].contains(&kind) {
+                let mut r = record("second", if kind == "zero" { 0 } else { 7 });
+                r["round"] = 1.into();
+                r["cancelled"] = (kind == "cancelled").into();
+                s["records"] = serde_json::json!([r]);
+            }
+            if ["started", "fixed"].contains(&kind) {
+                s["plan"]["sessions"] = serde_json::json!([{"id":"session","date":if kind == "started" {"2000-01-01"} else {"2099-01-01"},"start":540,"end":550,"examId":"e","materialId":"m","round":1,"count":5,"fixed":kind == "fixed","kind":"study"}]);
+            }
+            commit(&mut db, 0, "seed", s.clone()).unwrap();
+            let mut candidate = s.clone();
+            candidate["settings"]["materials"][0]["rounds"]
+                .as_array_mut()
+                .unwrap()
+                .pop();
+            let result = commit(&mut db, 1, "reduce", candidate.clone());
+            assert_eq!(result.is_ok(), kind == "unused", "{kind}: {result:?}");
+            drop(db);
+            let reopened = open(&path).unwrap();
+            assert_eq!(
+                load(&reopened).unwrap().unwrap().data,
+                if kind == "unused" { candidate } else { s }
+            );
+        }
+    }
+
+    #[test]
+    fn committed_minutes_have_a_backup_restore_roundtrip() {
+        for minutes in [0.0, 0.1, 1440.0, 1440.1, 2000.0] {
+            let mut db = open(Path::new(":memory:")).unwrap();
+            let mut s = state();
+            s["settings"]["materials"][0]["rounds"][0]["minutes"] = minutes.into();
+            let saved = commit(&mut db, 0, "save", s.clone());
+            if minutes > 0.0 && minutes <= 1440.0 {
+                saved.unwrap();
+                let folder = tempfile::tempdir().unwrap();
+                let path = folder.path().join("roundtrip.studyplan.json");
+                let packet = crate::backup::packet(&db).unwrap();
+                crate::backup::write_file(&path, &packet).unwrap();
+                let decoded =
+                    crate::backup::parse(&std::fs::read_to_string(path).unwrap()).unwrap();
+                let mut restored = open(Path::new(":memory:")).unwrap();
+                restore(&mut restored, 0, "restore", decoded["data"].clone()).unwrap();
+                assert_eq!(load(&restored).unwrap().unwrap().data, s);
+            } else {
+                assert!(saved.is_err());
+                assert!(load(&db).unwrap().is_none());
+            }
+        }
+    }
+
+    #[test]
+    fn legacy_invalid_value_is_readable_and_repairable_without_truncation() {
+        let mut db = open(Path::new(":memory:")).unwrap();
+        let mut old = state();
+        old["settings"]["materials"][0]["rounds"][0]["minutes"] = 2000.into();
+        db.execute(
+            "INSERT INTO state(id,revision,data) VALUES(1,1,?1)",
+            [old.to_string()],
+        )
+        .unwrap();
+        assert_eq!(load(&db).unwrap().unwrap().data, old);
+        assert!(crate::backup::packet(&db).unwrap_err().contains("minutes"));
+        let mut edited = old.clone();
+        edited["draft"]["material"] = old["settings"]["materials"][0].clone();
+        commit(&mut db, 1, "draft", edited.clone()).unwrap();
+        assert_eq!(
+            load(&db).unwrap().unwrap().data["settings"],
+            old["settings"]
+        );
+        edited["settings"]["materials"][0]["rounds"][0]["minutes"] = 1440.into();
+        edited["draft"]["material"]["rounds"][0]["minutes"] = 1440.into();
+        commit(&mut db, 2, "repair", edited).unwrap();
+        crate::backup::packet(&db).unwrap();
+    }
+
+    #[test]
+    fn partial_schedule_answers_are_writable_exportable_and_restorable() {
+        for answers in [
+            serde_json::json!({"class":"registered"}),
+            serde_json::json!({"class":"registered","busy":"none"}),
+        ] {
+            let mut db = open(Path::new(":memory:")).unwrap();
+            let mut s = state();
+            s["settings"]["scheduleAnswers"] = answers;
+            commit(&mut db, 0, "partial", s.clone()).unwrap();
+            let file = crate::backup::packet(&db).unwrap();
+            let parsed = crate::backup::parse(&file.to_string()).unwrap();
+            let mut restored = open(Path::new(":memory:")).unwrap();
+            restore(&mut restored, 0, "restore", parsed["data"].clone()).unwrap();
+            assert_eq!(load(&restored).unwrap().unwrap().data, s);
+        }
     }
 }

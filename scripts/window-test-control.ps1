@@ -9,6 +9,23 @@ Add-Type @'
 using System;
 using System.Runtime.InteropServices;
 public static class WindowTestControl {
+  public delegate bool EnumWindowCallback(IntPtr window, IntPtr parameter);
+  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowCallback callback, IntPtr parameter);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr window, System.Text.StringBuilder text, int maximum);
+  public static IntPtr StudyPlanWindow(int processId) {
+    IntPtr found = IntPtr.Zero;
+    EnumWindows((window, parameter) => {
+      uint owner; GetWindowThreadProcessId(window, out owner);
+      if (owner != processId) return true;
+      var title = new System.Text.StringBuilder(256);
+      GetWindowText(window, title, title.Capacity);
+      if (title.ToString() != "StudyPlan") return true;
+      found = window;
+      return false;
+    }, IntPtr.Zero);
+    return found;
+  }
   [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left, Top, Right, Bottom; }
   [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr window, out Rect rect);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr window, out Rect rect);
@@ -22,8 +39,9 @@ public static class WindowTestControl {
 }
 '@
 $null = [WindowTestControl]::SetThreadDpiAwarenessContext([IntPtr](-4))
-$target = Get-Process -Id $ProcessId
-$window = $target.MainWindowHandle
+# MainWindowHandle can select WebView2's untitled helper after the app is minimized.
+# Resolve the app window by both owner PID and its native title.
+$window = [WindowTestControl]::StudyPlanWindow($ProcessId)
 if ($window -eq [IntPtr]::Zero) { throw 'The test process has no visible window.' }
 $client = New-Object WindowTestControl+Rect
 $outer = New-Object WindowTestControl+Rect

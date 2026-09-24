@@ -13,7 +13,16 @@ import {
   existsSync,
 } from 'node:fs';
 import { resolve } from 'node:path';
-import { addDays, today, weekday, AppState, initialState } from '../src/domain/model';
+import {
+  addDays,
+  today,
+  weekday,
+  AppState,
+  initialState,
+  completed,
+  remaining,
+} from '../src/domain/model';
+import { calendarQuantity } from '../src/domain/calendarQuantity';
 import { generatePlan, capacityForWeek } from '../src/domain/planning';
 import { overlapsBusy } from '../src/domain/planAudit';
 import { proposeSettings } from '../src/domain/planning';
@@ -178,7 +187,11 @@ async function closeWindowNormally() {
   child = undefined!;
 }
 async function nav(name: string) {
-  const aliases: Record<string, string> = { '今日の詳細': '今日のスケジュール', '詳細カレンダー': '学習カレンダー', '予定外・過去日の記録': '進捗を記録' };
+  const aliases: Record<string, string> = {
+    今日の詳細: '今日のスケジュール',
+    詳細カレンダー: '学習カレンダー',
+    '予定外・過去日の記録': '進捗を記録',
+  };
   name = aliases[name] ?? name;
   const main = page.locator('.sidebar nav');
   if (name === 'ホーム') name = '今日';
@@ -193,11 +206,15 @@ async function nav(name: string) {
     if (await nextDay.count()) {
       const date = (await nextDay.locator('h2 button').getAttribute('aria-label'))!.split(' ')[0];
       await nextDay.locator('h2 button').click();
-      await expect(page.getByRole('button', { name: `${date}を表示`, exact: true })).toHaveAttribute('aria-pressed', 'true');
+      await expect(
+        page.getByRole('button', { name: `${date}を表示`, exact: true }),
+      ).toHaveAttribute('aria-pressed', 'true');
     } else {
       await page.getByRole('button', { name: '詳細カレンダーを見る', exact: true }).click();
     }
-    await expect(page.getByRole('heading', { name: '詳細カレンダー', exact: true, level: 1 })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: '詳細カレンダー', exact: true, level: 1 }),
+    ).toBeVisible();
     return;
   }
   if (name === '進捗を記録') {
@@ -209,7 +226,8 @@ async function nav(name: string) {
     await main.getByRole('button', { name, exact: true }).click();
     if (name === '今後の予定') {
       const start = (await page.locator('.future-week time').getAttribute('datetime'))!;
-      if (addDays(today(), 1) < start) await page.getByRole('button', { name: '前の週', exact: true }).click();
+      if (addDays(today(), 1) < start)
+        await page.getByRole('button', { name: '前の週', exact: true }).click();
     }
     return;
   }
@@ -226,10 +244,16 @@ async function nav(name: string) {
     await page.getByRole('button', { name: /時間枠を(設定|修正)/ }).click();
     return;
   }
-  const label = name === '対話式の初期設定' ? '初期設定' :
-    name === '警告の管理' ? '通知の管理' :
-    name === '再計画の確認' ? '計画案の確認' :
-    name === 'チュートリアル' ? '使い方' : name;
+  const label =
+    name === '対話式の初期設定'
+      ? '初期設定'
+      : name === '警告の管理'
+        ? '通知の管理'
+        : name === '再計画の確認'
+          ? '計画案の確認'
+          : name === 'チュートリアル'
+            ? '使い方'
+            : name;
   await page.getByRole('button', { name: label, exact: true }).click();
 }
 async function displaySettings(appearance?: string, theme?: string) {
@@ -252,6 +276,160 @@ async function close() {
   }
 }
 test.afterAll(close);
+
+for (const protection of ['initial', 'record', 'started', 'fixed', 'unused']) {
+  test(`実機：教材一覧の周回保護と再起動（${protection}）`, async () => {
+    dataDir = mkdtempSync(resolve('.test-data/material-retention-'));
+    await launch();
+    const seed = adjustmentFixture(today());
+    if (protection === 'initial') seed.settings.materials[0].rounds[1].completed = 7;
+    if (protection === 'record')
+      seed.records = [
+        {
+          id: 'protected',
+          date: today(),
+          materialId: 'book',
+          round: 1,
+          count: 7,
+          cancelled: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ];
+    const second = seed.plan!.sessions.find((s) => s.materialId === 'book' && s.round === 1)!;
+    if (protection === 'started') second.date = addDays(today(), -1);
+    if (protection === 'fixed') second.fixed = true;
+    seed.plan!.settingsSnapshot = structuredClone(seed.settings);
+    await seedState(seed, 'protected-round');
+    await nav('教材・進捗');
+    await page.getByRole('button', { name: '対象問題集を編集', exact: true }).click();
+    await page.getByLabel('周回数', { exact: true }).fill('1');
+    await page.getByRole('button', { name: '教材を更新する', exact: true }).click();
+    await saved();
+    const stored = await storedState();
+    if (protection === 'unused') expect(stored.settings.materials[0].rounds).toHaveLength(1);
+    else {
+      expect(stored.settings.materials).toEqual(seed.settings.materials);
+      await expect(page.getByRole('alert')).toContainText('2');
+      // A previously edited draft must also be checked against the latest committed state.
+      stored.draft.material = {
+        ...seed.settings.materials[0],
+        rounds: [seed.settings.materials[0].rounds[0]],
+      };
+      await seedState(stored, 'stale-material-draft');
+      await nav('教材・進捗');
+      await page.getByRole('button', { name: '教材を更新する', exact: true }).click();
+      await expect(page.getByRole('alert').first()).toContainText('周回は減らせません');
+      expect((await storedState()).settings.materials).toEqual(seed.settings.materials);
+    }
+    expect((await storedState()).plan).toEqual(seed.plan);
+    expect((await storedState()).records).toEqual(seed.records);
+    const beforeRestart = await storedState();
+    await closeWindowNormally();
+    await launch();
+    expect(await storedState()).toEqual(beforeRestart);
+  });
+}
+
+test('実機：推定時間の上限拒否と境界値のバックアップ往復', async () => {
+  dataDir = mkdtempSync(resolve('.test-data/material-minutes-'));
+  await launch();
+  const seed = adjustmentFixture(today());
+  seed.plan = null;
+  await seedState(seed, 'minutes-seed');
+  await nav('教材・進捗');
+  await page.getByRole('button', { name: '対象問題集を編集', exact: true }).click();
+  const input = page.getByLabel('1問あたり（分）', { exact: true }).first();
+  await input.fill('2000');
+  await page.getByRole('button', { name: '教材を更新する', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('1440');
+  expect((await storedState()).settings).toEqual(seed.settings);
+  for (const minutes of [0.1, 1440]) {
+    await page.getByLabel('1問あたり（分）', { exact: true }).first().fill(String(minutes));
+    await page.getByRole('button', { name: '教材を更新する', exact: true }).click();
+    await saved();
+    const before = await storedState();
+    expect(before.settings.materials[0].rounds[0].minutes).toBe(minutes);
+    const path = resolve(dataDir, `minutes-${minutes}.studyplan.json`);
+    await page.evaluate(async (path) => {
+      const invoke = (
+        window as unknown as {
+          __TAURI_INTERNALS__: { invoke: (name: string, args?: unknown) => Promise<unknown> };
+        }
+      ).__TAURI_INTERNALS__.invoke;
+      await invoke('export_backup', { path });
+    }, path);
+    const text = readFileSync(path, 'utf8');
+    expect(JSON.parse(text).data).toEqual(before);
+    await nav('バックアップ');
+    await page.getByLabel('復元するバックアップ').setInputFiles(path);
+    await page.getByLabel('置き換える内容を確認しました').check();
+    await page.getByRole('button', { name: 'この内容で復元する', exact: true }).click();
+    await expect(page.getByText('復元しました。', { exact: true })).toBeVisible();
+    expect(await storedState()).toEqual(before);
+    await closeWindowNormally();
+    await launch();
+    expect(await storedState()).toEqual(before);
+    await nav('教材・進捗');
+    await page.getByRole('button', { name: '対象問題集を編集', exact: true }).click();
+  }
+});
+
+for (const previousReported of [false, true]) {
+  test(`実機：前日未消化と今日の部分記録の数量保存（前日0報告=${previousReported}）`, async () => {
+    dataDir = mkdtempSync(resolve('.test-data/overnight-progress-'));
+    await launch();
+    const seed = adjustmentFixture(addDays(today(), -1));
+    if (previousReported)
+      seed.records = [
+        {
+          id: 'zero',
+          date: addDays(today(), -1),
+          materialId: 'book',
+          round: 0,
+          count: 0,
+          cancelled: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ];
+    await seedState(seed, 'overnight');
+    const row = page.locator('.daily-record-row').filter({ hasText: '対象問題集' });
+    for (const [add, actual, todayLeft, futureExpected] of [
+      [4, 4, 2, 24],
+      [2, 6, 0, 24],
+      [2, 8, 0, 22],
+    ]) {
+      await row.getByRole('textbox').fill(String(add));
+      await row.getByRole('button', { name: '記録', exact: true }).click();
+      await saved();
+      await expect(row).toContainText(`${actual}/6問`);
+      const state = await storedState();
+      const work = activePlanWork(state, today()).filter(
+        (s) => s.materialId === 'book' && s.round === 0,
+      );
+      const reserved = work.filter((s) => s.date === today()).reduce((n, s) => n + s.count, 0);
+      const future = work.filter((s) => s.date > today()).reduce((n, s) => n + s.count, 0);
+      const unplaced = state
+        .plan!.shortfalls.filter((s) => s.materialId === 'book' && s.round === 0)
+        .reduce((n, s) => n + s.count, 0);
+      expect(reserved).toBe(todayLeft);
+      expect(
+        calendarQuantity(state, today()).rows.find((r) => r.materialId === 'book')!.remainder,
+      ).toBe(todayLeft);
+      expect(future).toBe(futureExpected);
+      expect(unplaced).toBe(0);
+      expect(actual + reserved + future + unplaced).toBe(30);
+      expect(state.plan!.sessions.filter((s) => s.date < today())).toEqual(
+        seed.plan!.sessions.filter((s) => s.date < today()),
+      );
+    }
+    const last = await storedState();
+    await closeWindowNormally();
+    await launch();
+    expect(await storedState()).toEqual(last);
+  });
+}
 
 test('実機：今日の未設定区間に名前を付け、保存・取消・再起動・解除する', async () => {
   mkdirSync('.test-data', { recursive: true });
@@ -985,15 +1163,25 @@ test('実機：予定6への追加4・2・2で数量と変更詳細を保存し�
   const seed = adjustmentFixture(date);
   await seedState(seed, 'stable-adjustment');
   const row = page.locator('.daily-record-row').filter({ hasText: '対象問題集' });
-  for (const [add, actual, left] of [[4, 4, 26], [2, 6, 24], [2, 8, 22]]) {
+  for (const [add, actual, left] of [
+    [4, 4, 26],
+    [2, 6, 24],
+    [2, 8, 22],
+  ]) {
     await row.getByRole('textbox').fill(String(add));
     await row.getByRole('button', { name: '記録', exact: true }).click();
     await saved();
     await expect(row).toContainText(actual + '/6問');
     const stored = await storedState();
-    expect(activePlanWork(stored, date).filter((x) => x.materialId === 'book' && x.round === 0).reduce((n,x) => n+x.count,0)).toBe(left);
+    expect(
+      activePlanWork(stored, date)
+        .filter((x) => x.materialId === 'book' && x.round === 0)
+        .reduce((n, x) => n + x.count, 0),
+    ).toBe(left);
     expect(stored.plan!.shortfalls).toEqual([]);
-    await expect(page.locator('.daily-record-saved')).toContainText(actual <= 6 ? '予定の変更なし' : '数量 1件');
+    await expect(page.locator('.daily-record-saved')).toContainText(
+      actual <= 6 ? '予定の変更なし' : '数量 1件',
+    );
   }
   const details = page.locator('.daily-record-saved details');
   await details.locator('summary').focus();
@@ -1001,19 +1189,30 @@ test('実機：予定6への追加4・2・2で数量と変更詳細を保存し�
   await expect(details).toContainText('6 → 4問');
   await expect(details).not.toContainText('時間 ');
   await expect(details).not.toContainText('別問題集');
-  await page.screenshot({ path: resolve('.test-data/stable-adjustment-native.png'), fullPage: true });
+  await page.screenshot({
+    path: resolve('.test-data/stable-adjustment-native.png'),
+    fullPage: true,
+  });
   const savedState = await storedState();
   await closeWindowNormally();
   await launch();
   expect((await storedState()).plan).toEqual(savedState.plan);
   expect((await storedState()).records).toEqual(savedState.records);
   await nav('記録履歴');
-  await page.getByRole('row').filter({ hasText: '＋4問' }).getByRole('button', { name: '訂正', exact: true }).click();
+  await page
+    .getByRole('row')
+    .filter({ hasText: '＋4問' })
+    .getByRole('button', { name: '訂正', exact: true })
+    .click();
   await page.getByLabel('訂正後の問題数').fill('0');
   await page.getByRole('button', { name: '訂正を保存', exact: true }).click();
   await saved();
   const corrected = await storedState();
-  expect(activePlanWork(corrected, date).filter((x) => x.materialId === 'book' && x.round === 0).reduce((n,x) => n+x.count,0)).toBe(26);
+  expect(
+    activePlanWork(corrected, date)
+      .filter((x) => x.materialId === 'book' && x.round === 0)
+      .reduce((n, x) => n + x.count, 0),
+  ).toBe(26);
   await closeWindowNormally();
   await launch();
   expect((await storedState()).plan).toEqual(corrected.plan);
@@ -1655,18 +1854,63 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
   const date = today();
   const tomorrow = addDays(date, 1);
   const seed = initialState();
-  seed.settings.exams = [{ id: 'exam', name: '資格試験', start: date, target: addDays(date, 2), priority: 2, color: '#287569', reviewDays: 0 }];
-  seed.settings.materials = [{ id: 'book', examId: 'exam', name: '問題集A', total: 20, order: 1, rounds: [{ completed: 0, minutes: 2 }] }];
-  seed.settings.windows = [date, tomorrow].map((day) => ({ id: day, name: '学習枠', kind: 'study' as const, from: day, to: day, weekdays: [0, 1, 2, 3, 4, 5, 6], start: 1080, end: 1140 }));
+  seed.settings.exams = [
+    {
+      id: 'exam',
+      name: '資格試験',
+      start: date,
+      target: addDays(date, 2),
+      priority: 2,
+      color: '#287569',
+      reviewDays: 0,
+    },
+  ];
+  seed.settings.materials = [
+    {
+      id: 'book',
+      examId: 'exam',
+      name: '問題集A',
+      total: 20,
+      order: 1,
+      rounds: [{ completed: 0, minutes: 2 }],
+    },
+  ];
+  seed.settings.windows = [date, tomorrow].map((day) => ({
+    id: day,
+    name: '学習枠',
+    kind: 'study' as const,
+    from: day,
+    to: day,
+    weekdays: [0, 1, 2, 3, 4, 5, 6],
+    start: 1080,
+    end: 1140,
+  }));
   seed.settings.buffer = 0;
   seed.settings.scheduleAnswers = { class: 'none', busy: 'none', exception: 'none' };
-  const originalToday = { id: 'today-work', date, start: 1080, end: 1100, examId: 'exam', materialId: 'book', round: 0, count: 10, fixed: false, kind: 'study' as const };
+  const originalToday = {
+    id: 'today-work',
+    date,
+    start: 1080,
+    end: 1100,
+    examId: 'exam',
+    materialId: 'book',
+    round: 0,
+    count: 10,
+    fixed: false,
+    kind: 'study' as const,
+  };
   seed.plan = {
-    id: 'approved', createdAt: new Date().toISOString(), calculationVersion: PLAN_CALCULATION_VERSION,
-    settingsSnapshot: structuredClone(seed.settings), settingsUpdatedAt: seed.settingsUpdatedAt,
-    from: date, notBefore: 0,
+    id: 'approved',
+    createdAt: new Date().toISOString(),
+    calculationVersion: PLAN_CALCULATION_VERSION,
+    settingsSnapshot: structuredClone(seed.settings),
+    settingsUpdatedAt: seed.settingsUpdatedAt,
+    from: date,
+    notBefore: 0,
     sessions: [originalToday, { ...originalToday, id: 'tomorrow-work', date: tomorrow }],
-    capacities: [], shortfalls: [], conflicts: [],
+    capacities: [],
+    shortfalls: [],
+    conflicts: [],
   };
   seed.plan.progressBaseline = createProgressBaseline(seed.plan, seed.records);
   await seedState(seed, 'native-daily-seed');
@@ -1685,13 +1929,29 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
   await changeDetail.locator('summary').click();
   await expect(changeDetail).toContainText('予定の変更なし');
   await nav('今後の予定');
-  await expect(page.locator('.future-day').filter({ has: page.getByRole('button', { name: new RegExp(`^${tomorrow} `) }) })).toContainText('10問');
+  await expect(
+    page
+      .locator('.future-day')
+      .filter({ has: page.getByRole('button', { name: new RegExp(`^${tomorrow} `) }) }),
+  ).toContainText('10問');
   let persisted = await storedState();
   expect(persisted.records).toHaveLength(1);
-  expect(persisted.records[0]).toMatchObject({ date, materialId: 'book', round: 0, count: 5, cancelled: false });
+  expect(persisted.records[0]).toMatchObject({
+    date,
+    materialId: 'book',
+    round: 0,
+    count: 5,
+    cancelled: false,
+  });
   expect(persisted.studyDayBaselines?.[date].rows[0].count).toBe(10);
-  expect(persisted.plan!.sessions.filter((session) => session.date === date)).toEqual([originalToday]);
-  expect(persisted.plan!.sessions.filter((session) => session.date === tomorrow).reduce((sum, session) => sum + session.count, 0)).toBe(10);
+  expect(persisted.plan!.sessions.filter((session) => session.date === date)).toEqual([
+    originalToday,
+  ]);
+  expect(
+    persisted
+      .plan!.sessions.filter((session) => session.date === tomorrow)
+      .reduce((sum, session) => sum + session.count, 0),
+  ).toBe(10);
   await close();
   browser = undefined!;
   await launch();
@@ -1700,18 +1960,34 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
   expect(persisted.studyDayBaselines?.[date].rows[0].count).toBe(10);
   await nav('詳細カレンダー');
   await page.getByRole('button', { name: '学習量', exact: true }).click();
-  await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
-  expect(persisted.plan!.sessions.filter((session) => session.date === date)).toEqual([originalToday]);
-  expect(persisted.plan!.sessions.filter((session) => session.date === tomorrow).reduce((sum, session) => sum + session.count, 0)).toBe(10);
+  await page
+    .locator('.calendar-toolbar')
+    .getByRole('button', { name: '今日', exact: true })
+    .click();
+  expect(persisted.plan!.sessions.filter((session) => session.date === date)).toEqual([
+    originalToday,
+  ]);
+  expect(
+    persisted
+      .plan!.sessions.filter((session) => session.date === tomorrow)
+      .reduce((sum, session) => sum + session.count, 0),
+  ).toBe(10);
   await nav('今後の予定');
-  await expect(page.locator('.future-day').filter({ has: page.getByRole('button', { name: new RegExp(`^${tomorrow} `) }) })).toContainText('10問');
+  await expect(
+    page
+      .locator('.future-day')
+      .filter({ has: page.getByRole('button', { name: new RegExp(`^${tomorrow} `) }) }),
+  ).toContainText('10問');
   await page.locator('.plan-change-history > summary').click();
   const persistedChange = page.locator('.plan-change-history details').first();
   await persistedChange.locator('summary').click();
   await expect(persistedChange).toContainText('予定の変更なし');
-  const futureQuantity = async (materialId = 'book') => (await storedState()).plan!.sessions
-    .filter((session) => session.date === tomorrow && session.materialId === materialId)
-    .reduce((sum, session) => sum + session.count, 0);
+  const futureQuantity = async (materialId = 'book') =>
+    (await storedState())
+      .plan!.sessions.filter(
+        (session) => session.date === tomorrow && session.materialId === materialId,
+      )
+      .reduce((sum, session) => sum + session.count, 0);
   await nav('記録履歴');
   await page.getByRole('button', { name: '訂正', exact: true }).click();
   await page.getByLabel('訂正後の問題数').fill('8');
@@ -1725,7 +2001,11 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
   expect((await storedState()).records[0].cancelled).toBe(true);
   await nav('ホーム');
   await expect(page.locator('.daily-record-row')).toContainText('未報告 / 10問');
-  for (const [actual, expected] of [[0, 10], [10, 10], [15, 5]]) {
+  for (const [actual, expected] of [
+    [0, 10],
+    [10, 10],
+    [15, 5],
+  ]) {
     await seedState(seed, `native-daily-${actual}`);
     const activeRow = page.locator('.daily-record-row');
     await activeRow.getByRole('textbox').fill(String(actual));
@@ -1733,13 +2013,26 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
     await saved();
     await expect(activeRow).toContainText(`${actual}/10問`);
     expect(await futureQuantity()).toBe(expected);
-    expect((await storedState()).plan!.sessions.filter((session) => session.date === date)).toEqual([originalToday]);
+    expect((await storedState()).plan!.sessions.filter((session) => session.date === date)).toEqual(
+      [originalToday],
+    );
     await nav('今後の予定');
-    await expect(page.locator('.future-day').filter({ has: page.getByRole('button', { name: new RegExp(`^${tomorrow} `) }) })).toContainText(`${expected}問`);
+    await expect(
+      page
+        .locator('.future-day')
+        .filter({ has: page.getByRole('button', { name: new RegExp(`^${tomorrow} `) }) }),
+    ).toContainText(`${expected}問`);
   }
   const outsideSeed = structuredClone(seed);
   outsideSeed.settings.block = 60;
-  outsideSeed.settings.materials.push({ id: 'outside', examId: 'exam', name: '予定外問題集', total: 4, order: 2, rounds: [{ completed: 0, minutes: 5 }] });
+  outsideSeed.settings.materials.push({
+    id: 'outside',
+    examId: 'exam',
+    name: '予定外問題集',
+    total: 4,
+    order: 2,
+    rounds: [{ completed: 0, minutes: 5 }],
+  });
   outsideSeed.plan!.settingsSnapshot = structuredClone(outsideSeed.settings);
   await seedState(outsideSeed, 'native-outside');
   await page.locator('.outside-record > summary').click();
@@ -1747,8 +2040,12 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
   await page.getByLabel('追加問数').fill('2');
   await page.locator('.outside-record').getByRole('button', { name: '記録', exact: true }).click();
   await saved();
-  await expect(page.getByRole('listitem').filter({ hasText: '予定外問題集' })).toContainText('2/0問');
-  await expect(page.getByRole('listitem').filter({ hasText: '予定外問題集' })).toContainText('2/0問');
+  await expect(page.getByRole('listitem').filter({ hasText: '予定外問題集' })).toContainText(
+    '2/0問',
+  );
+  await expect(page.getByRole('listitem').filter({ hasText: '予定外問題集' })).toContainText(
+    '2/0問',
+  );
   expect(await futureQuantity()).toBe(10);
   expect(await futureQuantity('outside')).toBe(2);
   const beforeRestart = await storedState();
@@ -1782,7 +2079,9 @@ test('実機：教材別の今日・周回・記録・訂正・取消・空表�
   dataDir = mkdtempSync(resolve('.test-data/progress-chart-'));
   await launch();
   await nav('進捗を記録');
-  await expect(page.getByRole('combobox', { name: '教材', exact: true }).locator('option')).toHaveText(['教材を選択']);
+  await expect(
+    page.getByRole('combobox', { name: '教材', exact: true }).locator('option'),
+  ).toHaveText(['教材を選択']);
   const seed = initialState();
   const date = today();
   seed.settings.exams = [
@@ -1906,8 +2205,13 @@ test('実機：教材別の今日・周回・記録・訂正・取消・空表�
   await expect(essayRow).toContainText('未報告 / 8問');
   for (const theme of ['mint', 'sky', 'lime']) {
     await displaySettings(undefined, theme);
-    expect((await new AxeBuilder({ page }).include('.daily-record-list').analyze()).violations).toEqual([]);
-    await page.screenshot({ path: 'test-results/progress-chart-' + theme + '.png', fullPage: true });
+    expect(
+      (await new AxeBuilder({ page }).include('.daily-record-list').analyze()).violations,
+    ).toEqual([]);
+    await page.screenshot({
+      path: 'test-results/progress-chart-' + theme + '.png',
+      fullPage: true,
+    });
   }
   await nav('進捗を記録');
   await page.getByRole('button', { name: '残りすべて：8問' }).click();
@@ -1929,7 +2233,9 @@ test('実機：教材別の今日・周回・記録・訂正・取消・空表�
   await close();
   await launch();
   await expect(page.getByRole('listitem').filter({ hasText: '論文' })).toContainText('8/8問');
-  await expect(page.getByRole('listitem').filter({ hasText: '短答' })).toContainText('未報告 / 10問');
+  await expect(page.getByRole('listitem').filter({ hasText: '短答' })).toContainText(
+    '未報告 / 10問',
+  );
 });
 
 test('実機：通学の承認・警告の管理・サイドバー保存・可変幅・進捗アニメーション', async () => {
@@ -3047,17 +3353,21 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   );
   await next();
   await expect(
-    page.getByRole('region', { name: 'あとで設定する場合の影響' }).getByText(
-      '未登録のアルバイトやサークルなどの時間は学習可能枠から除かれません。毎週の予定と学習が重なる可能性があります。',
-      { exact: true },
-    ),
+    page
+      .getByRole('region', { name: 'あとで設定する場合の影響' })
+      .getByText(
+        '未登録のアルバイトやサークルなどの時間は学習可能枠から除かれません。毎週の予定と学習が重なる可能性があります。',
+        { exact: true },
+      ),
   ).toBeVisible();
   await page.getByRole('button', { name: '定期予定はない', exact: true }).click();
   await expect(
-    page.getByRole('region', { name: 'あとで設定する場合の影響' }).getByText(
-      '未登録の旅行や外出などは計画に反映されません。勉強できない日や時間帯にも学習が入る可能性があります。',
-      { exact: true },
-    ),
+    page
+      .getByRole('region', { name: 'あとで設定する場合の影響' })
+      .getByText(
+        '未登録の旅行や外出などは計画に反映されません。勉強できない日や時間帯にも学習が入る可能性があります。',
+        { exact: true },
+      ),
   ).toBeVisible();
   await page.screenshot({ path: 'test-results/setup-skip-impact.png', fullPage: true });
   await page.getByRole('button', { name: 'あとで設定する', exact: true }).click();
@@ -3176,7 +3486,9 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
     return await (
       window as unknown as {
         __TAURI_INTERNALS__: {
-          invoke: (name: string) => Promise<{ data: { plan: { id: string } } }>;
+          invoke: (
+            name: string,
+          ) => Promise<{ data: AppState & { plan: NonNullable<AppState['plan']> } }>;
         };
       }
     ).__TAURI_INTERNALS__.invoke('load_state');
@@ -3234,7 +3546,24 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   await expect(page.locator('tbody')).toContainText('＋7問');
   const adjusted = await storedState();
   expect(adjusted.records.find((record) => record.count === 7)?.cancelled).toBe(false);
-  expect(adjusted.plan?.id).not.toBe(beforeView.data.plan.id);
+  const materialId = adjusted.records.find((r) => r.count === 7)!.materialId;
+  expect(completed(adjusted, materialId, 0)).toBe(7);
+  expect(remaining(adjusted, materialId, 0)).toBe(30);
+  const todayPlanned = beforeView.data.plan.sessions
+    .filter(
+      (s: { date: string; materialId: string; round: number }) =>
+        s.date === today() && s.materialId === materialId && s.round === 0,
+    )
+    .reduce((n: number, s: { count: number }) => n + s.count, 0);
+  const todayRemaining = Math.min(30, Math.max(0, todayPlanned - 7));
+  const future = adjusted
+    .plan!.sessions.filter((s) => s.date > today() && s.materialId === materialId && s.round === 0)
+    .reduce((n, s) => n + s.count, 0);
+  const unplaced = adjusted
+    .plan!.shortfalls.filter((s) => s.materialId === materialId && s.round === 0)
+    .reduce((n, s) => n + s.count, 0);
+  expect(7 + todayRemaining + future + unplaced).toBe(37);
+  if (todayPlanned >= 7) expect(adjusted.plan!.sessions).toEqual(beforeView.data.plan.sessions);
   await nav('再計画の確認');
   await page.getByRole('button', { name: '設定を変えずに再計画' }).click();
   const beforeApproval = await storedState();
@@ -3331,11 +3660,14 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
     accents.add(palette.accent);
     await page.screenshot({ path: `test-results/theme-${theme}.png`, fullPage: true });
     await nav('ホーム');
-    // The daily row replaces the former progress chart; retain the value and theme checks.
+    // Completion does not erase the day's original comparison quantity.
     const dailyRow = page.getByRole('listitem').filter({ hasText: '基本情報 午後問題集' });
-    await expect(dailyRow).toContainText('37/0問');
-    actionColors.add(await dailyRow.getByRole('button', { name: '記録', exact: true })
-      .evaluate((button) => getComputedStyle(button).backgroundColor));
+    await expect(dailyRow).toContainText(`37/${todayPlanned}問`);
+    actionColors.add(
+      await dailyRow
+        .getByRole('button', { name: '記録', exact: true })
+        .evaluate((button) => getComputedStyle(button).backgroundColor),
+    );
     await page.screenshot({ path: `test-results/progress-${theme}.png`, fullPage: true });
   }
   expect(accents.size).toBe(3);
@@ -3629,22 +3961,32 @@ test('実機：選択日と週内訳・月移動・授業だけの日・予定�
   await expect(
     page.getByText('この期間に勉強・大学の予定と学習実績はありません。', { exact: true }),
   ).toHaveCount(0);
-  await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
+  await page
+    .locator('.calendar-toolbar')
+    .getByRole('button', { name: '今日', exact: true })
+    .click();
   await expect(page.getByText('教材a · 1周目：＋0問', { exact: true })).toBeVisible();
   await expect(page.getByText('教材b · 1周目：＋7問', { exact: true })).toBeVisible();
   await expect(page.getByText('教材a · 1周目：＋3問', { exact: true })).toHaveCount(0);
   await page.getByLabel('表示する試験').selectOption('a');
   await expect(page.getByText('教材b · 1周目：＋7問', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: `${date}の時間の内訳を表示`, exact: true }).click();
-  await expect(page.getByRole('button', { name: `${date}の時間の内訳を表示`, exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(
+    page.getByRole('button', { name: `${date}の時間の内訳を表示`, exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
   const futureSection = page.locator('.calendar-list > section').filter({
-    has: page.getByRole('button', { name: `${addDays(today(), 1)}の時間の内訳を表示`, exact: true }),
+    has: page.getByRole('button', {
+      name: `${addDays(today(), 1)}の時間の内訳を表示`,
+      exact: true,
+    }),
   });
   const futureDetails = futureSection.locator('.calendar-individual');
   if (!(await futureDetails.getAttribute('open'))) await futureDetails.locator('summary').click();
   await expect(futureDetails.locator('.session-detail')).toContainText('5問');
   await expect(futureDetails.getByRole('button', { name: '固定する', exact: true })).toHaveCount(0);
-  await expect(futureDetails.getByRole('button', { name: '進捗を記録', exact: true })).toHaveCount(0);
+  await expect(futureDetails.getByRole('button', { name: '進捗を記録', exact: true })).toHaveCount(
+    0,
+  );
   expect((await storedState()).plan).toEqual(seed.plan);
   await page.screenshot({ path: 'test-results/calendar-consistency.png', fullPage: true });
   await nav('進捗を記録');
@@ -3660,77 +4002,80 @@ test('実機：選択日と週内訳・月移動・授業だけの日・予定�
   await expect(page.locator('.progress-summary')).toContainText('完了 10問');
 });
 
-test('実機：保存中の終了を待機し、失敗したら終了せず、保存成功後の再起動でも入力が残る', async () => {
-  await close();
-  browser = undefined!;
-  dataDir = mkdtempSync(resolve('.test-data/close-save-'));
-  await launch();
-  await nav('対話式の初期設定');
-  await page.getByLabel('試験名', { exact: true }).fill('保存前の目標');
-  await saved();
-  const before = await storedState();
-  async function holdSave(fail: boolean) {
-    await page.evaluate((shouldFail) => {
-      const w = window as unknown as {
-        releaseTestSave: () => void;
-      };
-      const nativeFetch = window.fetch.bind(window);
-      let first = true;
-      window.fetch = async (input, options) => {
-        if (String(input).includes('ipc.localhost/commit_state') && first) {
-          first = false;
-          await new Promise<void>((resolve) => {
-            w.releaseTestSave = resolve;
-          });
-          if (shouldFail)
-            return new Response(JSON.stringify('テスト用の保存失敗'), {
-              headers: { 'Content-Type': 'application/json', 'Tauri-Response': 'error' },
+for (const windowMode of ['normal', 'maximize', 'minimize']) {
+  test(`実機：${windowMode}で保存済み・保存中・保存失敗の終了契約を守る`, async () => {
+    await close();
+    browser = undefined!;
+    dataDir = mkdtempSync(resolve('.test-data/close-save-'));
+    await launch();
+    await nav('対話式の初期設定');
+    await page.getByLabel('試験名', { exact: true }).fill('保存前の目標');
+    await saved();
+    const before = await storedState();
+    async function holdSave(fail: boolean) {
+      await page.evaluate((shouldFail) => {
+        const w = window as unknown as {
+          releaseTestSave: () => void;
+        };
+        const nativeFetch = window.fetch.bind(window);
+        let first = true;
+        window.fetch = async (input, options) => {
+          if (String(input).includes('ipc.localhost/commit_state') && first) {
+            first = false;
+            await new Promise<void>((resolve) => {
+              w.releaseTestSave = resolve;
             });
-        }
-        return nativeFetch(input, options);
-      };
-    }, fail);
-  }
-  async function requestClose() {
-    await page.evaluate(async () => {
-      await (
-        window as unknown as {
-          __TAURI_INTERNALS__: { invoke: (cmd: string, args: unknown) => Promise<unknown> };
-        }
-      ).__TAURI_INTERNALS__.invoke('plugin:window|close', { label: 'main' });
-    });
-  }
-  async function releaseSave() {
-    await page.evaluate(() =>
-      (window as unknown as { releaseTestSave: () => void }).releaseTestSave(),
-    );
-  }
-  await holdSave(true);
-  await page.getByLabel('試験名', { exact: true }).fill('保存が失敗する目標');
-  await expect(page.locator('.save-status')).toContainText('保存中');
-  await requestClose();
-  await expect(page.getByRole('dialog', { name: '保存して終了' })).toBeVisible();
-  await requestClose(); // repeated close must not bypass the pending save
-  expect(child.exitCode).toBeNull();
-  await releaseSave();
-  await expect(page.getByRole('alert')).toContainText('保存に失敗したため終了を中止しました');
-  await expect(page.getByRole('dialog', { name: '保存して終了' })).toHaveCount(0);
-  await expect(page.getByLabel('試験名', { exact: true })).toHaveValue('保存前の目標');
-  expect(await storedState()).toEqual(before);
-  await page.getByRole('button', { name: '閉じる', exact: true }).click();
-  await holdSave(false);
-  await page.getByLabel('試験名', { exact: true }).fill('終了直前に入力した目標');
-  await requestClose();
-  await expect(page.getByRole('dialog', { name: '保存して終了' })).toBeVisible();
-  await page.screenshot({ path: 'test-results/close-save.png' });
-  await releaseSave();
-  await expect.poll(() => child.exitCode, { timeout: 15000 }).not.toBeNull();
-  await close();
-  browser = undefined!;
-  await launch();
-  await nav('対話式の初期設定');
-  await expect(page.getByLabel('試験名', { exact: true })).toHaveValue('終了直前に入力した目標');
-});
+            if (shouldFail)
+              return new Response(JSON.stringify('テスト用の保存失敗'), {
+                headers: { 'Content-Type': 'application/json', 'Tauri-Response': 'error' },
+              });
+          }
+          return nativeFetch(input, options);
+        };
+      }, fail);
+    }
+    async function requestClose() {
+      if (windowMode !== 'normal') await osWindow(windowMode);
+      await osWindow('close');
+    }
+    async function releaseSave() {
+      await page.evaluate(() =>
+        (window as unknown as { releaseTestSave: () => void }).releaseTestSave(),
+      );
+    }
+    await requestClose();
+    await expect.poll(() => child.exitCode, { timeout: 15000 }).not.toBeNull();
+    await launch();
+    expect(await storedState()).toEqual(before);
+    await nav('対話式の初期設定');
+    await holdSave(true);
+    await page.getByLabel('試験名', { exact: true }).fill('保存が失敗する目標');
+    await expect(page.locator('.save-status')).toContainText('保存中');
+    await requestClose();
+    await expect(page.getByRole('dialog', { name: '保存して終了' })).toBeVisible();
+    await requestClose(); // repeated close must not bypass the pending save
+    expect(child.exitCode).toBeNull();
+    await releaseSave();
+    if (windowMode !== 'normal') await osWindow('restore');
+    await expect(page.getByRole('alert')).toContainText('保存に失敗したため終了を中止しました');
+    await expect(page.getByRole('dialog', { name: '保存して終了' })).toHaveCount(0);
+    await expect(page.getByLabel('試験名', { exact: true })).toHaveValue('保存前の目標');
+    expect(await storedState()).toEqual(before);
+    await page.getByRole('button', { name: '閉じる', exact: true }).click();
+    await holdSave(false);
+    await page.getByLabel('試験名', { exact: true }).fill('終了直前に入力した目標');
+    await requestClose();
+    await expect(page.getByRole('dialog', { name: '保存して終了' })).toBeVisible();
+    await page.screenshot({ path: 'test-results/close-save.png' });
+    await releaseSave();
+    await expect.poll(() => child.exitCode, { timeout: 15000 }).not.toBeNull();
+    await close();
+    browser = undefined!;
+    await launch();
+    await nav('対話式の初期設定');
+    await expect(page.getByLabel('試験名', { exact: true })).toHaveValue('終了直前に入力した目標');
+  });
+}
 
 test('実機：保存と再読込の両方が失敗しても保存済みとせず、確認・再開・終了を選べる', async () => {
   await close();
@@ -3987,14 +4332,9 @@ test('実機：独立したチュートリアルと各画面への移動で、�
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
   await nav('今日のスケジュール');
   await page.screenshot({ path: 'test-results/navigation-arrival.png' });
-  await expect(
-    page.getByRole('heading', { name: '今日の詳細', level: 1 }),
-  ).toBeInViewport();
+  await expect(page.getByRole('heading', { name: '今日の詳細', level: 1 })).toBeInViewport();
   await expect(page.getByRole('heading', { name: '今日の詳細', level: 1 })).toBeFocused();
-  await page
-    .locator('.sidebar nav')
-    .getByRole('button', { name: '設定', exact: true })
-    .focus();
+  await page.locator('.sidebar nav').getByRole('button', { name: '設定', exact: true }).focus();
   await page.keyboard.press('Enter');
   await page.getByRole('button', { name: '使い方', exact: true }).focus();
   await page.keyboard.press('Enter');
@@ -4582,19 +4922,85 @@ test('実機：共通進捗と今日への安全な入力引継ぎ', async () =>
   await launch();
   const date = today();
   const seed = initialState();
-  seed.settings.exams = [{ id: 'exam', name: '検証試験', start: date, target: addDays(date, 2), priority: 2, color: '#287569', reviewDays: 0 }];
-  seed.settings.materials = [{ id: 'book', examId: 'exam', name: '検証教材', total: 100, order: 1, rounds: [{ completed: 0, minutes: 2 }] }];
-  seed.settings.windows = [{ id: 'window', name: '枠', kind: 'study', from: date, to: addDays(date, 2), weekdays: [0,1,2,3,4,5,6], start: 1080, end: 1200 }];
+  seed.settings.exams = [
+    {
+      id: 'exam',
+      name: '検証試験',
+      start: date,
+      target: addDays(date, 2),
+      priority: 2,
+      color: '#287569',
+      reviewDays: 0,
+    },
+  ];
+  seed.settings.materials = [
+    {
+      id: 'book',
+      examId: 'exam',
+      name: '検証教材',
+      total: 100,
+      order: 1,
+      rounds: [{ completed: 0, minutes: 2 }],
+    },
+  ];
+  seed.settings.windows = [
+    {
+      id: 'window',
+      name: '枠',
+      kind: 'study',
+      from: date,
+      to: addDays(date, 2),
+      weekdays: [0, 1, 2, 3, 4, 5, 6],
+      start: 1080,
+      end: 1200,
+    },
+  ];
   seed.settings.buffer = 0;
   seed.settings.scheduleAnswers = { class: 'none', busy: 'none', exception: 'none' };
-  seed.plan = { id: 'p', createdAt: new Date().toISOString(), from: date, settingsSnapshot: structuredClone(seed.settings), calculationVersion: PLAN_CALCULATION_VERSION,
-    sessions: [{ id: 's', date, start: 1080, end: 1100, materialId: 'book', examId: 'exam', round: 0, count: 10, fixed: false, kind: 'study' }], capacities: [], conflicts: [], shortfalls: [] };
-  seed.records = [{ id: 'r', date, materialId: 'book', round: 0, count: 3, cancelled: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }];
+  seed.plan = {
+    id: 'p',
+    createdAt: new Date().toISOString(),
+    from: date,
+    settingsSnapshot: structuredClone(seed.settings),
+    calculationVersion: PLAN_CALCULATION_VERSION,
+    sessions: [
+      {
+        id: 's',
+        date,
+        start: 1080,
+        end: 1100,
+        materialId: 'book',
+        examId: 'exam',
+        round: 0,
+        count: 10,
+        fixed: false,
+        kind: 'study',
+      },
+    ],
+    capacities: [],
+    conflicts: [],
+    shortfalls: [],
+  };
+  seed.records = [
+    {
+      id: 'r',
+      date,
+      materialId: 'book',
+      round: 0,
+      count: 3,
+      cancelled: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ];
   await seedState(seed, 'progress-view-seed');
   const row = page.locator('.daily-record-row');
   await expect(row).toContainText('3/10問');
   await nav('詳細カレンダー');
-  await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
+  await page
+    .locator('.calendar-toolbar')
+    .getByRole('button', { name: '今日', exact: true })
+    .click();
   await expect(page.getByRole('button', { name: /固定する|固定を解除/ })).toHaveCount(0);
   await page.locator('.session-detail').getByRole('button', { name: '進捗を記録' }).click();
   await expect(row.getByRole('textbox')).toBeFocused();
@@ -4604,12 +5010,18 @@ test('実機：共通進捗と今日への安全な入力引継ぎ', async () =>
   await saved();
   await expect(row).toContainText('10/10問');
   expect((await storedState()).records.reduce((n, r) => n + r.count, 0)).toBe(10);
-  await page.screenshot({ path: 'test-results/progress-consistency/native-today.png', fullPage: true });
+  await page.screenshot({
+    path: 'test-results/progress-consistency/native-today.png',
+    fullPage: true,
+  });
   await close();
   await launch();
   await expect(page.locator('.daily-record-row')).toContainText('10/10問');
   await nav('詳細カレンダー');
   await page.getByRole('button', { name: '学習量', exact: true }).click();
-  await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
+  await page
+    .locator('.calendar-toolbar')
+    .getByRole('button', { name: '今日', exact: true })
+    .click();
   await expect(page.locator('.quantity-breakdown')).toContainText('10/10問');
 });

@@ -593,12 +593,7 @@
                   "deferred",
                   "registered"
                 ]
-              },
-              "required": [
-                "class",
-                "busy",
-                "exception"
-              ]
+              }
             }
           },
           "required": [
@@ -2396,12 +2391,7 @@
                           "deferred",
                           "registered"
                         ]
-                      },
-                      "required": [
-                        "class",
-                        "busy",
-                        "exception"
-                      ]
+                      }
                     }
                   },
                   "required": [
@@ -2838,12 +2828,7 @@
                           "deferred",
                           "registered"
                         ]
-                      },
-                      "required": [
-                        "class",
-                        "busy",
-                        "exception"
-                      ]
+                      }
                     }
                   },
                   "required": [
@@ -3449,12 +3434,7 @@
                           "deferred",
                           "registered"
                         ]
-                      },
-                      "required": [
-                        "class",
-                        "busy",
-                        "exception"
-                      ]
+                      }
                     }
                   },
                   "required": [
@@ -4324,12 +4304,7 @@
                         "deferred",
                         "registered"
                       ]
-                    },
-                    "required": [
-                      "class",
-                      "busy",
-                      "exception"
-                    ]
+                    }
                   }
                 },
                 "required": [
@@ -5198,12 +5173,7 @@
                               "deferred",
                               "registered"
                             ]
-                          },
-                          "required": [
-                            "class",
-                            "busy",
-                            "exception"
-                          ]
+                          }
                         }
                       },
                       "required": [
@@ -6057,12 +6027,7 @@
                           "deferred",
                           "registered"
                         ]
-                      },
-                      "required": [
-                        "class",
-                        "busy",
-                        "exception"
-                      ]
+                      }
                     }
                   },
                   "required": [
@@ -6779,12 +6744,7 @@
                       "deferred",
                       "registered"
                     ]
-                  },
-                  "required": [
-                    "class",
-                    "busy",
-                    "exception"
-                  ]
+                  }
                 }
               },
               "required": [
@@ -8582,12 +8542,7 @@
                               "deferred",
                               "registered"
                             ]
-                          },
-                          "required": [
-                            "class",
-                            "busy",
-                            "exception"
-                          ]
+                          }
                         }
                       },
                       "required": [
@@ -9024,12 +8979,7 @@
                               "deferred",
                               "registered"
                             ]
-                          },
-                          "required": [
-                            "class",
-                            "busy",
-                            "exception"
-                          ]
+                          }
                         }
                       },
                       "required": [
@@ -9635,12 +9585,7 @@
                               "deferred",
                               "registered"
                             ]
-                          },
-                          "required": [
-                            "class",
-                            "busy",
-                            "exception"
-                          ]
+                          }
                         }
                       },
                       "required": [
@@ -10510,12 +10455,7 @@
                             "deferred",
                             "registered"
                           ]
-                        },
-                        "required": [
-                          "class",
-                          "busy",
-                          "exception"
-                        ]
+                        }
                       }
                     },
                     "required": [
@@ -11384,12 +11324,7 @@
                                   "deferred",
                                   "registered"
                                 ]
-                              },
-                              "required": [
-                                "class",
-                                "busy",
-                                "exception"
-                              ]
+                              }
                             }
                           },
                           "required": [
@@ -12243,12 +12178,7 @@
                               "deferred",
                               "registered"
                             ]
-                          },
-                          "required": [
-                            "class",
-                            "busy",
-                            "exception"
-                          ]
+                          }
                         }
                       },
                       "required": [

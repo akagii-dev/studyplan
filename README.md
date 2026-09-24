@@ -22,7 +22,7 @@
 
 「バックアップ」から設定・計画・実績・入力途中を `.studyplan.json` に保存できます。復元は内容の確認後に全体を置き換え、直前の状態に1回分戻せます。
 
-[最新版 v0.4.20](https://github.com/akagii-dev/studyplan/releases/tag/v0.4.20)のWindows版をダウンロードして起動してください。Windows + Microsoft Edge WebView2 Runtimeが必要です。外部アカウントは不要です。旧版と保存先は共通なので、版を切り替える際は起動中のStudyPlanを閉じてください。
+[最新版 v0.5.0](https://github.com/akagii-dev/studyplan/releases/tag/v0.5.0)のWindows版をダウンロードして起動してください。Windows + Microsoft Edge WebView2 Runtimeが必要です。外部アカウントは不要です。旧版と保存先は共通なので、版を切り替える際は起動中のStudyPlanを閉じてください。
 
 データの保存先は通常 `%APPDATA%\jp.local.studyplan\studyplan.sqlite3`。開発用テストデータは別フォルダーに分離します。保存中にウィンドウを閉じた場合は、最後の入力の保存を待ってから終了します。保存に失敗した場合は終了を中止して知らせます。強制終了や電源断はこの待機の対象外です。
 
@@ -94,7 +94,7 @@ WebView2の画面データも起動ごとに `.test-data/native-webview-*` へ�
 
 ## 更新パッケージ
 
-`release/StudyPlan-update-0.4.20.zip` を展開し、`Update-StudyPlan.ps1` を右クリックして「PowerShellで実行」を選び、これまで使っていた StudyPlan の実行ファイルを選んでください。アプリを閉じてから行います。設定・計画・記録は同じ保存先を引き継ぎます。旧実行ファイルも控えとして残します。
+`release/StudyPlan-update-0.5.0.zip` を展開し、`Update-StudyPlan.ps1` を右クリックして「PowerShellで実行」を選び、これまで使っていた StudyPlan の実行ファイルを選んでください。アプリを閉じてから行います。設定・計画・記録は同じ保存先を引き継ぎます。旧実行ファイルも控えとして残します。
 
 実行ファイル全体を差し替える更新パッケージです。差分ダウンロードや自動更新は行いません。手動で同梱の `StudyPlan.exe` を差し替えても更新できます。
 

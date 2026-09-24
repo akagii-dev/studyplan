@@ -1,0 +1,113 @@
+import assert from 'node:assert/strict';
+import { mkdirSync } from 'node:fs';
+import { chromium, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import { dailyFlowFixture, showFutureWeek } from './daily-flow-fixture.mjs';
+
+const url = process.argv[2] ?? 'http://127.0.0.1:4175/studyplan/';
+const browser = await chromium.launch({ channel: 'msedge', headless: true });
+const output = 'test-results/future-progress';
+mkdirSync(output, { recursive: true });
+try {
+  for (const width of [1280, 390, 320]) {
+    const { state, date, tomorrow } = dailyFlowFixture();
+    const d = new Date(`${date}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - 1);
+    const past = d.toISOString().slice(0, 10);
+    const examples = [0, 6, 10, 12, null];
+    state.settings.materials = examples.map((count, i) => ({ id: `b${i}`, examId: 'exam', name: count === null ? '未報告の教材' : `実績${count}の教材`, total: 50, order: i, rounds: [{ completed: 0, minutes: 2 }] }));
+    state.plan.settingsSnapshot = structuredClone(state.settings);
+    const session = state.plan.sessions[0];
+    state.history = [{ ...structuredClone(state.plan), id: 'past-plan', from: past, approvedAt: `${past}T00:00:00+09:00`, sessions: examples.map((_, i) => ({ ...session, id: `past${i}`, materialId: `b${i}`, date: past, count: 10 })) }];
+    state.plan.sessions = [{ ...session, materialId: 'b1' }, { ...session, id: 'future', date: tomorrow, materialId: 'b1' }];
+    state.records = examples.flatMap((count, i) => count === null ? [] : [{ id: `r${i}`, date: past, materialId: `b${i}`, round: 0, count, cancelled: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }]);
+    state.records.push({ id: 'today', date, materialId: 'b1', round: 0, count: 3, cancelled: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    const context = await browser.newContext({ viewport: { width, height: 900 }, timezoneId: 'Asia/Tokyo' });
+    await context.addInitScript((seed) => { if (!localStorage.getItem('studyplan-demo-state-v1')) localStorage.setItem('studyplan-demo-state-v1', JSON.stringify({ revision: 1, data: seed })); }, state);
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: 'networkidle' });
+    const openWeek = async () => {
+      await page.getByRole('button', { name: '今後の予定', exact: true }).click();
+      await showFutureWeek(page, past);
+    };
+    const day = (target) => page.locator('.future-day').filter({ has: page.getByRole('button', { name: new RegExp(`^${target} `) }) });
+    const row = (name) => day(past).getByRole('listitem').filter({ hasText: name });
+    await openWeek();
+    for (const count of [0, 6, 10, 12]) {
+      await expect(row(`実績${count}の教材`)).toContainText(`${count}/10問`);
+      await expect(row(`実績${count}の教材`)).not.toContainText('未報告');
+      if (count < 10) await expect(row(`実績${count}の教材`).locator('.quantity-warning')).toHaveText(`${10 - count}問不足`);
+      else await expect(row(`実績${count}の教材`).locator('.quantity-warning')).toHaveCount(0);
+    }
+    await expect(row('未報告の教材')).toContainText('0/10問');
+    await expect(row('未報告の教材').locator('.quantity-warning')).toHaveText('未報告');
+    await expect(row('未報告の教材')).not.toContainText('問不足');
+    await showFutureWeek(page, date);
+    await expect(day(date)).toContainText('3/10問');
+    await expect(day(date).locator('.future-today')).toHaveText('今日');
+    await expect(day(date).locator('.quantity-warning')).toHaveCount(0);
+    await showFutureWeek(page, tomorrow);
+    await expect(day(tomorrow)).toContainText('10問');
+    await expect(day(tomorrow)).not.toContainText('/10問');
+    await showFutureWeek(page, past);
+    await day(past).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${output}/future-${width}.png`, fullPage: true });
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    for (const theme of ['mint', 'sky', 'lime']) for (const mode of ['light', 'dark']) {
+      await page.evaluate(async ({ theme, mode }) => { document.documentElement.dataset.theme = theme; document.documentElement.dataset.appearance = mode; await new Promise(requestAnimationFrame); await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))); }, { theme, mode });
+      const result = await new AxeBuilder({ page }).include('main').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
+      assert.deepEqual(result.violations.map((v) => v.id), [], `${theme}/${mode}`);
+    }
+    await page.getByRole('button', { name: '詳細カレンダーを見る' }).click();
+    await expect(page.locator('.day-panel, .today-schedule, .daily-time, .capacity-panel')).toHaveCount(0);
+    await page.screenshot({ path: `${output}/calendar-${width}.png`, fullPage: true });
+    await page.getByRole('button', { name: '学習量', exact: true }).click();
+    await page.getByRole('button', { name: new RegExp(`^${past}を表示 `) }).click();
+    await expect(page.locator('.day-panel h3')).toBeFocused();
+    const detail = page.locator('.quantity-breakdown section').filter({ hasText: '実績6の教材' });
+    await expect(detail.locator('.quantity-warning')).toContainText('4問');
+    await page.getByRole('button', { name: '詳細を閉じる' }).click();
+    await expect(page.locator('.day-panel')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: new RegExp(`^${past}を表示 `) })).toBeFocused();
+    await page.getByRole('button', { name: '今後の予定へ戻る' }).click();
+    await expect(row('実績6の教材')).toContainText('6/10問');
+    await page.getByRole('button', { name: '記録履歴', exact: true }).click();
+    const historyRow = page.getByRole('row').filter({ hasText: past }).filter({ hasText: '実績6の教材' });
+    await historyRow.getByRole('button', { name: '訂正', exact: true }).click();
+    await page.getByLabel('訂正後の問題数').fill('8');
+    await page.getByRole('button', { name: '訂正を保存' }).click();
+    await expect(page.locator('.save-status')).toContainText('保存済み');
+    await openWeek();
+    await expect(row('実績6の教材')).toContainText('8/10問');
+    await expect(row('実績6の教材')).toContainText('2問不足');
+    await page.reload();
+    await openWeek();
+    await expect(row('実績6の教材')).toContainText('8/10問');
+    await page.getByRole('button', { name: '記録履歴', exact: true }).click();
+    await historyRow.getByRole('button', { name: '取消', exact: true }).click();
+    await page.getByRole('button', { name: '取消を確定' }).click();
+    await expect(page.locator('.save-status')).toContainText('保存済み');
+    await openWeek();
+    await expect(row('実績6の教材')).toContainText('0/10問');
+    await expect(row('実績6の教材').locator('.quantity-warning')).toHaveText('未報告');
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('studyplan-demo-state-v1')).data);
+    assert.equal(stored.studyDayBaselines[past].rows.find((r) => r.materialId === 'b1').count, 10);
+    await page.getByRole('button', { name: '今日', exact: true }).click();
+    const todayRow = page.locator('.daily-record-row').filter({ hasText: '実績6の教材' });
+    await todayRow.getByRole('textbox').fill('2');
+    await todayRow.getByRole('button', { name: '記録', exact: true }).click();
+    await expect(page.locator('.save-status')).toContainText('保存済み');
+    await openWeek();
+    await showFutureWeek(page, date);
+    await expect(day(date)).toContainText('5/10問');
+    await page.getByRole('button', { name: '設定', exact: true }).click();
+    await page.getByRole('button', { name: '今日の時間内訳', exact: true }).click();
+    await expect(page.getByRole('region', { name: '今日の予定一覧' })).toBeVisible();
+    await expect(page.locator('.daily-time')).toBeVisible();
+    await openWeek();
+    await page.addStyleTag({ content: 'html { font-size: 200% !important; } * { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; }' });
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    await page.screenshot({ path: `${output}/expanded-${width}.png`, fullPage: true });
+    await context.close();
+    console.log(`PASS ${width}px: ratios, shortage, unreported, calendar-only, correction/cancel/reload, themes, reflow`);
+  }
+} finally { await browser.close(); }

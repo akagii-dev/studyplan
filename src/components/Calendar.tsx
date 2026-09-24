@@ -1,5 +1,5 @@
 import { Warning } from './Warnings';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, LockKeyhole, Unlock, CalendarDays } from 'lucide-react';
 import {
   CalendarDensity,
@@ -12,8 +12,7 @@ import {
   today,
   weekday,
 } from '../domain/model';
-import { datesBetween, capacityForDate } from '../domain/planning';
-import { weeklyCapacities } from '../domain/weeklyCapacity';
+import { datesBetween } from '../domain/planning';
 import { blockingEvents, overlapsBusy } from '../domain/planAudit';
 import { moveCalendarDate, startOfWeek, shortDayLabel } from '../domain/calendar';
 import { DailyTime } from './DailyTime';
@@ -21,7 +20,6 @@ import { CalendarQuantity, CalendarQuantityDetails } from './CalendarQuantity';
 import { calendarQuantity, materialUnit } from '../domain/calendarQuantity';
 import { CalendarDaySummary } from './CalendarDaySummary';
 import { renameOutsideRange } from '../domain/dailyTimeDisplay';
-import { PlanInsights } from './PlanInsights';
 import { Empty, Props, duration, weekdays } from './common';
 import { CalendarExport } from './CalendarExport';
 import { sessionPolicy } from '../domain/sessionPolicy';
@@ -38,6 +36,7 @@ export function Calendar({
   initialDate = today(),
   onDateChange,
   revealDay = false,
+  onDetailChange,
   initialView = 'month',
   onViewChange,
   initialFilter = 'all',
@@ -51,6 +50,7 @@ export function Calendar({
   initialDate?: string;
   onDateChange?: (date: string) => void;
   revealDay?: boolean;
+  onDetailChange?: (open: boolean) => void;
   initialView?: CalendarView;
   onViewChange?: (view: CalendarView) => void;
   initialFilter?: string;
@@ -77,6 +77,25 @@ export function Calendar({
     onFilterChange?.(filter);
   }, [filter, onFilterChange]);
   const [selected, setSelected] = useState(initialDate);
+  const [showDay, setShowDay] = useState(revealDay);
+  useEffect(() => {
+    onDetailChange?.(showDay);
+  }, [showDay, onDetailChange]);
+  const calendarRef = useRef<HTMLDivElement>(null);
+  const detailRef = useRef<HTMLElement>(null);
+  const detailMounted = useRef(false);
+  const selectDay = (date: string) => {
+    setSelected(date);
+    setShowDay(true);
+  };
+  useEffect(() => {
+    if (showDay) {
+      if (detailMounted.current)
+        detailRef.current?.querySelector<HTMLHeadingElement>('h3')?.focus({ preventScroll: true });
+      detailRef.current?.scrollIntoView({ block: 'nearest' });
+    }
+    detailMounted.current = true;
+  }, [selected, showDay]);
   useEffect(() => {
     onDateChange?.(selected);
   }, [selected, onDateChange]);
@@ -265,15 +284,6 @@ export function Calendar({
         </div>
       ),
     );
-  const weekly = (() => {
-    try {
-      return datesBetween(weekStart, addDays(weekStart, 6)).map((d) =>
-        capacityForDate(state.settings, d),
-      );
-    } catch {
-      return [];
-    }
-  })();
   if (todayOnly) {
     const date = today();
     const study = all.filter((x) => x.date === date);
@@ -318,9 +328,18 @@ export function Calendar({
       </>
     );
   }
-  const selectedDayPanel = (view !== 'list' || mode === 'quantity') && (
-    <aside className="card day-panel" aria-label="選択した日の学習詳細">
-      <h3>
+  const selectedDayPanel = showDay && (view !== 'list' || mode === 'quantity') && (
+    <aside className="card day-panel" aria-label="選択した日の学習詳細" ref={detailRef}>
+      <button
+        className="day-panel-close"
+        onClick={() => {
+          setShowDay(false);
+          calendarRef.current?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus();
+        }}
+      >
+        詳細を閉じる
+      </button>
+      <h3 tabIndex={-1}>
         {Number(selected.slice(5, 7))}月{Number(selected.slice(8))}日（
         {weekdays[weekday(selected)]}）
       </h3>
@@ -376,7 +395,7 @@ export function Calendar({
           </button>
           <button
             onClick={() => {
-              setSelected(today());
+              selectDay(today());
             }}
           >
             今日
@@ -471,14 +490,8 @@ export function Calendar({
           <p>初期設定を終えたら、最初の計画を作成しましょう。</p>
         </Empty>
       )}
-      <div
-        className={
-          view === 'month'
-            ? `calendar-layout ${mode === 'quantity' ? 'quantity-layout' : ''} ${revealDay ? 'selected-date-first' : ''}`
-            : ''
-        }
-      >
-        {revealDay && selectedDayPanel}
+      <div className="calendar-only-layout" ref={calendarRef}>
+        {selectedDayPanel}
         {view === 'list' ? (
           <div className={`card calendar-list density-${density}`}>
             {days
@@ -495,7 +508,7 @@ export function Calendar({
                       className="text-button"
                       aria-label={`${d}の時間の内訳を表示`}
                       aria-pressed={selected === d}
-                      onClick={() => setSelected(d)}
+                      onClick={() => selectDay(d)}
                     >
                       {d}（{weekdays[weekday(d)]}）
                     </button>
@@ -505,7 +518,7 @@ export function Calendar({
                       state={state}
                       date={d}
                       filter={filter}
-                      onSelect={() => setSelected(d)}
+                      onSelect={() => selectDay(d)}
                     />
                   ) : (
                     <CalendarDaySummary
@@ -513,7 +526,7 @@ export function Calendar({
                       date={d}
                       filter={filter}
                       density={density}
-                      onSelect={() => setSelected(d)}
+                      onSelect={() => selectDay(d)}
                     />
                   )}
                   {mode === 'content' && (
@@ -551,7 +564,7 @@ export function Calendar({
                 <div
                   key={d}
                   className={`day ${d === today() ? 'today' : ''} ${d === selected ? 'chosen' : ''} ${view === 'month' && d.slice(0, 7) !== anchor.slice(0, 7) ? 'muted-day' : ''}`}
-                  onClick={() => setSelected(d)}
+                  onClick={() => selectDay(d)}
                 >
                   <button
                     className="date-number"
@@ -567,7 +580,7 @@ export function Calendar({
                       state={state}
                       date={d}
                       filter={filter}
-                      onSelect={() => setSelected(d)}
+                      onSelect={() => selectDay(d)}
                     />
                   ) : (
                     <CalendarDaySummary
@@ -575,7 +588,7 @@ export function Calendar({
                       date={d}
                       filter={filter}
                       density={density}
-                      onSelect={() => setSelected(d)}
+                      onSelect={() => selectDay(d)}
                     />
                   )}
                   {mode === 'content' &&
@@ -592,63 +605,7 @@ export function Calendar({
             </div>
           </div>
         )}
-        {!revealDay && selectedDayPanel}
       </div>
-      <DailyTime
-        settings={state.settings}
-        date={selected}
-        outsideTime={state.outsideTime}
-        outsideLabels={state.outsideLabels?.[selected]}
-      />
-      <section className="card capacity-panel" aria-label="選択した日の週の時間の内訳">
-        <div className="row">
-          <h3>選択した日の週の時間の内訳（現在の設定）</h3>
-          <small>
-            {weekStart}〜{addDays(weekStart, 6)} · 全試験で共有
-          </small>
-        </div>
-        <div className="metrics compact-metrics">
-          {(['free', 'focus'] as const).map((key, i) => (
-            <div key={key}>
-              <span>{['① 授業・予定を除いた空き枠', '② 連続学習の長さ・休憩を適用'][i]}</span>
-              <strong>
-                {weekly.length
-                  ? duration(weekly.reduce((n, c) => n + c[key], 0))
-                  : '連続時間・余裕率を確認'}
-              </strong>
-            </div>
-          ))}
-        </div>
-        <details>
-          <summary>日ごとの内訳を見る</summary>
-          <p>
-            週の割当上限：
-            {weekly.length
-              ? duration(weeklyCapacities(weekly, state.settings.buffer)[0].limit)
-              : '設定を確認'}
-            。余裕率は週全体に適用し、日ごとの予約はしません。
-          </p>
-          <table>
-            <thead>
-              <tr>
-                <th>日付</th>
-                <th>空き枠</th>
-                <th>学習可能量</th>
-              </tr>
-            </thead>
-            <tbody>
-              {weekly.map((c) => (
-                <tr key={c.date}>
-                  <td>{c.date}</td>
-                  <td>{duration(c.free)}</td>
-                  <td>{duration(c.focus)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </details>
-      </section>
-      {state.plan && <PlanInsights state={state} plan={state.plan} />}
     </>
   );
 }

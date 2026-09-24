@@ -275,7 +275,7 @@ export default function App() {
               <Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} />
             )}{' '}
             {page === 'future' && (
-              <Future {...props} initialWeek={futureWeek} onWeekChange={setFutureWeek} onCalendar={(date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(!!date); setPage('calendar'); }} onProposal={() => setPage('replan')} />
+              <Future {...props} initialWeek={futureWeek} onWeekChange={setFutureWeek} onCalendar={(date, revealDay = !!date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} />
             )}
             {(page === 'settings' || originStack.current.some((entry) => entry.page === 'settings')) && (
               <div hidden={page !== 'settings'}>
@@ -359,7 +359,7 @@ export default function App() {
               />
             )}
             {page === 'calendar' && (
-              <Calendar {...props} initialMode={calendarMode} onModeChange={setCalendarMode} initialDate={calendarDate} initialView={calendarView} onViewChange={setCalendarView} initialFilter={calendarFilter} onFilterChange={setCalendarFilter} revealDay={calendarRevealDay} onDateChange={setCalendarDate} onRecord={onRecord} onReplan={() => setPage('replan')} />
+              <Calendar {...props} initialMode={calendarMode} onModeChange={setCalendarMode} initialDate={calendarDate} initialView={calendarView} onViewChange={setCalendarView} initialFilter={calendarFilter} onFilterChange={setCalendarFilter} revealDay={calendarRevealDay} onDetailChange={setCalendarRevealDay} onDateChange={setCalendarDate} onRecord={onRecord} onReplan={() => setPage('replan')} />
             )}{' '}
             {page === 'commute' && (
               <CommuteSettings {...props} onReview={() => setPage('replan')} />

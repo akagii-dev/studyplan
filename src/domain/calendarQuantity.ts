@@ -96,7 +96,11 @@ export interface QuantityTotal {
   reported: boolean;
   partial: boolean;
   remainder: number | null;
+  shortage: number | null;
 }
+/** Historical shortage is confirmed only by an actual report, including an explicit zero. */
+export const recordedShortage = (row: Pick<QuantityRow, 'planned' | 'actual' | 'reported'>) =>
+  row.planned === null ? null : row.reported ? Math.max(0, row.planned - row.actual) : 0;
 export function calendarQuantity(
   state: AppState,
   date: string,
@@ -112,14 +116,16 @@ export function calendarQuantity(
         ? snapshot(state, state.plan, date, date === reference)
         : null;
   const rows = new Map<string, QuantityRow>();
-  for (const row of baseline?.rows ?? []) {
+  const sourceRows =
+    baseline?.rows ?? (state.plan ? snapshot(state, state.plan, date, false).rows : []);
+  for (const row of sourceRows) {
     if (filter !== 'all' && row.examId !== filter) continue;
     rows.set(keyOf(row.materialId, row.round, row.unit), {
       ...row,
-      planned: row.count,
+      planned: baseline ? row.count : null,
       actual: 0,
       reported: false,
-      remainder: row.count,
+      remainder: baseline ? row.count : null,
     });
   }
   for (const record of state.records.filter((r) => !r.cancelled && r.date === date)) {
@@ -156,12 +162,14 @@ export function calendarQuantity(
       reported: false,
       partial: false,
       remainder: baseline ? 0 : null,
+      shortage: baseline ? 0 : null,
     };
     if (total.planned !== null) total.planned += row.planned ?? 0;
     if (total.remainder !== null) total.remainder += row.remainder ?? 0;
+    if (total.shortage !== null) total.shortage += recordedShortage(row) ?? 0;
     total.actual += row.actual;
     total.reported ||= row.reported;
-    total.partial ||= !row.reported && (row.planned ?? 0) > 0;
+    total.partial ||= !row.reported && (row.planned === null || row.planned > 0);
     totals.set(row.unit, total);
   }
   return { date, past, known: !!baseline, rows: [...rows.values()], totals: [...totals.values()] };

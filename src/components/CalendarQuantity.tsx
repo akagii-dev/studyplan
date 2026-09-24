@@ -1,5 +1,5 @@
 import { AppState, Session, today } from '../domain/model';
-import { calendarQuantity, QuantityTotal } from '../domain/calendarQuantity';
+import { calendarQuantity, QuantityTotal, recordedShortage } from '../domain/calendarQuantity';
 
 function Amounts({
   total,
@@ -30,21 +30,31 @@ function Amounts({
         <dd>
           {total.actual}
           <span>{total.unit}</span>
+          {!future && !past && total.partial && <span>未報告{total.reported ? 'あり' : ''}</span>}
         </dd>
       </div>
-      <div>
-        <dt>{past ? 'その日の不足' : future ? '未実施' : '残り'}</dt>
-        <dd>
-          {total.remainder === null ? (
-            '基準なし'
-          ) : (
-            <>
-              {total.remainder}
-              <span>{total.unit}</span>
-            </>
-          )}
-        </dd>
-      </div>
+      {(!past || total.shortage === null || total.partial || total.shortage > 0) && (
+        <div>
+          <dt>{past ? 'その日の不足' : future ? '未実施' : '残り'}</dt>
+          <dd
+            className={
+              past && (total.partial || (total.shortage ?? 0) > 0) ? 'quantity-warning' : undefined
+            }
+          >
+            {past && total.partial && !total.reported ? (
+              '未報告'
+            ) : (past ? total.shortage : total.remainder) === null ? (
+              '基準なし'
+            ) : (
+              <>
+                {past ? total.shortage : total.remainder}
+                <span>{total.unit}</span>
+                {past && total.partial && <span>未報告あり</span>}
+              </>
+            )}
+          </dd>
+        </div>
+      )}
     </dl>
   );
 }
@@ -72,6 +82,7 @@ export function CalendarQuantity({
             planned: quantity.known ? 0 : null,
             actual: 0,
             remainder: quantity.known ? 0 : null,
+            shortage: quantity.known ? 0 : null,
             reported: false,
             partial: false,
           }}
@@ -114,7 +125,8 @@ export function CalendarQuantityDetails({
               actual: row.actual,
               reported: row.reported,
               remainder: row.remainder,
-              partial: false,
+              shortage: recordedShortage(row),
+              partial: !row.reported && (row.planned === null || row.planned > 0),
             }}
             past={quantity.past}
             future={date > today()}

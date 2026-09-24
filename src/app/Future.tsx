@@ -1,4 +1,4 @@
-import { materialUnit } from '../domain/calendarQuantity';
+import { calendarQuantity, materialUnit, recordedShortage } from '../domain/calendarQuantity';
 import { Props, duration } from '../components/common';
 import { useState } from 'react';
 import { upcomingSunday, shortDayLabel, weekRangeLabel } from '../domain/calendar';
@@ -14,12 +14,13 @@ export function Future({
   initialWeek = upcomingSunday(today()),
   onWeekChange,
 }: Props & {
-  onCalendar: (date?: string) => void;
+  onCalendar: (date?: string, revealDay?: boolean) => void;
   onProposal: () => void;
   initialWeek?: string;
   onWeekChange?: (date: string) => void;
 }) {
   const [week, setWeek] = useState(initialWeek);
+  const reference = today();
   const moveWeek = (date: string) => {
     setWeek(date);
     onWeekChange?.(date);
@@ -34,11 +35,20 @@ export function Future({
       continue;
     groups.set(session.date, [...(groups.get(session.date) ?? []), session]);
   }
+  for (let offset = 0; offset < 7; offset++) {
+    const date = addDays(week, offset);
+    if (
+      date <= reference &&
+      calendarQuantity(state, date, reference).rows.length &&
+      !groups.has(date)
+    )
+      groups.set(date, []);
+  }
   const shortfalls = state.plan?.shortfalls ?? [];
   const receipts = progressReceipts(state);
   return (
     <div className="future-page">
-      <button data-return-focus="future:calendar" onClick={() => onCalendar(week)}>
+      <button data-return-focus="future:calendar" onClick={() => onCalendar(week, false)}>
         詳細カレンダーを見る
       </button>
       <div className="future-week row" role="group" aria-label="週間予定の表示範囲">
@@ -61,6 +71,7 @@ export function Future({
         [...groups]
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([date, sessions]) => {
+            const quantity = calendarQuantity(state, date, reference);
             const rows = new Map<string, { session: Session; count: number; minutes: number }>();
             for (const session of sessions) {
               const key = JSON.stringify([
@@ -88,25 +99,71 @@ export function Future({
                   >
                     {shortDayLabel(date)}
                   </button>
+                  {date === reference && <span className="future-today">今日</span>}
                 </h2>
                 <ul>
-                  {[...rows.values()].map(({ session, count, minutes }) => (
-                    <li
-                      key={`${session.kind}/${session.materialId}/${session.round}/${session.examId}/${session.fixed}`}
-                    >
-                      <span>
-                        {session.kind === 'review'
-                          ? `${state.settings.exams.find((exam) => exam.id === session.examId)?.name ?? '試験'} · 復習`
-                          : `${state.settings.materials.find((material) => material.id === session.materialId)?.name ?? session.materialId} · ${session.round + 1}周目`}
-                      </span>
-                      <strong>
-                        {session.kind === 'review'
-                          ? duration(minutes)
-                          : `${count}${materialUnit(state.settings.materials.find((m) => m.id === session.materialId)?.unit)}`}
-                      </strong>
-                      {session.fixed && <span className="future-fixed">固定</span>}
-                    </li>
-                  ))}
+                  {date <= reference &&
+                    quantity.rows.map((row) => {
+                      const shortage = recordedShortage(row);
+                      const matching = sessions.filter(
+                        (s) =>
+                          s.kind === 'study' &&
+                          s.materialId === row.materialId &&
+                          s.round === row.round,
+                      );
+                      return (
+                        <li key={JSON.stringify([row.materialId, row.round, row.unit])}>
+                          <span>
+                            {row.name} · {row.round + 1}周目
+                          </span>
+                          <span className="future-quantity">
+                            <strong>
+                              {row.actual}
+                              {row.planned === null ? row.unit : ''}/
+                              {row.planned === null ? '基準なし' : `${row.planned}${row.unit}`}
+                            </strong>
+                            {!row.reported && (
+                              <span className={date < reference ? 'quantity-warning' : ''}>
+                                未報告
+                              </span>
+                            )}
+                            {date < reference &&
+                              row.reported &&
+                              shortage !== null &&
+                              shortage > 0 && (
+                                <strong className="quantity-warning">
+                                  {shortage}
+                                  {row.unit}不足
+                                </strong>
+                              )}
+                            {matching.some((s) => s.fixed) && (
+                              <span className="future-fixed">
+                                {matching.every((s) => s.fixed) ? '固定' : '一部固定'}
+                              </span>
+                            )}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  {[...rows.values()]
+                    .filter(({ session }) => date > reference || session.kind === 'review')
+                    .map(({ session, count, minutes }) => (
+                      <li
+                        key={`${session.kind}/${session.materialId}/${session.round}/${session.examId}/${session.fixed}`}
+                      >
+                        <span>
+                          {session.kind === 'review'
+                            ? `${state.settings.exams.find((exam) => exam.id === session.examId)?.name ?? '試験'} · 復習`
+                            : `${state.settings.materials.find((material) => material.id === session.materialId)?.name ?? session.materialId} · ${session.round + 1}周目`}
+                        </span>
+                        <strong>
+                          {session.kind === 'review'
+                            ? duration(minutes)
+                            : `${count}${materialUnit(state.settings.materials.find((m) => m.id === session.materialId)?.unit)}`}
+                        </strong>
+                        {session.fixed && <span className="future-fixed">固定</span>}
+                      </li>
+                    ))}
                 </ul>
               </section>
             );

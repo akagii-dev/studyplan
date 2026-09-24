@@ -81,8 +81,8 @@ describe('カレンダーの学習量', () => {
     record(s, 'a', 8, false, 1);
     const before = structuredClone(s);
     expect(calendarQuantity(s, date, date).totals).toEqual([
-      { unit: '問', planned: 30, actual: 50, remainder: 8, reported: true, partial: false },
-      { unit: 'ページ', planned: 5, actual: 2, remainder: 3, reported: true, partial: false },
+      { unit: '問', planned: 30, actual: 50, remainder: 8, shortage: 8, reported: true, partial: false },
+      { unit: 'ページ', planned: 5, actual: 2, remainder: 3, shortage: 3, reported: true, partial: false },
     ]);
     expect(s).toEqual(before);
   });

@@ -50,9 +50,12 @@ try {
     await expect(page.getByRole('button', { name: new RegExp(`^${shift(sunday, 10)} `) })).toBeFocused();
     await expect.poll(async () => Math.abs(await page.evaluate(() => scrollY) - originScroll)).toBeLessThan(2);
     await entry.click();
+    await expect(page.locator('.day-panel')).toHaveCount(0);
+    await expect(page.locator('.daily-time, .capacity-panel')).toHaveCount(0);
     const before = await stored(page);
     await page.getByRole('button', { name: '学習量', exact: true }).click();
     await expect(page.getByRole('button', { name: '学習量', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
     await expect(page.locator('.quantity-breakdown .calendar-amounts dd').nth(1)).toHaveText('0問');
     const selected = await page.locator('.day-panel h2, .day-panel h3').first().innerText();
     await page.getByRole('button', { name: '内容', exact: true }).click();
@@ -127,6 +130,7 @@ try {
     await expect(page.locator('.quantity-breakdown .calendar-amounts dd').nth(2)).toHaveText('基準なし');
     await page.reload();
     await page.getByRole('button', { name: '学習量', exact: true }).click();
+    await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
     const pages = page.locator('.quantity-breakdown section').filter({ hasText: '読書' });
     await expect(pages.locator('dd').nth(0)).toHaveText('5ページ');
     await expect(pages.locator('dd').nth(1)).toHaveText('2ページ');

@@ -2915,6 +2915,13 @@ textarea {
 }
 
 .future-week { margin-block: 16px; gap: 12px; }
+.future-today { margin-inline-start: 10px; font-size: 0.875rem; font-weight: 500; color: var(--accent); }
+.future-day li { flex-wrap: wrap; }
+.future-quantity { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.future-quantity > strong { font-size: 1.125rem; font-variant-numeric: tabular-nums; }
+.quantity-warning { color: var(--error-ink); font-weight: 700; }
+.calendar-only-layout { display: grid; gap: 20px; min-width: 0; }
+.day-panel-close { float: inline-end; margin-inline-start: 12px; }
 .future-week strong { font-variant-numeric: tabular-nums; }
 .future-week button { min-width: 36px; min-height: 36px; }
 .calendar-mode { width: fit-content; margin-block-end: 12px; }

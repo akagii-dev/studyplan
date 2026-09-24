@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { demoMode } from '../demo';
+import { pwaMode } from '../pwa';
 
 export function SaveRecovery({
   checking,
@@ -14,6 +16,7 @@ export function SaveRecovery({
   const [confirmClose, setConfirmClose] = useState(false);
   const [closing, setClosing] = useState(false);
   const [error, setError] = useState('');
+  const exit = demoMode || pwaMode ? '再読み込み' : '終了';
   async function close() {
     if (closing) return;
     setClosing(true);
@@ -29,14 +32,14 @@ export function SaveRecovery({
       <section className="card save-recovery">
         {confirmClose ? (
           <>
-            <h2>保存を確認せずに終了しますか？</h2>
+            <h2>保存を確認せずに{exit}しますか？</h2>
             <p>保存できていない変更は失われます。すでに保存された内容は残ります。</p>
             <div className="actions">
               <button autoFocus disabled={closing} onClick={() => setConfirmClose(false)}>
                 戻る
               </button>
               <button disabled={closing} onClick={() => void close()}>
-                {closing ? '終了しています…' : '終了する'}
+                {closing ? `${exit}しています…` : `${exit}する`}
               </button>
             </div>
           </>
@@ -56,7 +59,7 @@ export function SaveRecovery({
                 保存済みの内容を読み直す
               </button>
               <button disabled={checking} onClick={() => setConfirmClose(true)}>
-                保存を確認せずに終了
+                保存を確認せずに{exit}
               </button>
             </div>
           </>

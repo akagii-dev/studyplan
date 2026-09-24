@@ -21,6 +21,7 @@
     "tests",
     "vite.config.ts",
     "playwright.config.ts",
-    "playwright.web.config.ts"
+    "playwright.web.config.ts",
+    "playwright.pwa.config.ts"
   ]
 }

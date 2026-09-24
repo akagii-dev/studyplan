@@ -1,7 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => ({
-  base: mode === 'demo' ? '/studyplan/' : '/',
+  base: mode === 'pwa' ? '/studyplan-pwa/' : mode === 'demo' ? '/studyplan/' : '/',
+  publicDir: false,
+  build: { outDir: mode === 'pwa' ? 'dist-pwa' : 'dist', sourcemap: false },
   plugins: [react()],
   server: {
     port: 1420,

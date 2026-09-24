@@ -12,6 +12,8 @@ import {
   setupIssues,
 } from '../domain/setupIssues';
 import { demoMode } from '../demo';
+import { pwaMode } from '../pwa';
+import { PwaStatus } from '../components/PwaStatus';
 import { Page } from './navigation';
 
 export type AvailabilityTarget = 'study' | 'busy' | 'class' | 'exception' | 'meals';
@@ -226,6 +228,7 @@ export function SettingsHub({
           </div>
         </section>
       ))}
+      {pwaMode && <PwaStatus />}
       <section className="card">
         <h2>表示</h2>
         <div className="settings-display">

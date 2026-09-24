@@ -12,7 +12,16 @@ export function useCloseAfterSave(
   const [closing, setClosing] = useState(false);
   const inFlight = useRef(false);
   useEffect(() => {
-    if (!isTauri()) return;
+    if (!isTauri()) {
+      const guard = (event: BeforeUnloadEvent) => {
+        if (pending.current || unconfirmed.current) {
+          event.preventDefault();
+          event.returnValue = '';
+        }
+      };
+      window.addEventListener('beforeunload', guard);
+      return () => window.removeEventListener('beforeunload', guard);
+    }
     let disposed = false;
     let unlisten: (() => void) | undefined;
     void getCurrentWindow()
@@ -71,6 +80,10 @@ export function useCloseAfterSave(
     closeWithoutSaving: async () => {
       if (!unconfirmed.current || pending.current)
         throw new Error('保存処理が終わるまでお待ちください。');
+      if (!isTauri()) {
+        window.location.reload();
+        return;
+      }
       // This bypass is available only after the user explicitly confirms the loss of unsaved input.
       await getCurrentWindow().destroy();
     },

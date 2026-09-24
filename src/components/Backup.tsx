@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { save } from '@tauri-apps/plugin-dialog';
 import { Download, Upload, Undo2 } from 'lucide-react';
 import { AppState, today } from '../domain/model';
 import { BackupFile, MAX_BACKUP_BYTES, parseBackup, backupSummary } from '../domain/backup';
 import { loadRestorePoint, validateBackup } from '../store';
 import { dateTime } from '../domain/planAudit';
+import { selectSaveDestination } from '../fileSave';
+import { pwaMode } from '../pwa';
 
 function Summary({ state }: { state: AppState }) {
   const n = backupSummary(state);
@@ -50,14 +51,14 @@ export function Backup({
     setError('');
     setMessage('');
     try {
-      const path = await save({
+      const path = await selectSaveDestination({
         title: 'バックアップを保存',
         defaultPath: `StudyPlan-${today()}.studyplan.json`,
         filters: [{ name: 'StudyPlanバックアップ', extensions: ['studyplan.json'] }],
       });
       if (!path) return;
       await onExport(path);
-      setMessage(`保存しました：${path}`);
+      setMessage(`${pwaMode ? 'ダウンロードを開始しました' : '保存しました'}：${path}`);
     } catch (e) {
       setError(String(e));
     } finally {

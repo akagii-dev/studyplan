@@ -20,8 +20,11 @@ jobs:
       - run: pnpm verify
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm verify:ui
+      - run: pnpm verify:pwa
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: contract-failures
-          path: test-results/contracts
+          path: |
+            test-results/contracts
+            test-results/pwa

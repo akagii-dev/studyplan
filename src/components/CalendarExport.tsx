@@ -1,13 +1,14 @@
 import { Warning } from './Warnings';
 import { useRef, useState } from 'react';
 import { Download } from 'lucide-react';
-import { save } from '@tauri-apps/plugin-dialog';
 import { AppState } from '../domain/model';
 import { createCalendarFile, CalendarExportOptions } from '../domain/icalendar';
 import { stalePlan } from '../domain/planAudit';
 import { exportCalendar } from '../store';
 import { Field } from './common';
 import { demoMode } from '../demo';
+import { selectSaveDestination } from '../fileSave';
+import { pwaMode } from '../pwa';
 
 type CalendarExportProps = {
   state: AppState;
@@ -42,14 +43,14 @@ function DesktopCalendarExport({ state, from, to, examId = 'all' }: CalendarExpo
     setMessage('');
     try {
       const file = createCalendarFile(state, options);
-      const path = await save({
+      const path = await selectSaveDestination({
         title: 'カレンダーを書き出す',
         defaultPath: `StudyPlan-${options.from}.ics`,
         filters: [{ name: 'カレンダー', extensions: ['ics'] }],
       });
       if (!path) return;
       await exportCalendar(path, file.text);
-      setMessage(`書き出しました：学習 ${file.study}件・授業 ${file.classes}件`);
+      setMessage(`${pwaMode ? 'ダウンロードを開始しました' : '書き出しました'}：学習 ${file.study}件・授業 ${file.classes}件`);
     } catch (e) {
       setError(String(e));
     } finally {

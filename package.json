@@ -18,7 +18,16 @@
     "desktop:build": "tauri build --no-bundle",
     "test:contracts": "playwright test --config playwright.web.config.ts",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "verify:ui": "pnpm demo:build && pnpm test:contracts"
+    "verify:ui": "pnpm demo:build && pnpm test:contracts",
+    "pwa:build": "tsc -b && vite build --mode pwa && node scripts/build-pwa.mjs",
+    "pwa:start": "node scripts/pwa-host.mjs start",
+    "pwa:status": "node scripts/pwa-host.mjs status",
+    "pwa:stop": "node scripts/pwa-host.mjs stop",
+    "test:pwa": "playwright test --config playwright.pwa.config.ts",
+    "verify:pwa": "pnpm pwa:build && pnpm demo:build && pnpm test:pwa",
+    "pwa:https:start": "node scripts/pwa-host.mjs https-start",
+    "pwa:https:status": "node scripts/pwa-host.mjs https-status",
+    "pwa:https:stop": "node scripts/pwa-host.mjs https-stop"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",
@@ -38,6 +47,7 @@
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^4.7.0",
     "eslint": "^10.11.0",
+    "fake-indexeddb": "^6.2.5",
     "ical.js": "^2.2.1",
     "prettier": "^3.9.8",
     "typescript": "~5.9.2",

@@ -1,6 +1,5 @@
 import { Warning } from './Warnings';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { save } from '@tauri-apps/plugin-dialog';
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { AppState, addDays, today } from '../domain/model';
 import { startOfWeek } from '../domain/calendar';
@@ -10,6 +9,8 @@ import { Field, duration } from './common';
 import { ProgressValue } from './ProgressValue';
 import { progressView } from '../domain/progressView';
 import { demoMode } from '../demo';
+import { selectSaveDestination } from '../fileSave';
+import { pwaMode } from '../pwa';
 
 export function WeeklyReport({
   state,
@@ -84,14 +85,14 @@ export function WeeklyReport({
     try {
       // Read the committed SQLite state once so the exported sections share one snapshot.
       const file = createWeeklyReport(await readSaved(), selected);
-      const path = await save({
+      const path = await selectSaveDestination({
         title: '週間レポートを保存',
         defaultPath: file.filename,
         filters: [{ name: 'Markdown', extensions: ['md'] }],
       });
       if (!path) return;
       await exportMarkdown(path, file.markdown);
-      setMessage(`${file.from}〜${file.to}のレポートを保存しました。`);
+      setMessage(`${file.from}〜${file.to}のレポート${pwaMode ? 'のダウンロードを開始しました' : 'を保存しました'}。`);
     } catch (e) {
       setError(String(e));
     } finally {

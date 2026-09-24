@@ -117,16 +117,19 @@ export function Future({
                             {row.name} · {row.round + 1}周目
                           </span>
                           <span className="future-quantity">
-                            <strong>
-                              {row.actual}
-                              {row.planned === null ? row.unit : ''}/
-                              {row.planned === null ? '基準なし' : `${row.planned}${row.unit}`}
+                            <strong
+                              className={
+                                !row.reported && date < reference ? 'quantity-warning' : undefined
+                              }
+                            >
+                              {row.reported
+                                ? row.planned === null
+                                  ? `${row.actual}${row.unit}`
+                                  : `${row.actual}/${row.planned}${row.unit}`
+                                : row.planned === null
+                                  ? '未報告'
+                                  : `未報告 / ${row.planned}${row.unit}`}
                             </strong>
-                            {!row.reported && (
-                              <span className={date < reference ? 'quantity-warning' : ''}>
-                                未報告
-                              </span>
-                            )}
                             {date < reference &&
                               row.reported &&
                               shortage !== null &&

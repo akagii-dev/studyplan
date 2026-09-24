@@ -72,6 +72,25 @@ function record(s: AppState, materialId: string, count: number, cancelled = fals
   });
 }
 describe('カレンダーの学習量', () => {
+  it('旧版の確定計画と再計画前から保持された過去予定を既存データから読む', () => {
+    const s = fixture();
+    delete s.plan!.approvedAt;
+    expect(calendarQuantity(s, date, '2026-09-25').totals[0].planned).toBe(30);
+    s.plan!.from = '2026-09-26';
+    s.plan!.createdAt = '2026-09-25T01:00:00Z';
+    s.plan!.approvedAt = '2026-09-25T02:00:00Z';
+    record(s, 'a', 12);
+    expect(calendarQuantity(s, date, '2026-09-27').rows[0]).toMatchObject({
+      planned: 20,
+      actual: 12,
+      remainder: 8,
+    });
+    const saved = retainStudyDayBaselines(s, '2026-09-27');
+    saved.plan!.sessions = [];
+    expect(
+      calendarQuantity(JSON.parse(JSON.stringify(saved)), date, '2026-09-28').rows[0].planned,
+    ).toBe(20);
+  });
   it('教材・周回を照合し、別教材の超過で不足を相殺せず、単位を分ける', () => {
     const s = fixture();
     record(s, 'a', 12);
@@ -81,8 +100,24 @@ describe('カレンダーの学習量', () => {
     record(s, 'a', 8, false, 1);
     const before = structuredClone(s);
     expect(calendarQuantity(s, date, date).totals).toEqual([
-      { unit: '問', planned: 30, actual: 50, remainder: 8, shortage: 8, reported: true, partial: false },
-      { unit: 'ページ', planned: 5, actual: 2, remainder: 3, shortage: 3, reported: true, partial: false },
+      {
+        unit: '問',
+        planned: 30,
+        actual: 50,
+        remainder: 8,
+        shortage: 8,
+        reported: true,
+        partial: false,
+      },
+      {
+        unit: 'ページ',
+        planned: 5,
+        actual: 2,
+        remainder: 3,
+        shortage: 3,
+        reported: true,
+        partial: false,
+      },
     ]);
     expect(s).toEqual(before);
   });
@@ -128,9 +163,10 @@ describe('カレンダーの学習量', () => {
       calendarQuantity(JSON.parse(JSON.stringify(undone)), date, '2026-09-25').totals[0].remainder,
     ).toBe(8);
   });
-  it('承認日時なし・後日承認・候補だけの計画から過去量を推測しない', () => {
+  it('後日作成・後日承認・候補だけの計画から過去量を推測しない', () => {
     const s = fixture();
     delete s.plan!.approvedAt;
+    s.plan!.createdAt = '2026-09-26T01:00:00Z';
     record(s, 'a', 12);
     expect(calendarQuantity(s, date, '2026-09-25').totals[0]).toMatchObject({
       planned: null,

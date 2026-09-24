@@ -76,7 +76,7 @@ for (const offset of [-1, 0, 1]) {
       expect(html).not.toContain('/10問');
       expect(html).not.toContain('未報告');
     } else {
-      expect(html).toContain(`${count ?? 0}/10問`);
+      expect(html).toContain(count === undefined ? '未報告 / 10問' : `${count}/10問`);
       expect(html.includes('未報告')).toBe(count === undefined);
     }
     expect(html.includes('quantity-warning')).toBe(
@@ -110,7 +110,7 @@ it('分割・固定予定でも同じ実績を重複表示せず、訂正・取�
   expect(future(f)).toContain('12/10問');
   expect(future(f)).not.toContain('問不足');
   f.state.records[0].cancelled = true;
-  expect(future(f)).toContain('0/10問');
+  expect(future(f)).toContain('未報告 / 10問');
   expect(future(f)).toContain('未報告');
   expect(future(f)).not.toContain('問不足');
 });
@@ -126,8 +126,9 @@ it('再配分で現計画から消えた過去日も履歴を基準に表示し�
 });
 it('基準なしの過去予定は不明と表示し、過去の未報告を確定不足にしない', () => {
   const f = fixture(-1);
-  delete f.state.plan!.approvedAt;
-  expect(future(f)).toContain('基準なし');
+  f.state.plan!.approvedAt = `${today()}T00:00:00+09:00`;
+  expect(future(f)).not.toContain('基準なし');
+  expect(future(f)).toContain('未報告');
   expect(future(f)).not.toContain('/10問');
   const html = renderToStaticMarkup(
     createElement(CalendarQuantity, {
@@ -154,6 +155,16 @@ it('不足は報告済み教材だけを合算し、未報告教材を不足確�
     shortage: 4,
     partial: true,
   });
+});
+it('元の予定がない実績は数量のみ、取消後は未報告のみ表示する', () => {
+  const f = fixture(-1, 15);
+  f.state.plan!.approvedAt = `${today()}T00:00:00+09:00`;
+  expect(future(f)).toContain('15問</strong>');
+  expect(future(f)).not.toContain('基準なし');
+  expect(future(f)).not.toContain('問不足');
+  f.state.records[0].cancelled = true;
+  expect(future(f)).toContain('未報告</strong>');
+  expect(future(f)).not.toContain('15問');
 });
 it('詳細カレンダーは日付選択前に常設の日一覧・可処分時間を出さず、今日画面は維持する', () => {
   const f = fixture(0);

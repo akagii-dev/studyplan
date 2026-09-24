@@ -38,8 +38,8 @@ try {
       if (count < 10) await expect(row(`実績${count}の教材`).locator('.quantity-warning')).toHaveText(`${10 - count}問不足`);
       else await expect(row(`実績${count}の教材`).locator('.quantity-warning')).toHaveCount(0);
     }
-    await expect(row('未報告の教材')).toContainText('0/10問');
-    await expect(row('未報告の教材').locator('.quantity-warning')).toHaveText('未報告');
+    await expect(row('未報告の教材')).toContainText('未報告 / 10問');
+    await expect(row('未報告の教材').locator('.quantity-warning')).toHaveText('未報告 / 10問');
     await expect(row('未報告の教材')).not.toContainText('問不足');
     await showFutureWeek(page, date);
     await expect(day(date)).toContainText('3/10問');
@@ -87,8 +87,8 @@ try {
     await page.getByRole('button', { name: '取消を確定' }).click();
     await expect(page.locator('.save-status')).toContainText('保存済み');
     await openWeek();
-    await expect(row('実績6の教材')).toContainText('0/10問');
-    await expect(row('実績6の教材').locator('.quantity-warning')).toHaveText('未報告');
+    await expect(row('実績6の教材')).toContainText('未報告 / 10問');
+    await expect(row('実績6の教材').locator('.quantity-warning')).toHaveText('未報告 / 10問');
     const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('studyplan-demo-state-v1')).data);
     assert.equal(stored.studyDayBaselines[past].rows.find((r) => r.materialId === 'b1').count, 10);
     await page.getByRole('button', { name: '今日', exact: true }).click();

@@ -34,7 +34,7 @@ function snapshot(state: AppState, plan: Plan, date: string, original: boolean):
   return { planId: plan.id, rows: [...rows.values()] };
 }
 
-/** Only approved versions with a provable approval day can reconstruct elapsed days. */
+/** Read approved storage only; proposals never establish a historical denominator. */
 export function historicalDayBaseline(state: AppState, date: string): StudyDayBaseline | null {
   const saved = state.studyDayBaselines?.[date];
   if (saved) return saved;
@@ -42,13 +42,18 @@ export function historicalDayBaseline(state: AppState, date: string): StudyDayBa
   const source = plans
     .filter(
       (p) =>
-        p.approvedAt &&
-        localDay(p.approvedAt) &&
-        localDay(p.approvedAt)! <= date &&
+        localDay(p.approvedAt ?? p.createdAt) &&
+        localDay(p.approvedAt ?? p.createdAt)! <= date &&
         covers(p, date),
     )
     .at(-1);
-  return source ? snapshot(state, source, date, true) : null;
+  if (source) return snapshot(state, source, date, true);
+  // Replanning keeps sessions before `from` verbatim. They are saved historical
+  // work, not newly generated work covered by the new plan's approval date.
+  const retained = plans.find(
+    (p) => date < p.from && p.sessions.some((s) => s.date === date && s.kind === 'study'),
+  );
+  return retained ? snapshot(state, retained, date, true) : null;
 }
 
 /** Called at data-changing boundaries, never while changing a display mode. Undo keeps this archive. */

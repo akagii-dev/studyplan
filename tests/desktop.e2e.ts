@@ -189,8 +189,8 @@ async function nav(name: string) {
     await main.getByRole('button', { name: '今後の予定', exact: true }).click();
     const nextDay = page.locator('.future-day').first();
     if (await nextDay.count()) {
-      const date = (await nextDay.locator('h2').innerText()).trim();
-      await nextDay.getByRole('button', { name: date, exact: true }).click();
+      const date = (await nextDay.locator('h2 button').getAttribute('aria-label'))!.split(' ')[0];
+      await nextDay.locator('h2 button').click();
       await expect(page.getByRole('button', { name: `${date}を表示`, exact: true })).toHaveAttribute('aria-pressed', 'true');
     } else {
       await page.getByRole('button', { name: '詳細カレンダーを見る', exact: true }).click();
@@ -205,6 +205,10 @@ async function nav(name: string) {
   }
   if (['今日', '今後の予定', '記録履歴', '設定'].includes(name)) {
     await main.getByRole('button', { name, exact: true }).click();
+    if (name === '今後の予定') {
+      const start = (await page.locator('.future-week time').getAttribute('datetime'))!;
+      if (addDays(today(), 1) < start) await page.getByRole('button', { name: '前の週', exact: true }).click();
+    }
     return;
   }
   await main.getByRole('button', { name: '設定', exact: true }).click();
@@ -1734,10 +1738,11 @@ test('実機：今日に5問記録すると翌日15問に調整され、SQLite�
   await expect(changeDetail).toContainText('問題集A · 1周目');
   await expect(changeDetail).toContainText('10 → 15問');
   await nav('今後の予定');
-  await expect(page.locator('.future-day').filter({ hasText: tomorrow })).toContainText('15問');
+  await expect(page.locator('.future-day').filter({ has: page.getByRole('button', { name: new RegExp(`^${tomorrow} `) }) })).toContainText('15問');
   let persisted = await storedState();
   expect(persisted.records).toHaveLength(1);
   expect(persisted.records[0]).toMatchObject({ date, materialId: 'book', round: 0, count: 5, cancelled: false });
+  expect(persisted.studyDayBaselines?.[date].rows[0].count).toBe(10);
   expect(persisted.plan!.sessions.filter((session) => session.date === date)).toEqual([originalToday]);
   expect(persisted.plan!.sessions.filter((session) => session.date === tomorrow).reduce((sum, session) => sum + session.count, 0)).toBe(15);
   await close();
@@ -1745,10 +1750,17 @@ test('実機：今日に5問記録すると翌日15問に調整され、SQLite�
   await launch();
   persisted = await storedState();
   expect(persisted.records[0].count).toBe(5);
+  expect(persisted.studyDayBaselines?.[date].rows[0].count).toBe(10);
+  await nav('詳細カレンダー');
+  await page.getByRole('button', { name: '学習量', exact: true }).click();
+  await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
+  await expect(page.locator('.quantity-breakdown .calendar-amounts dd').nth(0)).toHaveText('10問');
+  await expect(page.locator('.quantity-breakdown .calendar-amounts dd').nth(1)).toHaveText('5問');
+  await expect(page.locator('.quantity-breakdown .calendar-amounts dd').nth(2)).toHaveText('5問');
   expect(persisted.plan!.sessions.filter((session) => session.date === date)).toEqual([originalToday]);
   expect(persisted.plan!.sessions.filter((session) => session.date === tomorrow).reduce((sum, session) => sum + session.count, 0)).toBe(15);
   await nav('今後の予定');
-  await expect(page.locator('.future-day').filter({ hasText: tomorrow })).toContainText('15問');
+  await expect(page.locator('.future-day').filter({ has: page.getByRole('button', { name: new RegExp(`^${tomorrow} `) }) })).toContainText('15問');
   await page.locator('.plan-change-history > summary').click();
   const persistedChange = page.locator('.plan-change-history details').first();
   await persistedChange.locator('summary').click();
@@ -1779,7 +1791,7 @@ test('実機：今日に5問記録すると翌日15問に調整され、SQLite�
     expect(await futureQuantity()).toBe(expected);
     expect((await storedState()).plan!.sessions.filter((session) => session.date === date)).toEqual([originalToday]);
     await nav('今後の予定');
-    await expect(page.locator('.future-day')).toContainText(`${expected}問`);
+    await expect(page.locator('.future-day').filter({ has: page.getByRole('button', { name: new RegExp(`^${tomorrow} `) }) })).toContainText(`${expected}問`);
   }
   const outsideSeed = structuredClone(seed);
   outsideSeed.settings.block = 60;
@@ -1802,6 +1814,7 @@ test('実機：今日に5問記録すると翌日15問に調整され、SQLite�
   expect(afterRestart.records).toEqual(beforeRestart.records);
   expect(afterRestart.settings).toEqual(beforeRestart.settings);
   expect(afterRestart.plan).toEqual(beforeRestart.plan);
+  expect(afterRestart.studyDayBaselines).toEqual(beforeRestart.studyDayBaselines);
 });
 async function calendarSavePath(path: string | null) {
   await page.evaluate((path) => {

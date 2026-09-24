@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { chromium, expect } from '@playwright/test';
-import { dailyFlowFixture } from './daily-flow-fixture.mjs';
+import { dailyFlowFixture, showFutureWeek } from './daily-flow-fixture.mjs';
 
 const url = process.argv[2] ?? 'http://127.0.0.1:4173/studyplan/';
 const output = 'test-results/daily-flow';
@@ -80,6 +80,7 @@ try {
       assert.deepEqual(reloaded.plan, saved.plan);
       assert.deepEqual(reloaded.settings, saved.settings);
       await page.getByRole('button', { name: '今後の予定', exact: true }).click();
+    await showFutureWeek(page, dailyFlowFixture().tomorrow);
       if (expected > 0) {
         await expect(page.locator('.future-page')).toContainText('民法過去問');
         await expect(page.locator('.future-page')).toContainText(`${expected}問`);
@@ -170,6 +171,7 @@ try {
     assert.equal(saved.plan.shortfalls[0].minutes, 30);
     preserved(fixture, saved);
     await page.getByRole('button', { name: '今後の予定', exact: true }).click();
+    await showFutureWeek(page, dailyFlowFixture().tomorrow);
     await expect(page.locator('.future-page')).toContainText('未配置');
     await expect(page.locator('.future-page')).toContainText('30分');
   });
@@ -191,6 +193,7 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     await page.screenshot({ path: `${output}/today-320.png`, fullPage: true });
     await page.getByRole('button', { name: '今後の予定', exact: true }).click();
+    await showFutureWeek(page, dailyFlowFixture().tomorrow);
     await expect(page.locator('.future-page')).toContainText('15問');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   });

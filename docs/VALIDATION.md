@@ -577,3 +577,37 @@ SHA-256：exe 02FABF80FE1DB2956E2EA8121201076700EBA4F629C267C8840A3D3FB9D77BF7�
 ## v0.4.14 配布（2026-09-22）
 
 Windows配布版のビルドに成功。v0.4.13からの更新用ZIPは、検証専用フォルダーでロック中・破損の拒否、原子的置換、旧exeの控え、再実行、データ保持を確認した。機能検証は直前節の単体247件と検証専用SQLiteでの実機3件を使用。通常利用のデータを開く配布exeの起動確認は今回実施していない。
+# v0.4.16：未記録実績の0表示
+
+学習量の未記録実績を0問へ変更。予定・記録がない日は実績0を示すが、過去の予定基準が不明なら「基準なし」は維持する。保存上の未報告フラグと明示0の区別は残し、表示時に記録は生成しない。追加2件を含む305単体テスト、型検査、lint、通常・デモビルドを通過。
+
+0表示の最終画面を1280/390/320pxで再操作し、全6テーマのaxe・文字拡大・戻る位置・混在単位を通過。Windows releaseビルドが成功し、実行ファイルのProductVersion/FileVersionが0.4.16であること、更新ZIPの内容とSHA-256を確認した。
+
+配布版はdebug専用の`STUDYPLAN_TEST_DATA_DIR`を無視するため、通常データを守るため配布EXEの直接起動試験は未実施。既存release-smokeの説明を修正し、別Windowsテストアカウントでの明示指定なしでは起動しないようにした。隔離SQLiteを使ったTauri debug実機・再起動試験は下記のとおり実施済み。
+
+# 2026-09-24：週間予定と詳細カレンダーの学習量
+
+対象は共有済み`895afe8`に今回の変更を加えた状態。通常利用のDBを使わず、ブラウザーの新規contextと`.test-data/native-*`の検証用SQLiteで確認した。最終fetchでもorigin/mainに追加コミットなし。
+
+| 検証 | 結果 |
+| --- | --- |
+| `node node_modules/vitest/vitest.mjs run` | 31ファイル・303件成功 |
+| `node node_modules/typescript/bin/tsc -b` | 成功 |
+| `node node_modules/eslint/bin/eslint.js . --max-warnings 0` | 成功 |
+| `node node_modules/vite/bin/vite.js build` | 通常ビルド成功 |
+| `node node_modules/vite/bin/vite.js build --mode demo --outDir .test-data/calendar-preview` | 隔離デモビルド成功 |
+| `cargo build --manifest-path src-tauri/Cargo.toml --locked` | Rust debugビルド成功 |
+| `node scripts/calendar-quantity-smoke.mjs` | 1280/390/320pxで実操作成功 |
+| `node scripts/daily-flow-smoke.mjs http://127.0.0.1:4175/studyplan/` | 既存13シナリオ成功 |
+| `node scripts/navigation-result-smoke.mjs http://127.0.0.1:4175/studyplan/` | 戻る・フォーカス・訂正取消・保存失敗の既存シナリオ成功 |
+| `node node_modules/@playwright/test/cli.js test -g '実機：今日に5問記録すると翌日15問に調整され、SQLite再起動後も残る'` | Tauri/WebView2/SQLiteの1複合シナリオ成功 |
+
+新しい純粋処理の試験は、別教材・別周回の超過を相殺しない集計、問とページの分離、取消除外、0と未記録、再配分後の過去不足、計画復元とJSON往復、旧データの基準なし、後日承認・候補の除外、ローカル承認日、日曜・土曜・月年境界を含む。バックアップの任意項目往復と不正な負数の拒否も追加した。
+
+画面では、詳細入口の位置、週送り、選択週・スクロール・フォーカスを保つ戻る操作、内容／学習量で対象日を保つこと、表示切替が計画・実績を書き換えないこと、保存された過去20問対12問の不足8問、明示0、取消除外、基準なし、混在単位、教材を引き継ぐ記録導線を確認した。テキスト200%＋行間・字間変更でも横スクロールなし。キーボードで切替でき、フォーカス枠を確認した。mint/sky/lime×light/darkの描画完了後にmain領域へaxeを実行し、対象タグの違反なし。テーマ変更は有効テーマ属性を切り替えて測定し、設定画面のテーマ選択自体の回帰操作は今回の対象外。
+
+ネイティブ試験では日別の確定基準が記録時に保存され、プロセスを閉じて起動し直しても保持され、数量が予定10・実績5・残り5になることを追加確認した。続く訂正・取消、0・予定どおり・超過記録、予定外教材、通常終了からの再起動も通過した。初回は週表示が複数日になったことで既存テストの曖昧なlocatorが失敗したため、対象日を明示して再実行した。
+
+画像を確認：`test-results/calendar-quantity/quantity-1280.png`、`viewport-1280.png`、`viewport-390.png`、`quantity-320.png`、`expanded-320.png`。独立レビューの範囲と結果は[calendar-quantity-review.md](calendar-quantity-review.md)に記載。
+
+未検証：ネイティブE2E全件の一括実行、スクリーンリーダーの実聴、配布インストーラー、Codex再起動後のSkill選択候補。axeのみでWCAG適合を断定していない。通常/デモのビルドには既存依存Zodの注釈と500KB超チャンクの警告が出るが、ビルドは成功した。旧データで根拠を復元できない日付は「基準なし」とする仕様上の制約がある。

@@ -22,7 +22,7 @@
 
 「バックアップ」から設定・計画・実績・入力途中を `.studyplan.json` に保存できます。復元は内容の確認後に全体を置き換え、直前の状態に1回分戻せます。
 
-[最新版 v0.4.15](https://github.com/akagii-dev/studyplan/releases/tag/v0.4.15)のWindows版をダウンロードして起動してください。Windows + Microsoft Edge WebView2 Runtimeが必要です。外部アカウントは不要です。旧版と保存先は共通なので、版を切り替える際は起動中のStudyPlanを閉じてください。
+[最新版 v0.4.16](https://github.com/akagii-dev/studyplan/releases/tag/v0.4.16)のWindows版をダウンロードして起動してください。Windows + Microsoft Edge WebView2 Runtimeが必要です。外部アカウントは不要です。旧版と保存先は共通なので、版を切り替える際は起動中のStudyPlanを閉じてください。
 
 データの保存先は通常 `%APPDATA%\jp.local.studyplan\studyplan.sqlite3`。開発用テストデータは別フォルダーに分離します。保存中にウィンドウを閉じた場合は、最後の入力の保存を待ってから終了します。保存に失敗した場合は終了を中止して知らせます。強制終了や電源断はこの待機の対象外です。
 
@@ -56,7 +56,7 @@ pnpm desktop:build
 
 `pnpm test:ui` はWindows上の**実際のTauri + WebView2ウィンドウ**をPlaywrightで操作します。検証用SQLiteを`.test-data/native-*`に作り、デバッグ接続のポート9223を使います。通常の保存領域には触れません。画面を確認するためのスクリーンショットは`test-results/`に出力します。
 
-WebView2の画面データも起動ごとに `.test-data/native-webview-*` へ分離します。`scripts/release-smoke.mjs` は配布版を隔離SQLiteとWebView2領域で起動して確認します。
+WebView2の画面データも起動ごとに `.test-data/native-webview-*` へ分離します。`STUDYPLAN_TEST_DATA_DIR`はdebugビルド専用です。配布版の`scripts/release-smoke.mjs`は、別のWindowsテストアカウントで`STUDYPLAN_ISOLATED_WINDOWS_PROFILE=1`を指定した場合のみ実行できます。通常アカウントでは実行しないでください。
 
 `pnpm desktop:build` の出力は `src-tauri/target/release/studyplan.exe`。インストーラーは生成しません。
 
@@ -93,7 +93,7 @@ WebView2の画面データも起動ごとに `.test-data/native-webview-*` へ�
 
 ## 更新パッケージ
 
-`release/StudyPlan-update-0.4.15.zip` を展開し、`Update.cmd` を開いて、これまで使っていた StudyPlan の実行ファイルを選んでください。アプリを閉じてから行います。設定・計画・記録は同じ保存先を引き継ぎます。旧実行ファイルも控えとして残します。
+`release/StudyPlan-update-0.4.16.zip` を展開し、`Update.cmd` を開いて、これまで使っていた StudyPlan の実行ファイルを選んでください。アプリを閉じてから行います。設定・計画・記録は同じ保存先を引き継ぎます。旧実行ファイルも控えとして残します。
 
 実行ファイル全体を差し替える更新パッケージです。差分ダウンロードや自動更新は行いません。手動で同梱の `StudyPlan.exe` を差し替えても更新できます。
 
@@ -125,7 +125,7 @@ SQLiteの保存データ、`.studyplan.json` バックアップ、`.env`、実�
 
 円の中心に学習可能時間を表示し、外側の主指標と凡例の重複を削除しました。円グラフと内訳を2列に整理し、狭い幅では縦に並べます。文字拡大で円内へ収まらない場合は、値を円の直下へ移して重なりを防ぎます。計算・保存データは変更しません。
 
-最新版のWindows版と更新用ZIPは [GitHub Releases](https://github.com/akagii-dev/studyplan/releases/tag/v0.4.15) から取得できます。
+最新版のWindows版と更新用ZIPは [GitHub Releases](https://github.com/akagii-dev/studyplan/releases/tag/v0.4.16) から取得できます。
 
 ## v0.4.9 の変更
 
@@ -153,7 +153,7 @@ GitHub Pagesで公開デモを提供します。デモのデータはブラウ�
 
 再計画では、教材・周回の予定量、開始・終了予定、主な日別増減、未配置を比較します。全日別差分は詳細から確認できます。
 
-## v0.4.15 の変更
+## v0.4.16 の変更
 
 「今日」で問題集ごとの予定と実績を並べ、その場で実績を記録すると明日以降を自動で再配分します。設定画面は未登録を操作できる一覧にまとめ、補足条件は必要なときだけ開けます。削除の確認と読込失敗からの再試行も改善しました。
 

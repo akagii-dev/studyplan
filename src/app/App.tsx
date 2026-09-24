@@ -21,6 +21,7 @@ import { requirePlanningInputs } from '../domain/setupIssues';
 import { usePersistentAppState } from '../hooks/usePersistentAppState';
 import { AppShell } from './AppShell';
 import { Dashboard } from './Dashboard';
+import { upcomingSunday } from '../domain/calendar';
 import { Future } from './Future';
 import { AvailabilityTarget, SettingsHub } from './SettingsHub';
 import { Page, pageNames } from './navigation';
@@ -42,6 +43,8 @@ export default function App() {
   const [restorePosition, setRestorePosition] = useState<(ReturnPoint & { key: number }) | null>(null);
   const [origin, setOrigin] = useState<ReturnPoint | null>(null);
   const originStack = useRef<ReturnPoint[]>([]);
+  const [futureWeek, setFutureWeek] = useState(() => upcomingSunday(today()));
+  const [calendarMode, setCalendarMode] = useState<'content' | 'quantity'>('content');
   const [calendarDate, setCalendarDate] = useState(today());
   const [calendarRevealDay, setCalendarRevealDay] = useState(false);
   const [calendarView, setCalendarView] = useState<CalendarView>('month');
@@ -272,7 +275,7 @@ export default function App() {
               <Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} />
             )}{' '}
             {page === 'future' && (
-              <Future {...props} onCalendar={(date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(!!date); setPage('calendar'); }} onProposal={() => setPage('replan')} />
+              <Future {...props} initialWeek={futureWeek} onWeekChange={setFutureWeek} onCalendar={(date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(!!date); setPage('calendar'); }} onProposal={() => setPage('replan')} />
             )}
             {(page === 'settings' || originStack.current.some((entry) => entry.page === 'settings')) && (
               <div hidden={page !== 'settings'}>
@@ -356,7 +359,7 @@ export default function App() {
               />
             )}
             {page === 'calendar' && (
-              <Calendar {...props} initialDate={calendarDate} initialView={calendarView} onViewChange={setCalendarView} initialFilter={calendarFilter} onFilterChange={setCalendarFilter} revealDay={calendarRevealDay} onDateChange={setCalendarDate} onRecord={onRecord} onReplan={() => setPage('replan')} />
+              <Calendar {...props} initialMode={calendarMode} onModeChange={setCalendarMode} initialDate={calendarDate} initialView={calendarView} onViewChange={setCalendarView} initialFilter={calendarFilter} onFilterChange={setCalendarFilter} revealDay={calendarRevealDay} onDateChange={setCalendarDate} onRecord={onRecord} onReplan={() => setPage('replan')} />
             )}{' '}
             {page === 'commute' && (
               <CommuteSettings {...props} onReview={() => setPage('replan')} />

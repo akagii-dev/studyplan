@@ -1,14 +1,16 @@
 import { chromium, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
-import { mkdirSync, mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-// Bundled-release smoke check with an isolated SQLite and WebView2 profile.
+// Release builds ignore STUDYPLAN_TEST_DATA_DIR. Run only in a separate Windows test account.
+if (process.env.STUDYPLAN_ISOLATED_WINDOWS_PROFILE !== '1')
+  throw new Error('配布版は通常のSQLite保存先を使います。隔離したWindowsテストアカウントでのみSTUDYPLAN_ISOLATED_WINDOWS_PROFILE=1を指定してください。');
+const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 mkdirSync('.test-data', { recursive: true });
 const child = spawn(resolve(process.argv[2] ?? 'release/StudyPlan.exe'), [], {
   env: {
     ...process.env,
-    STUDYPLAN_TEST_DATA_DIR: mkdtempSync(resolve('.test-data/release-data-')),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=9224',
     WEBVIEW2_USER_DATA_FOLDER: mkdtempSync(resolve('.test-data/release-webview-')),
   },
@@ -36,7 +38,7 @@ try {
   await expect(page).toHaveTitle('StudyPlan');
   await expect(page.locator('.brand')).toHaveText('StudyPlan');
   await expect(page.locator('.brand small')).toHaveCount(0);
-  await expect(page.locator('.sidebar')).toContainText('StudyPlan v0.4.15');
+  await expect(page.locator('.sidebar')).toContainText(`StudyPlan v${version}`);
   const windowTitle = await page.evaluate(() =>
     window.__TAURI_INTERNALS__.invoke('plugin:window|title', { label: 'main' }),
   );

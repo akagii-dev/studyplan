@@ -1,5 +1,17 @@
 import { readFileSync } from 'node:fs';
 
+// Existing flow checks intentionally inspect tomorrow, independently of the new default week.
+export async function showFutureWeek(page, date) {
+  for (let i = 0; i < 60; i++) {
+    const start = await page.locator('.future-week time').getAttribute('datetime');
+    const end = new Date(`${start}T12:00:00Z`);
+    end.setUTCDate(end.getUTCDate() + 6);
+    if (start <= date && date <= end.toISOString().slice(0, 10)) return;
+    await page.getByRole('button', { name: date < start ? '前の週' : '次の週', exact: true }).click();
+  }
+  throw new Error('Requested future week not reachable');
+}
+
 export function dailyFlowFixture({ capacity = 60, secondBook = false, fixed = false } = {}) {
   const now = new Date();
   const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;

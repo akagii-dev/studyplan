@@ -18,6 +18,8 @@ export interface Material {
   id: string;
   examId: string;
   name: string;
+  /** Existing materials are questions; preserve distinct units when present in imported data. */
+  unit?: string;
   total: number;
   order: number;
   rounds: Round[];
@@ -127,6 +129,7 @@ export interface Shortfall {
   reason: string;
 }
 export interface Plan {
+  approvedAt?: string;
   calculationVersion?: number;
   notBefore?: number;
   settingsSnapshot?: Settings;
@@ -176,6 +179,7 @@ export interface WindowSize {
   height: number;
 }
 export interface AppState {
+  studyDayBaselines?: Record<string, StudyDayBaseline>;
   outsideLabels?: Record<string, OutsideLabel[]>;
   outsideTime?: OutsideTime;
   resetBackup?: AppState;
@@ -198,6 +202,17 @@ export interface AppState {
 export interface Envelope {
   revision: number;
   data: AppState;
+}
+export interface StudyDayBaseline {
+  planId: string;
+  rows: {
+    materialId: string;
+    round: number;
+    examId: string;
+    name: string;
+    unit: string;
+    count: number;
+  }[];
 }
 export type Interval = [number, number];
 export const uid = () => crypto.randomUUID();

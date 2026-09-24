@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
 import { chromium, expect } from '@playwright/test';
-import { dailyFlowFixture } from './daily-flow-fixture.mjs';
+import { dailyFlowFixture, showFutureWeek } from './daily-flow-fixture.mjs';
 
 const url = process.argv[2] ?? 'http://127.0.0.1:4173/studyplan/';
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -25,7 +25,8 @@ try {
   {
     const { context, page, fixture } = await openFixture();
     await page.getByRole('button', { name: '今後の予定', exact: true }).click();
-    await page.getByRole('button', { name: fixture.tomorrow, exact: true }).click();
+    await showFutureWeek(page, dailyFlowFixture().tomorrow);
+    await page.getByRole('button', { name: new RegExp(`^${fixture.tomorrow} `) }).click();
     await expect(page.getByRole('heading', { name: '詳細カレンダー' })).toBeVisible();
     await expect(page.locator('.day-panel')).toContainText('10問');
     await expect.poll(async () => {
@@ -40,7 +41,7 @@ try {
     await page.screenshot({ path: `${output}/calendar-390.png` });
     await page.getByRole('button', { name: '今後の予定へ戻る' }).click();
     await expect(page.getByRole('heading', { name: '今後の予定' })).toBeVisible();
-    await expect(page.getByRole('button', { name: fixture.tomorrow, exact: true })).toBeFocused();
+    await expect(page.getByRole('button', { name: new RegExp(`^${fixture.tomorrow} `) })).toBeFocused();
     await page.getByRole('button', { name: '設定', exact: true }).click();
     await page.getByRole('button', { name: '使い方' }).click();
     await page.getByRole('button', { name: '次の項目' }).click();
@@ -61,7 +62,8 @@ try {
   {
     const { context, page, fixture } = await openFixture(1280);
     await page.getByRole('button', { name: '今後の予定', exact: true }).click();
-    await page.getByRole('button', { name: fixture.tomorrow, exact: true }).click();
+    await showFutureWeek(page, dailyFlowFixture().tomorrow);
+    await page.getByRole('button', { name: new RegExp(`^${fixture.tomorrow} `) }).click();
     const panel = await page.locator('.day-panel').boundingBox();
     const back = await page.locator('.detail-back').boundingBox();
     assert(panel && panel.y >= 0 && panel.y < 800, 'desktop selected day is visible');
@@ -107,6 +109,7 @@ try {
     await expect(detail).toContainText('10 → 15問');
     await page.reload({ waitUntil: 'networkidle' });
     await page.getByRole('button', { name: '今後の予定', exact: true }).click();
+    await showFutureWeek(page, dailyFlowFixture().tomorrow);
     await page.getByText('実績による予定調整の履歴').click();
     const receipt = page.locator('.plan-change-history details').first();
     await receipt.locator('summary').click();

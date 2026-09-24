@@ -2913,3 +2913,23 @@ textarea {
   .main-content { padding: 18px 12px 32px; }
   .page-heading { gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
 }
+
+.future-week { margin-block: 16px; gap: 12px; }
+.future-week strong { font-variant-numeric: tabular-nums; }
+.future-week button { min-width: 36px; min-height: 36px; }
+.calendar-mode { width: fit-content; margin-block-end: 12px; }
+.calendar-quantity { text-align: start; color: var(--ink); }
+.calendar-amounts { margin: 6px 0; font-variant-numeric: tabular-nums; }
+.calendar-amounts > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.calendar-amounts dt { font-size: 0.875rem; }
+.calendar-amounts dd { margin: 0; font-size: 1.25rem; font-weight: 650; overflow-wrap: anywhere; }
+.calendar-amounts dd span { font-size: 0.875rem; margin-inline-start: 2px; font-weight: 400; }
+.quantity-grid .date-number { width: auto; min-height: 28px; height: auto; font-size: 0.875rem; padding-inline: 4px; }
+.quantity-grid .calendar-head { display: none; }
+.quantity-grid .calendar-body { grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.35rem), 1fr)); }
+.quantity-grid .day { cursor: default; }
+.quantity-breakdown > section { padding-block: 12px; border-block-end: 1px solid var(--border); }
+.quantity-breakdown h4 { margin: 0 0 6px; overflow-wrap: anywhere; }
+.quantity-breakdown .calendar-amounts { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.quantity-breakdown button { min-height: 32px; }
+.calendar-quantity .text-button { display: block; min-height: 28px; min-width: 28px; padding-block: 2px; font-size: 0.875rem; text-decoration: underline; text-underline-offset: 0.2em; }

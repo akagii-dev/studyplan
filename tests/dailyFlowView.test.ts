@@ -169,6 +169,7 @@ it('今日の教材ごとに予定・実績・追加分入力を分け、0問と
 it('将来の同じ教材でも固定10問と可動5問を区別し、復習を残す', () => {
   const html = renderToStaticMarkup(
     createElement(Future, {
+      initialWeek: today(),
       state: fixture(),
       update: async () => {},
       onCalendar: () => {},
@@ -196,7 +197,7 @@ it('全量未配置でも今後の予定に教材別問数を常時示し、理�
       onProposal: () => {},
     }),
   );
-  expect(html).toContain('今後の配置済み予定はありません');
+  expect(html).toContain('この週に配置済み予定はありません');
   expect(html).toContain('未配置 2件・16分');
   expect(html).toContain('問題集A · 1周目</span><strong>5問</strong>');
   expect(html).toContain('問題集B · 1周目</span><strong>2問</strong>');

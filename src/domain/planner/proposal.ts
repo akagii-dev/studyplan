@@ -10,6 +10,7 @@ import { capacityForDate, capacityForWeek } from './capacity';
 import { PlanningContext } from './context';
 import { generatePlan } from './generate';
 import { proposalUsesCurrentProgress, reflectProgressSafely } from '../progressReflection';
+import { retainStudyDayBaselines } from '../calendarQuantity';
 const EPS = 1e-7;
 export function propose(
   state: AppState,
@@ -130,14 +131,16 @@ export function approve(state: AppState, acknowledge: boolean, context: Planning
   if (p.plan.conflicts.length)
     throw new Error('固定予定・週の割当上限・復習枠の競合を解消してください。');
   if (p.unreported.length && !acknowledge) throw new Error('未報告の扱いを確認してください。');
+  const retained = retainStudyDayBaselines(state, context.date);
   return {
-    ...state,
+    ...retained,
     settings,
     settingsUpdatedAt: !sameSettings(state.settings, settings)
       ? context.timestamp
       : state.settingsUpdatedAt,
     plan: {
       ...p.plan,
+      approvedAt: context.timestamp,
       settingsUpdatedAt: !sameSettings(state.settings, settings)
         ? context.timestamp
         : state.settingsUpdatedAt,
@@ -149,8 +152,13 @@ export function approve(state: AppState, acknowledge: boolean, context: Planning
     draft: { ...state.draft, revision: undefined, progressAdjustment: undefined },
   };
 }
-export function undoPlan(state: AppState): AppState {
+export function undoPlan(state: AppState, date?: string): AppState {
   const previous = state.history.at(-1);
   if (!previous) throw new Error('戻せる計画がありません。');
-  return { ...state, plan: previous, history: state.history.slice(0, -1), proposal: null };
+  return {
+    ...(date ? retainStudyDayBaselines(state, date) : state),
+    plan: previous,
+    history: state.history.slice(0, -1),
+    proposal: null,
+  };
 }

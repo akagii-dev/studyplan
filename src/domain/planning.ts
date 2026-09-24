@@ -10,7 +10,9 @@ import * as proposals from './planner/proposal';
 export * from './planner/intervals';
 export * from './planner/capacity';
 export * from './planner/validation';
-export { undoPlan } from './planner/proposal';
+export function undoPlan(state: AppState) {
+  return proposals.undoPlan(state, today());
+}
 
 /** The only planning entry point that reads time/randomness. No persistence or UI here. */
 function context(): PlanningContext {

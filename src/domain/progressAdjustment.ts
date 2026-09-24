@@ -1,10 +1,16 @@
 import { AppState, Progress, addDays, Plan } from './model';
+import { retainStudyDayBaselines } from './calendarQuantity';
 import { stalePlan } from './planAudit';
 import { recordProgress, correctProgress } from './progress';
 import { createProgressBaseline } from './progressReflection';
 import { PlanningContext } from './planner/context';
 import { approve, propose } from './planner/proposal';
-import { AdjustmentStatus, ProgressAction, appendProgressReceipt, planChanges } from './progressReceipt';
+import {
+  AdjustmentStatus,
+  ProgressAction,
+  appendProgressReceipt,
+  planChanges,
+} from './progressReceipt';
 
 export interface ProgressAdjustmentResult {
   recordId: string;
@@ -136,8 +142,24 @@ function withReceipt(
 export function recordAndAdjust(state: AppState, entry: Progress, context: PlanningContext) {
   const recorded = recordProgress(state, entry);
   if (recorded === state) return state;
-  return withReceipt(state, adjustAfterProgress(recorded, entry.id, context), entry.id, 'record',
-    entry.updatedAt, null, entry.count, entry.date, entry.materialId, entry.round, context);
+  const retained = retainStudyDayBaselines(state, context.date);
+  return withReceipt(
+    state,
+    adjustAfterProgress(
+      { ...recorded, studyDayBaselines: retained.studyDayBaselines },
+      entry.id,
+      context,
+    ),
+    entry.id,
+    'record',
+    entry.updatedAt,
+    null,
+    entry.count,
+    entry.date,
+    entry.materialId,
+    entry.round,
+    context,
+  );
 }
 
 export function correctAndAdjust(
@@ -151,10 +173,24 @@ export function correctAndAdjust(
   if (old && old.count === count && old.cancelled === cancelled) return state;
   const corrected = correctProgress(state, id, count, cancelled, context.timestamp);
   const record = corrected.records.find((item) => item.id === id)!;
-  return withReceipt(state, adjustAfterProgress(corrected, id, context), id,
-    cancelled ? 'cancel' : 'correct', context.timestamp,
-    old?.cancelled ? null : old?.count ?? null, cancelled ? null : count,
-    record.date, record.materialId, record.round, context);
+  const retained = retainStudyDayBaselines(state, context.date);
+  return withReceipt(
+    state,
+    adjustAfterProgress(
+      { ...corrected, studyDayBaselines: retained.studyDayBaselines },
+      id,
+      context,
+    ),
+    id,
+    cancelled ? 'cancel' : 'correct',
+    context.timestamp,
+    old?.cancelled ? null : (old?.count ?? null),
+    cancelled ? null : count,
+    record.date,
+    record.materialId,
+    record.round,
+    context,
+  );
 }
 
 export function currentProgressAdjustment(state: AppState) {

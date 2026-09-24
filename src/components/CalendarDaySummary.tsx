@@ -45,7 +45,7 @@ export function CalendarDaySummary({
         >
           <strong className="event-exam">{e.name}</strong>
           <small>
-            予定 <span className="calendar-event-quantity">{e.count}問</span> · {duration(e.minutes)}
+            予定 <span className="calendar-event-quantity">{e.quantityLabel}</span> · {duration(e.minutes)}
           </small>
           {e.conflict && <small>⚠ 授業・予定と重複</small>}
           {density !== 'compact' && (
@@ -79,7 +79,7 @@ export function CalendarDaySummary({
                 {e.sessions.length}枠{e.sessions.some((s) => s.fixed) ? ' · 固定あり' : ''}
                 {e.reviewMinutes ? ` · 復習 ${duration(e.reviewMinutes)}` : ''}
               </small>
-              <small>当日実績 {e.hasActual ? `${e.actualCount}問` : '未報告'}</small>
+              <small>当日実績 {e.hasActual ? e.actualLabel : '未報告'}</small>
             </>
           )}
         </button>

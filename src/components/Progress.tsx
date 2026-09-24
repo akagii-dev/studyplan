@@ -1,11 +1,17 @@
 import { NumberInput } from './NumberInput';
+import { materialUnit } from '../domain/calendarQuantity';
 import { useRef, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { Progress as ProgressRecord, completed, remaining, today, uid } from '../domain/model';
 import { correctAndAdjust, recordAndAdjust } from '../domain/planning';
 import { currentProgressAdjustment } from '../domain/progressAdjustment';
 import { latestReceipt, progressReceipts } from '../domain/progressReceipt';
-import { ProgressReceiptView, receiptDetailLabel, receiptLabel, receiptOutcome } from './ProgressReceiptView';
+import {
+  ProgressReceiptView,
+  receiptDetailLabel,
+  receiptLabel,
+  receiptOutcome,
+} from './ProgressReceiptView';
 import { parseNumberInput } from '../domain/numeric';
 import { Empty, Field, Props, useDraft } from './common';
 export function Progress({
@@ -52,6 +58,7 @@ export function Progress({
     );
   };
   const material = state.settings.materials.find((m) => m.id === form.materialId);
+  const unit = materialUnit(material?.unit);
   const rest = material ? remaining(state, material.id, form.round) : 0;
   const customCount = (() => {
     try {
@@ -103,7 +110,7 @@ export function Progress({
         return next;
       });
       request.current = uid();
-      msg(`＋${count}問を記録しました。`);
+      msg(`＋${count}${unit}を記録しました。`);
       setSavedRecordId(id);
     } catch (e) {
       msg(String(e));
@@ -172,17 +179,19 @@ export function Progress({
         {material && (
           <div className="progress-summary">
             <span>
-              完了 <b>{completed(state, material.id, form.round)}</b>問
+              完了 <b>{completed(state, material.id, form.round)}</b>
+              {unit}
             </span>
             <span>
-              残り <b>{rest}</b>問
+              残り <b>{rest}</b>
+              {unit}
             </span>
             <span>
               {Math.round((completed(state, material.id, form.round) / material.total) * 100)}%
             </span>
           </div>
         )}
-        <h3>② 追加で完了した問題数を選んでください。</h3>
+        <h3>② 追加で完了した{unit === '問' ? '問題数' : '量'}を選んでください。</h3>
         <div className="count-choices">
           {[0, 5, 10, 15, 20].map((n) => (
             <button
@@ -192,7 +201,7 @@ export function Progress({
               onClick={() => set({ ...form, choice: String(n) })}
             >
               {n}
-              <small>問</small>
+              <small>{unit}</small>
             </button>
           ))}
           <button
@@ -206,11 +215,12 @@ export function Progress({
             disabled={!material}
             onClick={() => set({ ...form, choice: 'all' })}
           >
-            残りすべて：{rest}問
+            残りすべて：{rest}
+            {unit}
           </button>
         </div>
         {form.choice === 'other' && (
-          <Field label="追加問題数（1問単位）">
+          <Field label={unit === '問' ? '追加問題数（1問単位）' : `追加量（1${unit}単位）`}>
             <input
               autoFocus
               type="text"
@@ -241,7 +251,7 @@ export function Progress({
             />
           </Field>
         )}
-        <p className="hint">今回の追加分を記録します。0問も報告済みになります。</p>
+        <p className="hint">今回の追加分を記録します。0{unit}も報告済みになります。</p>
         <button data-submit className="primary wide" disabled={!valid || busy} onClick={save}>
           <CheckCircle2 size={18} />
           {busy ? '保存中…' : '記録する'}
@@ -251,13 +261,20 @@ export function Progress({
             <p>{message}</p>
             {savedRecordId && latestReceipt(state, savedRecordId) && (
               <details>
-                <summary>{receiptLabel(latestReceipt(state, savedRecordId)!)} · {receiptDetailLabel(latestReceipt(state, savedRecordId)!)}</summary>
+                <summary>
+                  {receiptLabel(latestReceipt(state, savedRecordId)!)} ·{' '}
+                  {receiptDetailLabel(latestReceipt(state, savedRecordId)!)}
+                </summary>
                 <ProgressReceiptView state={state} receipt={latestReceipt(state, savedRecordId)!} />
               </details>
             )}
             <div className="actions">
               <button onClick={onHistory}>記録を訂正</button>
-              <button onClick={onReplan}>{currentProgressAdjustment(state)?.status === 'failed' ? '今後の予定を確認' : '計画全体を見直す'}</button>
+              <button onClick={onReplan}>
+                {currentProgressAdjustment(state)?.status === 'failed'
+                  ? '今後の予定を確認'
+                  : '計画全体を見直す'}
+              </button>
             </div>
           </div>
         )}
@@ -265,7 +282,12 @@ export function Progress({
     </div>
   );
 }
-export function History({ state, update, onReplan, onRecordPast }: Props & { onReplan?: () => void; onRecordPast?: () => void }) {
+export function History({
+  state,
+  update,
+  onReplan,
+  onRecordPast,
+}: Props & { onReplan?: () => void; onRecordPast?: () => void }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [count, setCount] = useState('');
   const [error, err] = useState('');
@@ -281,12 +303,7 @@ export function History({ state, update, onReplan, onRecordPast }: Props & { onR
     try {
       let receiptId: string | null = null;
       await update((s) => {
-        const next = correctAndAdjust(
-          s,
-          r.id,
-          cancelled ? r.count : Number(count),
-          cancelled,
-        );
+        const next = correctAndAdjust(s, r.id, cancelled ? r.count : Number(count), cancelled);
         receiptId = latestReceipt(next, r.id)?.id ?? null;
         return next;
       });
@@ -306,11 +323,20 @@ export function History({ state, update, onReplan, onRecordPast }: Props & { onR
       <button onClick={onRecordPast}>過去日の学習を記録</button>
       {resultMessage && (
         <div className="history-result" role="status">
-          <p>{resultMessage} {receipts.find((receipt) => receipt.id === savedReceiptId) && receiptOutcome(receipts.find((receipt) => receipt.id === savedReceiptId)!)}</p>
+          <p>
+            {resultMessage}{' '}
+            {receipts.find((receipt) => receipt.id === savedReceiptId) &&
+              receiptOutcome(receipts.find((receipt) => receipt.id === savedReceiptId)!)}
+          </p>
           {receipts.find((receipt) => receipt.id === savedReceiptId) && (
             <details>
-              <summary>{receiptDetailLabel(receipts.find((receipt) => receipt.id === savedReceiptId)!)}</summary>
-              <ProgressReceiptView state={state} receipt={receipts.find((receipt) => receipt.id === savedReceiptId)!} />
+              <summary>
+                {receiptDetailLabel(receipts.find((receipt) => receipt.id === savedReceiptId)!)}
+              </summary>
+              <ProgressReceiptView
+                state={state}
+                receipt={receipts.find((receipt) => receipt.id === savedReceiptId)!}
+              />
             </details>
           )}
         </div>
@@ -325,7 +351,11 @@ export function History({ state, update, onReplan, onRecordPast }: Props & { onR
           {currentProgressAdjustment(state)?.status === 'failed'
             ? '記録は保存済みです。予定調整に失敗しました。'
             : '記録済み・予定の確認が必要です。'}
-          <button onClick={onReplan}>{currentProgressAdjustment(state)?.status === 'failed' ? '今後の予定を確認' : '計画全体を見直す'}</button>
+          <button onClick={onReplan}>
+            {currentProgressAdjustment(state)?.status === 'failed'
+              ? '今後の予定を確認'
+              : '計画全体を見直す'}
+          </button>
         </div>
       )}
       {!activeRecords.length ? (
@@ -364,54 +394,61 @@ export function History({ state, update, onReplan, onRecordPast }: Props & { onR
                     />
                   ) : (
                     <b>
-                      ＋{r.count}問
+                      ＋{r.count}
+                      {materialUnit(
+                        state.settings.materials.find((m) => m.id === r.materialId)?.unit,
+                      )}
                     </b>
                   )}
                 </td>
                 <td>
                   {editing === r.id ? (
-                      <div className="actions">
-                        <button
-                          data-submit
-                          className="primary small"
-                          disabled={count === ''}
-                          onClick={() => change(r, false)}
-                        >
-                          訂正を保存
-                        </button>
-                        <button onClick={() => setEditing(null)}>やめる</button>
-                      </div>
-                    ) : cancelId === r.id ? (
-                      <div className="actions">
-                        <span>取り消しますか？</span>
-                        <button className="text-danger" onClick={() => change(r, true)}>
-                          取消を確定
-                        </button>
-                        <button onClick={() => setCancelId(null)}>やめる</button>
-                      </div>
-                    ) : (
-                      <div className="actions">
-                        <button
-                          onClick={() => {
-                            setEditing(r.id);
-                            setCount(String(r.count));
-                          }}
-                        >
-                          訂正
-                        </button>
-                        <button className="text-danger" onClick={() => setCancelId(r.id)}>
-                          取消
-                        </button>
-                      </div>
-                    )}
+                    <div className="actions">
+                      <button
+                        data-submit
+                        className="primary small"
+                        disabled={count === ''}
+                        onClick={() => change(r, false)}
+                      >
+                        訂正を保存
+                      </button>
+                      <button onClick={() => setEditing(null)}>やめる</button>
+                    </div>
+                  ) : cancelId === r.id ? (
+                    <div className="actions">
+                      <span>取り消しますか？</span>
+                      <button className="text-danger" onClick={() => change(r, true)}>
+                        取消を確定
+                      </button>
+                      <button onClick={() => setCancelId(null)}>やめる</button>
+                    </div>
+                  ) : (
+                    <div className="actions">
+                      <button
+                        onClick={() => {
+                          setEditing(r.id);
+                          setCount(String(r.count));
+                        }}
+                      >
+                        訂正
+                      </button>
+                      <button className="text-danger" onClick={() => setCancelId(r.id)}>
+                        取消
+                      </button>
+                    </div>
+                  )}
                   {receipts.some((receipt) => receipt.recordId === r.id) && (
                     <details className="record-receipts">
                       <summary>予定調整の履歴</summary>
-                      {[...receipts].filter((receipt) => receipt.recordId === r.id).reverse().map((receipt) =>
-                        <details key={receipt.id}>
-                          <summary>{receiptLabel(receipt)}</summary>
-                          <ProgressReceiptView state={state} receipt={receipt} />
-                        </details>)}
+                      {[...receipts]
+                        .filter((receipt) => receipt.recordId === r.id)
+                        .reverse()
+                        .map((receipt) => (
+                          <details key={receipt.id}>
+                            <summary>{receiptLabel(receipt)}</summary>
+                            <ProgressReceiptView state={state} receipt={receipt} />
+                          </details>
+                        ))}
                     </details>
                   )}
                 </td>

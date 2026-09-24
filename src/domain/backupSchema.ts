@@ -19,6 +19,7 @@ const material = z.looseObject({
   id,
   examId: id,
   name: text,
+  unit: z.string().trim().min(1).max(40).optional(),
   total: count.min(1),
   order: count.min(1),
   rounds: z.array(round).min(1).max(1000),
@@ -91,6 +92,7 @@ const session = z.looseObject({
 });
 const plan = z.looseObject({
   id,
+  approvedAt: z.iso.datetime().optional(),
   createdAt: text,
   from: date,
   calculationVersion: count.optional(),
@@ -248,6 +250,24 @@ const draft = z.looseObject({
   replanError: text.optional(),
 });
 const state = z.looseObject({
+  studyDayBaselines: z
+    .record(
+      date,
+      z.object({
+        planId: id,
+        rows: z.array(
+          z.object({
+            materialId: id,
+            round: count,
+            examId: id,
+            name: text,
+            unit: z.string().trim().min(1).max(40),
+            count,
+          }),
+        ),
+      }),
+    )
+    .optional(),
   outsideLabels: z
     .record(
       date,

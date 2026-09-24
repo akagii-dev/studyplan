@@ -626,3 +626,7 @@ Windows配布版のビルドに成功。v0.4.13からの更新用ZIPは、検証
 画像を確認：`test-results/calendar-quantity/quantity-1280.png`、`viewport-1280.png`、`viewport-390.png`、`quantity-320.png`、`expanded-320.png`。独立レビューの範囲と結果は[calendar-quantity-review.md](calendar-quantity-review.md)に記載。
 
 未検証：ネイティブE2E全件の一括実行、スクリーンリーダーの実聴、配布インストーラー、Codex再起動後のSkill選択候補。axeのみでWCAG適合を断定していない。通常/デモのビルドには既存依存Zodの注釈と500KB超チャンクの警告が出るが、ビルドは成功した。旧データで根拠を復元できない日付は「基準なし」とする仕様上の制約がある。
+
+## v0.4.17 配布準備（2026-09-24）
+
+通常フロントエンドとTauri Windows releaseビルド成功。実行ファイルの製品・ファイルバージョンは0.4.17。v0.4.16の複製から更新用ZIPを試験し、ロック・破損拒否、置換、旧版退避、再実行、データ保持を確認した。機能検証は直前の325件と隔離したブラウザー・実機試験を使用。配布EXE自体の起動は、隔離Windowsアカウントで未実施。通常利用データにはアクセスしていない。

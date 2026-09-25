@@ -32,7 +32,7 @@ import { startOfWeek } from '../src/domain/calendar';
 import { studentFixture } from './fixtures/student';
 import { adjustmentFixture } from './fixtures/adjustment';
 import { activePlanWork } from '../src/domain/progressAllocation';
-import { createProgressBaseline } from '../src/domain/progressReflection';
+import { createProgressBaseline, reflectProgress } from '../src/domain/progressReflection';
 let child: ChildProcess;
 let browser: Browser;
 let page: Page;
@@ -4163,6 +4163,80 @@ test('実機：保存と再読込の両方が失敗しても保存済みとせ�
   await nav('対話式の初期設定');
   await expect(page.getByLabel('試験名', { exact: true })).toHaveValue('応答だけ失われた目標');
   expect(await storedState()).toEqual(committed);
+});
+
+test('実機：旧版の消化済み0問予定を起動・記録・バックアップ・復元で保持する', async () => {
+  dataDir = mkdtempSync(resolve('.test-data/legacy-consumed-'));
+  await launch();
+  await close();
+  const date = today();
+  const source = adjustmentFixture(date);
+  source.records = [
+    {
+      id: 'old-record',
+      date,
+      materialId: 'book',
+      round: 0,
+      count: 12,
+      cancelled: false,
+      createdAt: `${date}T00:00:00Z`,
+      updatedAt: `${date}T00:00:00Z`,
+    },
+  ];
+  const legacy = reflectProgress(source, 'old-record');
+  expect(legacy.plan!.sessions.find((s) => s.id === 'book-1')).toMatchObject({
+    count: 0,
+    start: 540,
+    end: 540,
+  });
+  legacy.history = [structuredClone(legacy.plan!)];
+  const { DatabaseSync } = await import('node:sqlite');
+  const db = new DatabaseSync(resolve(dataDir, 'studyplan.sqlite3'));
+  db.prepare('INSERT OR REPLACE INTO state(id,revision,data) VALUES(1,1,?)').run(
+    JSON.stringify(legacy),
+  );
+  db.close();
+  await launch();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  const row = page.locator('.daily-record-row').filter({ hasText: '対象問題集' });
+  await expect(row).toContainText('12/6問');
+  const startState = await storedState();
+  const backupPath = resolve(dataDir, '旧版の予定.studyplan.json');
+  await nav('バックアップ');
+  await page.evaluate((path) => {
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = (input, options) =>
+      decodeURIComponent(String(input)).includes('plugin:dialog|save')
+        ? Promise.resolve(
+            new Response(JSON.stringify(path), {
+              headers: { 'Content-Type': 'application/json', 'Tauri-Response': 'ok' },
+            }),
+          )
+        : nativeFetch(input, options);
+  }, backupPath);
+  await page.getByRole('button', { name: 'バックアップを保存する', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: '保存しました：' })).toBeVisible();
+  expect(JSON.parse(readFileSync(backupPath, 'utf8')).data).toEqual(startState);
+  await nav('今日');
+  await row.getByRole('textbox').fill('1');
+  await row.getByRole('textbox').press('Enter');
+  await saved();
+  await expect(row).toContainText('13/6問');
+  expect(
+    (await storedState()).history.some((p) =>
+      p.sessions.some((s) => s.count === 0 && s.start === s.end),
+    ),
+  ).toBe(true);
+  await nav('バックアップ');
+  await page.getByLabel('復元するバックアップ').setInputFiles(backupPath);
+  await page.getByLabel('置き換える内容を確認しました').check();
+  await page.getByRole('button', { name: 'この内容で復元する', exact: true }).click();
+  await expect(page.getByText('復元しました。', { exact: true })).toBeVisible();
+  expect(await storedState()).toEqual(startState);
+  await closeWindowNormally();
+  await launch();
+  expect(await storedState()).toEqual(startState);
+  await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
 test('実機：バックアップ保存・破損拒否・内容確認・復元・再起動後の復元取消', async () => {

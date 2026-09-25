@@ -104,7 +104,12 @@ fn check_plan(plan: &Value, current: &Value) -> Result<(), String> {
     check_settings(settings)?;
     unique(&plan["sessions"])?;
     for session in plan["sessions"].as_array().unwrap() {
-        if session["end"].as_f64().unwrap() <= session["start"].as_f64().unwrap() {
+        let start = session["start"].as_f64().unwrap();
+        let end = session["end"].as_f64().unwrap();
+        // Legacy progress reflection keeps fully consumed study sessions for comparison
+        // and correction. They have zero count and duration; do not delete that history.
+        let consumed = session["kind"] == "study" && session["count"] == 0;
+        if end < start || (end == start && !consumed) {
             return Err("学習予定の開始・終了時刻が不正です。".into());
         }
         if !settings["exams"]
@@ -221,6 +226,60 @@ mod tests {
     }
     fn file() -> Value {
         json!({"format":"StudyPlanBackup","version":1,"createdAt":"2026-09-20T00:00:00.000Z","appVersion":"0.1.0","data":state()})
+    }
+    fn consumed_state() -> Value {
+        let mut data = state();
+        data["settings"]["exams"] = json!([{"id":"e","name":"試験","start":"2026-09-01","target":"2026-12-01","priority":1,"color":"#287569","reviewDays":0}]);
+        data["settings"]["materials"] = json!([{"id":"m","examId":"e","name":"教材","order":1,"total":7,"rounds":[{"completed":0,"minutes":3}]}]);
+        data["plan"] = json!({"id":"p","createdAt":"2026-09-20T00:00:00Z","from":"2026-09-20","sessions":[{"id":"s","date":"2026-09-21","start":540,"end":540,"examId":"e","materialId":"m","round":0,"count":0,"fixed":false,"kind":"study"}],"capacities":[],"shortfalls":[],"conflicts":[],"progressBaseline":{"records":{},"sessions":{"s":{"count":5,"end":555}},"shortfalls":{}}});
+        data
+    }
+    #[test]
+    fn consumed_zero_duration_sessions_survive_save_export_restore_and_reopen() {
+        let folder = tempfile::tempdir().unwrap();
+        let path = folder.path().join("legacy.sqlite3");
+        let mut conn = db::open(&path).unwrap();
+        let mut data = consumed_state();
+        data["history"] = json!([data["plan"].clone()]);
+        data["proposal"] =
+            json!({"plan":data["plan"].clone(),"basedOn":"p","reason":"比較用","unreported":[]});
+        data["resetBackup"] = consumed_state();
+        // Seed an old persisted state without exercising the new commit validator.
+        conn.execute(
+            "INSERT INTO state(id,revision,data) VALUES(1,1,?1)",
+            [data.to_string()],
+        )
+        .unwrap();
+        let exported = packet(&conn).expect("旧消化済み予定のバックアップを拒否しない");
+        assert_eq!(exported["data"], data);
+        data["records"] = json!([{"id":"r","materialId":"m","round":0,"count":2,"cancelled":false,"date":"2026-09-20","createdAt":"2026-09-20T00:00:00Z","updatedAt":"2026-09-20T00:00:00Z"}]);
+        db::commit(&mut conn, 1, "record", data.clone()).unwrap();
+        let output = folder.path().join("kept.studyplan.json");
+        write_file(&output, &packet(&conn).unwrap()).unwrap();
+        let restored = parse(&std::fs::read_to_string(output).unwrap()).unwrap();
+        db::restore(&mut conn, 2, "restore", restored["data"].clone()).unwrap();
+        drop(conn);
+        let reopened = db::open(&path).unwrap();
+        assert_eq!(db::load(&reopened).unwrap().unwrap().data, data);
+    }
+    #[test]
+    fn real_session_time_errors_still_fail_without_changing_the_database() {
+        for (kind, count, end) in [
+            ("study", 1, 540),
+            ("study", 0, 539),
+            ("review", 0, 540),
+            ("review", 0, 539),
+        ] {
+            let mut data = consumed_state();
+            data["plan"]["sessions"][0]["kind"] = kind.into();
+            data["plan"]["sessions"][0]["count"] = count.into();
+            data["plan"]["sessions"][0]["end"] = end.into();
+            let mut conn = db::open(Path::new(":memory:")).unwrap();
+            db::commit(&mut conn, 0, "initial", state()).unwrap();
+            assert!(db::commit(&mut conn, 1, "invalid", data.clone()).is_err());
+            assert!(db::restore(&mut conn, 1, "invalid-restore", data).is_err());
+            assert_eq!(db::load(&conn).unwrap().unwrap().data, state());
+        }
     }
     #[test]
     fn file_roundtrip_and_atomic_replacement() {

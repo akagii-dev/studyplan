@@ -2917,6 +2917,19 @@ textarea {
 .future-week { margin-block: 16px; gap: 12px; }
 .future-today { margin-inline-start: 10px; font-size: 0.875rem; font-weight: 500; color: var(--accent); }
 .future-day li { flex-wrap: wrap; }
+.future-restart { margin-block-end: 12px; }
+.future-restart form { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
+.future-restart form p { margin: 0; }
+.future-restart form label { font-weight: 650; }
+.future-restart-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.future-restart-controls input { min-height: 44px; }
+.future-work { margin-block: 14px; }
+.future-work summary { width: fit-content; cursor: pointer; min-height: 44px; padding-block: 9px; }
+.future-work ul { list-style: none; margin: 0; padding: 0; border-block-start: 1px solid var(--border); }
+.future-work li { display: flex; flex-wrap: wrap; gap: 4px 12px; padding-block: 8px; border-block-end: 1px solid var(--border); }
+.future-work li span:first-child { flex: 1 1 170px; }
+.future-work li span:nth-child(2) { font-variant-numeric: tabular-nums; }
+.future-work li strong { color: var(--error-ink); }
 .future-quantity { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
 .future-quantity > strong { font-size: 1.125rem; font-variant-numeric: tabular-nums; }
 .quantity-warning { color: var(--error-ink); font-weight: 700; }

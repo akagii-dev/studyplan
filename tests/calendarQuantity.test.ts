@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { initialState, AppState, Plan, Session } from '../src/domain/model';
+import { initialState, AppState, Plan, Session, addDays } from '../src/domain/model';
 import { calendarQuantity, retainStudyDayBaselines } from '../src/domain/calendarQuantity';
 import { upcomingSunday, weekRangeLabel } from '../src/domain/calendar';
-import { undoPlan } from '../src/domain/planner/proposal';
+import { undoPlan, approve, proposeRestart } from '../src/domain/planner/proposal';
+import { adjustmentContext, restartFixture } from './fixtures/adjustment';
+import { createProgressBaseline } from '../src/domain/progressReflection';
+import { todayStudyRows } from '../src/domain/todayProgress';
 
 const date = '2026-09-24';
 const session = (id: string, count: number, round = 0): Session => ({
@@ -59,6 +62,53 @@ function fixture() {
   s.plan = plan([session('a', 20), session('b', 10), session('c', 5)]);
   return s;
 }
+
+it('仕切り直しで新たに今日へ置いた教材を追加し、現在量を単位別に集計する', () => {
+  const state = restartFixture();
+  state.settings.materials.push({
+    id: 'pages',
+    name: '読書',
+    examId: 'a',
+    unit: 'ページ',
+    order: 2,
+    total: 3,
+    rounds: [{ completed: 0, minutes: 1 }],
+  });
+  state.settings.exams[0].target = addDays(adjustmentContext.date, 1);
+  state.settings.windows[0].to = adjustmentContext.date;
+  state.settings.buffer = 0;
+  state.plan!.settingsSnapshot = structuredClone(state.settings);
+  state.plan!.progressBaseline = createProgressBaseline(state.plan!, state.records);
+  const context = { ...adjustmentContext, minute: 0 };
+  const restarted = approve(proposeRestart(state, context.date, context), false, context);
+  const quantity = calendarQuantity(restarted, context.date, context.date);
+  expect(quantity.rows).toMatchObject([
+    {
+      materialId: 'book',
+      planned: 0,
+      actual: 0,
+      reported: false,
+      currentRemaining: 26,
+      unit: '問',
+    },
+    {
+      materialId: 'pages',
+      planned: 0,
+      actual: 0,
+      reported: false,
+      currentRemaining: 3,
+      unit: 'ページ',
+    },
+  ]);
+  expect(quantity.totals).toMatchObject([
+    { unit: '問', currentRemaining: 26 },
+    { unit: 'ページ', currentRemaining: 3 },
+  ]);
+  expect(todayStudyRows(restarted, context.date).map((row) => row.progress.prefill)).toEqual([
+    26, 3,
+  ]);
+  expect(restarted.studyDayBaselines?.[context.date].rows).toEqual([]);
+});
 function record(s: AppState, materialId: string, count: number, cancelled = false, round = 0) {
   s.records.push({
     id: `${materialId}-${s.records.length}`,

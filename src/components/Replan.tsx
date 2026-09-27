@@ -2,7 +2,7 @@ import { Warning } from './Warnings';
 import { useState, useEffect, useRef, useId, useLayoutEffect } from 'react';
 import { ArrowRight, RefreshCw, Undo2, CheckCircle2 } from 'lucide-react';
 import { Session, today, clock } from '../domain/model';
-import { approve, propose, proposeSettings, undoPlan } from '../domain/planning';
+import { approve, propose, proposeSettings, restartProposalStaleReason, undoPlan } from '../domain/planning';
 import { Empty, Props, duration } from './common';
 import { SetupImpact } from './SetupImpact';
 import { PLAN_CALCULATION_VERSION } from '../domain/sessionPolicy';
@@ -26,7 +26,9 @@ import {
 import { StudyCoverageGap } from '../domain/studyCoverage';
 import { comparePlans, mainDailyChanges, ScheduleChange } from '../domain/planComparison';
 import { proposalUsesCurrentProgress } from '../domain/progressReflection';
-export function Replan({ state, update, onCalendar }: Props & { onCalendar: () => void }) {
+import { materialUnit } from '../domain/calendarQuantity';
+import { remainingWork } from '../domain/remainingWork';
+export function Replan({ state, update, onCalendar, onFuture }: Props & { onCalendar: () => void; onFuture: () => void }) {
   const [ack, setAck] = useState(false);
   const [error, err] = useState('');
   const [undo, setUndo] = useState(false);
@@ -52,12 +54,22 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
   }, [result]);
   const p = state.proposal;
   const plan = p?.plan;
+  const restart = p?.basis?.kind === 'restart';
+  const comparisonFrom = restart ? p.basis!.date : (plan?.from ?? today());
   const displaySettings = plan?.settingsSnapshot ?? state.settings;
+  const unitFor = (id: string) => materialUnit(
+    displaySettings.materials.find((m) => m.id === id)?.unit ??
+    state.settings.materials.find((m) => m.id === id)?.unit,
+  );
+  const previousWork = plan ? remainingWork(state, comparisonFrom) : [];
+  const candidateWork = plan ? remainingWork({ ...state, plan, settings: displaySettings }, comparisonFrom) : [];
+  const previousUnplaced = new Map(previousWork.map((row) => [`${row.materialId}/${row.round}`, row.unplaced]));
   const stale = !!p?.settingsBase && !sameRevisionBase(p.settingsBase, state.settings);
   const progressStale = !!plan && !proposalUsesCurrentProgress(plan, state.records);
+  const restartIssue = restart ? restartProposalStaleReason(state) : undefined;
   const missingSettings = setupIssues(displaySettings).filter((i) => i.severity === 'error');
   useEffect(() => setAck(false), [plan?.id]);
-  const impacts = plan ? comparePlans(state.plan, plan) : [];
+  const impacts = plan ? comparePlans(state.plan, plan, comparisonFrom) : [];
   const old = new Map<string, number>();
   const next = new Map<string, number>();
   for (const impact of impacts)
@@ -73,6 +85,7 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
     const exam = displaySettings.exams.find((e) => e.id === m?.examId);
     return `${date}｜${exam?.name} / ${m?.name}｜${Number(round) + 1}周目`;
   };
+  const keyUnit = (key: string) => unitFor(key.split('｜')[1]);
   const signature = (s: Session) =>
     JSON.stringify([
       s.date,
@@ -86,9 +99,9 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
       s.fixed,
     ]);
   const previousSessions = (state.plan?.sessions ?? []).filter(
-    (s) => s.date >= (plan?.from ?? today()),
+    (s) => s.date >= comparisonFrom,
   );
-  const proposedSessions = (plan?.sessions ?? []).filter((s) => s.date >= (plan?.from ?? today()));
+  const proposedSessions = (plan?.sessions ?? []).filter((s) => s.date >= comparisonFrom);
   const detailedChanges = [
     ...previousSessions
       .filter((s) => !proposedSessions.some((n) => signature(n) === signature(s)))
@@ -111,11 +124,11 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
       state.settings.exams.find((e) => e.id === material?.examId);
     return (exam?.name ?? '試験') + ' / ' + (material?.name ?? id);
   };
-  const changeSummary = (change: ScheduleChange) => (
+  const changeSummary = (change: ScheduleChange, unit: string) => (
     <ul>
       {change.before.count !== change.after.count && (
         <li>
-          予定量 {change.before.count}問 → {change.after.count}問
+          予定量 {change.before.count}{unit} → {change.after.count}{unit}
         </li>
       )}
       {change.before.start !== change.after.start && (
@@ -133,7 +146,7 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
       )}
       {change.before.unplaced !== change.after.unplaced && (
         <li>
-          未配置 {change.before.unplaced}問 → {change.after.unplaced}問
+          未配置 {change.before.unplaced}{unit} → {change.after.unplaced}{unit}
         </li>
       )}
     </ul>
@@ -205,6 +218,11 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
     ...new Set([...(plan?.conflicts ?? []), ...timeProblems.map((x) => x.message)]),
   ];
   const approvalBlocks = [
+    ...(restartIssue ? [{
+      text: restartIssue,
+      action: '同じ開始日から案を作り直す',
+      run: () => void act((s) => refreshProposal(s)),
+    }] : []),
     ...(plan && plan.calculationVersion !== PLAN_CALCULATION_VERSION
       ? [
           {
@@ -214,7 +232,7 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
           },
         ]
       : []),
-    ...(stale
+    ...(stale && !restartIssue
       ? [
           {
             text: '案の作成後に設定が変わっています。',
@@ -222,12 +240,12 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
             run: () =>
               void act((s) => {
                 requirePlanningInputs(s.settings);
-                return propose(s, today(), '現在の設定・残数で案を作り直しました。');
+                return restart ? refreshProposal(s) : propose(s, today(), '現在の設定・残数で案を作り直しました。');
               }),
           },
         ]
       : []),
-    ...(progressStale
+    ...(progressStale && !restartIssue
       ? [
           {
             text: '案の作成後に進捗が追加・訂正・取消されています。',
@@ -235,7 +253,7 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
             run: () =>
               void act((s) => {
                 const candidate = s.proposal?.plan.settingsSnapshot;
-                return s.proposal?.settingsBase && candidate
+                return restart ? refreshProposal(s) : s.proposal?.settingsBase && candidate
                   ? proposeSettings(s, candidate, today())
                   : propose(s, today(), '現在の設定・残数で案を作り直しました。');
               }),
@@ -376,6 +394,11 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
             <div className="eyebrow">PLAN PREVIEW · 承認待ち</div>
             <h2>計画案</h2>
             <p>{p.reason}</p>
+            {restart && (
+              <p className="replan-restart-note">
+                開始日：<time dateTime={plan.allocationStart ?? plan.from}>{plan.allocationStart ?? plan.from}</time>。実績・履歴と固定予定を残し、未配置も再評価しました。
+              </p>
+            )}
             <section className="replan-decision" aria-labelledby="changed-settings-heading">
               <h3 id="changed-settings-heading">変更した条件</h3>
               {conditionChanges === null ? (
@@ -401,18 +424,18 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
                   {impacts.map((impact) => (
                     <li key={impact.materialId}>
                       <b>{materialLabel(impact.materialId)}</b>
-                      {impact.total && changeSummary(impact.total)}
+                      {impact.total && changeSummary(impact.total, unitFor(impact.materialId))}
                       {impact.rounds.map((round) => (
                         <div key={round.round}>
                           <strong>{round.round! + 1}周目</strong>
                           {(!impact.total ||
                             JSON.stringify([round.before, round.after]) !==
                               JSON.stringify([impact.total.before, impact.total.after])) &&
-                            changeSummary(round)}
+                            changeSummary(round, unitFor(impact.materialId))}
                           {!impact.total &&
                             mainDailyChanges(round.days).map((day) => (
                               <div key={day.date}>
-                                {day.date}：{day.before}問 → {day.after}問
+                                {day.date}：{day.before}{unitFor(impact.materialId)} → {day.after}{unitFor(impact.materialId)}
                               </div>
                             ))}
                           {!impact.total && round.days.length > 3 && (
@@ -424,7 +447,7 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
                       ))}
                       {mainDailyChanges(impact.total?.days ?? []).map((day) => (
                         <div key={day.date}>
-                          {day.date}：{day.before}問 → {day.after}問
+                          {day.date}：{day.before}{unitFor(impact.materialId)} → {day.after}{unitFor(impact.materialId)}
                         </div>
                       ))}
                       {(impact.total?.days.length ?? 0) > 3 && (
@@ -443,19 +466,13 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
                 <p>最初の統合計画を作成します。</p>
               )}
               <dl className="replan-totals">
-                <div>
-                  <dt>これから配置する課題</dt>
-                  <dd>
-                    {plan.sessions
-                      .filter((s) => s.date >= plan.from && s.kind === 'study')
-                      .reduce((n, s) => n + s.count, 0)}
-                    問
-                  </dd>
-                </div>
-                <div>
-                  <dt>未配置</dt>
-                  <dd>{plan.shortfalls.reduce((n, s) => n + s.count, 0)}問</dd>
-                </div>
+                {candidateWork.filter((row) => row.allocated || row.unplaced || previousUnplaced.get(`${row.materialId}/${row.round}`)).map((row) => (
+                  <div key={`${row.materialId}/${row.round}`}>
+                    <dt>{row.name} · {row.round + 1}周目</dt>
+                    <dd>予定 {row.allocated}{row.unit} · 未配置 {restart && previousUnplaced.get(`${row.materialId}/${row.round}`) !== row.unplaced
+                      ? `${previousUnplaced.get(`${row.materialId}/${row.round}`) ?? 0}${row.unit} → ` : ''}{row.unplaced}{row.unit}</dd>
+                  </div>
+                ))}
               </dl>
             </section>
             <section className="replan-decision" aria-labelledby="plan-problems-heading">
@@ -520,17 +537,29 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
                   <button onClick={() => void act((s) => refreshProposal(s))}>
                     今の時刻で案を更新
                   </button>
+                  {restart && conflicts.some((message) => message.includes('再配分の開始前')) && (
+                    <button disabled={acting} onClick={() => {
+                      if (actingRef.current) return;
+                      actingRef.current = true;
+                      setActing(true);
+                      void update((s) => ({ ...s, proposal: null }))
+                        .then(onFuture)
+                        .catch((error) => err(String(error)))
+                        .finally(() => { actingRef.current = false; setActing(false); });
+                    }}>
+                      案を破棄して開始日を選び直す
+                    </button>
+                  )}
                 </section>
               )}
               {plan.shortfalls.length > 0 && (
                 <section className="confirmation-panel" aria-labelledby="shortfall-heading">
-                  <h3 id="shortfall-heading">未配置の課題</h3>
+                  <h3 id="shortfall-heading">今回の案で未配置の課題</h3>
                   <p className="warning-inline">注意付きで更新できます。</p>
-                  <h3>条件内に収まらない課題があります</h3>
                   {plan.shortfalls.map((x) => (
                     <p key={`${x.materialId}-${x.round}`}>
                       {displaySettings.materials.find((m) => m.id === x.materialId)?.name} ·{' '}
-                      {x.round + 1}周目：{x.count}問（{duration(x.minutes)}）
+                      {x.round + 1}周目：{x.count}{unitFor(x.materialId)}（{duration(x.minutes)}）
                       <small className="block">{x.reason}</small>
                     </p>
                   ))}
@@ -545,7 +574,7 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
                     未報告の予定を確認してください
                   </h3>
                   <p>
-                    未報告を0問の実績には変換しません。実際に進めていた場合は先に記録してください。
+                    未報告を実績0には変換しません。実際に進めていた場合は先に記録してください。
                   </p>
                   <ul>
                     {p.unreported.map((x) => (
@@ -606,7 +635,7 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
             <summary>計算条件・個別予定・全一覧を確認</summary>
             <PlanInsights state={state} plan={plan} preview flat />
             <section className="replan-detail-section">
-              <h3>日ごとの予定問題数の差分</h3>
+              <h3>日ごとの予定量の差分</h3>
               <p className="hint">過去の予定と固定した予定を保持し、残りの学習日へ分散します。</p>
               {keys.length ? (
                 <table>
@@ -622,18 +651,18 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
                     {keys.map((k) => (
                       <tr key={k}>
                         <td>{label(k)}</td>
-                        <td>{old.get(k) || 0}問</td>
+                        <td>{old.get(k) || 0}{keyUnit(k)}</td>
                         <td>
                           <ArrowRight size={15} />
                         </td>
-                        <td>{next.get(k) || 0}問</td>
+                        <td>{next.get(k) || 0}{keyUnit(k)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               ) : (
                 <p>
-                  問題数の変更はありません。設定の変更による時刻・復習枠の差も、以下で確認できます。
+                  予定量の変更はありません。設定の変更による時刻・復習枠の差も、以下で確認できます。
                 </p>
               )}
               <section className="plan-insight-section">
@@ -657,7 +686,7 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
                           {displaySettings.exams.find((e) => e.id === s.examId)?.name} /{' '}
                           {s.kind === 'review'
                             ? 'まとめの復習'
-                            : `${displaySettings.materials.find((m) => m.id === s.materialId)?.name} ${s.round + 1}周目 ${s.count}問`}
+                            : `${displaySettings.materials.find((m) => m.id === s.materialId)?.name} ${s.round + 1}周目 ${s.count}${unitFor(s.materialId)}`}
                         </td>
                       </tr>
                     ))}
@@ -690,7 +719,7 @@ export function Replan({ state, update, onCalendar }: Props & { onCalendar: () =
                           <td>
                             {s.kind === 'review'
                               ? `${displaySettings.exams.find((e) => e.id === s.examId)?.name} 復習`
-                              : `${displaySettings.materials.find((m) => m.id === s.materialId)?.name} ${s.count}問`}
+                              : `${displaySettings.materials.find((m) => m.id === s.materialId)?.name} ${s.count}${unitFor(s.materialId)}`}
                           </td>
                           <td>{s.fixed ? '固定' : ''}</td>
                         </tr>

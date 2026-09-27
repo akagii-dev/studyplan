@@ -20,11 +20,12 @@ export interface ScheduleChange {
 }
 
 /** Compare the same horizon in both plans; no clock, mutation or persisted UI state. */
-export function comparePlans(before: Plan | null, after: Plan) {
+export function comparePlans(before: Plan | null, after: Plan, comparisonFrom = after.from) {
+  const minute = comparisonFrom === after.from ? (after.notBefore ?? 0) : 0;
   const eligible = (s: Session) =>
     s.kind === 'study' &&
     s.count > 0 &&
-    (s.date > after.from || (s.date === after.from && s.start >= (after.notBefore ?? 0)));
+    (s.date > comparisonFrom || (s.date === comparisonFrom && s.start >= minute));
   const oldSessions = (before?.sessions ?? []).filter(eligible);
   const newSessions = after.sessions.filter(eligible);
   const materialIds = [

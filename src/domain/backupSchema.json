@@ -2917,6 +2917,43 @@
             "replanError": {
               "type": "string",
               "maxLength": 10000
+            },
+            "planReconciliation": {
+              "type": "object",
+              "properties": {
+                "asOf": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "applied",
+                    "unplaced",
+                    "blocked"
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "pending-proposal",
+                    "stale-settings",
+                    "legacy-unknown",
+                    "fixed-conflict",
+                    "failed"
+                  ]
+                },
+                "detail": {
+                  "type": "string",
+                  "maxLength": 10000
+                }
+              },
+              "required": [
+                "asOf",
+                "status"
+              ],
+              "additionalProperties": {}
             }
           },
           "additionalProperties": {}
@@ -2987,6 +3024,11 @@
                 "id": {
                   "type": "string",
                   "maxLength": 200
+                },
+                "allocationStart": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
                 },
                 "approvedAt": {
                   "type": "string",
@@ -3858,6 +3900,11 @@
                 "type": "string",
                 "maxLength": 200
               },
+              "allocationStart": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
               "approvedAt": {
                 "type": "string",
                 "format": "date-time",
@@ -4726,6 +4773,11 @@
                     "id": {
                       "type": "string",
                       "maxLength": 200
+                    },
+                    "allocationStart": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
                     },
                     "approvedAt": {
                       "type": "string",
@@ -6041,6 +6093,30 @@
                     "periods"
                   ],
                   "additionalProperties": {}
+                },
+                "basis": {
+                  "type": "object",
+                  "properties": {
+                    "date": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    "sourceFingerprint": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "kind": {
+                      "type": "string",
+                      "const": "restart"
+                    }
+                  },
+                  "required": [
+                    "date",
+                    "sourceFingerprint",
+                    "kind"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -9068,6 +9144,43 @@
                 "replanError": {
                   "type": "string",
                   "maxLength": 10000
+                },
+                "planReconciliation": {
+                  "type": "object",
+                  "properties": {
+                    "asOf": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "applied",
+                        "unplaced",
+                        "blocked"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "pending-proposal",
+                        "stale-settings",
+                        "legacy-unknown",
+                        "fixed-conflict",
+                        "failed"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string",
+                      "maxLength": 10000
+                    }
+                  },
+                  "required": [
+                    "asOf",
+                    "status"
+                  ],
+                  "additionalProperties": {}
                 }
               },
               "additionalProperties": {}
@@ -9138,6 +9251,11 @@
                     "id": {
                       "type": "string",
                       "maxLength": 200
+                    },
+                    "allocationStart": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
                     },
                     "approvedAt": {
                       "type": "string",
@@ -10009,6 +10127,11 @@
                     "type": "string",
                     "maxLength": 200
                   },
+                  "allocationStart": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
                   "approvedAt": {
                     "type": "string",
                     "format": "date-time",
@@ -10877,6 +11000,11 @@
                         "id": {
                           "type": "string",
                           "maxLength": 200
+                        },
+                        "allocationStart": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
                         },
                         "approvedAt": {
                           "type": "string",
@@ -12192,6 +12320,30 @@
                         "periods"
                       ],
                       "additionalProperties": {}
+                    },
+                    "basis": {
+                      "type": "object",
+                      "properties": {
+                        "date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "sourceFingerprint": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "kind": {
+                          "type": "string",
+                          "const": "restart"
+                        }
+                      },
+                      "required": [
+                        "date",
+                        "sourceFingerprint",
+                        "kind"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [

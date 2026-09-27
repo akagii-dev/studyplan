@@ -48,15 +48,33 @@ CIはPRで同じ検証を実行し、mainのデモ公開も検証成功後に限
 
 ## アプリと保存
 
+### LAN版の保存境界
+
+最新mainのReact UI・AppState・domain・計画処理・保存キューを共用する。Tauriは`store.ts → invoke → db/backup`、LANは`store.ts → lanStore.ts → HTTP → scripts/lan-host.mjs → studyplan_lan_bridge → 同じdb/backup`。WindowsのSQLiteだけが学習データの正本であり、LANブラウザーへ別のAppStateや未送信操作キューを永続化しない。設定・実績・固定・承認済み計画・proposal・履歴・下書きも既存AppStateの意味で保存し、Planのマージや別計算を行わない。
+
+Rust helperは明示した既存SQLiteだけを開き、Tauriと同じ`Database`・スキーマ・`BEGIN IMMEDIATE`・revision・requestId・復元前退避を使う。Node側にはSQLやdomainを複製しない。重複requestIdの応答は`operations.revision`と`audit.data`から元のEnvelopeを返す。他端末の新しいrevisionだけを古い画面へ採用してはならない。
+
+両画面の保存キューは、フォーカス復帰／15秒ごとにrevisionだけを照会する。外部更新時は入力を保持して読み直す入口を表示し、自動置換しない。古いrevisionからの保存は拒否。LAN通信失敗・競合では楽観表示を保存済みにせず、明示的な読み直しまで入力を保持する。再送は同じJSONとrequestIdで1回だけ行う。ブラウザーを閉じる前に保存中・保存未確認を知らせるが、オフライン保存を保証しない。
+
+公開デモのlocalStorage、旧PWAのIndexedDBとは保存領域を共有しない。旧PWAから採用するのは静的配信allowlist・ハッシュ検証・manifest/icon・静的shellキャッシュ・ブラウザー出力の限定コード。旧domain、旧UI、pwaStore、IndexedDB保存・オフライン編集キューは採用しない。HTTPでのUUIDは暗号乱数`getRandomValues`を使用する。
+
+LAN APIと起動手順は[配信手順](RELEASING.md#lan版のローカル配信)。通常のLAN HTTPではService Workerを利用せず、読み書きにはWindowsへの接続が必要。secure contextで使えるshellキャッシュもAPI・学習データを格納せず、公開デモ／旧PWAとはscope・cache名を分離する。
+
 ### 実績による通常調整
+
+未消化分の反映も `usePersistentAppState` の読込・復帰・日付更新境界から `planning.reconcilePlanning()` → `progressAdjustment.reconcilePlanning()` → `prepareAdjustment()` / `allocateProgress()` を通す。表示やselectorには副作用を置かない。実績を生成せず、意味のある配置変更だけ履歴へ残し、同じ条件の再実行では同じstateを返す。計算保留の理由とSQLiteの保存未確認は別責務とし、保存キュー・競合復旧を共用する。
+
+全体の仕切り直しは `planning.proposeRestart()` → `planner/proposal.proposeRestart()` → `planRestart.calculateRestart()` → 既存の `approve()`。開始境界と元計画・実績・設定の前提を保持し、承認時に再検証する。`remainingWork()` は教材・周回・単位別のT/C/R/A/Uと整合性を返す。UIに計算式を複製しない。`comparePlans()` の比較開始を操作日へ指定することで、新開始日より前から取り除く予定も差分に含める。計算は `PlanningContext` だけを日時の入力とし、保存・Reactへ依存しない。
 
 `TodayRecorder.save()` / `Progress.save()` → `planning.recordAndAdjust()` → `progress.recordProgress()` → `progressAdjustment.adjustAfterProgress()` → `progressAllocation.allocateProgress()` → `usePersistentAppState.update()` の保存キュー → `store.saveState()`。訂正・取消は `correctAndAdjust()` を通る。保存された操作結果を `progressReceipt.planChanges()` / `summarizePlanChanges()` → `ProgressReceiptView` が表示する。
 
 `remaining()`は総数・初期完了・有効実績から課題の残量を決定する。`activePlanWork()`は当日以降の未消化の有効予定を決定し、比較用の過去予定と区別する。部分入力は当日を閉じない。通常調整は`adjustmentBasis`から同じ教材・周回だけを消化し、今日の残りを予約してから、既存未来枠を`generatePlan()`の保持モードへ渡す。保持予定を容量・順序制約として扱い、未配分だけを既存の均等配分へ渡す。設定変更用の全面再生成とは入口を分ける。
 
-保存形式の追加はPlanの任意属性`adjustmentBasis`だけ。SQLiteの表は追加しない。バックアップスキーマも共通化し、旧データは既存の実績基準を再利用する。自動調整失敗・固定競合・未承認案では実績保存を取り消さず、調整未完了として案内する。配分成功時の数量保存、再試行、日付越え、同量の時刻移動は`progressAdjustmentStable.test.ts`、実操作は共通fixtureを使う`tests/web/adjustment.spec.ts`と実機テストで守る。
+保存形式はPlanの任意属性`adjustmentBasis`と`allocationStart`、Proposalの任意属性`basis`を使用する。SQLiteの表は追加しない。バックアップスキーマも共通化し、旧データは既存の実績基準を再利用する。自動調整失敗・固定競合・未承認案では実績保存を取り消さず、調整未完了として案内する。配分成功時の数量保存、再試行、日付越え、同量の時刻移動は`progressAdjustmentStable.test.ts`、実操作は共通fixtureを使う`tests/web/adjustment.spec.ts`と実機テストで守る。
 
-当日の予約量は `calendarQuantity()` の日付別の予定−実績と現在残量から求め、`activePlanWork()` と配分予算で共有する。累計実績を古い枠から消化する処理は未来の既存配置を維持するためだけに使い、当日の未実施量には使わない。教材・周回ごとに「総数＝初期完了＋有効実績＋今日以降の未消化有効予定＋未配置」を検証する。過去予定は比較用に維持し、この式には重複加算しない。
+当日の予約量は調整基準にある当日の未消化予定から、基準以降に増えた当日実績だけを引き、現在残量を上限として求める。`activePlanWork()` と配分予算がこの意味を共有する。通常は日別の予定−実績と一致するが、仕切り直し後の新しい有効配置と `calendarQuantity()` の比較用の当初予定は分離する。累計実績を古い枠から消化する処理は未来の既存配置を維持するためだけに使い、当日の未実施量には使わない。教材・周回ごとに「総数＝初期完了＋有効実績＋今日以降の未消化有効予定＋未配置」を検証する。過去予定は比較用に維持し、この式には重複加算しない。
+
+仕切り直し後の当日表示は `calendarQuantity()` が比較値と別に `activePlanWork()` 由来の `currentRemaining` を返す。`progressView()` と `todayStudyRows()` が表示・記録への引継ぎを共通化し、各画面に別の残量式を置かない。これは導出値であり保存項目を増やさない。
 
 設定確定時は `materialConstraints.validateMaterialChanges()` が最新stateに対して検証する。教材一覧と対話式変更は同じ `minimumRetainedRounds()` を使用し、初期完了・記録・開始済み・固定のある周回を保持する。取消履歴が参照する周回も既存契約どおり保持する。Rustのトランザクションでも保存済みstateとの比較で同じ保護を実行する。1問あたりの分数上限は共通定数1440とバックアップの共有JSONスキーマで一致させる。
 

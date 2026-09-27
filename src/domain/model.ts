@@ -129,6 +129,8 @@ export interface Shortfall {
   reason: string;
 }
 export interface Plan {
+  /** Explicit restart boundary; ordinary adjustment must not allocate before it. */
+  allocationStart?: DateKey;
   approvedAt?: string;
   calculationVersion?: number;
   notBefore?: number;
@@ -165,6 +167,8 @@ export interface ProgressReflectionNotice {
   completed: { materialId: string; round: number }[];
 }
 export interface Proposal {
+  /** Preconditions captured for an explicit whole-plan restart. */
+  basis?: { date: DateKey; sourceFingerprint: string; kind: 'restart' };
   settingsBase?: Settings;
   plan: Plan;
   basedOn: string | null;
@@ -221,7 +225,15 @@ export interface StudyDayBaseline {
   }[];
 }
 export type Interval = [number, number];
-export const uid = () => crypto.randomUUID();
+export const uid = () => {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  // LAN HTTP does not expose randomUUID; getRandomValues still supplies secure bytes.
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+};
 export const today = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

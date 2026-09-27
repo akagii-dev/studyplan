@@ -282,6 +282,31 @@ mod tests {
         }
     }
     #[test]
+    fn restart_boundary_survives_later_replanning_and_rejects_bad_date() {
+        let mut data = consumed_state();
+        // A later ordinary proposal advances `from` while retaining the earlier
+        // explicit lower bound. Both dates are valid and intentionally ordered.
+        data["plan"]["from"] = "2026-09-24".into();
+        data["plan"]["allocationStart"] = "2026-09-22".into();
+        data["proposal"] = json!({
+            "plan": data["plan"].clone(),
+            "basedOn": "p",
+            "reason": "仕切り直し",
+            "unreported": [],
+            "basis": {"date":"2026-09-21","sourceFingerprint":"1:abc:def","kind":"restart"}
+        });
+        let mut conn = db::open(Path::new(":memory:")).unwrap();
+        db::commit(&mut conn, 0, "replan", data.clone()).unwrap();
+        let exported = packet(&conn).unwrap();
+        assert_eq!(parse(&exported.to_string()).unwrap()["data"], data);
+        db::restore(&mut conn, 1, "restore", exported["data"].clone()).unwrap();
+        assert_eq!(db::load(&conn).unwrap().unwrap().data, data);
+        let mut invalid = file();
+        invalid["data"] = data;
+        invalid["data"]["plan"]["allocationStart"] = "not-a-date".into();
+        assert!(check(&invalid).is_err());
+    }
+    #[test]
     fn file_roundtrip_and_atomic_replacement() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("学習.studyplan.json");

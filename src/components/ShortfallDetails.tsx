@@ -1,5 +1,6 @@
 import { AppState } from '../domain/model';
 import { duration } from './common';
+import { materialUnit } from '../domain/calendarQuantity';
 
 export function ShortfallDetails({ state, onReview }: { state: AppState; onReview?: () => void }) {
   const shortfalls = state.plan?.shortfalls ?? [];
@@ -19,7 +20,7 @@ export function ShortfallDetails({ state, onReview }: { state: AppState; onRevie
                   ?.name ?? item.materialId}{' '}
                 · {item.round + 1}周目
               </span>
-              <strong>{item.count}問</strong>
+              <strong>{item.count}{materialUnit(state.settings.materials.find((material) => material.id === item.materialId)?.unit)}</strong>
             </div>
             <details>
               <summary>理由</summary>

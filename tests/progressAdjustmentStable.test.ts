@@ -9,16 +9,27 @@ import {
   recordAndAdjust,
 } from '../src/domain/progressAdjustment';
 import { planChanges, latestReceipt, summarizePlanChanges } from '../src/domain/progressReceipt';
-import { activePlanWork } from '../src/domain/progressAllocation';
+import {
+  activePlanWork,
+  allocateProgress,
+  prepareAdjustment,
+} from '../src/domain/progressAllocation';
+import { calculateRestart } from '../src/domain/planRestart';
+import { remainingWork } from '../src/domain/remainingWork';
 import { addDays, completed, remaining, reported, type AppState } from '../src/domain/model';
 import { calendarQuantity } from '../src/domain/calendarQuantity';
 import { capacityForDate, capacityForWeek } from '../src/domain/planner/capacity';
 import { startOfWeek } from '../src/domain/calendar';
-import { createProgressBaseline } from '../src/domain/progressReflection';
+import { createProgressBaseline, reflectProgress } from '../src/domain/progressReflection';
 import { approve, propose } from '../src/domain/planner/proposal';
 import { parseBackup } from '../src/domain/backup';
 import { validateSettings } from '../src/domain/planner/validation';
-import { adjustmentFixture, adjustmentContext, adjustmentReport } from './fixtures/adjustment';
+import {
+  adjustmentFixture,
+  adjustmentContext,
+  adjustmentReport,
+  restartFixture,
+} from './fixtures/adjustment';
 
 it('予定6に4問を追加しても、他の教材・周回と未来24問の配置を変えない', () => {
   const before = adjustmentFixture();
@@ -471,4 +482,282 @@ it('調整基準の復元に失敗しても、検証済みの追加実績は保�
   expect(state.plan).toEqual(source.plan);
   expect(currentProgressAdjustment(state)?.status).toBe('failed');
   expect(latestReceipt(state)?.changes).toEqual([]);
+});
+
+it.each([1, 3])('実績なしで%d日経過しても未消化を再配置し、未報告・履歴を保持する', (elapsed) => {
+  const source = tightFixture();
+  const context = { ...adjustmentContext, date: addDays(day, elapsed) };
+  const adjusted = {
+    ...source,
+    plan: allocateProgress(prepareAdjustment(source, context), context).plan,
+  };
+  conservation(adjusted, context.date);
+  expect(adjusted.records).toEqual([]);
+  expect(reported(adjusted, day, 'book', 0)).toBe(false);
+  expect(adjusted.plan.sessions.filter((s) => s.date < context.date)).toEqual(
+    source.plan!.sessions.filter((s) => s.date < context.date),
+  );
+  expect(remainingWork(adjusted, context.date)).toMatchObject([
+    {
+      total: 30,
+      completed: 0,
+      remaining: 30,
+      allocated: 30 - elapsed * 6,
+      unplaced: elapsed * 6,
+      balanced: true,
+    },
+  ]);
+  const repeated = allocateProgress(prepareAdjustment(adjusted, context), context).plan;
+  expect(planChanges(adjusted.plan, repeated, context.date)).toEqual([]);
+  expect(repeated.shortfalls).toEqual(adjusted.plan.shortfalls);
+});
+
+it('仕切り直しは30=初期2+実績2+有効26+未配置0とし、旧未配置6を再加算しない', () => {
+  const source = restartFixture();
+  expect(remainingWork(source, day)).toMatchObject([
+    {
+      total: 30,
+      completed: 4,
+      remaining: 26,
+      allocated: 20,
+      unplaced: 6,
+      balanced: true,
+    },
+  ]);
+  const snapshot = structuredClone(source);
+  const from = addDays(day, 3);
+  const plan = calculateRestart(source, from, adjustmentContext);
+  const restarted = { ...source, plan };
+  expect(plan.conflicts).toEqual([]);
+  expect(plan.allocationStart).toBe(from);
+  expect(plan.sessions.every((s) => s.date >= from)).toBe(true);
+  expect(remainingWork(restarted, day)).toMatchObject([
+    {
+      total: 30,
+      completed: 4,
+      remaining: 26,
+      allocated: 26,
+      unplaced: 0,
+      balanced: true,
+    },
+  ]);
+  expect(source).toEqual(snapshot);
+  expect(calculateRestart(source, from, adjustmentContext)).toEqual(plan);
+  conservation(restarted);
+  const recorded = recordAndAdjust(restarted, adjustmentReport(3), adjustmentContext);
+  expect(recorded.plan!.sessions.every((s) => s.date >= from)).toBe(true);
+  expect(remainingWork(recorded, day)).toMatchObject([
+    {
+      total: 30,
+      completed: 7,
+      remaining: 23,
+      allocated: 23,
+      unplaced: 0,
+      balanced: true,
+    },
+  ]);
+  const cancelled = correctAndAdjust(recorded, 'record', 3, true, adjustmentContext);
+  conservation(cancelled);
+  expect(cancelled.plan!.sessions.every((s) => s.date >= from)).toBe(true);
+  expect(remainingWork(cancelled, day)).toMatchObject([
+    { completed: 4, allocated: 26, unplaced: 0 },
+  ]);
+});
+
+it.each([
+  { capacity: 24, allocated: 24, unplaced: 2 },
+  { capacity: 18, allocated: 18, unplaced: 8 },
+  { capacity: 0, allocated: 0, unplaced: 26 },
+])(
+  '仕切り直しの容量$capacity問ではA=$allocated U=$unplacedを隠さず保存する',
+  ({ capacity, allocated, unplaced }) => {
+    const source = restartFixture();
+    const from = addDays(day, 3);
+    source.settings.exams[0].target = addDays(from, 1);
+    source.settings.buffer = 0;
+    source.settings.block = 1440;
+    source.settings.windows[0] = {
+      ...source.settings.windows[0],
+      from,
+      to: from,
+      start: 540,
+      end: 540 + Math.max(1, capacity * 3),
+    };
+    source.plan!.settingsSnapshot = structuredClone(source.settings);
+    const plan = calculateRestart(source, from, adjustmentContext);
+    expect(plan.conflicts).toEqual([]);
+    const restarted = { ...source, plan };
+    expect(remainingWork(restarted, day)).toMatchObject([
+      {
+        total: 30,
+        completed: 4,
+        allocated,
+        unplaced,
+        remaining: 26,
+        balanced: true,
+      },
+    ]);
+    conservation(restarted);
+    if (unplaced) expect(plan.shortfalls[0].reason.length).toBeGreaterThan(0);
+  },
+);
+
+it('仕切り直し開始前の固定はそのまま保持して競合にし、開始後の固定は維持する', () => {
+  const source = restartFixture();
+  source.plan!.sessions[0].fixed = true;
+  const rejected = calculateRestart(source, addDays(day, 3), adjustmentContext);
+  expect(rejected.conflicts.some((m) => m.includes('固定予定が再配分の開始前'))).toBe(true);
+  expect(rejected.sessions.find((s) => s.id === 'old-1')).toEqual(source.plan!.sessions[0]);
+  const accepted = calculateRestart(source, addDays(day, 1), adjustmentContext);
+  expect(accepted.conflicts).toEqual([]);
+  expect(accepted.sessions.find((s) => s.id === 'old-1')).toEqual(source.plan!.sessions[0]);
+  conservation({ ...source, plan: accepted });
+});
+
+it('部分記録後に本日から仕切り直しても、再配置量から新しい実績だけを差し引く', () => {
+  const context = { ...adjustmentContext, minute: 0 };
+  const source = recordAndAdjust(restartFixture(), adjustmentReport(4), context);
+  source.studyDayBaselines = {
+    [day]: {
+      planId: source.plan!.id,
+      rows: [
+        { materialId: 'book', round: 0, examId: 'a', name: '対象問題集', unit: '問', count: 6 },
+      ],
+    },
+  };
+  const plan = calculateRestart(source, day, context);
+  const current = { ...source, plan };
+  const todayCount = plan.sessions
+    .filter((s) => s.date === day)
+    .reduce((sum, s) => sum + s.count, 0);
+  expect(todayCount).toBeGreaterThan(0);
+  conservation(current);
+  expect(remainingWork(current, day)).toMatchObject([
+    { completed: 8, allocated: 22, balanced: true },
+  ]);
+  const added = recordAndAdjust(current, adjustmentReport(1, 'one-more'), context);
+  conservation(added);
+  expect(
+    activePlanWork(added, day)
+      .filter((s) => s.date === day)
+      .reduce((sum, s) => sum + s.count, 0),
+  ).toBe(todayCount - 1);
+  expect(calendarQuantity(added, day, day).rows[0].planned).toBe(6);
+});
+
+it.each(['2030-10-06', '2030-02-30', '', 'not-a-date'])(
+  '仕切り直しの不正開始日 %s を拒否する',
+  (from) => {
+    expect(() => calculateRestart(restartFixture(), from, adjustmentContext)).toThrow('開始日');
+  },
+);
+
+it('当日開始済み固定は未消化がある場合だけ競合とし、完了した枠を再計上しない', () => {
+  const initial = tightFixture();
+  initial.plan!.sessions[0].fixed = true;
+  initial.plan!.progressBaseline = createProgressBaseline(initial.plan!, []);
+  const partial = recordAndAdjust(initial, adjustmentReport(4), adjustmentContext);
+  const rejected = calculateRestart(partial, day, adjustmentContext);
+  expect(rejected.conflicts.some((reason) => reason.includes('固定予定が再配分の開始前'))).toBe(
+    true,
+  );
+  const done = recordAndAdjust(initial, adjustmentReport(6), adjustmentContext);
+  const plan = calculateRestart(done, day, adjustmentContext);
+  expect(plan.conflicts).toEqual([]);
+  expect(plan.sessions.find((s) => s.id === initial.plan!.sessions[0].id)).toEqual(
+    initial.plan!.sessions[0],
+  );
+  expect(remainingWork({ ...done, plan }, day)).toMatchObject([
+    {
+      total: 30,
+      completed: 6,
+      allocated: 24,
+      unplaced: 0,
+      balanced: true,
+    },
+  ]);
+});
+
+it('仕切り直しでも教材・周回順序、週の余裕率と休憩枠を守る', () => {
+  const source = adjustmentFixture();
+  source.settings.exams = [source.settings.exams[0]];
+  source.settings.materials[1].examId = 'a';
+  source.settings.materials[1].order = 2;
+  source.plan!.settingsSnapshot = structuredClone(source.settings);
+  source.plan!.sessions.forEach((s) => {
+    s.examId = 'a';
+  });
+  const plan = calculateRestart(source, addDays(day, 1), adjustmentContext);
+  const restarted = { ...source, plan };
+  conservation(restarted);
+  expect(plan.conflicts).toEqual([]);
+  expect(remainingWork(restarted, day)).toMatchObject([
+    { materialId: 'book', round: 0, completed: 0, allocated: 30, unplaced: 0 },
+    { materialId: 'book', round: 1, completed: 0, allocated: 30, unplaced: 0 },
+    { materialId: 'other', round: 0, completed: 0, allocated: 45, unplaced: 0 },
+  ]);
+  const first = plan.sessions.filter((s) => s.materialId === 'book' && s.round === 0);
+  const second = plan.sessions.filter((s) => s.materialId === 'book' && s.round === 1);
+  const last = plan.sessions.filter((s) => s.materialId === 'other');
+  for (const [before, after] of [
+    [first, second],
+    [second, last],
+  ])
+    for (const a of before)
+      for (const b of after)
+        expect(a.date < b.date || (a.date === b.date && a.end <= b.start)).toBe(true);
+  expect(source.settings.buffer).toBe(0.2);
+});
+
+it('仕切り直しで復習期間を再確保し、学習を復習日へ混入させない', () => {
+  const source = restartFixture();
+  source.settings.exams[0].reviewDays = 2;
+  source.plan!.settingsSnapshot = structuredClone(source.settings);
+  const plan = calculateRestart(source, addDays(day, 1), adjustmentContext);
+  const study = plan.sessions.filter((s) => s.kind === 'study');
+  const reviews = plan.sessions.filter((s) => s.kind === 'review');
+  expect(plan.conflicts).toEqual([]);
+  expect(reviews).toHaveLength(4);
+  expect(reviews.every((s) => s.date >= addDays(day, 8) && s.date < addDays(day, 10))).toBe(true);
+  expect(study.every((s) => s.date < addDays(day, 8))).toBe(true);
+  conservation({ ...source, plan });
+});
+
+it('旧形式で前倒し消化済みの0問予定を、日付越えだけで有効予定へ戻さない', () => {
+  const initial = adjustmentFixture();
+  initial.records = [adjustmentReport(12)];
+  const legacy = reflectProgress(initial);
+  expect(legacy.plan!.sessions.find((s) => s.id === 'book-1')!.count).toBe(0);
+  const context = { ...adjustmentContext, date: addDays(day, 1) };
+  const plan = allocateProgress(prepareAdjustment(legacy, context), context).plan;
+  const adjusted = { ...legacy, plan };
+  conservation(adjusted, context.date);
+  expect(
+    activePlanWork(adjusted, context.date).filter(
+      (s) => s.materialId === 'book' && s.round === 0 && s.date === context.date,
+    ),
+  ).toEqual([]);
+  expect(
+    plan.sessions.filter((s) => s.materialId === 'book' && s.round === 0 && s.date > context.date),
+  ).toEqual(
+    legacy.plan!.sessions.filter(
+      (s) => s.materialId === 'book' && s.round === 0 && s.date > context.date,
+    ),
+  );
+});
+
+it('基準不明の旧形式は量が一致していても推測せず、明示仕切り直しで復旧する', () => {
+  const source = restartFixture();
+  delete source.plan!.progressBaseline;
+  const recorded = recordAndAdjust(source, adjustmentReport(1), adjustmentContext);
+  expect(currentProgressAdjustment(recorded)?.status).toBe('review');
+  expect(recorded.plan).toEqual(source.plan);
+  expect(recorded.records).toHaveLength(2);
+  const plan = calculateRestart(recorded, addDays(day, 1), adjustmentContext);
+  expect(plan.conflicts).toEqual([]);
+  expect(remainingWork({ ...recorded, plan }, day)).toMatchObject([
+    { total: 30, completed: 5, remaining: 25, allocated: 25, unplaced: 0, balanced: true },
+  ]);
+  expect(plan.progressBaseline).toBeDefined();
+  conservation({ ...recorded, draft: {}, plan });
 });

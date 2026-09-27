@@ -4,6 +4,7 @@ import { version } from '../../package.json';
 import { Props } from '../components/common';
 import { today, weekday } from '../domain/model';
 import { demoMode } from '../demo';
+import { lanMode } from '../lan';
 import { Page, navigation, pageNames } from './navigation';
 export function AppShell({
   state,
@@ -19,6 +20,10 @@ export function AppShell({
   saved,
   error,
   dismissError,
+  externalUpdate,
+  reloadExternal,
+  connectionError,
+  checkConnection,
   children,
 }: Props & {
   page: Page;
@@ -32,6 +37,10 @@ export function AppShell({
   saved: boolean;
   error: string;
   dismissError: () => void;
+  externalUpdate: boolean;
+  reloadExternal: () => void;
+  connectionError: string;
+  checkConnection: () => void;
   children: ReactNode;
 }) {
   const pageHeading = useRef<HTMLHeadingElement>(null);
@@ -124,7 +133,7 @@ export function AppShell({
         <div className="sidebar-bottom">
           <div className="local-indicator">
             <span />
-            {demoMode ? 'デモ・このブラウザーに保存' : 'この端末に保存'}
+            {demoMode ? 'デモ・このブラウザーに保存' : lanMode ? 'Windowsに保存' : 'この端末に保存'}
           </div>
           <small>StudyPlan v{version}</small>
         </div>
@@ -134,10 +143,12 @@ export function AppShell({
           <span className={`save-status ${saving ? 'pending' : ''}`} role="status">
             {recovering
               ? '保存未確認'
+              : connectionError
+                ? 'Windowsへの接続を確認できません'
               : saving
                 ? '保存中…'
                 : saved
-                  ? '✓ 保存済み'
+                  ? lanMode ? '✓ Windowsに保存済み' : '✓ 保存済み'
                   : '○ まだ保存されていません'}
           </span>
         </header>
@@ -165,6 +176,17 @@ export function AppShell({
             <div className="error-banner" role="alert">
               <span>{error}</span>
               <button onClick={dismissError}>閉じる</button>
+            </div>
+          )}
+          {externalUpdate && (
+            <div className="note" role="status">
+              別の端末で更新されました。 <button onClick={reloadExternal}>最新を読み込む</button>
+            </div>
+          )}
+          {connectionError && (
+            <div className="error-banner" role="status">
+              <span>Windowsに接続できません。配信PCとWi-Fiを確認してください。</span>
+              <button onClick={checkConnection}>再接続</button>
             </div>
           )}
           {children}

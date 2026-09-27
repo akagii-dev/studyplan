@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Props } from '../components/common';
 import { AppState, today } from '../domain/model';
+import { reconcilePlanning } from '../domain/planning';
 import { validateMaterialChanges } from '../domain/materialConstraints';
 import { currentPresentation, samePlanningSettings, sameSettings } from '../domain/planAudit';
 import {
@@ -8,7 +9,8 @@ import {
   planningInputIssues,
   planningInputMessage,
 } from '../domain/setupIssues';
-import { exportBackup, loadState, restoreBackup, saveState } from '../store';
+import { exportBackup, isRevisionConflict, loadRevision, loadState, restoreBackup, saveState } from '../store';
+import { lanMode } from '../lan';
 import { useCloseAfterSave } from './useCloseAfterSave';
 
 export function usePersistentAppState() {
@@ -30,7 +32,15 @@ export function usePersistentAppState() {
   const exclusive = useRef(false);
   const unconfirmed = useRef(false);
   const recoveryRequest = useRef<Promise<void> | null>(null);
-  const [recovery, setRecovery] = useState<{ checking: boolean; detail: string } | null>(null);
+  const autoReconcileSuppressed = useRef(false);
+  const [boundarySignal, setBoundarySignal] = useState(0);
+  const [reloadEpoch, setReloadEpoch] = useState(0);
+  const [recovery, setRecovery] = useState<{ checking: boolean; detail: string; preserveInput?: boolean; conflict?: boolean } | null>(null);
+  const [externalRevision, setExternalRevision] = useState<number | null>(null);
+  const externalRef = useRef<number | null>(null);
+  const [connectionError, setConnectionError] = useState('');
+  const checkingRevision = useRef(false);
+  const pollRevision = useRef<() => Promise<void>>(async () => {});
   const showError = useCallback((message: string) => {
     planningErrorFrom.current = null;
     setError(message);
@@ -54,6 +64,10 @@ export function usePersistentAppState() {
         setState(e.data);
         setSaved(e.revision > 0);
         setStartupError('');
+        setConnectionError('');
+        externalRef.current = null;
+        setExternalRevision(null);
+        autoReconcileSuppressed.current = false;
       })
       .catch((e) => {
         if (mounted.current) setStartupError(String(e));
@@ -70,22 +84,28 @@ export function usePersistentAppState() {
       mounted.current = false;
     };
   }, [initialize]);
-  const readSavedState = () => {
+  const readSavedState = (retryReconcile = true) => {
     if (recoveryRequest.current) return recoveryRequest.current;
-    setRecovery({ checking: true, detail: '' });
+    setRecovery((previous) => ({ ...previous, checking: true, detail: '' }));
     const request = loadState()
       .then((stored) => {
         revision.current = stored.revision;
         dataRef.current = stored.data;
         setState(stored.data);
+        setReloadEpoch((epoch) => epoch + 1);
         setSaved(stored.revision > 0);
+        externalRef.current = null;
+        setExternalRevision(null);
+        setConnectionError('');
         unconfirmed.current = false;
+        if (retryReconcile) autoReconcileSuppressed.current = false;
         setRecovery(null);
-        showError(
-          '保存済みの内容を読み直しました。最後の変更を確認し、反映されていない場合は入力し直してください。',
-        );
+        if (retryReconcile)
+          showError(
+            '保存済みの内容を読み直しました。最後の変更を確認し、反映されていない場合は入力し直してください。',
+          );
       })
-      .catch((error) => setRecovery({ checking: false, detail: String(error) }))
+      .catch((error) => setRecovery((previous) => ({ ...previous, checking: false, detail: String(error) })))
       .finally(() => {
         recoveryRequest.current = null;
       });
@@ -96,9 +116,14 @@ export function usePersistentAppState() {
     if (unconfirmed.current)
       return Promise.reject(new Error('保存状態を確認できるまで編集できません。'));
     if (exclusive.current) return Promise.reject(new Error('復元が終わるまでお待ちください。'));
+    if (externalRef.current !== null && externalRef.current > revision.current) {
+      showError('別の端末で更新されました。入力は保持しています。最新の内容を読み込んでから変更してください。');
+      return Promise.reject(new Error('別の端末で更新されました。'));
+    }
     let next: AppState;
     try {
       next = fn(dataRef.current!);
+      if (next === dataRef.current) return Promise.resolve();
       if (!sameSettings(dataRef.current!.settings, next.settings)) {
         const now = new Date();
         validateMaterialChanges(
@@ -183,8 +208,12 @@ export function usePersistentAppState() {
         if (generation !== saveGeneration.current) throw e;
         saveGeneration.current += 1;
         unconfirmed.current = true;
+        autoReconcileSuppressed.current = true;
+        setSaved(false);
         showError(String(e));
-        await readSavedState();
+        if (lanMode || isRevisionConflict(e))
+          setRecovery({ checking: false, detail: String(e), preserveInput: true, conflict: isRevisionConflict(e) });
+        else await readSavedState(false);
         throw e;
       })
       .finally(() => {
@@ -212,12 +241,17 @@ export function usePersistentAppState() {
         setState(result.data);
         setSaved(true);
         dismissError();
+        autoReconcileSuppressed.current = false;
       })
       .catch(async (e) => {
         saveGeneration.current += 1;
         unconfirmed.current = true;
+        autoReconcileSuppressed.current = true;
+        setSaved(false);
         showError(String(e));
-        await readSavedState();
+        if (lanMode || isRevisionConflict(e))
+          setRecovery({ checking: false, detail: String(e), preserveInput: true, conflict: isRevisionConflict(e) });
+        else await readSavedState(false);
         throw e;
       })
       .finally(() => {
@@ -235,6 +269,66 @@ export function usePersistentAppState() {
     if (unconfirmed.current) throw new Error('保存状態を確認してから書き出してください。');
     return (await loadState()).data;
   };
+  const reloadLatest = async () => {
+    if (exclusive.current) return;
+    exclusive.current = true;
+    try { await queue.current; await readSavedState(); }
+    finally { exclusive.current = false; }
+  };
+  pollRevision.current = async () => {
+    if (checkingRevision.current || !dataRef.current || pendingSaves.current || exclusive.current || unconfirmed.current) return;
+    checkingRevision.current = true;
+    const before = revision.current;
+    try {
+      const current = await loadRevision();
+      if (!mounted.current) return;
+      setConnectionError('');
+      // Never adopt a revision without its data, or replace an in-flight/local form.
+      if (current !== null && current > revision.current && before === revision.current) {
+        externalRef.current = current;
+        setExternalRevision(current);
+      }
+    } catch (error) {
+      if (mounted.current && lanMode) setConnectionError(String(error));
+    } finally { checkingRevision.current = false; }
+  };
+  useEffect(() => {
+    const check = () => { if (document.visibilityState === 'visible') void pollRevision.current(); };
+    window.addEventListener('focus', check);
+    document.addEventListener('visibilitychange', check);
+    const timer = window.setInterval(check, 15_000);
+    const leaving = (event: BeforeUnloadEvent) => {
+      if (pendingSaves.current || unconfirmed.current) { event.preventDefault(); event.returnValue = ''; }
+    };
+    window.addEventListener('beforeunload', leaving);
+    return () => {
+      window.removeEventListener('focus', check);
+      document.removeEventListener('visibilitychange', check);
+      window.removeEventListener('beforeunload', leaving);
+      window.clearInterval(timer);
+    };
+  }, []);
+  useEffect(() => {
+    const onBoundary = () => setBoundarySignal((n) => n + 1);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') onBoundary();
+    };
+    window.addEventListener('focus', onBoundary);
+    document.addEventListener('visibilitychange', onVisible);
+    const timer = window.setInterval(onBoundary, 60_000);
+    return () => {
+      window.removeEventListener('focus', onBoundary);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.clearInterval(timer);
+    };
+  }, []);
+  useEffect(() => {
+    if (loading || restoring || !state || !dataRef.current || pendingSaves.current ||
+      exclusive.current || unconfirmed.current || autoReconcileSuppressed.current || externalRef.current !== null) return;
+    const next = reconcilePlanning(dataRef.current);
+    if (next !== dataRef.current) void update(() => next).catch(() => {});
+  // This is an explicit load/save-completion/visibility/date boundary, not a render calculation.
+  }, [state, loading, saving, restoring, boundarySignal]);
   const exportSaved = async (path: string) => {
     await queue.current;
     await exportBackup(path);
@@ -253,9 +347,13 @@ export function usePersistentAppState() {
     recovery,
     closing,
     closeWithoutSaving,
-    readSavedState,
+    readSavedState: reloadLatest,
     restore,
     readSaved,
     exportSaved,
+    externalRevision,
+    connectionError,
+    checkConnection: () => void pollRevision.current(),
+    reloadEpoch,
   };
 }

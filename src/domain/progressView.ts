@@ -3,7 +3,7 @@ import { QuantityRow, QuantityTotal } from './calendarQuantity';
 /** Presentation only. Never turns a missing report into a saved zero or offsets tasks. */
 export function progressState(
   value: Pick<QuantityRow, 'planned' | 'actual' | 'reported' | 'unit'> &
-    Partial<Pick<QuantityTotal, 'shortage' | 'partial'>>,
+    Partial<Pick<QuantityTotal, 'shortage' | 'partial' | 'currentRemaining'>>,
   date: string,
   reference: string,
 ) {
@@ -11,12 +11,14 @@ export function progressState(
   const comparisonAvailable = planned !== null;
   const future = date > reference;
   const past = date < reference;
+  const currentRemaining = date === reference ? value.currentRemaining : undefined;
   const deficit =
     past && hasReport && comparisonAvailable
       ? (value.shortage ?? Math.max(0, planned - actual))
       : null;
   const partial = value.partial ?? !hasReport;
-  const progressRatio = planned !== null && planned > 0 ? actual / planned : null;
+  const progressRatio =
+    currentRemaining === undefined && planned !== null && planned > 0 ? actual / planned : null;
   return {
     planned,
     actual,
@@ -33,7 +35,8 @@ export function progressState(
           ? ('partial' as const)
           : ('reported' as const),
     warning: past && (!hasReport || partial || (deficit ?? 0) > 0),
-    prefill: planned === null ? 0 : Math.max(0, planned - actual),
+    prefill: currentRemaining ?? (planned === null ? 0 : Math.max(0, planned - actual)),
+    ...(currentRemaining === undefined ? {} : { currentRemaining }),
     unit,
   };
 }
@@ -46,17 +49,20 @@ export function progressView(
   const state = progressState(value, date, reference);
   const { planned, actual, hasReport, deficit, unit } = state;
   const future = state.period === 'future';
-  const text = future
-    ? planned === null
-      ? '予定なし'
-      : `${planned}${unit}`
-    : !hasReport
-      ? planned === null
-        ? '未報告'
-        : `未報告 / ${planned}${unit}`
-      : planned === null
-        ? `${actual}${unit}`
-        : `${actual}/${planned}${unit}`;
+  const text =
+    state.currentRemaining !== undefined
+      ? `${hasReport ? `実績 ${actual}${unit}` : '未報告'} · 今日の残り ${state.currentRemaining}${unit}`
+      : future
+        ? planned === null
+          ? '予定なし'
+          : `${planned}${unit}`
+        : !hasReport
+          ? planned === null
+            ? '未報告'
+            : `未報告 / ${planned}${unit}`
+          : planned === null
+            ? `${actual}${unit}`
+            : `${actual}/${planned}${unit}`;
   return {
     ...state,
     text,

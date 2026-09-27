@@ -109,3 +109,44 @@ export const adjustmentReport = (count: number, id = 'record'): Progress => ({
   createdAt: adjustmentContext.timestamp,
   updatedAt: adjustmentContext.timestamp,
 });
+
+/** Independent contract: 30 total = 2 initial + 2 recorded + 20 allocated + 6 unplaced. */
+export function restartFixture(baseDate = adjustmentDay) {
+  const state = adjustmentFixture(baseDate);
+  state.settings.exams = state.settings.exams.slice(0, 1);
+  state.settings.exams[0].start = addDays(baseDate, -1);
+  state.settings.materials = state.settings.materials.slice(0, 1);
+  state.settings.materials[0].rounds = [{ completed: 2, minutes: 3 }];
+  state.records = [
+    {
+      ...adjustmentReport(2, 'completed-two'),
+      date: addDays(baseDate, -1),
+      createdAt: `${addDays(baseDate, -1)}T00:00:00.000Z`,
+      updatedAt: `${addDays(baseDate, -1)}T00:00:00.000Z`,
+    },
+  ];
+  state.plan!.settingsSnapshot = structuredClone(state.settings);
+  state.plan!.sessions = [1, 2].map((offset) => ({
+    id: `old-${offset}`,
+    date: addDays(baseDate, offset),
+    start: 540,
+    end: 570,
+    materialId: 'book',
+    examId: 'a',
+    round: 0,
+    count: 10,
+    fixed: false,
+    kind: 'study' as const,
+  }));
+  state.plan!.shortfalls = [
+    {
+      materialId: 'book',
+      round: 0,
+      count: 6,
+      minutes: 18,
+      reason: '以前の計画で未配置',
+    },
+  ];
+  state.plan!.progressBaseline = createProgressBaseline(state.plan!, state.records);
+  return state;
+}

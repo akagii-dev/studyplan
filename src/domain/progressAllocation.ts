@@ -5,7 +5,6 @@ import type { PlanningContext } from './planner/context';
 import { fixedOrderIssue } from './planConstraints';
 import { requirePlanningInputs } from './setupIssues';
 import { validateRevisedSettings } from './revision';
-import { calendarQuantity } from './calendarQuantity';
 
 export const workKey = (materialId: string, round: number) => JSON.stringify([materialId, round]);
 const bySlot = (a: Session, b: Session) =>
@@ -42,16 +41,36 @@ function basisRemainders(state: AppState, basis: NonNullable<Plan['adjustmentBas
   });
 }
 
-function todayRemainders(state: AppState, date: string, original: Session[]) {
+function todayRemainders(
+  state: AppState,
+  date: string,
+  basis: NonNullable<Plan['adjustmentBasis']>,
+) {
   const used = new Map<string, number>();
-  // Daily progress and current work use the same denominator and dated actuals.
-  // Cumulative consumption of older work cannot decide what is left today.
-  const quantities = new Map(
-    calendarQuantity(state, date, date).rows.map((row) => [
-      workKey(row.materialId, row.round),
-      row.remainder ?? 0,
-    ]),
-  );
+  const current = recordTotals(state.records);
+  const quantities = new Map<string, number>();
+  // Legacy reflection can consume a future slot before it becomes today's
+  // work. The saved zero/reduced slot remains the upper bound at day rollover.
+  const original = basis.sessions
+    .filter((s) => s.date === date)
+    .map((s) =>
+      resize(
+        s,
+        Math.min(s.count, state.plan?.sessions.find((current) => current.id === s.id)?.count ?? 0),
+      ),
+    );
+  for (const session of original) {
+    const key = workKey(session.materialId, session.round);
+    quantities.set(key, (quantities.get(key) ?? 0) + session.count);
+  }
+  // The basis contains outstanding work when allocation was established. A
+  // historical daily denominator can differ after an explicit restart.
+  for (const [key, count] of quantities) {
+    const [materialId, round] = JSON.parse(key) as [string, number];
+    const recordKey = JSON.stringify([date, materialId, round]);
+    const added = Math.max(0, (current[recordKey] ?? 0) - (basis.records[recordKey] ?? 0));
+    quantities.set(key, Math.max(0, count - added));
+  }
   return [...original]
     .sort(bySlot)
     .filter((s) => s.date === date)
@@ -86,11 +105,9 @@ export function activePlanWork(state: AppState, date: string): Session[] {
           }),
         }
       : undefined);
-  const today = new Map(
-    basis ? todayRemainders(state, date, basis.sessions).map((s) => [s.id, s]) : [],
-  );
+  const today = new Map(basis ? todayRemainders(state, date, basis).map((s) => [s.id, s]) : []);
   return state.plan.sessions
-    .filter((s) => s.kind === 'study' && s.date >= date)
+    .filter((s) => s.kind === 'study' && s.date >= date && s.date >= (plan.allocationStart ?? date))
     .map((s) => {
       if (s.date === date && basis && date === basis.date) return today.get(s.id) ?? resize(s, 0);
       return s;
@@ -126,21 +143,9 @@ export function prepareAdjustment(state: AppState, context: PlanningContext): Ap
     });
     records = plan.progressBaseline.records;
   } else {
-    sessions = plan.sessions.filter((s) => s.kind === 'study' && s.date >= context.date);
-    // A legacy plan can omit its record basis. Do not guess whether already
-    // saved work was incorporated when the outstanding allocations exceed it.
-    if (
-      state.settings.materials.some((m) =>
-        m.rounds.some(
-          (_, round) =>
-            sessions
-              .filter((s) => s.materialId === m.id && s.round === round)
-              .reduce((n, s) => n + s.count, 0) > remaining(state, m.id, round),
-        ),
-      )
-    )
-      return state;
-    records = recordTotals(state.records);
+    // Missing reflection provenance is not evidence that stored quantities
+    // already include the saved records. Explicit restart establishes a basis.
+    return state;
   }
   return {
     ...state,
@@ -163,7 +168,7 @@ export function allocateProgress(
   validateRevisedSettings(state, state.settings, context.date, context.minute);
   const source = state.plan!;
   const basis = source.adjustmentBasis!;
-  const from = addDays(context.date, 1);
+  const from = [addDays(context.date, 1), source.allocationStart ?? ''].sort().at(-1)!;
   const residual = basisRemainders(state, basis);
   const budgets: Record<string, number> = {};
   for (const m of state.settings.materials)
@@ -171,7 +176,7 @@ export function allocateProgress(
       budgets[workKey(m.id, round)] = remaining(state, m.id, round);
   // Today's unperformed part is still actionable, even after a partial or zero report.
   // Its display denominator remains in the saved day baseline and original session.
-  for (const s of todayRemainders(state, context.date, basis.sessions)) {
+  for (const s of todayRemainders(state, context.date, basis)) {
     const key = workKey(s.materialId, s.round);
     budgets[key] = Math.max(0, budgets[key] - s.count);
   }
@@ -294,6 +299,7 @@ export function allocateProgress(
   plan.sessions = plan.sessions.map((s) => ({ ...s, id: ids.get(identity(s)) ?? s.id }));
   plan.from = source.from;
   plan.notBefore = source.notBefore;
+  plan.allocationStart = source.allocationStart;
   plan.adjustmentBasis = basis;
   plan.progressBaseline = createProgressBaseline(plan, state.records, from);
   plan.approvedAt = context.timestamp;

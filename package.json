@@ -18,7 +18,13 @@
     "desktop:build": "tauri build --no-bundle",
     "test:contracts": "playwright test --config playwright.web.config.ts",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "verify:ui": "pnpm demo:build && pnpm test:contracts"
+    "verify:ui": "pnpm demo:build && pnpm test:contracts",
+    "lan:build": "tsc -b && vite build --mode lan && node scripts/build-lan.mjs && cargo build --manifest-path src-tauri/Cargo.toml --release --bin studyplan_lan_bridge --locked",
+    "lan:start": "node scripts/lan-host.mjs start",
+    "lan:status": "node scripts/lan-host.mjs status",
+    "lan:stop": "node scripts/lan-host.mjs stop",
+    "test:lan": "playwright test --config playwright.lan.config.ts",
+    "verify:lan": "tsc -b && vite build --mode lan && node scripts/build-lan.mjs && cargo build --manifest-path src-tauri/Cargo.toml --bin studyplan_lan_bridge --locked && node --test tests/lanHost.test.mjs && pnpm test:lan"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",

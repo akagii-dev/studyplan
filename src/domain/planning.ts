@@ -2,6 +2,7 @@ import { AppState, Progress, Settings, today, uid } from './model';
 import {
   correctAndAdjust as correctAndAdjustWithContext,
   recordAndAdjust as recordAndAdjustWithContext,
+  reconcilePlanning as reconcilePlanningWithContext,
 } from './progressAdjustment';
 import { PlanningContext } from './planner/context';
 import { generatePlan as generate } from './planner/generate';
@@ -35,6 +36,15 @@ export function generatePlan(
 }
 export function propose(state: AppState, from: string, reason: string) {
   return proposals.propose(state, from, reason, context());
+}
+export function proposeRestart(state: AppState, from: string) {
+  return proposals.proposeRestart(state, from, context());
+}
+export function restartProposalStaleReason(state: AppState) {
+  return proposals.restartProposalStaleReason(state, context());
+}
+export function reconcilePlanning(state: AppState) {
+  return reconcilePlanningWithContext(state, context());
 }
 export function proposeSettings(state: AppState, settings: Settings, from: string) {
   return proposals.proposeSettings(state, settings, from, context());

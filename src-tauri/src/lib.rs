@@ -2,6 +2,7 @@ mod backup;
 mod calendar_file;
 mod database;
 mod db;
+pub mod lan_bridge;
 mod report_file;
 mod window_state;
 use database::Database;
@@ -13,6 +14,10 @@ fn save_window_state(window: tauri::Window) -> Result<(), String> {
 #[tauri::command]
 async fn load_state(db: tauri::State<'_, Database>) -> Result<Option<db::Envelope>, String> {
     db.with(|conn| db::load(conn))
+}
+#[tauri::command]
+fn revision(db: tauri::State<'_, Database>) -> Result<i64, String> {
+    db.with(|conn| db::revision(conn))
 }
 #[tauri::command]
 fn commit_state(
@@ -101,6 +106,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             load_state,
+            revision,
             save_window_state,
             commit_state,
             export_backup,

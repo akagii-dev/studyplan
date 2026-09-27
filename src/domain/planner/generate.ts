@@ -24,6 +24,10 @@ export interface RetainedAllocation {
   remaining: Record<string, number>;
   /** Existing shortfalls of unaffected tasks are not automatically refilled. */
   unplaced?: Record<string, number>;
+  /** Explicit restart rebuilds review slots as well as unfinished study work. */
+  rebuildReviews?: boolean;
+  /** An explicit restart may use the remainder of a reported, but unfinished day. */
+  allowReportedDay?: boolean;
 }
 export function generatePlan(
   state: AppState,
@@ -109,7 +113,7 @@ export function generatePlan(
     d <= deadline(t) &&
     // A report, including an explicit zero, closes this material/round for the reported day.
     // Keep elapsed and fixed sessions above, but redistribute unperformed work from tomorrow.
-    !(d === from && reported(state, d, t.m.id, t.round));
+    (retention?.allowReportedDay || !(d === from && reported(state, d, t.m.id, t.round)));
   for (const x of kept.filter(
     (x) => (x.fixed || retention) && x.date >= from && !(x.date === from && x.start < notBefore),
   )) {
@@ -126,7 +130,7 @@ export function generatePlan(
     const exams = s.exams
       .filter(
         (e) =>
-          !retention &&
+          (!retention || retention.rebuildReviews) &&
           e.reviewDays > 0 &&
           cap.date >= addDays(e.target, -e.reviewDays) &&
           cap.date < e.target,

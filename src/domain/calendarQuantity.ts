@@ -1,5 +1,6 @@
 import { AppState, Plan, StudyDayBaseline, today } from './model';
 import { originalSessionCount } from './progressReflection';
+import { activePlanWork, workKey } from './progressAllocation';
 
 const keyOf = (id: string, round: number, unit: string) => JSON.stringify([id, round, unit]);
 export const materialUnit = (unit?: string) => unit?.trim() || '問';
@@ -93,6 +94,8 @@ export interface QuantityRow {
   actual: number;
   reported: boolean;
   remainder: number | null;
+  /** Current actionable work after a restart; distinct from the comparison denominator. */
+  currentRemaining?: number;
 }
 export interface QuantityTotal {
   unit: string;
@@ -102,6 +105,7 @@ export interface QuantityTotal {
   partial: boolean;
   remainder: number | null;
   shortage: number | null;
+  currentRemaining?: number;
 }
 /** Historical shortage is confirmed only by an actual report, including an explicit zero. */
 export const recordedShortage = (row: Pick<QuantityRow, 'planned' | 'actual' | 'reported'>) =>
@@ -133,6 +137,38 @@ export function calendarQuantity(
       remainder: baseline ? row.count : null,
     });
   }
+  const currentRemaining =
+    date === reference && state.plan?.allocationStart !== undefined
+      ? new Map<string, number>()
+      : undefined;
+  if (currentRemaining) {
+    for (const session of activePlanWork(state, reference).filter((s) => s.date === date)) {
+      if (filter !== 'all' && session.examId !== filter) continue;
+      const key = workKey(session.materialId, session.round);
+      currentRemaining.set(key, (currentRemaining.get(key) ?? 0) + session.count);
+      if (
+        [...rows.values()].some(
+          (r) => r.materialId === session.materialId && r.round === session.round,
+        )
+      )
+        continue;
+      const m = state.settings.materials.find((m) => m.id === session.materialId);
+      const unit = materialUnit(m?.unit);
+      // A newly allocated task had no historical target that day. Keep that
+      // comparison value independent from the new amount of actionable work.
+      rows.set(keyOf(session.materialId, session.round, unit), {
+        materialId: session.materialId,
+        round: session.round,
+        examId: session.examId,
+        name: m?.name ?? session.materialId,
+        unit,
+        planned: baseline ? 0 : null,
+        actual: 0,
+        reported: false,
+        remainder: baseline ? 0 : null,
+      });
+    }
+  }
   for (const record of state.records.filter((r) => !r.cancelled && r.date === date)) {
     const m = state.settings.materials.find((m) => m.id === record.materialId);
     const matched = [...rows.values()].find(
@@ -160,6 +196,8 @@ export function calendarQuantity(
   const totals = new Map<string, QuantityTotal>();
   for (const row of rows.values()) {
     row.remainder = row.planned === null ? null : Math.max(0, row.planned - row.actual);
+    if (currentRemaining)
+      row.currentRemaining = currentRemaining.get(workKey(row.materialId, row.round)) ?? 0;
     const total = totals.get(row.unit) ?? {
       unit: row.unit,
       planned: baseline ? 0 : null,
@@ -168,10 +206,12 @@ export function calendarQuantity(
       partial: false,
       remainder: baseline ? 0 : null,
       shortage: baseline ? 0 : null,
+      ...(currentRemaining ? { currentRemaining: 0 } : {}),
     };
     if (total.planned !== null) total.planned += row.planned ?? 0;
     if (total.remainder !== null) total.remainder += row.remainder ?? 0;
     if (total.shortage !== null) total.shortage += recordedShortage(row) ?? 0;
+    if (total.currentRemaining !== undefined) total.currentRemaining += row.currentRemaining ?? 0;
     total.actual += row.actual;
     total.reported ||= row.reported;
     total.partial ||= !row.reported && (row.planned === null || row.planned > 0);

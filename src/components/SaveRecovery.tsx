@@ -1,15 +1,20 @@
 import { useState } from 'react';
+import { lanMode } from '../lan';
 
 export function SaveRecovery({
   checking,
   detail,
   retry,
   closeWithoutSaving,
+  conflict = false,
+  preserveInput = false,
 }: {
   checking: boolean;
   detail: string;
   retry: () => void;
   closeWithoutSaving: () => Promise<void>;
+  conflict?: boolean;
+  preserveInput?: boolean;
 }) {
   const [confirmClose, setConfirmClose] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -42,9 +47,11 @@ export function SaveRecovery({
           </>
         ) : (
           <>
-            <h2>{checking ? '保存内容を確認しています…' : '保存状態を確認できません'}</h2>
-            <p>最後の変更を保存できたか不明です。確認できるまで編集を止めています。</p>
-            <p>保存済みの内容を読み直した後、反映されていない変更は入力し直してください。</p>
+            <h2>{checking ? '保存内容を確認しています…' : conflict ? '別の端末で更新されました' : '保存状態を確認できません'}</h2>
+            <p>{conflict
+              ? 'この画面の入力は未保存です。最新を読み込むと、この画面の入力を取り消します。'
+              : '最後の変更を保存できたか不明です。確認できるまで編集を止めています。'}</p>
+            {!conflict && <p>保存済みの内容を読み直した後、反映されていない変更は入力し直してください。</p>}
             {detail && (
               <details>
                 <summary>エラーの詳細</summary>
@@ -53,11 +60,11 @@ export function SaveRecovery({
             )}
             <div className="actions">
               <button autoFocus className="primary" disabled={checking} onClick={retry}>
-                保存済みの内容を読み直す
+                {preserveInput ? '入力を取り消して最新を読み込む' : '保存済みの内容を読み直す'}
               </button>
-              <button disabled={checking} onClick={() => setConfirmClose(true)}>
+              {!lanMode && <button disabled={checking} onClick={() => setConfirmClose(true)}>
                 保存を確認せずに終了
-              </button>
+              </button>}
             </div>
           </>
         )}

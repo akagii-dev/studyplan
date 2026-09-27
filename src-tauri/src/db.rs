@@ -45,6 +45,14 @@ pub fn load(db: &Connection) -> Result<Option<Envelope>, String> {
     })
     .transpose()
 }
+pub fn revision(db: &Connection) -> Result<i64, String> {
+    db.query_row("SELECT revision FROM state WHERE id=1", [], |row| {
+        row.get(0)
+    })
+    .optional()
+    .map(|value| value.unwrap_or(0))
+    .map_err(|e| e.to_string())
+}
 fn array<'a>(v: &'a Value, key: &str) -> Result<&'a Vec<Value>, String> {
     v[key]
         .as_array()
@@ -203,15 +211,24 @@ fn commit_inner(
     let tx = db
         .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(|e| e.to_string())?;
-    let duplicate: bool = tx
+    let duplicate_revision: Option<i64> = tx
         .query_row(
-            "SELECT EXISTS(SELECT 1 FROM operations WHERE request_id=?1)",
+            "SELECT revision FROM operations WHERE request_id=?1",
             [request_id],
             |r| r.get(0),
         )
+        .optional()
         .map_err(|e| e.to_string())?;
-    if duplicate {
-        return load(&tx)?.ok_or_else(|| "保存データがありません。".into());
+    if let Some(revision) = duplicate_revision {
+        let original: String = tx
+            .query_row(
+                "SELECT data FROM audit WHERE revision=?1",
+                [revision],
+                |r| r.get(0),
+            )
+            .map_err(|_| "元の保存応答を確認できません。保存済みの内容を読み直してください。")?;
+        let data = serde_json::from_str(&original).map_err(|e| e.to_string())?;
+        return Ok(Envelope { revision, data });
     }
     let previous = load(&tx)?;
     let revision = previous.as_ref().map(|x| x.revision).unwrap_or(0);
@@ -313,6 +330,23 @@ mod tests {
         let b = commit(&mut db, 0, "same", state()).unwrap();
         assert_eq!(a.revision, b.revision);
         assert!(commit(&mut db, 0, "different", state()).is_err());
+    }
+    #[test]
+    fn replay_returns_original_ack_after_another_client_commits() {
+        let mut db = open(Path::new(":memory:")).unwrap();
+        let original = commit(&mut db, 0, "seed", state()).unwrap();
+        let mut a = original.data.clone();
+        a["draft"]["name"] = "A".into();
+        let a_ack = commit(&mut db, 1, "client-a", a.clone()).unwrap();
+        let mut b = a.clone();
+        b["draft"]["name"] = "B".into();
+        let b_ack = commit(&mut db, 2, "client-b", b.clone()).unwrap();
+        let replay = commit(&mut db, 1, "client-a", a.clone()).unwrap();
+        assert_eq!(replay.revision, a_ack.revision);
+        assert_eq!(replay.data, a_ack.data);
+        assert_eq!(load(&db).unwrap().unwrap().revision, b_ack.revision);
+        assert_eq!(load(&db).unwrap().unwrap().data, b);
+        assert!(commit(&mut db, replay.revision, "client-a-next", a).is_err());
     }
     #[test]
     fn invalid_commute_is_rejected_without_changing_saved_data() {

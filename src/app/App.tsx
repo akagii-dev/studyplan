@@ -16,7 +16,7 @@ import { Warning, WarningSettings, WarningsProvider } from '../components/Warnin
 import { WeeklyReport } from '../components/WeeklyReport';
 import { CalendarView, Session, addDays, today } from '../domain/model';
 import { dateTime, stalePlan } from '../domain/planAudit';
-import { propose } from '../domain/planning';
+import { propose, proposeRestart } from '../domain/planning';
 import { currentProgressAdjustment } from '../domain/progressAdjustment';
 import { requirePlanningInputs } from '../domain/setupIssues';
 import { usePersistentAppState } from '../hooks/usePersistentAppState';
@@ -121,6 +121,10 @@ export default function App() {
     restore,
     readSaved,
     exportSaved,
+    externalRevision,
+    connectionError,
+    checkConnection,
+    reloadEpoch,
   } = usePersistentAppState();
   const generate = () => {
     void update((s) => {
@@ -144,6 +148,10 @@ export default function App() {
     void update((current) => propose(current, addDays(today(), 1), '実績を踏まえた今後の予定を確認します。'))
       .then(() => setPage('replan'))
       .catch(() => {});
+  };
+  const restartPlan = async (from: string) => {
+    await update((current) => proposeRestart(current, from));
+    setPage('replan');
   };
   const onRecord = (session: Pick<Session, 'date' | 'materialId' | 'round'>) => {
     if (session.date === today()) {
@@ -254,6 +262,13 @@ export default function App() {
           saved={saved}
           error={error}
           dismissError={() => setError('')}
+          externalUpdate={externalRevision !== null}
+          reloadExternal={() => {
+            if (window.confirm('この画面の入力を取り消し、Windowsに保存された最新の内容を読み込みますか？'))
+              void readSavedState();
+          }}
+          connectionError={connectionError}
+          checkConnection={checkConnection}
         >
           {typeof state.draft.replanError === 'string' && state.draft.replanError && (
             <Warning
@@ -278,12 +293,12 @@ export default function App() {
                 {page !== 'replan' && <button onClick={generate}>現在の設定で計画案を作成</button>}
               </Warning>
             )}
-          <NumericDraftProvider state={state} update={update} scope={numericScope}>
+          <NumericDraftProvider key={reloadEpoch} state={state} update={update} scope={numericScope}>
             {page === 'dashboard' && (
               <Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} recordTarget={recordTarget} />
             )}{' '}
             {page === 'future' && (
-              <Future {...props} initialWeek={futureWeek} onWeekChange={setFutureWeek} onCalendar={(date, revealDay = !!date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} />
+              <Future {...props} initialWeek={futureWeek} onWeekChange={setFutureWeek} onCalendar={(date, revealDay = !!date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} onRestart={restartPlan} />
             )}
             {(page === 'settings' || originStack.current.some((entry) => entry.page === 'settings')) && (
               <div hidden={page !== 'settings'}>
@@ -402,7 +417,7 @@ export default function App() {
                 />
               </Suspense>
             )}
-            {page === 'replan' && <Replan {...props} onCalendar={() => setPage('calendar')} />}{' '}
+            {page === 'replan' && <Replan {...props} onCalendar={() => setPage('calendar')} onFuture={() => setPage('future')} />}{' '}
             {['availability', 'focus'].includes(page) && (
               <div className="wizard-footer">
                 <span>設定の変更は保存済みの計画を自動で書き換えません。</span>

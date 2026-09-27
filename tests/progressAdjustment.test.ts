@@ -7,11 +7,15 @@ import {
   correctAndAdjust,
   currentProgressAdjustment,
   recordAndAdjust,
+  reconcilePlanning,
+  currentPlanningStatus,
 } from '../src/domain/progressAdjustment';
 import { PlanningContext } from '../src/domain/planner/context';
 import { approve, propose } from '../src/domain/planner/proposal';
 import { latestReceipt, planChanges, progressReceipts } from '../src/domain/progressReceipt';
 import { activePlanWork } from '../src/domain/progressAllocation';
+import { adjustmentFixture } from './fixtures/adjustment';
+import { backupSchema } from '../src/domain/backupSchema';
 
 const day = '2030-10-07';
 const next = addDays(day, 1);
@@ -395,4 +399,89 @@ it('問数だけ変わり時間帯が同じ場合、時刻変更と誤表示し�
       afterSlots: ['1080-1100'],
     },
   ]);
+});
+
+it('実績を作らず日付境界で前日10問を繰り越し、履歴は一度だけ増える', () => {
+  const source = fixture();
+  source.settings.exams[0].target = addDays(day, 4);
+  source.settings.windows.push({ ...source.settings.windows[1], id: 'later', from: addDays(day, 2), to: addDays(day, 2) });
+  source.plan!.settingsSnapshot = structuredClone(source.settings);
+  const nextContext = { ...context, date: next, timestamp: '2030-10-08T03:00:00.000Z' };
+  const moved = reconcilePlanning(source, nextContext);
+  expect(moved.records).toEqual([]);
+  expect(moved.plan!.sessions.filter((s) => s.date === day)).toEqual(source.plan!.sessions.filter((s) => s.date === day));
+  expect(moved.plan!.sessions.filter((s) => s.date === addDays(day, 2) && s.kind === 'study').reduce((n, s) => n + s.count, 0)).toBe(10);
+  expect(moved.history).toHaveLength(1);
+  expect(moved.studyDayBaselines?.[day]?.rows[0]?.count).toBe(10);
+  expect(reconcilePlanning(moved, nextContext)).toBe(moved);
+});
+
+it('保留案では日付反映を止め、破棄後に実績なしの残量を再評価できる', () => {
+  const source = adjustmentFixture(day);
+  source.proposal = { plan: structuredClone(source.plan!), basedOn: source.plan!.id, reason: '編集中', unreported: [] };
+  const nextContext = { ...context, date: next };
+  const blocked = reconcilePlanning(source, nextContext);
+  expect(blocked.plan).toEqual(source.plan);
+  expect(blocked.proposal).toEqual(source.proposal);
+  expect(currentPlanningStatus(blocked)).toMatchObject({ status: 'blocked', reason: 'pending-proposal' });
+  const resumed = reconcilePlanning({ ...blocked, proposal: null }, nextContext);
+  expect(resumed.records).toEqual([]);
+  expect(resumed.plan?.adjustmentBasis?.date).toBe(next);
+  expect(currentPlanningStatus(resumed)?.status).not.toBe('blocked');
+});
+
+it('教材別には合法な大量未配置でも、不要な全教材合計でバックアップを拒否しない', () => {
+  const source = adjustmentFixture(day);
+  const each = 600_000_000;
+  source.settings.exams = source.settings.exams.map((exam) => ({
+    ...exam, target: addDays(day, 2),
+  }));
+  source.settings.materials = source.settings.materials.map((material) => ({
+    ...material,
+    total: each,
+    rounds: [{ completed: 0, minutes: 1 }],
+  }));
+  source.settings.windows = [{
+    ...source.settings.windows[0], from: day, to: day, start: 540, end: 542,
+  }];
+  source.settings.block = 1;
+  source.settings.rest = 1;
+  source.settings.buffer = 0;
+  source.settings.minimumSessionMinutes = 1;
+  source.settings.preferredSessionMinutes = 1;
+  source.plan!.settingsSnapshot = structuredClone(source.settings);
+  source.plan!.sessions = source.settings.materials.map((material, index) => ({
+    id: `one-${material.id}`,
+    date: day,
+    start: 540 + index,
+    end: 541 + index,
+    examId: material.examId,
+    materialId: material.id,
+    round: 0,
+    count: 1,
+    fixed: false,
+    kind: 'study' as const,
+  }));
+  source.plan!.shortfalls = source.settings.materials.map((material) => ({
+    materialId: material.id,
+    round: 0,
+    count: each - 1,
+    minutes: each - 1,
+    reason: '学習可能枠の容量不足',
+  }));
+  source.plan!.progressBaseline = createProgressBaseline(source.plan!, source.records);
+  const changed = reconcilePlanning(source, {
+    ...context, date: next, timestamp: '2030-10-08T03:00:00.000Z',
+  });
+  expect(changed.records).toEqual([]);
+  expect(changed.plan?.shortfalls.map((item) => [item.materialId, item.count, item.minutes]))
+    .toEqual([['book', each, each], ['other', each, each]]);
+  expect(currentPlanningStatus(changed)).toMatchObject({ status: 'unplaced' });
+  expect(changed.draft.planReconciliation).not.toHaveProperty('unplacedCount');
+  expect(changed.draft.planReconciliation).not.toHaveProperty('unplacedMinutes');
+  const backupResult = backupSchema.safeParse({
+    format: 'StudyPlanBackup', version: 1, createdAt: '2030-10-08T03:00:00.000Z',
+    appVersion: 'test', data: changed,
+  });
+  expect(backupResult.success).toBe(true);
 });

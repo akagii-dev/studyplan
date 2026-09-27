@@ -191,6 +191,8 @@ it('全量未配置でも今後の予定に教材別問数を常時示し、理�
   ];
   const html = renderToStaticMarkup(
     createElement(Future, {
+      // Explicitly inspect the future; on Sundays the default week includes today.
+      initialWeek: addDays(today(), 1),
       state,
       update: async () => {},
       onCalendar: () => {},

@@ -3,6 +3,7 @@ name = "studyplan"
 version = "0.5.1"
 description = "ローカル学習計画アプリ"
 edition = "2021"
+default-run = "studyplan"
 
 [lib]
 name = "studyplan_lib"

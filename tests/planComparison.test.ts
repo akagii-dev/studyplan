@@ -76,3 +76,20 @@ it('標準表示は変化の大きい3日、詳細用データは全日を保つ
   expect(mainDailyChanges(days).map((d) => d.after)).toEqual([20, 30, 40]);
   expect(days).toHaveLength(4);
 });
+
+it('仕切り直しの操作日から比較し、新開始日前に除外する予定も変更へ含める', () => {
+  const before = plan([session('a', '2026-10-01', 10), session('a', '2026-10-02', 10)]);
+  const after = plan([session('a', '2026-10-03', 26)]);
+  before.shortfalls = [{ materialId: 'a', round: 0, count: 6, minutes: 18, reason: '未配置' }];
+  after.from = '2026-10-03';
+  after.notBefore = 700;
+  expect(comparePlans(before, after, '2026-10-01')[0].total).toMatchObject({
+    before: { count: 20, unplaced: 6 },
+    after: { count: 26, unplaced: 0 },
+    days: [
+      { date: '2026-10-01', before: 10, after: 0 },
+      { date: '2026-10-02', before: 10, after: 0 },
+      { date: '2026-10-03', before: 0, after: 26 },
+    ],
+  });
+});

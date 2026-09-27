@@ -11,21 +11,75 @@ import { PlanningContext } from './context';
 import { generatePlan } from './generate';
 import { proposalUsesCurrentProgress, reflectProgressSafely } from '../progressReflection';
 import { retainStudyDayBaselines } from '../calendarQuantity';
+import { calculateRestart } from '../planRestart';
 const EPS = 1e-7;
+
+/** Bounded, deterministic precondition for an explicit restart candidate. */
+export function restartSourceFingerprint(state: AppState): string {
+  const source = JSON.stringify([state.plan, state.settings, state.records], (_key, value: unknown) =>
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)))
+      : value,
+  );
+  let a = 0x811c9dc5;
+  let b = 0x9e3779b9;
+  for (let i = 0; i < source.length; i++) {
+    const code = source.charCodeAt(i);
+    a = Math.imul(a ^ code, 0x01000193);
+    b = Math.imul(b ^ code, 0x85ebca6b);
+  }
+  return `${source.length}:${(a >>> 0).toString(16)}:${(b >>> 0).toString(16)}`;
+}
+
+export function restartProposalStaleReason(state: AppState, context: PlanningContext): string | undefined {
+  const proposal = state.proposal;
+  if (proposal?.basis?.kind !== 'restart') return undefined;
+  if (proposal.basis.date !== context.date ||
+    proposal.basis.sourceFingerprint !== restartSourceFingerprint(state))
+    return '案の作成後に基準日・計画・設定・実績が変わりました。案を作り直してください。';
+  if (proposal.plan.sessions.some((session) =>
+    !session.fixed && session.date === context.date &&
+    session.date >= proposal.plan.from && session.start >= (proposal.plan.notBefore ?? 0) &&
+    session.start < context.minute &&
+    !(state.plan?.sessions.some((old) => old.id === session.id))))
+    return '案の作成後に当日の予定時刻が過ぎました。案を作り直してください。';
+  return undefined;
+}
+
+export function proposeRestart(state: AppState, from: string, context: PlanningContext): AppState {
+  if (state.proposal) throw new Error('確認待ちの計画案があります。先にその案を確認または破棄してください。');
+  const plan = calculateRestart(state, from, context);
+  return {
+    ...state,
+    proposal: {
+      plan,
+      basedOn: state.plan?.id ?? null,
+      reason: '指定日から現在の残量を再配分します。',
+      unreported: [],
+      basis: {
+        kind: 'restart',
+        date: context.date,
+        sourceFingerprint: restartSourceFingerprint(state),
+      },
+    },
+  };
+}
 export function propose(
   state: AppState,
   from: string,
   reason: string,
   context: PlanningContext,
 ): AppState {
-  const notBefore = from === context.date ? context.minute : 0;
+  const effectiveFrom = [from, state.plan?.allocationStart ?? ''].sort().at(-1)!;
+  const notBefore = effectiveFrom === context.date ? context.minute : 0;
   const unreported = [
     ...new Set(
       (state.plan?.sessions ?? [])
         .filter(
           (x) =>
             x.kind === 'study' &&
-            (x.date < from || (x.date === from && x.start < notBefore)) &&
+            x.date >= (state.plan?.allocationStart ?? '') &&
+            (x.date < effectiveFrom || (x.date === effectiveFrom && x.start < notBefore)) &&
             !reported(state, x.date, x.materialId, x.round),
         )
         .map(
@@ -37,7 +91,10 @@ export function propose(
   return {
     ...state,
     proposal: {
-      plan: generatePlan(state, from, true, notBefore, 'balanced', context),
+      plan: {
+        ...generatePlan(state, effectiveFrom, true, notBefore, 'balanced', context),
+        allocationStart: state.plan?.allocationStart,
+      },
       basedOn: state.plan?.id ?? null,
       reason,
       unreported,
@@ -77,6 +134,8 @@ export function proposeSettings(
 export function approve(state: AppState, acknowledge: boolean, context: PlanningContext): AppState {
   const p = state.proposal;
   if (!p) throw new Error('再計画案がありません。');
+  const restartStale = restartProposalStaleReason(state, context);
+  if (restartStale) throw new Error(restartStale);
   if (p.plan.calculationVersion !== PLAN_CALCULATION_VERSION)
     throw new Error(
       '計算方式が更新されました。現在の条件と固定予定を確認して案を作り直してください。',
@@ -149,7 +208,12 @@ export function approve(state: AppState, acknowledge: boolean, context: Planning
     proposal: null,
     // Approval checks that this proposal includes the current records. A prior
     // progress-adjustment warning is resolved only at this successful boundary.
-    draft: { ...state.draft, revision: undefined, progressAdjustment: undefined },
+    draft: {
+      ...state.draft,
+      revision: undefined,
+      progressAdjustment: undefined,
+      planReconciliation: undefined,
+    },
   };
 }
 export function undoPlan(state: AppState, date?: string): AppState {

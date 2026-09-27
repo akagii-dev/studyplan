@@ -9,6 +9,100 @@ import {
 } from '../src/domain/planning';
 import { overlapsBusy, stalePlan } from '../src/domain/planAudit';
 import { parseNumberInput } from '../src/domain/numeric';
+import { approve as approveWithContext, propose as proposeWithContext, proposeRestart as proposeRestartWithContext, restartSourceFingerprint } from '../src/domain/planner/proposal';
+import { refreshProposal, releaseFixedAndRefresh } from '../src/domain/repairPlan';
+import { restartFixture } from './fixtures/adjustment';
+import { backupSchema } from '../src/domain/backupSchema';
+
+const restartDay = '2030-10-07';
+const restartContext = {
+  date: restartDay,
+  minute: 720,
+  timestamp: '2030-10-07T03:00:00.000Z',
+  idPrefix: 'restart',
+};
+describe('計画の仕切り直しと案の事前条件', () => {
+  it('既存の未配置を重複計上せず、2+2実績後の26問を指定日から再配分する', () => {
+    const source = restartFixture(restartDay);
+    const from = addDays(restartDay, 3);
+    const candidate = proposeRestartWithContext(source, from, restartContext);
+    expect(candidate.records).toEqual(source.records);
+    expect(candidate.plan).toEqual(source.plan);
+    expect(candidate.proposal?.basis).toMatchObject({ date: restartDay, kind: 'restart' });
+    expect(candidate.proposal?.plan.allocationStart).toBe(from);
+    expect(candidate.proposal?.plan.sessions.filter((s) => s.kind === 'study' && s.date >= from).reduce((n, s) => n + s.count, 0)).toBe(26);
+    expect(candidate.proposal?.plan.shortfalls.reduce((n, s) => n + s.count, 0)).toBe(0);
+    expect(candidate.proposal?.plan.sessions.some((s) => !s.fixed && s.date < from)).toBe(false);
+    const approved = approveWithContext(candidate, false, restartContext);
+    expect(approved.plan?.allocationStart).toBe(from);
+    expect(approved.history).toEqual([source.plan]);
+    const ordinary = proposeWithContext(approved, addDays(restartDay, 1), '再確認', restartContext);
+    expect(ordinary.proposal?.plan.allocationStart).toBe(from);
+    expect(ordinary.proposal?.plan.from).toBe(from);
+    expect(ordinary.proposal?.unreported).toEqual([]);
+    expect(backupSchema.safeParse({ format: 'StudyPlanBackup', version: 1, createdAt: restartContext.timestamp, appVersion: 'test', data: approved }).success).toBe(true);
+  });
+
+  it('案の保存往復でキー順が変わっても同じ基準と判定する', () => {
+    const state = restartFixture(restartDay);
+    const expected = restartSourceFingerprint(state);
+    const reorder = (value: unknown): unknown => Array.isArray(value)
+      ? value.map(reorder)
+      : value && typeof value === 'object'
+        ? Object.fromEntries(Object.entries(value).reverse().map(([key, item]) => [key, reorder(item)]))
+        : value;
+    expect(restartSourceFingerprint(reorder(state) as typeof state)).toBe(expected);
+    const candidate = proposeRestartWithContext(state, addDays(restartDay, 3), restartContext);
+    const loaded = reorder(JSON.parse(JSON.stringify(candidate))) as typeof candidate;
+    expect(approveWithContext(loaded, false, restartContext).plan?.allocationStart).toBe(addDays(restartDay, 3));
+  });
+
+  it('仕切り直し後の通常再計画は新しいfromでも元のallocationStartを保存できる', () => {
+    const from = addDays(restartDay, 3);
+    const restarted = approveWithContext(
+      proposeRestartWithContext(restartFixture(restartDay), from, restartContext),
+      false,
+      restartContext,
+    );
+    const later = addDays(restartDay, 5);
+    const laterContext = { ...restartContext, date: later, minute: 0, timestamp: '2030-10-12T00:00:00.000Z' };
+    const proposal = proposeWithContext(restarted, later, '通常の再計画', laterContext);
+    const approved = approveWithContext(proposal, true, laterContext);
+    expect(approved.plan?.from).toBe(later);
+    expect(approved.plan?.allocationStart).toBe(from);
+    expect(backupSchema.safeParse({
+      format: 'StudyPlanBackup', version: 1, createdAt: laterContext.timestamp,
+      appVersion: 'test', data: approved,
+    }).success).toBe(true);
+  });
+
+  it('記録・設定・固定・元計画・日付が変われば古案を承認しない', () => {
+    const candidate = proposeRestartWithContext(restartFixture(restartDay), addDays(restartDay, 3), restartContext);
+    const variants = [
+      { ...candidate, records: [{ ...candidate.records[0], count: 3 }] },
+      { ...candidate, settings: { ...candidate.settings, buffer: candidate.settings.buffer + 0.1 } },
+      { ...candidate, plan: { ...candidate.plan!, sessions: candidate.plan!.sessions.map((s, index) => index ? s : { ...s, fixed: true }) } },
+      { ...candidate, plan: { ...candidate.plan!, shortfalls: [] } },
+    ];
+    for (const stale of variants)
+      expect(() => approveWithContext(stale, false, restartContext)).toThrow('案を作り直してください');
+    expect(() => approveWithContext(candidate, false, { ...restartContext, date: addDays(restartDay, 1) })).toThrow('案を作り直してください');
+  });
+
+  it('固定解除と再作成でも指定開始日・案種別を保つ', () => {
+    const state = restartFixture(restartDay);
+    state.plan!.sessions[0].fixed = true;
+    const from = addDays(restartDay, 3);
+    // The fixed slot before the start is an explicit conflict, not silently erased.
+    const candidate = proposeRestartWithContext(state, from, restartContext);
+    expect(candidate.proposal?.plan.conflicts.length).toBeGreaterThan(0);
+    const released = releaseFixedAndRefresh(candidate, 'old-1', restartDay);
+    expect(released.proposal?.basis?.kind).toBe('restart');
+    expect(released.proposal?.plan.allocationStart).toBe(from);
+    expect(released.proposal?.plan.conflicts).toEqual([]);
+    expect(refreshProposal(released, restartDay).proposal?.plan.allocationStart).toBe(from);
+  });
+});
 
 const date = '2026-10-05'; // Monday
 function fixture() {

@@ -4,6 +4,7 @@ import { stalePlan } from './planAudit';
 import { recordProgress, correctProgress } from './progress';
 import { PlanningContext } from './planner/context';
 import { allocateProgress, prepareAdjustment } from './progressAllocation';
+import { samePlanningSettings } from './planAudit';
 import {
   AdjustmentStatus,
   ProgressAction,
@@ -19,10 +20,113 @@ export interface ProgressAdjustmentResult {
   unplacedMinutes?: number;
 }
 
+export interface PlanReconciliation {
+  asOf: string;
+  status: 'applied' | 'unplaced' | 'blocked';
+  reason?: 'pending-proposal' | 'stale-settings' | 'legacy-unknown' | 'fixed-conflict' | 'failed';
+  detail?: string;
+}
+
+export function currentPlanReconciliation(state: AppState): PlanReconciliation | undefined {
+  return state.draft.planReconciliation as PlanReconciliation | undefined;
+}
+
+/** Shared durable state for the future-plan surface. Receipts remain immutable history. */
+export function currentPlanningStatus(state: AppState): PlanReconciliation | undefined {
+  const reconciliation = currentPlanReconciliation(state);
+  if (reconciliation) return reconciliation;
+  const progress = currentProgressAdjustment(state);
+  if (progress?.status === 'review')
+    return {
+      asOf: state.plan?.adjustmentBasis?.date ?? '',
+      status: 'blocked',
+      reason: state.proposal ? 'pending-proposal' : stalePlan(state.plan!, state.settings)
+        ? 'stale-settings' : 'legacy-unknown',
+      detail: progress.detail,
+    };
+  if (progress?.status === 'failed')
+    return {
+      asOf: state.plan?.adjustmentBasis?.date ?? '',
+      status: 'blocked',
+      reason: progress.detail?.includes('固定') ? 'fixed-conflict' : 'failed',
+      detail: progress.detail,
+    };
+  if (progress?.status === 'unplaced')
+    return {
+      asOf: state.plan?.adjustmentBasis?.date ?? '',
+      status: 'unplaced',
+    };
+  return undefined;
+}
+
+function withReconciliation(state: AppState, result: PlanReconciliation): AppState {
+  const previous = currentPlanReconciliation(state);
+  if (JSON.stringify(previous) === JSON.stringify(result)) return state;
+  return { ...state, draft: { ...state.draft, planReconciliation: result } };
+}
+
+/** An explicit load, recovery or date boundary. Never invents a progress record. */
+export function reconcilePlanning(state: AppState, context: PlanningContext): AppState {
+  const source = state.plan;
+  if (!source) return state;
+  const basisDate = source.adjustmentBasis?.date;
+  const expired = source.sessions.some((s) => s.kind === 'study' && s.count > 0 && s.date < context.date);
+  const pendingProgress = ['review', 'failed'].includes(currentProgressAdjustment(state)?.status ?? '');
+  if ((!basisDate || basisDate >= context.date) && !expired && !pendingProgress) return state;
+  if (basisDate === context.date && !pendingProgress) return state;
+  const blocked = (reason: NonNullable<PlanReconciliation['reason']>, detail: string) =>
+    withReconciliation(state, { asOf: context.date, status: 'blocked', reason, detail });
+  if (state.proposal)
+    return blocked('pending-proposal', '確認待ちの計画案があります。');
+  if (!source.settingsSnapshot || !samePlanningSettings(source.settingsSnapshot, state.settings))
+    return blocked('stale-settings', '計画と現在の設定が一致していません。');
+  if (!source.adjustmentBasis && !source.progressBaseline)
+    return blocked('legacy-unknown', '旧計画への実績の反映状況を確認できません。');
+  try {
+    const prepared = prepareAdjustment(state, context);
+    if (!prepared.plan?.adjustmentBasis || prepared.plan.adjustmentBasis.date !== context.date)
+      return blocked('legacy-unknown', '旧計画への実績の反映状況を確認できません。');
+    const { plan, reason } = allocateProgress(prepared, context);
+    const from = addDays(context.date, 1);
+    const changes = planChanges(source, plan, from);
+    const quantities = (items: typeof plan.shortfalls) => JSON.stringify(items
+      .map(({ materialId, round, count, minutes }) => [materialId, round, count, minutes])
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))));
+    const shortfallsChanged = quantities(source.shortfalls) !== quantities(plan.shortfalls);
+    const conflictsChanged = JSON.stringify(source.conflicts) !== JSON.stringify(plan.conflicts);
+    const hasChange = !!changes.length || shortfallsChanged || conflictsChanged;
+    const retained = retainStudyDayBaselines(state, context.date, false);
+    const next = {
+      ...retained,
+      plan: hasChange
+        ? plan
+        : { ...source, shortfalls: plan.shortfalls, adjustmentBasis: plan.adjustmentBasis, progressBaseline: plan.progressBaseline },
+      history: hasChange ? [...state.history, source] : state.history,
+      draft: pendingProgress
+        ? { ...state.draft, progressAdjustment: undefined }
+        : state.draft,
+    };
+    if (!hasChange && currentPlanReconciliation(state)?.status !== 'blocked') return next;
+    return withReconciliation(next, {
+      asOf: context.date,
+      status: plan.shortfalls.length ? 'unplaced' : 'applied',
+      detail: hasChange ? reason : '現在の残量を確認しました。',
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return blocked(detail.includes('固定') ? 'fixed-conflict' : 'failed', detail);
+  }
+}
+
 function withResult(state: AppState, result: ProgressAdjustmentResult): AppState {
   return {
     ...state,
-    draft: { ...state.draft, progressResult: undefined, progressAdjustment: result },
+    draft: {
+      ...state.draft,
+      progressResult: undefined,
+      progressAdjustment: result,
+      planReconciliation: undefined,
+    },
   };
 }
 

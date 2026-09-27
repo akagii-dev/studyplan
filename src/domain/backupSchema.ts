@@ -96,6 +96,7 @@ const session = z.looseObject({
 });
 const plan = z.looseObject({
   id,
+  allocationStart: date.optional(),
   approvedAt: z.iso.datetime().optional(),
   createdAt: text,
   from: date,
@@ -259,6 +260,12 @@ const draft = z.looseObject({
   mealClock: z.object({ index: count.max(5), text }).optional(),
   mealOpen: z.boolean().optional(),
   replanError: text.optional(),
+  planReconciliation: z.looseObject({
+    asOf: date,
+    status: z.enum(['applied', 'unplaced', 'blocked']),
+    reason: z.enum(['pending-proposal', 'stale-settings', 'legacy-unknown', 'fixed-conflict', 'failed']).optional(),
+    detail: text.optional(),
+  }).optional(),
 });
 const state = z.looseObject({
   studyDayBaselines: z
@@ -318,6 +325,11 @@ const state = z.looseObject({
       reason: text,
       unreported: z.array(id),
       settingsBase: settings.optional(),
+      basis: z.object({
+        date,
+        sourceFingerprint: z.string().max(200),
+        kind: z.literal('restart'),
+      }).optional(),
     })
     .nullable(),
   theme: z.enum(['mint', 'sky', 'lime']).optional(),

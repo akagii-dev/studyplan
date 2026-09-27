@@ -1,28 +1,47 @@
 import { progressView } from '../domain/progressView';
 import { ProgressValue } from '../components/ProgressValue';
-import { calendarQuantity } from '../domain/calendarQuantity';
+import { calendarQuantity, materialUnit } from '../domain/calendarQuantity';
 import { Props, duration } from '../components/common';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { upcomingSunday, shortDayLabel, weekRangeLabel } from '../domain/calendar';
 import { Session, today, addDays } from '../domain/model';
 import { ShortfallDetails } from '../components/ShortfallDetails';
 import { progressReceipts } from '../domain/progressReceipt';
 import { ProgressReceiptView, receiptLabel } from '../components/ProgressReceiptView';
+import { remainingWork } from '../domain/remainingWork';
+import { currentPlanningStatus } from '../domain/progressAdjustment';
 
 export function Future({
   state,
   onCalendar,
   onProposal,
+  onRestart,
   initialWeek = upcomingSunday(today()),
   onWeekChange,
 }: Props & {
   onCalendar: (date?: string, revealDay?: boolean) => void;
   onProposal: () => void;
+  onRestart?: (from: string) => Promise<void>;
   initialWeek?: string;
   onWeekChange?: (date: string) => void;
 }) {
   const [week, setWeek] = useState(initialWeek);
   const reference = today();
+  const [restartOpen, setRestartOpen] = useState(false);
+  const [restartDate, setRestartDate] = useState(reference);
+  const [restartError, setRestartError] = useState('');
+  const [restarting, setRestarting] = useState(false);
+  const restartTrigger = useRef<HTMLButtonElement>(null);
+  const restartDateInput = useRef<HTMLInputElement>(null);
+  const wasRestartOpen = useRef(false);
+  useLayoutEffect(() => {
+    if (restartOpen) restartDateInput.current?.focus();
+    else if (wasRestartOpen.current) restartTrigger.current?.focus();
+    wasRestartOpen.current = restartOpen;
+  }, [restartOpen]);
+  const work = remainingWork(state, reference);
+  const planningStatus = currentPlanningStatus(state);
+  const needsReview = !!state.plan && (planningStatus?.status === 'blocked' || work.some((row) => !row.balanced));
   const moveWeek = (date: string) => {
     setWeek(date);
     onWeekChange?.(date);
@@ -50,9 +69,61 @@ export function Future({
   const receipts = progressReceipts(state);
   return (
     <div className="future-page">
+      <section className="future-restart" aria-label="計画を仕切り直す">
+        {state.proposal ? (
+          <button className="primary" onClick={onProposal}>計画案を確認</button>
+        ) : !onRestart ? null : !restartOpen ? (
+          <button ref={restartTrigger} onClick={() => { setRestartDate(reference); setRestartError(''); setRestartOpen(true); }}>
+            計画を仕切り直す
+          </button>
+        ) : (
+          <form onSubmit={(event) => {
+            event.preventDefault();
+            if (restarting) return;
+            setRestarting(true);
+            setRestartError('');
+            void onRestart(restartDate).catch((error) => {
+              setRestartError(error instanceof Error ? error.message : String(error));
+            }).finally(() => setRestarting(false));
+          }}>
+            <p>実績・履歴と固定予定を残し、未配置も含めて組み直します。</p>
+            <label htmlFor="restart-date">開始日</label>
+            <div className="future-restart-controls">
+              <input ref={restartDateInput} id="restart-date" type="date" required min={reference} value={restartDate}
+                onChange={(event) => setRestartDate(event.target.value)} />
+              <button className="primary" type="submit" disabled={restarting}>この日から案を作成</button>
+              <button type="button" disabled={restarting} onClick={() => { setRestartOpen(false); setRestartError(''); }}>やめる</button>
+            </div>
+            {restartError && <p className="error" role="alert">{restartError}</p>}
+          </form>
+        )}
+      </section>
       <button data-return-focus="future:calendar" onClick={() => onCalendar(week, false)}>
         詳細カレンダーを見る
       </button>
+      {needsReview ? (
+        <p className="future-reconciliation" role="status">
+          調整未反映{planningStatus?.status === 'blocked' && planningStatus.detail ? `：${planningStatus.detail}` : ''}
+        </p>
+      ) : planningStatus?.status === 'applied' ? (
+        <p className="future-reconciliation" role="status">未消化分を調整しました</p>
+      ) : null}
+      {work.length > 0 && (
+        <details className="future-work">
+          <summary>残量の内訳</summary>
+          <ul>
+            {work.map((row) => (
+              <li key={`${row.materialId}/${row.round}`}>
+                <span>{row.name} · {row.round + 1}周目</span>
+                <span>
+                  残り {row.remaining}{row.unit}{row.balanced ? ' = ' : ' / '}予定 {row.allocated}{row.unit}{row.balanced ? ' + ' : ' / '}未配置 {row.unplaced}{row.unit}
+                </span>
+                {!row.balanced && <strong>内訳を確認</strong>}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       <div className="future-week row" role="group" aria-label="週間予定の表示範囲">
         <button aria-label="前の週" onClick={() => moveWeek(addDays(week, -7))}>
           ‹
@@ -64,11 +135,6 @@ export function Future({
           ›
         </button>
       </div>
-      {state.proposal && (
-        <button className="primary" onClick={onProposal}>
-          計画案を確認
-        </button>
-      )}
       {groups.size ? (
         [...groups]
           .sort(([a], [b]) => a.localeCompare(b))
@@ -142,7 +208,8 @@ export function Future({
                         <strong>
                           {session.kind === 'review' ? duration(minutes) : progressView({
                             planned: count, actual: 0, reported: false,
-                            unit: quantity.rows.find(row => row.materialId === session.materialId && row.round === session.round)?.unit ?? '問',
+                            unit: quantity.rows.find(row => row.materialId === session.materialId && row.round === session.round)?.unit ??
+                              materialUnit(state.settings.materials.find((material) => material.id === session.materialId)?.unit),
                           }, date, reference).text}
                         </strong>
                         {session.fixed && <span className="future-fixed">固定</span>}

@@ -6,13 +6,14 @@ import { calendarQuantity } from '../src/domain/calendarQuantity';
 import { progressView } from '../src/domain/progressView';
 import { todayStudyRows } from '../src/domain/todayProgress';
 import { Future } from '../src/app/Future';
-import { CalendarQuantity } from '../src/components/CalendarQuantity';
+import { CalendarQuantity, CalendarQuantityDetails } from '../src/components/CalendarQuantity';
 import { CalendarDaySummary } from '../src/components/CalendarDaySummary';
 import { TodayRecorder } from '../src/components/TodayRecorder';
 import { adjustmentContext, adjustmentFixture, adjustmentReport } from './fixtures/adjustment';
 import { recordAndAdjust, correctAndAdjust } from '../src/domain/progressAdjustment';
 import { approve, proposeRestart } from '../src/domain/planner/proposal';
 import { activePlanWork } from '../src/domain/progressAllocation';
+import { remainingWork } from '../src/domain/remainingWork';
 
 for (const offset of [-1, 0, 1]) {
   it.each([undefined, 0, 3, 6, 10, 12])(`日区分${offset}の実績%sを画面間で統一する`, (count) => {
@@ -222,3 +223,66 @@ it('仕切り直し後の追加・訂正・取消は今日の有効量へ反映�
   state = correctAndAdjust(state, 'record', 4, true, context);
   check(0, 8);
 });
+
+for (const offset of [0, 1]) {
+  it.each(['unreported', 'zero', 'recorded', 'cancelled'] as const)(
+    `${offset}日後から仕切り直した当日の%sは有効な予定・実績だけを全予定画面に表示する`,
+    (report) => {
+      // At noon today's 09:00–11:00 slot has elapsed. Both starts move all
+      // outstanding work forward, without inventing a report for the old day.
+      const context = adjustmentContext;
+      let source = adjustmentFixture();
+      if (report !== 'unreported') {
+        source = recordAndAdjust(source, adjustmentReport(report === 'zero' ? 0 : 4), context);
+        if (report === 'cancelled')
+          source = correctAndAdjust(source, 'record', 4, true, context);
+      }
+      const state = approve(proposeRestart(source, addDays(context.date, offset), context), false, context);
+      const before = structuredClone(state);
+      const hasReport = report === 'zero' || report === 'recorded';
+      const actual = report === 'recorded' ? 4 : 0;
+      expect(activePlanWork(state, context.date).filter((s) => s.date === context.date)).toEqual([]);
+      expect(remainingWork(state, context.date)).toMatchObject([
+        { total: 30, completed: actual, allocated: 30 - actual, unplaced: 0, balanced: true },
+        { total: 30, completed: 0, allocated: 30, unplaced: 0, balanced: true },
+        { total: 45, completed: 0, allocated: 45, unplaced: 0, balanced: true },
+      ]);
+      const comparison = calendarQuantity(state, context.date, context.date);
+      expect(comparison.rows).toMatchObject([
+        { materialId: 'book', planned: 6, actual, reported: hasReport, currentRemaining: 0 },
+        { materialId: 'other', planned: 9, actual: 0, reported: false, currentRemaining: 0 },
+      ]);
+      expect(state.history.at(-1)).toEqual(source.plan);
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(context.timestamp));
+      try {
+        for (const element of [
+          createElement(Future, {
+            state, update: async () => {}, initialWeek: addDays(context.date, -6),
+            onCalendar: () => {}, onProposal: () => {},
+          }),
+          createElement(CalendarQuantity, { state, date: context.date, filter: 'all', onSelect: () => {} }),
+          createElement(CalendarQuantityDetails, { state, date: context.date, filter: 'all', onRecord: () => {} }),
+          createElement(CalendarDaySummary, {
+            state, date: context.date, filter: 'all', density: 'standard', onSelect: () => {},
+          }),
+        ]) {
+          const html = renderToStaticMarkup(element);
+          expect(html).not.toContain('未報告 · 今日の残り 0問');
+          expect(html).not.toContain('未報告あり');
+          expect(html).not.toContain('進捗を記録');
+          if (hasReport) expect(html).toContain(`実績 ${actual}問 · 今日の残り 0問`);
+        }
+      } finally {
+        vi.useRealTimers();
+      }
+      expect(todayStudyRows(state, context.date)).toHaveLength(hasReport ? 1 : 0);
+      const past = calendarQuantity(state, context.date, addDays(context.date, 1));
+      expect(past.rows).toMatchObject([
+        { materialId: 'book', planned: 6, actual, reported: hasReport },
+        { materialId: 'other', planned: 9, actual: 0, reported: false },
+      ]);
+      expect(state).toEqual(before);
+    },
+  );
+}

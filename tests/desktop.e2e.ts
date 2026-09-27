@@ -684,6 +684,53 @@ test('実機：部分記録後に翌日から仕切り直すと、今日の残�
   expect((await storedState()).records).toEqual(recorded.records);
 });
 
+test('実機：仕切り直した旧未報告教材は予定画面から消え、SQLite再起動後も戻らない', async () => {
+  dataDir = mkdtempSync(resolve('.test-data/restart-retired-rows-'));
+  await launch();
+  const date = today();
+  const source = adjustmentFixture(date);
+  await seedState(source, 'restart-retired-rows');
+  await saved();
+  await nav('今後の予定');
+  await page.getByRole('button', { name: '計画を仕切り直す', exact: true }).click();
+  await page.getByLabel('開始日', { exact: true }).fill(addDays(date, 1));
+  await page.getByRole('button', { name: 'この日から案を作成', exact: true }).click();
+  await page.getByRole('button', { name: 'この内容で更新', exact: true }).click();
+  await saved();
+  const approved = await storedState();
+  expect(approved.records).toEqual([]);
+  expect(approved.studyDayBaselines?.[date].rows.map((r) => r.count)).toEqual([6, 9]);
+  for (const [materialId, round, total] of [['book', 0, 30], ['book', 1, 30], ['other', 0, 45]] as const) {
+    const active = activePlanWork(approved, date).filter((s) => s.materialId === materialId && s.round === round);
+    expect(active.filter((s) => s.date === date)).toEqual([]);
+    expect(active.reduce((n, s) => n + s.count, 0)).toBe(total);
+  }
+  expect(approved.plan!.shortfalls).toEqual([]);
+  const check = async () => {
+    await nav('今後の予定');
+    await page.getByRole('button', { name: '前の週', exact: true }).click();
+    await expect(page.locator('.future-day').filter({ hasText: '今日' })).toHaveCount(0);
+    await page.getByRole('button', { name: '詳細カレンダーを見る', exact: true }).click();
+    await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
+    const panel = page.getByRole('complementary', { name: '選択した日の学習詳細' });
+    await expect(page.locator('.day.today .calendar-event')).toHaveCount(0);
+    await expect(panel.locator('.quantity-breakdown section')).toHaveCount(0);
+    await page.getByRole('button', { name: '学習量', exact: true }).click();
+    await expect(panel.locator('.quantity-breakdown section')).toHaveCount(0);
+    await expect(page.locator('.day.today .calendar-quantity')).toHaveText('予定なし');
+  };
+  await check();
+  expect((await storedState()).plan).toEqual(approved.plan);
+  await closeWindowNormally();
+  await launch();
+  await check();
+  const restored = await storedState();
+  expect(restored.plan).toEqual(approved.plan);
+  expect(restored.records).toEqual(approved.records);
+  expect(restored.studyDayBaselines).toEqual(approved.studyDayBaselines);
+  expect(restored.history).toEqual(approved.history);
+});
+
 test('実機：今日の未設定区間に名前を付け、保存・取消・再起動・解除する', async () => {
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/outside-labels-'));

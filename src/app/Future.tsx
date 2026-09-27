@@ -1,6 +1,6 @@
 import { progressView } from '../domain/progressView';
 import { ProgressValue } from '../components/ProgressValue';
-import { calendarQuantity, materialUnit } from '../domain/calendarQuantity';
+import { calendarDisplayQuantity, materialUnit } from '../domain/calendarQuantity';
 import { Props, duration } from '../components/common';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { upcomingSunday, shortDayLabel, weekRangeLabel } from '../domain/calendar';
@@ -60,7 +60,7 @@ export function Future({
     const date = addDays(week, offset);
     if (
       date <= reference &&
-      calendarQuantity(state, date, reference).rows.length &&
+      calendarDisplayQuantity(state, date, reference).rows.length &&
       !groups.has(date)
     )
       groups.set(date, []);
@@ -139,7 +139,7 @@ export function Future({
         [...groups]
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([date, sessions]) => {
-            const quantity = calendarQuantity(state, date, reference);
+            const quantity = calendarDisplayQuantity(state, date, reference);
             const rows = new Map<string, { session: Session; count: number; minutes: number }>();
             for (const session of sessions) {
               const key = JSON.stringify([

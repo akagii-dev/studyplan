@@ -17,7 +17,7 @@ import { blockingEvents, overlapsBusy } from '../domain/planAudit';
 import { moveCalendarDate, startOfWeek, shortDayLabel } from '../domain/calendar';
 import { DailyTime } from './DailyTime';
 import { CalendarQuantity, CalendarQuantityDetails } from './CalendarQuantity';
-import { calendarQuantity, materialUnit } from '../domain/calendarQuantity';
+import { calendarDisplayQuantity, materialUnit } from '../domain/calendarQuantity';
 import { CalendarDaySummary } from './CalendarDaySummary';
 import { renameOutsideRange } from '../domain/dailyTimeDisplay';
 import { Empty, Props, duration, weekdays } from './common';
@@ -122,7 +122,7 @@ export function Calendar({
   };
   const sessionsOn = (date: string) => visible.filter((s) => s.date === date);
   const hasQuantity = (date: string) =>
-    calendarQuantity(state, date, today(), filter).rows.length > 0;
+    calendarDisplayQuantity(state, date, today(), filter).rows.length > 0;
   const recordsOn = (date: string) =>
     state.records.filter(
       (r) =>
@@ -142,7 +142,7 @@ export function Calendar({
   const detail = (s: Session, level: CalendarDensity = 'detailed') => {
     const e = state.settings.exams.find((e) => e.id === s.examId);
     const m = state.settings.materials.find((m) => m.id === s.materialId);
-    const progress = calendarQuantity(state, s.date).rows.find(r => r.materialId === s.materialId && r.round === s.round);
+    const progress = calendarDisplayQuantity(state, s.date).rows.find(r => r.materialId === s.materialId && r.round === s.round);
     return (
       <div
         key={s.id}

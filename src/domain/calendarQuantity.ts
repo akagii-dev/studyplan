@@ -193,29 +193,56 @@ export function calendarQuantity(
     row.reported = true;
     rows.set(key, row);
   }
-  const totals = new Map<string, QuantityTotal>();
   for (const row of rows.values()) {
     row.remainder = row.planned === null ? null : Math.max(0, row.planned - row.actual);
     if (currentRemaining)
       row.currentRemaining = currentRemaining.get(workKey(row.materialId, row.round)) ?? 0;
+  }
+  const quantities = [...rows.values()];
+  return { date, past, known: !!baseline, rows: quantities, totals: quantityTotals(quantities) };
+}
+
+/** Aggregate only the supplied rows; comparison and display projections share the same unit rules. */
+export function quantityTotals(rows: readonly QuantityRow[]): QuantityTotal[] {
+  const totals = new Map<string, QuantityTotal>();
+  for (const row of rows) {
     const total = totals.get(row.unit) ?? {
       unit: row.unit,
-      planned: baseline ? 0 : null,
+      planned: 0,
       actual: 0,
       reported: false,
       partial: false,
-      remainder: baseline ? 0 : null,
-      shortage: baseline ? 0 : null,
-      ...(currentRemaining ? { currentRemaining: 0 } : {}),
+      remainder: 0,
+      shortage: 0,
+      ...(row.currentRemaining === undefined ? {} : { currentRemaining: 0 }),
     };
-    if (total.planned !== null) total.planned += row.planned ?? 0;
-    if (total.remainder !== null) total.remainder += row.remainder ?? 0;
-    if (total.shortage !== null) total.shortage += recordedShortage(row) ?? 0;
+    total.planned = total.planned === null || row.planned === null ? null : total.planned + row.planned;
+    total.remainder = total.remainder === null || row.remainder === null ? null : total.remainder + row.remainder;
+    const shortage = recordedShortage(row);
+    total.shortage = total.shortage === null || shortage === null ? null : total.shortage + shortage;
     if (total.currentRemaining !== undefined) total.currentRemaining += row.currentRemaining ?? 0;
     total.actual += row.actual;
     total.reported ||= row.reported;
     total.partial ||= !row.reported && (row.planned === null || row.planned > 0);
     totals.set(row.unit, total);
   }
-  return { date, past, known: !!baseline, rows: [...rows.values()], totals: [...totals.values()] };
+  return [...totals.values()];
+}
+
+/** Today's execution view omits unreported tasks removed by an approved restart.
+ * Historical comparisons remain available through calendarQuantity and saved baselines.
+ */
+export function calendarDisplayQuantity(
+  state: AppState,
+  date: string,
+  reference = today(),
+  filter = 'all',
+) {
+  const quantity = calendarQuantity(state, date, reference, filter);
+  if (date !== reference) return quantity;
+  const rows = quantity.rows.filter(
+    (row) => row.currentRemaining === undefined || row.currentRemaining > 0 || row.reported,
+  );
+  return rows.length === quantity.rows.length ? quantity :
+    { ...quantity, rows, totals: quantityTotals(rows) };
 }

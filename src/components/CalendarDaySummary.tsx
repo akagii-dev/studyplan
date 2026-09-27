@@ -1,4 +1,4 @@
-import { calendarQuantity } from '../domain/calendarQuantity';
+import { calendarDisplayQuantity } from '../domain/calendarQuantity';
 import { progressView } from '../domain/progressView';
 import { ProgressValue } from './ProgressValue';
 import { AppState, CalendarDensity, clock, today } from '../domain/model';
@@ -19,7 +19,7 @@ export function CalendarDaySummary({
   onSelect: () => void;
 }) {
   const day = calendarDaySummary(state, date, filter);
-  const quantities = calendarQuantity(state, date, today(), filter);
+  const quantities = calendarDisplayQuantity(state, date, today(), filter);
   const examIds = [
     ...new Set([...day.exams.map((e) => e.examId), ...quantities.rows.map((r) => r.examId)]),
   ];
@@ -45,7 +45,7 @@ export function CalendarDaySummary({
       {examIds.map((id) => {
         const exam = state.settings.exams.find((e) => e.id === id);
         const scheduled = day.exams.find((e) => e.examId === id);
-        const quantity = calendarQuantity(state, date, today(), id);
+        const quantity = calendarDisplayQuantity(state, date, today(), id);
         return (
           <button
             key={id}

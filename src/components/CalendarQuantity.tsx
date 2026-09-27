@@ -1,7 +1,7 @@
 import { progressView } from '../domain/progressView';
 import { ProgressValue } from './ProgressValue';
 import { AppState, Session, today } from '../domain/model';
-import { calendarQuantity, recordedShortage } from '../domain/calendarQuantity';
+import { calendarDisplayQuantity, recordedShortage } from '../domain/calendarQuantity';
 
 export function CalendarQuantity({
   state,
@@ -14,7 +14,7 @@ export function CalendarQuantity({
   filter: string;
   onSelect: () => void;
 }) {
-  const quantity = calendarQuantity(state, date, today(), filter);
+  const quantity = calendarDisplayQuantity(state, date, today(), filter);
   return (
     <div className="calendar-quantity">
       {quantity.totals.map((total) => (
@@ -41,7 +41,7 @@ export function CalendarQuantityDetails({
   filter: string;
   onRecord: (session: Session) => void;
 }) {
-  const quantity = calendarQuantity(state, date, today(), filter);
+  const quantity = calendarDisplayQuantity(state, date, today(), filter);
   return (
     <div className="quantity-breakdown">
       {quantity.rows.map((row) => (

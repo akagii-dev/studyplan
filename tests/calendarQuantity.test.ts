@@ -1,13 +1,43 @@
 import { describe, expect, it } from 'vitest';
 import { initialState, AppState, Plan, Session, addDays } from '../src/domain/model';
-import { calendarQuantity, retainStudyDayBaselines } from '../src/domain/calendarQuantity';
+import { calendarQuantity, calendarDisplayQuantity, retainStudyDayBaselines } from '../src/domain/calendarQuantity';
 import { upcomingSunday, weekRangeLabel } from '../src/domain/calendar';
 import { undoPlan, approve, proposeRestart } from '../src/domain/planner/proposal';
-import { adjustmentContext, restartFixture } from './fixtures/adjustment';
+import { adjustmentContext, adjustmentFixture, adjustmentReport, restartFixture } from './fixtures/adjustment';
 import { createProgressBaseline } from '../src/domain/progressReflection';
 import { todayStudyRows } from '../src/domain/todayProgress';
+import { recordAndAdjust } from '../src/domain/progressAdjustment';
+import { createWeeklyReport, dailyReportDetails } from '../src/domain/weeklyReport';
 
 const date = '2026-09-24';
+
+it('仕切り直し後の表示合計は旧未報告の単位を除き、週間比較には元の問・ページを残す', () => {
+  const context = adjustmentContext;
+  let source = adjustmentFixture();
+  source.settings.materials[1].unit = 'ページ';
+  source.plan!.settingsSnapshot = structuredClone(source.settings);
+  source = recordAndAdjust(source, adjustmentReport(4), context);
+  const state = approve(proposeRestart(source, addDays(context.date, 1), context), false, context);
+  const before = structuredClone(state);
+  const comparison = calendarQuantity(state, context.date, context.date);
+  expect(comparison.totals).toMatchObject([
+    { unit: '問', planned: 6, actual: 4 },
+    { unit: 'ページ', planned: 9, actual: 0 },
+  ]);
+  const displayed = calendarDisplayQuantity(state, context.date, context.date);
+  expect(displayed.rows).toHaveLength(1);
+  expect(displayed.totals).toMatchObject([
+    { unit: '問', planned: 6, actual: 4, reported: true, partial: false, currentRemaining: 0 },
+  ]);
+  expect(calendarDisplayQuantity(state, context.date, context.date, 'b').totals).toEqual([]);
+  expect(dailyReportDetails(state, context.date, context.date)).toHaveLength(2);
+  const report = createWeeklyReport(state, context.date, new Date(context.timestamp));
+  expect(report.days.find((d) => d.date === context.date)?.quantities).toEqual(comparison.totals);
+  for (const reference of [addDays(context.date, -1), addDays(context.date, 1)])
+    expect(calendarDisplayQuantity(state, context.date, reference)).toEqual(calendarQuantity(state, context.date, reference));
+  expect(state).toEqual(before);
+});
+
 const session = (id: string, count: number, round = 0): Session => ({
   id,
   materialId: id,

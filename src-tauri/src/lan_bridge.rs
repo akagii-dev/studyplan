@@ -27,7 +27,7 @@ fn text(params: &Value) -> Result<&str, String> {
         .ok_or_else(|| "バックアップ本文がありません。".into())
 }
 
-fn dispatch(database: &Database, method: &str, params: &Value) -> Result<Value, String> {
+pub(crate) fn dispatch(database: &Database, method: &str, params: &Value) -> Result<Value, String> {
     match method {
         "load_state" => database.with(|conn| {
             db::load(conn).and_then(|data| serde_json::to_value(data).map_err(|e| e.to_string()))

@@ -1,18 +1,22 @@
 use crate::db;
 use rusqlite::Connection;
-use std::{path::PathBuf, sync::Mutex};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 // Open on the first command so storage failures can be shown in the application.
 // Failed connections are released; Retry can reopen a temporarily unavailable file.
+#[derive(Clone)]
 pub struct Database {
     path: Result<PathBuf, String>,
-    connection: Mutex<Option<Connection>>,
+    connection: Arc<Mutex<Option<Connection>>>,
 }
 impl Database {
     pub fn new(path: Result<PathBuf, String>) -> Self {
         Self {
             path,
-            connection: Mutex::new(None),
+            connection: Arc::new(Mutex::new(None)),
         }
     }
     pub fn with<T>(

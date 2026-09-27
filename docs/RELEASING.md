@@ -23,7 +23,21 @@ CMDランチャーおよび独立した`SHA256SUMS.txt`は今後生成・添付�
 
 ## LAN版のローカル配信
 
-同じcheckoutの更新済みDesktopと併用する。旧配布版はLANからの外部更新通知を持たない。Node.js（22.19以降）、pnpm、Rustの既存開発環境が必要。Desktopで一度起動して作られたSQLiteを利用し、存在しない保存先へ空データを作らない。既存SQLiteの未入力状態はLANでも初期設定から利用できる。
+### 配布EXEから公開する
+
+v0.6.0以降は「設定」→「LAN公開」から開始・停止できる。Node.js・pnpm・Rustは利用者に不要。複数のLAN IPv4がある場合はWi-Fi側を選ぶ。配信先は `http://<選択したIPv4>:4178/studyplan-lan/`。アプリに表示した接続リンクを同じLANのiPhoneで開く。APIキーを知る人は学習データの閲覧・変更・復元ができるため、リンクとキーを公開しない。HTTPは暗号化されず、信頼できる個人LANに限って使う。
+
+公開は明示操作で開始し、選択したprivate IPv4にのみbindする。アプリの終了で停止し、次の公開開始時には新しいキーを発行する。キーはメモリ内だけに保持し、AppState・SQLite・バックアップ・ログへ保存しない。Windowsファイアウォール、ルーター、Tailscaleの設定をアプリが変更することはない。接続できない場合はPCとiPhoneのWi-Fi、既存の4178番許可を確認する。
+
+LANファイルはビルド時にallowlistとハッシュを検証してEXEへ内蔵し、実行時にリポジトリやディスク上の任意ファイルを公開しない。`pnpm desktop:build` はLAN資材とDesktop資材を順にビルドする。CLI用helperは`lan-cli` featureを有効にしたときだけ生成し、Desktopの配布ビルドは稼働中helperを更新しない。開発用の直接Cargoビルド前は `pnpm lan:assets` を実行する。テストは専用保存先を指定したdebug版だけで行う。
+
+既存のCLIホストが4178番を使用している場合、アプリは停止・強制終了せずエラーを表示する。CLI側の `pnpm lan:stop` でそのホストだけを止めてからアプリで公開する。アプリ内の停止も、自分で開始した配信のみを対象とする。
+
+旧ホストの`node.exe`だけを許可していた場合、その許可は配布EXEへ引き継がれない。別端末で開けない場合は、Windowsの受信規則をStudyPlanのTCP 4178・利用する同一LANの範囲に限定して確認する。全ポート・インターネット全体への許可は不要。
+
+### 開発用CLIから公開する
+
+同じcheckoutの更新済みDesktopと併用する。旧配布版はLANからの外部更新通知を持たない。以下のCLI方式ではNode.js（22.19以降）、pnpm、Rustの既存開発環境が必要。Desktopで一度起動して作られたSQLiteを利用し、存在しない保存先へ空データを作らない。既存SQLiteの未入力状態はLANでも初期設定から利用できる。
 
 ```powershell
 pnpm lan:build

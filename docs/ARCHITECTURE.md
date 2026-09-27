@@ -50,6 +50,10 @@ CIはPRで同じ検証を実行し、mainのデモ公開も検証成功後に限
 
 ### LAN版の保存境界
 
+配布Desktopは`lan_host`のHTTP配信を内蔵する。React設定の`LanSharing`→`desktopLan`→Tauriの開始・状態・停止コマンドで管理し、学習データの状態遷移には参加しない。HTTPの保存操作はCLI helperと同じ`lan_bridge::dispatch`→`Database`→`db/backup`。同じSQLite・CAS・requestId・復元前退避を使用する。LANクライアントのReact/domainはDesktopと同じソースから別modeでビルドし、検証済み静的ファイルだけをEXEへ埋め込む。
+
+公開は明示開始のみ。選択したLAN IPv4の4178番へbindし、停止・アプリ終了で閉じる。ランダムな接続キーは公開開始ごとに発行し、メモリ外へ保存しない。Desktop設定だけで警告とともに表示する。キー・完全一致Host/Origin・要求サイズ等をHTTP境界で検証し、学習データの検証は共通保存境界へ委譲する。CLIホストと相互にプロセスを停止せず、ポート占有時は開始を拒否する。
+
 最新mainのReact UI・AppState・domain・計画処理・保存キューを共用する。Tauriは`store.ts → invoke → db/backup`、LANは`store.ts → lanStore.ts → HTTP → scripts/lan-host.mjs → studyplan_lan_bridge → 同じdb/backup`。WindowsのSQLiteだけが学習データの正本であり、LANブラウザーへ別のAppStateや未送信操作キューを永続化しない。設定・実績・固定・承認済み計画・proposal・履歴・下書きも既存AppStateの意味で保存し、Planのマージや別計算を行わない。
 
 Rust helperは明示した既存SQLiteだけを開き、Tauriと同じ`Database`・スキーマ・`BEGIN IMMEDIATE`・revision・requestId・復元前退避を使う。Node側にはSQLやdomainを複製しない。重複requestIdの応答は`operations.revision`と`audit.data`から元のEnvelopeを返す。他端末の新しいrevisionだけを古い画面へ採用してはならない。

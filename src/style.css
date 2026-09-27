@@ -1501,6 +1501,20 @@ td .actions {
   justify-content: space-between;
   margin-bottom: 20px;
 }
+.error-banner-dismissible {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.error-banner-dismissible > span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.error-banner-dismissible > button {
+  flex-shrink: 0;
+  min-height: 44px;
+  white-space: nowrap;
+}
 .loading {
   height: 100vh;
   display: flex;
@@ -2881,6 +2895,28 @@ textarea {
 .settings-links { display: flex; flex-wrap: wrap; gap: 8px; }
 .settings-display { display: flex; flex-wrap: wrap; gap: 16px; }
 .settings-display label { display: grid; gap: 5px; }
+.lan-sharing > summary { font-size: 16px; font-weight: 650; cursor: pointer; }
+.lan-sharing > summary span { margin-inline-start: 8px; font-size: 14px; font-weight: 400; }
+.lan-sharing-content { display: grid; gap: 16px; margin-block-start: 16px; }
+.lan-sharing-content p { margin: 0; overflow-wrap: anywhere; }
+.lan-sharing-warning { color: var(--warning-ink); }
+.lan-sharing-field { display: grid; gap: 8px; min-width: 0; }
+.lan-sharing-field > label { font-weight: 650; }
+.lan-sharing-field textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface);
+  font: 16px/1.5 Consolas, monospace;
+  overflow-wrap: anywhere;
+  resize: vertical;
+}
+.lan-sharing-field button { justify-self: start; }
+.lan-sharing-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.lan-sharing button, .lan-sharing select { min-height: 44px; }
+.lan-sharing-lifetime { color: var(--muted); }
 .delete-confirm { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .delete-confirm span { font-size: 12px; }
 @media (max-width: 700px) {

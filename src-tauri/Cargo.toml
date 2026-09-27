@@ -1,9 +1,17 @@
 [package]
 name = "studyplan"
-version = "0.5.1"
+version = "0.6.0"
 description = "ローカル学習計画アプリ"
 edition = "2021"
 default-run = "studyplan"
+
+[features]
+lan-cli = []
+
+[[bin]]
+name = "studyplan_lan_bridge"
+path = "src/bin/studyplan_lan_bridge.rs"
+required-features = ["lan-cli"]
 
 [lib]
 name = "studyplan_lib"
@@ -11,6 +19,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+serde_json = "1"
+sha2 = "0.10"
 
 [dependencies]
 tauri = { version = "2", features = [] }
@@ -20,3 +30,9 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 tauri-plugin-dialog = "2"
 jsonschema = { version = "0.56.0", default-features = false }
 tempfile = "3"
+getrandom = "0.3"
+if-addrs = "0.15"
+hyper = { version = "1", features = ["http1", "server"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+tokio = { version = "1", features = ["net", "sync", "time", "rt", "macros", "io-util"] }

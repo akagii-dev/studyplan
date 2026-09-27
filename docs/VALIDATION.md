@@ -1,5 +1,32 @@
 # 動作確認記録
 
+## v0.6.0・アプリ内LAN公開（2026-09-28）
+
+開始時は`main / e22bb2e`、未コミット変更なし、fetch後もoriginと一致。親が配布・統合、保存担当が内蔵HTTP、UI担当が公開操作、独立検証担当が実操作とレビューを担当。通常SQLiteへ試験書込みせず、Rust一時DBと`.test-data/`の専用SQLite、隔離WebView2／Chromeを使用した。
+
+- 設定の「LAN公開」から開始・停止。停止中／処理中／公開中を識別し、複数NICは明示選択する。HTTPの非暗号化とAPIキーの閲覧・変更権限を警告し、URLと全文キーを表示。キーは開始ごとに発行し、AppState・バックアップ・ログへ保存しない。
+- 配信をEXEへ内蔵し、Nodeや外部helperを起動しない。ビルド時にmanifest・allowlist・ハッシュ・リンク・容量上限を検証。HTTPは既存`lan_bridge::dispatch`と同じDatabaseを使い、domainや保存スキーマは変更していない。
+- 実アプリで別サービスによるポート占有→明示エラーと既存サービス維持→再試行で公開。Originなし／他サイト403、キーなし401、不正JSON400、非公開ファイル404を実通信で確認。Rust側ではHost・サイズ・schema・再送・競合・復元と保存中の停止待機も固定した。
+- Chrome390×844から4問→Desktop1280×800の入力途中2問を保持→明示再読込→Desktopで2問追加。両画面とSQLiteで実績6問・有効予定24問を確認。古いrevision409、同じrequestIdの再送は元の結果を返す。停止／終了後に接続不能、再開時は旧キー401、再起動後の実績も保持。
+- キーと接続リンクのコピー成功・拒否時の手動選択を隔離したClipboard stubで検証。通常OSのクリップボードは変更していない。実画面のフォーカス、警告、折返し、横溢れ、axeを確認。`better-interface`の6観点を画面範囲へ適用し、独立レビューと親の画像確認では新たなCritical/Majorなし、判定Approve。既存の狭幅再読込通知の「閉じる」が縦に折れるMinorは、その後のユーザー指定により本文下へ配置する修正を追加した。
+
+| 検証 | 結果 |
+| --- | --- |
+| `pnpm verify` | lint・型検査・単体435件・通常ビルド成功 |
+| `PLAYWRIGHT_CHANNEL=chrome pnpm verify:ui` | 18件成功 |
+| `cargo test --lib` / `cargo build --bins` | Rust35件（HTTP7件追加）とdebug両EXE成功 |
+| `pnpm test:ui` | Windows/Tauri実機55件成功。独立担当の新規1件単独実行も成功 |
+| `pnpm test:lan` / `node --test tests/lanHost.test.mjs` | 既存LAN22件とCLIホスト2件成功。幅と無関係な契約の重複10件は従来どおりskip |
+| 新E2E追加後のlint・型検査 | 成功 |
+
+初回の新E2Eはaxeが`browser.newPage`を受け付けず停止したため、テストを`newContext`→`newPage`へ修正して再実行した。製品コードや期待値は変更していない。依存の自動再導入がsandboxで失敗した際は同時実行を止め、`pnpm install --frozen-lockfile`で復旧した。
+
+追加指定の「警告本文→下に閉じる」は、再接続通知を変えずdismiss用の共通バナーだけに適用した。再ビルド後に`pnpm verify`、`pnpm verify:ui`、新規Desktop-LAN E2Eを再実行し成功。1280×800／390×844の画像で横書き・本文下の配置を確認し、Enterで閉じても実績6問・有効予定24問・保存Envelopeが変わらないことを確認した。上記Desktop55件の全体実行はこのCSS追加の前に成功、追加後は関連する実機フローを再検証している。
+
+配布検証：`pnpm desktop:build`成功、EXEのFileVersion/ProductVersionは0.6.0。稼働中の旧CLI helperがロックされる問題は、CLIバイナリーだけを`lan-cli` featureへ分離して解消し、通常配信を停止しなかった。分離後の共通Rust35件とfeature付きdebug helperビルドも成功。更新ZIPはEXE・更新PowerShell・manifest・READMEの4ファイルのみ、EXEとmanifestのSHA-256一致。`test-update.ps1`で旧v0.5.1の隔離複製に対する使用中拒否・破損拒否・正常置換・旧EXE退避・再実行・データ保持がすべて成功した。
+
+未検証：iPhone実機Safari／ホーム画面、OSクリップボードへの実書込み、配布EXEを隔離Windowsアカウントで起動する試験。ファイアウォールのPowerShell読取りはOSから拒否され、netshの読取りでは4178指定の受信規則を確認できなかった。別端末の通信経路や新EXEへの許可を確認済みとは扱わず、Node専用許可が引き継がれない点を配布手順へ記載。ファイアウォール・ルーター設定は変更していない。
+
 ## スマホナビの選択表示（2026-09-28）
 
 スマホ下部ナビの選択中アクセントを上辺から下辺へ移動。`better-ui`で選択状態を確認し、390×844の実ブラウザー画像で下辺の線、中央揃えのアイコン・文字、1280×800で既存の左辺アクセントを確認した。専用SQLiteのLAN E2Eでカレンダーの往復・キーボード・axe・横溢れを広幅／狭幅の2件とも確認。

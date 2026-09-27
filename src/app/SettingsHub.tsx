@@ -12,6 +12,8 @@ import {
   setupIssues,
 } from '../domain/setupIssues';
 import { demoMode } from '../demo';
+import { desktopLanAvailable } from '../desktopLan';
+import { LanSharing } from '../components/LanSharing';
 import { Page } from './navigation';
 
 export type AvailabilityTarget = 'study' | 'busy' | 'class' | 'exception' | 'meals';
@@ -226,6 +228,7 @@ export function SettingsHub({
           </div>
         </section>
       ))}
+      {desktopLanAvailable() && <LanSharing />}
       <section className="card">
         <h2>表示</h2>
         <div className="settings-display">

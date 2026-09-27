@@ -173,7 +173,7 @@ export function AppShell({
             )}
           </div>
           {error && (
-            <div className="error-banner" role="alert">
+            <div className="error-banner error-banner-dismissible" role="alert">
               <span>{error}</span>
               <button onClick={dismissError}>閉じる</button>
             </div>

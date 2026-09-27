@@ -22,13 +22,15 @@
 
 「バックアップ」から設定・計画・実績・入力途中を `.studyplan.json` に保存できます。復元は内容の確認後に全体を置き換え、直前の状態に1回分戻せます。
 
-[最新版 v0.5.1](https://github.com/akagii-dev/studyplan/releases/tag/v0.5.1)のWindows版をダウンロードして起動してください。Windows + Microsoft Edge WebView2 Runtimeが必要です。外部アカウントは不要です。旧版と保存先は共通なので、版を切り替える際は起動中のStudyPlanを閉じてください。
+[最新版 v0.6.0](https://github.com/akagii-dev/studyplan/releases/tag/v0.6.0)のWindows版をダウンロードして起動してください。Windows + Microsoft Edge WebView2 Runtimeが必要です。外部アカウントは不要です。旧版と保存先は共通なので、版を切り替える際は起動中のStudyPlanを閉じてください。
 
 データの保存先は通常 `%APPDATA%\jp.local.studyplan\studyplan.sqlite3`。開発用テストデータは別フォルダーに分離します。保存中にウィンドウを閉じた場合は、最後の入力の保存を待ってから終了します。保存に失敗した場合は終了を中止して知らせます。強制終了や電源断はこの待機の対象外です。
 
 ### iPhoneからLANで利用
 
-このcheckoutのDesktopと同じSQLiteを、iPhoneのブラウザーから読み書きできます。`pnpm lan:build` → `pnpm lan:start`で表示される接続リンクを同じLANで開きます。状態確認は`pnpm lan:status`、停止は`pnpm lan:stop`。Windowsへの接続が必要で、iPhoneに別の学習データや同期キューは作りません。[配信・接続手順](docs/RELEASING.md#lan版のローカル配信)を参照してください。公開デモは従来どおり独立しています。
+Windowsアプリの「設定」→「LAN公開」から「LANに公開」を押し、表示された接続リンクを同じWi-FiのiPhoneで開きます。複数の接続先がある場合はWi-Fi側のIPを選びます。配信はEXEに内蔵され、Node.js等の追加環境は不要です。
+
+APIキーを知る人は学習データを閲覧・変更できます。リンクとキーは共有せず、HTTPは暗号化されないため信頼できる個人LANだけで使用してください。アプリを閉じると公開は停止し、次の開始時には新しいキーになります。Windowsへの接続が必要で、iPhoneに別の学習データや同期キューは作りません。[配信・接続手順](docs/RELEASING.md#lan版のローカル配信)を参照してください。公開デモは従来どおり独立しています。
 
 起動時に保存データを開けない場合は「もう一度読み込む」で再試行できます。原因と保存先は「エラーの詳細」に表示します。読めないデータを自動で初期化することはありません。
 
@@ -51,8 +53,9 @@ pnpm desktop
 pnpm verify
 pnpm exec playwright install chromium
 pnpm verify:ui
+pnpm lan:assets
 cargo test --manifest-path src-tauri/Cargo.toml
-cargo build --manifest-path src-tauri/Cargo.toml
+cargo build --manifest-path src-tauri/Cargo.toml --features lan-cli --bins
 pnpm test:ui
 pnpm desktop:build
 ```
@@ -98,7 +101,7 @@ WebView2の画面データも起動ごとに `.test-data/native-webview-*` へ�
 
 ## 更新パッケージ
 
-`release/StudyPlan-update-0.5.1.zip` を展開し、`Update-StudyPlan.ps1` を右クリックして「PowerShellで実行」を選び、これまで使っていた StudyPlan の実行ファイルを選んでください。アプリを閉じてから行います。設定・計画・記録は同じ保存先を引き継ぎます。旧実行ファイルも控えとして残します。
+`release/StudyPlan-update-0.6.0.zip` を展開し、`Update-StudyPlan.ps1` を右クリックして「PowerShellで実行」を選び、これまで使っていた StudyPlan の実行ファイルを選んでください。アプリを閉じてから行います。設定・計画・記録は同じ保存先を引き継ぎます。旧実行ファイルも控えとして残します。
 
 実行ファイル全体を差し替える更新パッケージです。差分ダウンロードや自動更新は行いません。手動で同梱の `StudyPlan.exe` を差し替えても更新できます。
 

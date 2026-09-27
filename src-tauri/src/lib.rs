@@ -3,10 +3,31 @@ mod calendar_file;
 mod database;
 mod db;
 pub mod lan_bridge;
+mod lan_host;
 mod report_file;
 mod window_state;
 use database::Database;
 use tauri::Manager;
+#[tauri::command]
+async fn lan_host_status(
+    host: tauri::State<'_, lan_host::LanHost>,
+) -> Result<lan_host::Status, String> {
+    host.status().await
+}
+#[tauri::command]
+async fn lan_host_start(
+    host: tauri::State<'_, lan_host::LanHost>,
+    db: tauri::State<'_, Database>,
+    address: String,
+) -> Result<lan_host::Status, String> {
+    host.start(address, db.inner().clone()).await
+}
+#[tauri::command]
+async fn lan_host_stop(
+    host: tauri::State<'_, lan_host::LanHost>,
+) -> Result<lan_host::Status, String> {
+    host.stop().await
+}
 #[tauri::command]
 fn save_window_state(window: tauri::Window) -> Result<(), String> {
     window_state::persist(&window)
@@ -74,6 +95,7 @@ fn undo_restore(
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .manage(lan_host::LanHost::default())
         .setup(|app| {
             let dir = app.path().app_data_dir().map_err(|e| e.to_string());
             #[cfg(debug_assertions)]
@@ -115,8 +137,17 @@ pub fn run() {
             validate_backup,
             restore_backup,
             load_restore_point,
-            undo_restore
+            undo_restore,
+            lan_host_status,
+            lan_host_start,
+            lan_host_stop
         ])
-        .run(tauri::generate_context!())
-        .expect("StudyPlanを起動できませんでした");
+        .build(tauri::generate_context!())
+        .expect("StudyPlanを起動できませんでした")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                // Actual app exit, after the existing save/close decision. No second close veto.
+                let _ = tauri::async_runtime::block_on(app.state::<lan_host::LanHost>().stop());
+            }
+        });
 }

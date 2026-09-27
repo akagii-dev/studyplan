@@ -1,6 +1,7 @@
 import { AppState, Plan, StudyDayBaseline, today } from './model';
 import { originalSessionCount } from './progressReflection';
 import { activePlanWork, workKey } from './progressAllocation';
+import { displayPlanSessions, isArchivedPlanDate } from './planDisplay';
 
 const keyOf = (id: string, round: number, unit: string) => JSON.stringify([id, round, unit]);
 export const materialUnit = (unit?: string) => unit?.trim() || '問';
@@ -96,6 +97,8 @@ export interface QuantityRow {
   remainder: number | null;
   /** Current actionable work after a restart; distinct from the comparison denominator. */
   currentRemaining?: number;
+  /** Display-only start-day allocation. Records before the restart are not its denominator. */
+  restartPlanned?: number;
 }
 export interface QuantityTotal {
   unit: string;
@@ -106,6 +109,7 @@ export interface QuantityTotal {
   remainder: number | null;
   shortage: number | null;
   currentRemaining?: number;
+  restartPlanned?: number;
 }
 /** Historical shortage is confirmed only by an actual report, including an explicit zero. */
 export const recordedShortage = (row: Pick<QuantityRow, 'planned' | 'actual' | 'reported'>) =>
@@ -221,6 +225,8 @@ export function quantityTotals(rows: readonly QuantityRow[]): QuantityTotal[] {
     const shortage = recordedShortage(row);
     total.shortage = total.shortage === null || shortage === null ? null : total.shortage + shortage;
     if (total.currentRemaining !== undefined) total.currentRemaining += row.currentRemaining ?? 0;
+    if (row.restartPlanned !== undefined)
+      total.restartPlanned = (total.restartPlanned ?? 0) + row.restartPlanned;
     total.actual += row.actual;
     total.reported ||= row.reported;
     total.partial ||= !row.reported && (row.planned === null || row.planned > 0);
@@ -229,8 +235,8 @@ export function quantityTotals(rows: readonly QuantityRow[]): QuantityTotal[] {
   return [...totals.values()];
 }
 
-/** Today's execution view omits unreported tasks removed by an approved restart.
- * Historical comparisons remain available through calendarQuantity and saved baselines.
+/** Ordinary schedule views omit archived plans and today's removed, unreported tasks.
+ * Valid records remain visible; historical comparisons stay in calendarQuantity and saved baselines.
  */
 export function calendarDisplayQuantity(
   state: AppState,
@@ -239,6 +245,37 @@ export function calendarDisplayQuantity(
   filter = 'all',
 ) {
   const quantity = calendarQuantity(state, date, reference, filter);
+  if (isArchivedPlanDate(state, date, reference)) {
+    const rows = quantity.rows.filter((row) => row.reported)
+      .map((row) => ({ ...row, planned: null, remainder: null }));
+    return { ...quantity, known: false, rows, totals: quantityTotals(rows) };
+  }
+  if (date < reference && date === state.plan?.allocationStart) {
+    // The old daily baseline describes work before the restart. Keep all valid
+    // records, but show the approved replacement slots as a separate quantity.
+    const rows = new Map<string, QuantityRow>(quantity.rows.filter((row) => row.reported)
+      .map((row) => [keyOf(row.materialId, row.round, row.unit),
+        { ...row, planned: null, remainder: null }]));
+    const source = snapshot(state, { ...state.plan, sessions: displayPlanSessions(state, reference) }, date, true);
+    for (const item of source.rows) {
+      if (item.count <= 0 || (filter !== 'all' && item.examId !== filter)) continue;
+      const key = keyOf(item.materialId, item.round, item.unit);
+      const row = rows.get(key) ?? {
+        materialId: item.materialId,
+        round: item.round,
+        examId: item.examId,
+        name: item.name,
+        unit: item.unit,
+        planned: null,
+        actual: 0,
+        reported: false,
+        remainder: null,
+      };
+      rows.set(key, { ...row, restartPlanned: item.count });
+    }
+    const displayed = [...rows.values()];
+    return { ...quantity, known: false, rows: displayed, totals: quantityTotals(displayed) };
+  }
   if (date !== reference) return quantity;
   const rows = quantity.rows.filter(
     (row) => row.currentRemaining === undefined || row.currentRemaining > 0 || row.reported,

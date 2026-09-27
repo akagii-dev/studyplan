@@ -110,6 +110,26 @@ export const adjustmentReport = (count: number, id = 'record'): Progress => ({
   updatedAt: adjustmentContext.timestamp,
 });
 
+/** Legacy plan with two historical days; one unreported, one with 4 questions and explicit zero. */
+export function legacyRestartFixture(date = adjustmentDay) {
+  const source = adjustmentFixture(addDays(date, -2));
+  delete source.plan!.calculationVersion;
+  delete source.plan!.progressBaseline;
+  delete source.plan!.approvedAt;
+  source.plan!.sessions[0].fixed = true;
+  source.plan!.sessions.push({
+    ...source.plan!.sessions[0], id: 'old-review', kind: 'review', materialId: '',
+    start: 630, end: 650, count: 0, fixed: false,
+  });
+  const past = addDays(date, -1);
+  source.records = [
+    { ...adjustmentReport(4, 'past-four'), date: past, createdAt: `${past}T01:00:00Z`, updatedAt: `${past}T01:00:00Z` },
+    { ...adjustmentReport(0, 'past-zero'), date: past, materialId: 'other', createdAt: `${past}T01:00:00Z`, updatedAt: `${past}T01:00:00Z` },
+    { ...adjustmentReport(7, 'past-cancelled'), date: addDays(date, -2), cancelled: true, createdAt: `${past}T01:00:00Z`, updatedAt: `${past}T01:00:00Z` },
+  ];
+  return source;
+}
+
 /** Independent contract: 30 total = 2 initial + 2 recorded + 20 allocated + 6 unplaced. */
 export function restartFixture(baseDate = adjustmentDay) {
   const state = adjustmentFixture(baseDate);

@@ -3,14 +3,15 @@ import { QuantityRow, QuantityTotal } from './calendarQuantity';
 /** Presentation only. Never turns a missing report into a saved zero or offsets tasks. */
 export function progressState(
   value: Pick<QuantityRow, 'planned' | 'actual' | 'reported' | 'unit'> &
-    Partial<Pick<QuantityTotal, 'shortage' | 'partial' | 'currentRemaining'>>,
+    Partial<Pick<QuantityTotal, 'shortage' | 'partial' | 'currentRemaining' | 'restartPlanned'>>,
   date: string,
   reference: string,
 ) {
   const { planned, actual, reported: hasReport, unit } = value;
-  const comparisonAvailable = planned !== null;
   const future = date > reference;
   const past = date < reference;
+  const restartPlanned = past ? value.restartPlanned : undefined;
+  const comparisonAvailable = planned !== null && restartPlanned === undefined;
   const currentRemaining = date === reference ? value.currentRemaining : undefined;
   const deficit =
     past && hasReport && comparisonAvailable
@@ -18,7 +19,7 @@ export function progressState(
       : null;
   const partial = value.partial ?? !hasReport;
   const progressRatio =
-    currentRemaining === undefined && planned !== null && planned > 0 ? actual / planned : null;
+    currentRemaining === undefined && restartPlanned === undefined && planned !== null && planned > 0 ? actual / planned : null;
   return {
     planned,
     actual,
@@ -35,8 +36,9 @@ export function progressState(
           ? ('partial' as const)
           : ('reported' as const),
     warning: past && (!hasReport || partial || (deficit ?? 0) > 0),
-    prefill: currentRemaining ?? (planned === null ? 0 : Math.max(0, planned - actual)),
+    prefill: restartPlanned === undefined ? currentRemaining ?? (planned === null ? 0 : Math.max(0, planned - actual)) : 0,
     ...(currentRemaining === undefined ? {} : { currentRemaining }),
+    ...(restartPlanned === undefined ? {} : { restartPlanned }),
     unit,
   };
 }
@@ -50,7 +52,9 @@ export function progressView(
   const { planned, actual, hasReport, deficit, unit } = state;
   const future = state.period === 'future';
   const text =
-    state.currentRemaining !== undefined
+    state.restartPlanned !== undefined
+      ? `予定 ${state.restartPlanned}${unit} · ${hasReport ? `実績 ${actual}${unit}` : '未報告'}`
+      : state.currentRemaining !== undefined
       ? `${hasReport ? `実績 ${actual}${unit}` : '未報告'} · 今日の残り ${state.currentRemaining}${unit}`
       : future
         ? planned === null

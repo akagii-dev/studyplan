@@ -24,6 +24,7 @@ import { Empty, Props, duration, weekdays } from './common';
 import { CalendarExport } from './CalendarExport';
 import { sessionPolicy } from '../domain/sessionPolicy';
 import { StudyCoverageNotice } from './SetupImpact';
+import { displayPlanSessions } from '../domain/planDisplay';
 export function Calendar({
   state,
   update,
@@ -112,7 +113,7 @@ export function Calendar({
         : monthStart;
   const to = view === 'month' ? addDays(from, 41) : view === 'week' ? addDays(from, 6) : monthEnd;
   const days = datesBetween(from, to);
-  const all = (state.plan?.sessions ?? []).filter((s) => s.kind === 'review' || s.count > 0);
+  const all = displayPlanSessions(state).filter((s) => s.kind === 'review' || s.count > 0);
   const visible = all.filter((s) => filter === 'all' || s.examId === filter);
   const collisions = all.filter(
     (s) => s.date >= today() && overlapsBusy(state.settings, s).length > 0,

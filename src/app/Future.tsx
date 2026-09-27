@@ -10,6 +10,7 @@ import { progressReceipts } from '../domain/progressReceipt';
 import { ProgressReceiptView, receiptLabel } from '../components/ProgressReceiptView';
 import { remainingWork } from '../domain/remainingWork';
 import { currentPlanningStatus } from '../domain/progressAdjustment';
+import { displayPlanSessions } from '../domain/planDisplay';
 
 export function Future({
   state,
@@ -47,7 +48,7 @@ export function Future({
     onWeekChange?.(date);
   };
   const groups = new Map<string, Session[]>();
-  for (const session of state.plan?.sessions ?? []) {
+  for (const session of displayPlanSessions(state, reference)) {
     if (
       session.date < week ||
       session.date > addDays(week, 6) ||

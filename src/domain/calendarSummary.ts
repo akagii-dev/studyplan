@@ -2,11 +2,12 @@ import { AppState, today } from './model';
 import { blockingEvents, overlapsBusy } from './planAudit';
 import { mergeIntervals } from './planner/intervals';
 import { calendarDisplayQuantity } from './calendarQuantity';
+import { displayPlanSessions } from './planDisplay';
 
 /** Summarize the one approved plan; filters never generate separate plans. */
 export function calendarDaySummary(state: AppState, date: string, filter = 'all') {
   const classes = blockingEvents(state.settings, date).filter((x) => x.kind === 'class');
-  const sessions = (state.plan?.sessions ?? []).filter(
+  const sessions = displayPlanSessions(state).filter(
     (x) =>
       (x.kind === 'review' || x.count > 0) &&
       x.date === date &&

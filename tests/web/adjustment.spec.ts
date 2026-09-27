@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { adjustmentFixture, adjustmentContext, restartFixture } from '../fixtures/adjustment';
+import { adjustmentFixture, adjustmentContext, restartFixture, legacyRestartFixture } from '../fixtures/adjustment';
 import type { AppState } from '../../src/domain/model';
 import { addDays } from '../../src/domain/model';
 import { activePlanWork } from '../../src/domain/progressAllocation';
@@ -298,4 +298,79 @@ test('仕切り直し後の旧未報告教材が今後の予定とカレンダ�
   await page.getByRole('button', { name: '学習量', exact: true }).click();
   await expect(page.locator('.day.today .calendar-quantity')).toHaveText('予定なし');
   expect((await read()).plan).toEqual(approved.plan);
+});
+
+test('旧形式の過去予定は仕切り直し後に非表示となり、4問と明示0の実績は残る', async ({ page }, info) => {
+  await page.setViewportSize({width: info.project.name === 'narrow' ? 390 : 1280, height: info.project.name === 'narrow' ? 844 : 800});
+  const date = adjustmentContext.date;
+  const past = addDays(date,-2), recorded = addDays(date,-1);
+  const source = legacyRestartFixture();
+  await page.clock.install({time:new Date(adjustmentContext.timestamp)});
+  await page.addInitScript((state)=> {
+    if (!localStorage.getItem('studyplan-demo-state-v1')) localStorage.setItem('studyplan-demo-state-v1',JSON.stringify({revision:1,data:state}));
+  },source);
+  const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('studyplan-demo-state-v1')!).data as AppState);
+  await page.goto('./');
+  await page.getByRole('button',{name:'今後の予定',exact:true}).click();
+  await page.getByRole('button',{name:'計画を仕切り直す',exact:true}).click();
+  await page.getByLabel('開始日',{exact:true}).fill(date);
+  await page.getByRole('button',{name:'この日から案を作成',exact:true}).click();
+  await page.getByRole('button',{name:'この内容で更新',exact:true}).click();
+  await expect(page.getByText('計画を更新し、カレンダーに反映しました')).toBeVisible();
+  const approved=await read();
+  expect(approved.records).toEqual(source.records);
+  expect(remainingWork(approved,date)).toMatchObject([
+    {total:30,completed:4,allocated:26,unplaced:0,balanced:true},
+    {total:30,completed:0,allocated:30,unplaced:0,balanced:true},
+    {total:45,completed:0,allocated:45,unplaced:0,balanced:true},
+  ]);
+  await page.getByRole('button',{name:'今後の予定',exact:true}).click();
+  for(let i=0;i<3 && (await page.locator('.future-week time').getAttribute('datetime'))! > past;i++)
+    await page.getByRole('button',{name:'前の週',exact:true}).click();
+  await expect(page.locator('.future-day').filter({has:page.getByRole('button',{name:new RegExp(`^${past} `)})})).toHaveCount(0);
+  await page.screenshot({path:info.outputPath('restart-past-future.png'),fullPage:true});
+  await page.getByRole('button',{name:'詳細カレンダーを見る',exact:true}).click();
+  await page.getByRole('button',{name:`${past}を表示`,exact:true}).click();
+  const panel=page.getByRole('complementary',{name:'選択した日の学習詳細'});
+  await expect(panel.locator('.session-detail')).toHaveCount(0);
+  await expect(panel.locator('.quantity-breakdown section')).toHaveCount(0);
+  await expect(panel).toContainText('学習予定はありません');
+  await page.screenshot({path:info.outputPath('restart-past-content.png'),fullPage:true});
+  await page.getByRole('button',{name:'学習量',exact:true}).focus();
+  await page.keyboard.press('Enter');
+  await expect(panel).toContainText('予定なし');
+  await page.getByRole('button',{name:new RegExp(`^${recorded}を表示`)}).click();
+  await expect(panel.locator('.quantity-breakdown section')).toHaveCount(2);
+  await expect(panel.locator('.quantity-breakdown section').filter({hasText:'対象問題集'})).toContainText('4問');
+  await expect(panel.locator('.quantity-breakdown section').filter({hasText:'別問題集'})).toContainText('0問');
+  await expect(panel).not.toContainText('不足');
+  await expect(panel).not.toContainText('/6問');
+  await page.screenshot({path:info.outputPath('restart-past-records.png'),fullPage:true});
+  await page.getByRole('button',{name:'一覧',exact:true}).click();
+  await expect(page.locator('.calendar-list')).not.toContainText(past);
+  await expect(page.locator('.calendar-list')).toContainText(recorded);
+  expect((await new AxeBuilder({page}).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  await page.reload();
+  const reloaded=await read();
+  expect(reloaded.plan).toEqual(approved.plan);
+  expect(reloaded.records).toEqual(approved.records);
+  expect(reloaded.history).toEqual(approved.history);
+  expect(reloaded.studyDayBaselines).toEqual(approved.studyDayBaselines);
+  await page.getByRole('button',{name:'今後の予定',exact:true}).click();
+  await page.getByRole('button',{name:'詳細カレンダーを見る',exact:true}).click();
+  await page.locator('.calendar-toolbar').getByRole('button',{name:'今日',exact:true}).click();
+  await page.getByRole('button',{name:'学習量',exact:true}).click();
+  await page.getByRole('button',{name:new RegExp(`^${past}を表示`)}).click();
+  await expect(panel.locator('.quantity-breakdown section')).toHaveCount(0);
+  // The restart's first day also becomes historical; it must not revive the old baseline.
+  await page.clock.setSystemTime(new Date(`${addDays(date,1)}T03:00:00.000Z`));
+  await page.reload();
+  await page.getByRole('button',{name:'今後の予定',exact:true}).click();
+  await page.getByRole('button',{name:'詳細カレンダーを見る',exact:true}).click();
+  await page.locator('.calendar-toolbar').getByRole('button',{name:'今日',exact:true}).click();
+  await page.getByRole('button',{name:'学習量',exact:true}).click();
+  await page.getByRole('button',{name:new RegExp(`^${date}を表示`)}).click();
+  await expect(panel.locator('.quantity-breakdown section')).toHaveCount(0);
+  expect((await read()).records).toEqual(source.records);
 });

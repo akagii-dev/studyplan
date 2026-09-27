@@ -33,8 +33,12 @@ it('仕切り直し後の表示合計は旧未報告の単位を除き、週間�
   expect(dailyReportDetails(state, context.date, context.date)).toHaveLength(2);
   const report = createWeeklyReport(state, context.date, new Date(context.timestamp));
   expect(report.days.find((d) => d.date === context.date)?.quantities).toEqual(comparison.totals);
-  for (const reference of [addDays(context.date, -1), addDays(context.date, 1)])
-    expect(calendarDisplayQuantity(state, context.date, reference)).toEqual(calendarQuantity(state, context.date, reference));
+  // Before the day is past, the ordinary future display is unchanged.
+  expect(calendarDisplayQuantity(state, context.date, addDays(context.date,-1)))
+    .toEqual(calendarQuantity(state, context.date, addDays(context.date,-1)));
+  // Once past, the superseded plan is comparison history, while actual work stays visible.
+  expect(calendarDisplayQuantity(state, context.date, addDays(context.date,1)).rows)
+    .toMatchObject([{materialId:'book',planned:null,remainder:null,actual:4,reported:true}]);
   expect(state).toEqual(before);
 });
 

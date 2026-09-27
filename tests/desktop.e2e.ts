@@ -30,7 +30,7 @@ import ICAL from 'ical.js';
 import AxeBuilder from '@axe-core/playwright';
 import { startOfWeek } from '../src/domain/calendar';
 import { studentFixture } from './fixtures/student';
-import { adjustmentFixture, restartFixture } from './fixtures/adjustment';
+import { adjustmentFixture, restartFixture, legacyRestartFixture } from './fixtures/adjustment';
 import { activePlanWork } from '../src/domain/progressAllocation';
 import { createProgressBaseline, reflectProgress } from '../src/domain/progressReflection';
 let child: ChildProcess;
@@ -729,6 +729,55 @@ test('実機：仕切り直した旧未報告教材は予定画面から消え�
   expect(restored.records).toEqual(approved.records);
   expect(restored.studyDayBaselines).toEqual(approved.studyDayBaselines);
   expect(restored.history).toEqual(approved.history);
+});
+
+test('実機：旧形式の過去予定は仕切り直し後に消え、実績と履歴はSQLite再起動後も残る', async () => {
+  dataDir=mkdtempSync(resolve('.test-data/restart-legacy-past-'));
+  await launch();
+  const date=today(), past=addDays(date,-2), recorded=addDays(date,-1);
+  const source=legacyRestartFixture(date);
+  await seedState(source,'restart-legacy-past');
+  await saved();
+  await nav('今後の予定');
+  await page.getByRole('button',{name:'計画を仕切り直す',exact:true}).click();
+  await page.getByLabel('開始日',{exact:true}).fill(addDays(date,1));
+  await page.getByRole('button',{name:'この日から案を作成',exact:true}).click();
+  await page.getByRole('button',{name:'この内容で更新',exact:true}).click();
+  await saved();
+  const approved=await storedState();
+  expect(approved.records).toEqual(source.records);
+  expect(activePlanWork(approved,date).reduce((n,s)=>n+s.count,0)).toBe(101);
+  expect(approved.plan!.shortfalls).toEqual([]);
+  const check=async()=>{
+    await nav('今後の予定');
+    for(let i=0;i<3 && (await page.locator('.future-week time').getAttribute('datetime'))! > past;i++)
+      await page.getByRole('button',{name:'前の週',exact:true}).click();
+    await expect(page.locator('.future-day').filter({has:page.getByRole('button',{name:new RegExp(`^${past} `)})})).toHaveCount(0);
+    await nav('詳細カレンダー');
+    await page.getByRole('button',{name:'内容',exact:true}).click();
+    await page.locator('.calendar-toolbar').getByRole('button',{name:'今日',exact:true}).click();
+    if(past.slice(0,7)!==date.slice(0,7)) await page.getByRole('button',{name:'前の期間',exact:true}).click();
+    await page.getByRole('button',{name:`${past}を表示`,exact:true}).click();
+    const panel=page.getByRole('complementary',{name:'選択した日の学習詳細'});
+    await expect(panel.locator('.session-detail')).toHaveCount(0);
+    await expect(panel.locator('.quantity-breakdown section')).toHaveCount(0);
+    await page.getByRole('button',{name:'学習量',exact:true}).click();
+    await expect(panel).toContainText('予定なし');
+    await page.getByRole('button',{name:new RegExp(`^${recorded}を表示`)}).click();
+    await expect(panel.locator('.quantity-breakdown section')).toHaveCount(2);
+    await expect(panel).toContainText('4問');
+    await expect(panel).toContainText('0問');
+    await expect(panel).not.toContainText('不足');
+  };
+  await check();
+  await closeWindowNormally();
+  await launch();
+  await check();
+  const restored=await storedState();
+  expect(restored.plan).toEqual(approved.plan);
+  expect(restored.history).toEqual(approved.history);
+  expect(restored.records).toEqual(approved.records);
+  expect(restored.studyDayBaselines).toEqual(approved.studyDayBaselines);
 });
 
 test('実機：今日の未設定区間に名前を付け、保存・取消・再起動・解除する', async () => {

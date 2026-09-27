@@ -1,5 +1,14 @@
 # 動作確認記録
 
+## スマホナビの選択表示（2026-09-28）
+
+スマホ下部ナビの選択中アクセントを上辺から下辺へ移動。`better-ui`で選択状態を確認し、390×844の実ブラウザー画像で下辺の線、中央揃えのアイコン・文字、1280×800で既存の左辺アクセントを確認した。専用SQLiteのLAN E2Eでカレンダーの往復・キーボード・axe・横溢れを広幅／狭幅の2件とも確認。
+
+- `pnpm verify`：lint・型検査・単体435件・ビルド成功。
+- `PLAYWRIGHT_CHANNEL=chrome pnpm verify:ui`：既存18件成功。
+- LAN静的ファイルの再ビルドと、`pnpm test:lan --grep '直接カレンダー'`：成功。
+- レビュー判定：Approve（確認した表示・操作の範囲）。iPhone実機のSafariは未確認。保存・計算・Desktop側の変更はないため、RustとDesktop全体E2Eは今回再実行していない。
+
 ## 最新mainからのLAN版再構成（2026-09-27〜28）
 
 `git fetch origin`後のmain/originは`701619d`、PWAは`7f3a10d`、分岐点は`31f7755`。開始時の未コミット「未消化分・仕切り直し」差分を保護して統合。旧PWAのdomain・保存キュー・IndexedDB正本を採用せず、静的配信／manifest／shell worker／ブラウザー出力とHTTP用UUIDの限定部分を移植した。通常SQLiteへ試験書込みをせず、専用`.test-data`、Rust一時DB、隔離Chrome/WebView2だけで検証。

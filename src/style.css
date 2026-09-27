@@ -2906,7 +2906,7 @@ textarea {
   .sidebar .brand, .sidebar-bottom, .sidebar-toggle { display: none; }
   .sidebar nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
   .sidebar nav button { display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; justify-content: center; gap: 2px; width: 100%; min-width: 0; min-height: 48px; padding: 5px 1px; white-space: normal; }
-  .sidebar nav button.active { box-shadow: inset 0 3px var(--accent); }
+  .sidebar nav button.active { box-shadow: inset 0 -3px var(--accent); }
   .sidebar nav button:focus-visible { outline-offset: -3px; }
   .nav-label { text-align: center; }
   .sidebar-collapsed .sidebar { display: flex; }

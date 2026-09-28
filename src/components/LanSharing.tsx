@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   DesktopLanStatus,
   loadDesktopLanStatus,
+  loadDesktopNetworkNames,
+  lanAddressLabel,
   startDesktopLan,
   stopDesktopLan,
 } from '../desktopLan';
@@ -10,6 +13,7 @@ import {
 export function LanSharing() {
   const [status, setStatus] = useState<DesktopLanStatus | null>(null);
   const [address, setAddress] = useState('');
+  const [networkNames, setNetworkNames] = useState<Record<string, string>>({});
   const [pending, setPending] = useState<'check' | 'start' | 'stop' | null>('check');
   const [error, setError] = useState('');
   const [addressError, setAddressError] = useState(false);
@@ -37,6 +41,9 @@ export function LanSharing() {
     setPending('check');
     setError('');
     setAddressError(false);
+    void loadDesktopNetworkNames().then((names) => {
+      if (mounted.current) setNetworkNames(names);
+    }).catch(() => { if (mounted.current) setNetworkNames({}); });
     try {
       const next = await loadDesktopLanStatus();
       if (mounted.current) applyStatus(next);
@@ -125,6 +132,17 @@ export function LanSharing() {
         {error && <p id="lan-sharing-error" className="error" role="alert">{error}</p>}
         {status?.active ? (
           <>
+            <p id="lan-sharing-key-warning" className="lan-sharing-warning">
+              キーを知る人は学習データを閲覧・変更できます。接続リンク・QRコードにもキーを含みます。共有しないでください。
+            </p>
+            {connectionLink && (
+              <figure className="lan-sharing-qr">
+                <figcaption>スマホで接続（APIキー付き）</figcaption>
+                <QRCodeSVG value={connectionLink} size={240} level="M" marginSize={4}
+                  bgColor="#ffffff" fgColor="#000000" role="img"
+                  aria-label="LAN接続用QRコード" aria-describedby="lan-sharing-key-warning" />
+              </figure>
+            )}
             <div className="lan-sharing-field">
               <label htmlFor="lan-sharing-url">接続先URL</label>
               <textarea id="lan-sharing-url" value={status.url ?? ''} readOnly rows={2} spellCheck={false} dir="ltr"
@@ -135,9 +153,6 @@ export function LanSharing() {
             </div>
             <div className="lan-sharing-field">
               <label htmlFor="lan-sharing-key">APIキー</label>
-              <p id="lan-sharing-key-warning" className="lan-sharing-warning">
-                キーを知る人は学習データを閲覧・変更できます。接続リンクにもキーを含みます。共有しないでください。
-              </p>
               <textarea id="lan-sharing-key" ref={keyField} value={status.key ?? ''} readOnly rows={3} spellCheck={false} dir="ltr"
                 aria-describedby="lan-sharing-key-warning" onFocus={(event) => event.currentTarget.select()} />
               <button type="button" onClick={() => void copy('key')} disabled={!!pending || !status.key}>
@@ -160,10 +175,10 @@ export function LanSharing() {
                 aria-describedby={addressError ? 'lan-sharing-error' : undefined}
                 onChange={(event) => { setAddress(event.target.value); setAddressError(false); setError(''); }}>
                 <option value="">選択してください</option>
-                {status.addresses.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}
+                {status.addresses.map((candidate) => <option key={candidate} value={candidate}>{lanAddressLabel(candidate, networkNames)}</option>)}
               </select>
             </label>
-          ) : status.addresses.length === 1 ? <p>LANアドレス：{status.addresses[0]}</p> :
+          ) : status.addresses.length === 1 ? <p>LANアドレス：{lanAddressLabel(status.addresses[0], networkNames)}</p> :
             <p>LANが見つかりません。Wi-Fiまたは有線LANに接続して、状態を再確認してください。</p>
         )}
         <p className="lan-sharing-lifetime">アプリ終了で公開を停止します。開始するたびにキーが変わります。</p>

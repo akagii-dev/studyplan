@@ -1,5 +1,23 @@
 # 動作確認記録
 
+## v0.6.3・LAN接続QRコードとネットワーク名（2026-09-28）
+
+基準main `3c3a7cb`、開始時差分なし。設定のLAN公開欄へAPIキー付き接続リンクのQRを追加し、ポップアップは使わない。qrcode.reactでローカル生成し、外部QRサービス・学習データ保存への追加はない。警告とコピー操作を維持する。
+
+- `pnpm verify`：lint・型検査・単体450件・ビルド成功。
+- `PLAYWRIGHT_CHANNEL=chrome pnpm verify:ui`：広幅・狭幅の既存UI回帰22件成功。
+- `pnpm test:ui tests/desktop-lan.e2e.ts`：専用SQLiteのWindows/Tauri実機で公開開始、1280×800／390×844のQR画像デコード、設定への戻り後の再表示、停止時の除去、再開後のキー更新、旧キー拒否、共有保存・正常終了を確認。QR画像をjsQRで読み取り、接続URLとキーの完全一致を確認。コピー・キーボード・axeも既存ケースで検証。
+- 最初の狭幅読取はウィンドウサイズ変更直後に失敗。実サイズ反映を待ち、QRを中央へスクロールして撮影することで再実行成功。製品のQR内容や読取判定を緩めていない。
+- better-layoutを適用し、親が広幅・狭幅の画像を自己レビュー。iPhone実機カメラでの読み取りは未確認。v0.6.3へ同梱する。
+
+ネットワーク名はWindowsの接続プロファイルとIPv4をInterfaceIndexで対応付ける。名前取得失敗時は「名前不明」を表示し、公開先のIP検証は変更しない。実装の固定PowerShellをこのPCで実行して名前付き1アドレスの取得を確認。Rustの2追加ケースで異なるIPへの対応・重複・日本語・不正JSON・名前欠落を確認し、`cargo test --lib --locked`は全37件成功。Desktop実機では検証用ネットワーク名の併記を確認。複数NIC表示のIPC差替え試験は、実機で差替えが適用されず単一NIC状態のまま失敗したため削除し、複数IPの対応はRust fixtureで検証した。複数実NICの同時接続は未検証。
+
+取得には[Get-NetConnectionProfileの公式仕様](https://learn.microsoft.com/en-us/powershell/module/netconnection/get-netconnectionprofile)を参照。ネットワーク設定・権限・ファイアウォールは変更していない。
+
+ネットワーク名追加後も`pnpm verify`（450件）、`pnpm verify:ui`（22件）が成功。Desktop全件は57件中56件成功、既存の教材追加初期フォーカスが1件失敗。同ケースを期待値・実装とも変更せず3回再実行し全成功した。一度の全件実行が全成功したとは扱わない。原因は特定しておらず、再発時はフォーカス経路を再調査する。
+
+`pnpm desktop:build`成功、v0.6.3のDesktop/LAN資材を生成。EXEのFileVersion/ProductVersionは0.6.3。ZIPの規定4ファイルとmanifest SHA-256を確認。v0.6.2の隔離コピーで更新時の使用中・破損拒否、正常置換、旧EXE退避、再実行、データ保持を確認した。配布EXEを通常アカウントで試験起動していない。
+
 ## v0.6.2・仕切り直し後の過去予定表示（2026-09-28）
 
 基準main/origin/main `9022cfc`（v0.6.1）、開始時の未コミット差分なし。「過去・Desktop」の再現範囲を確認し、前版の当日だけの除外では不足と判明した。

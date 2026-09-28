@@ -10,6 +10,9 @@ export interface DesktopLanStatus {
 
 export const desktopLanAvailable = () => isTauri();
 export const loadDesktopLanStatus = () => invoke<DesktopLanStatus>('lan_host_status');
+export const loadDesktopNetworkNames = () => invoke<Record<string, string>>('lan_network_names');
+export const lanAddressLabel = (address: string, names: Record<string, string>) =>
+  `${address}（${names[address] || '名前不明'}）`;
 export const startDesktopLan = (address: string) =>
   invoke<DesktopLanStatus>('lan_host_start', { address });
 export const stopDesktopLan = () => invoke<DesktopLanStatus>('lan_host_stop');

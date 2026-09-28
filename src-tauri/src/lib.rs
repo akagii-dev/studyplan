@@ -4,10 +4,17 @@ mod database;
 mod db;
 pub mod lan_bridge;
 mod lan_host;
+mod network_names;
 mod report_file;
 mod window_state;
 use database::Database;
 use tauri::Manager;
+#[tauri::command]
+async fn lan_network_names() -> std::collections::BTreeMap<String, String> {
+    tauri::async_runtime::spawn_blocking(network_names::load)
+        .await
+        .unwrap_or_default()
+}
 #[tauri::command]
 async fn lan_host_status(
     host: tauri::State<'_, lan_host::LanHost>,
@@ -139,6 +146,7 @@ pub fn run() {
             load_restore_point,
             undo_restore,
             lan_host_status,
+            lan_network_names,
             lan_host_start,
             lan_host_stop
         ])

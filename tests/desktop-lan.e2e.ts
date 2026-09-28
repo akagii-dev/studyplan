@@ -7,6 +7,8 @@ import {
   type APIRequestContext,
 } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import jsQR from 'jsqr';
+import { PNG } from 'pngjs';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:http';
 import { mkdirSync, mkdtempSync } from 'node:fs';
@@ -166,6 +168,7 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
   expect(statusBefore.key).toBeNull();
   await page.locator('.sidebar nav').getByRole('button', { name: '設定', exact: true }).click();
   await page.locator('.lan-sharing > summary').click();
+  await expect(page.locator('.lan-sharing')).toContainText('127.0.0.1（検証用ネットワーク）');
 
   // The UI is the only start/stop entry here; native invocation is read-only.
   const start = page.getByRole('button', { name: 'LANに公開', exact: true });
@@ -197,6 +200,21 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
   expect(first.url).toBe(base);
   expect(first.key).toMatch(/^[a-f0-9]{64}$/);
   const key = first.key!;
+  const qr = page.getByRole('img', { name: 'LAN接続用QRコード' });
+  const readQr = async () => {
+    await qr.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+    const png = PNG.sync.read(await qr.screenshot({ path: testInfo.outputPath('qr-code.png') }));
+    return jsQR(new Uint8ClampedArray(png.data), png.width, png.height)?.data;
+  };
+  await expect(qr).toBeVisible();
+  expect(await readQr()).toBe(`${base}#key=${key}`);
+  await page.screenshot({ path: testInfo.outputPath('lan-qr-wide.png') });
+  await invoke('plugin:window|set_size', { label: 'main', value: { Logical: { width: 390, height: 844 } } });
+  await expect.poll(() => page.evaluate(() => innerWidth)).toBeLessThan(600);
+  expect(await readQr()).toBe(`${base}#key=${key}`);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('lan-qr-narrow.png') });
+  await invoke('plugin:window|set_size', { label: 'main', value: { Logical: { width: 1280, height: 800 } } });
   await expect(page.getByLabel('接続先URL', { exact: true })).toHaveValue(base);
   await expect(page.getByLabel('APIキー', { exact: true })).toHaveValue(key);
   await expect(page.locator('#lan-sharing-key-warning')).toContainText(
@@ -352,8 +370,10 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
 
     await page.locator('.sidebar nav').getByRole('button', { name: '設定', exact: true }).click();
     await page.locator('.lan-sharing > summary').click();
+    expect(await readQr()).toBe(`${base}#key=${key}`);
     await page.getByRole('button', { name: '公開を停止', exact: true }).click();
     await expect(start).toBeVisible();
+    await expect(qr).toHaveCount(0);
     const stopped = await invoke<HostStatus>('lan_host_status');
     expect(stopped.active).toBe(false);
     expect(stopped.key).toBeNull();
@@ -362,6 +382,7 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
     await expect(page.getByRole('button', { name: '公開を停止', exact: true })).toBeVisible();
     const second = await invoke<HostStatus>('lan_host_status');
     expect(second.key).not.toBe(key);
+    expect(await readQr()).toBe(`${base}#key=${second.key}`);
     const expired = await request.post(`${base}api/revision`, {
       headers: { Origin: origin, Authorization: `Bearer ${key}` },
       data: {},

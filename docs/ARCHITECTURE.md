@@ -2,7 +2,13 @@
 
 ## LAN公開の接続情報
 
-`lan_network_names` → `network_names.rs` はWindows Native Wifi APIの現在接続属性（dot11Ssid）を取得する。WLANのGUIDをLUID／InterfaceIndexへ変換し、同じindexのIPv4だけへSSIDを対応付ける。接続プロファイル名・アダプター名をSSIDとして代用しない。Wi-Fi以外／未接続／取得不能を区別し、権限拒否時は位置情報の許可が必要なことを表示する。権限変更・周辺スキャンは行わない。LAN公開可否は従来のNIC・IP検証が正本で、SSIDとQRはAppState・SQLite・バックアップへ保存しない。
+`lan_host::addresses()` → `lan_interfaces.rs` が接続中のIPv4を列挙し、`address`と`interface_alias`を持つ候補を返す。private/globalで制限せず、loopback・link-local（169.254/16）・unspecified・broadcast・multicastを除外する。サブネットのbroadcastも除外するが、/31・/32のpoint-to-pointホストは残す。
+
+Windowsの`GetIfEntry2`からInterfaceAlias・NIC種別・HardwareInterfaceを取得し、`GetIpForwardTable2`のIPv4デフォルトルートをInterfaceIndexで対応付ける。実Wi-Fi/Ethernetかつデフォルトゲートウェイありを先頭とし、仮想・VPN系NICは候補に残して後方へ並べる。仮想判定にはhardware情報、point-to-point、alias/descriptionの既知名を用いる。補助情報を取得できない場合も接続中の有効IPv4とOSのアダプター名は残す。同順位はalias・IPv4順、重複IPv4は優先候補にまとめる。複数候補は明示選択し、再確認で選択済みIPが残っていれば保持する。
+
+Windows APIの参照：[MIB_IF_ROW2](https://learn.microsoft.com/en-us/windows/win32/api/netioapi/ns-netioapi-mib_if_row2)、[GetIpForwardTable2](https://learn.microsoft.com/en-us/windows/win32/api/netioapi/nf-netioapi-getipforwardtable2)。ルート情報は読み取りだけに用い、確保された表は`FreeMibTable`で解放する。
+
+表示は`InterfaceAlias — IPv4`。SSID取得は行わない。開始直前にも候補を再取得して選択IPを照合し、そのIPv4だけへbindする。認証・HTTP・保存境界は従来どおり。候補・公開状態・接続キー・QRはAppState・SQLite・バックアップへ保存しない。Firewall・portproxy・ネットワーク設定は変更しない。
 
 ## 進捗と画面の契約
 

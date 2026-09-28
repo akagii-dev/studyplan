@@ -1,5 +1,24 @@
 # 動作確認記録
 
+過去の個別レビューと版別公開文は[整理前のGit履歴](https://github.com/akagii-dev/studyplan/tree/b45dc8c747cad6ee6ae8d8e0617d9e04accbccfc/docs)に保持する。現行仕様はSPEC／ARCHITECTURE、版別変更はCHANGELOG、本書は検証結果の正本とする。過去の画面評価にはスクリーンリーダー実聴・iPhoneの安全領域・別端末LAN到達性などの未確認範囲があり、axeやエミュレーションだけで確認済みとは扱わない。
+
+## v0.6.5・LAN候補の検出と文書・テスト整理（2026-09-28）
+
+基準main/origin/mainは`b45dc8c`。親がNIC実装・統合・検証・公開、サブ1体がUIと既存テストの統合を担当。開始時のBOM差分と未追跡`build-temp-lan.ps1`を保護した。変更範囲はNIC検出・順位・表示で、選択IPv4へのbind・API認証・HTTP配信・SQLite保存は維持する。
+
+- `pnpm verify`：lint・型検査・単体450件・ビルド成功。単体テストはassertを保持して40→34ファイルへ統合。版別公開文と古い個別レビューをGit履歴へ集約し、Markdownは26→8ファイル。現行文書のローカルリンク切れなし。
+- `cargo test --manifest-path src-tauri/Cargo.toml --locked --lib`：39件成功。混在NIC・除外IPv4・Windowsルートを3ケースに集約し、global Wi-Fi＋gatewayがWSL／Tailscale／Fortinetより先、APIPA除外、仮想NICのみでも選択可能、/31・/32の保持を確認。選択IPv4以外へlistenerがbindしないことも確認。
+- `PLAYWRIGHT_CHANNEL=chrome pnpm verify:ui`：22件成功。`pnpm test:ui`は58件中57件成功、既存の共有SQLiteケース1件は補助EXE不足（ENOENT）で失敗。補助EXEをビルドし、最終UI変更後にLAN関連3件を再実行して全成功。1回の全件実行が全成功したとは扱わない。
+- 専用SQLiteのTauri画面でInterfaceAlias表示・優先順・選択保持・消失時の解除・広幅／狭幅・キーボード・axeを確認。親が画像を確認し、長いWSL名でも狭幅の選択内容にIPv4全文が出ることを確認。既存の実HTTP公開・共有保存・QR・キー更新・停止も成功。
+
+配布検証：`pnpm desktop:build`成功。EXEのFileVersion/ProductVersionは0.6.5。更新ZIPは規定4ファイルだけでmanifest SHA-256一致。v0.6.4の隔離コピーに対する使用中・破損拒否、正常置換、旧EXE退避、再実行、データ保持が成功。
+
+通常SQLiteは試験に使用していない。`133.26.237.171`のWi-Fiはfixtureで確認し、現在の実接続は別IP。別端末からのLAN到達性、iPhone実機、隔離Windowsアカウントでの配布EXE起動は未確認。既存の依存注釈・バンドル容量警告は残る。
+
+## 開発環境・サブエージェント・Skillsの現状確認（2026-09-28）
+
+fetch後のmain/originは`b45dc8c`。親1体・サブ0体、同時枠は親を含め4体。登録Skill9種類の本体とリポジトリの`.codex/`は不在。既存のBOM差分と`build-temp-lan.ps1`を保持した。初回`pnpm verify`は非TTYでの依存再構成確認により実行前に停止し、調査時点では検証済みとしなかった。
+
 ## v0.6.4・ネットワーク名から接続SSIDへ修正（2026-09-28）
 
 基準main/origin/main `219b0a3`、開始時差分なし。v0.6.3の接続プロファイル名はSSIDとは限らないため取得処理を置換。PowerShell／Get-NetConnectionProfileを除去し、Windows Native Wifiの現在接続属性 `dot11Ssid` とインターフェースGUID→LUID→indexでIPv4へ対応付ける。GetIfEntry2で非Wi-Fiを判別し、WLANサービス停止を有線接続のSSIDとして解釈しない。
@@ -845,7 +864,7 @@ Windows配布版のビルドに成功。v0.4.13からの更新用ZIPは、検証
 
 ネイティブ試験では日別の確定基準が記録時に保存され、プロセスを閉じて起動し直しても保持され、数量が予定10・実績5・残り5になることを追加確認した。続く訂正・取消、0・予定どおり・超過記録、予定外教材、通常終了からの再起動も通過した。初回は週表示が複数日になったことで既存テストの曖昧なlocatorが失敗したため、対象日を明示して再実行した。
 
-画像を確認：`test-results/calendar-quantity/quantity-1280.png`、`viewport-1280.png`、`viewport-390.png`、`quantity-320.png`、`expanded-320.png`。独立レビューの範囲と結果は[calendar-quantity-review.md](calendar-quantity-review.md)に記載。
+画像を確認：`test-results/calendar-quantity/quantity-1280.png`、`viewport-1280.png`、`viewport-390.png`、`quantity-320.png`、`expanded-320.png`。独立レビューの原文は整理前のGit履歴の`docs/calendar-quantity-review.md`に保持。
 
 未検証：ネイティブE2E全件の一括実行、スクリーンリーダーの実聴、配布インストーラー、Codex再起動後のSkill選択候補。axeのみでWCAG適合を断定していない。通常/デモのビルドには既存依存Zodの注釈と500KB超チャンクの警告が出るが、ビルドは成功した。旧データで根拠を復元できない日付は「基準なし」とする仕様上の制約がある。
 

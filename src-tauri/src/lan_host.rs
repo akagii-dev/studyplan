@@ -1,5 +1,8 @@
-//! Optional, process-local LAN frontend. SQLite and all writes stay at the existing boundary.
-use crate::{database::Database, db, lan_bridge};
+﻿//! Optional, process-local LAN frontend. SQLite and all writes stay at the existing boundary.
+use crate::{
+    database::Database, db, lan_bridge,
+    lan_interfaces::{self, LanAddress},
+};
 use http_body_util::{BodyExt, Full, Limited};
 use hyper::{
     body::{Bytes, Incoming},
@@ -11,7 +14,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::{
     convert::Infallible,
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    net::{Ipv4Addr, SocketAddr},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -45,7 +48,7 @@ type Reply = Response<Full<Bytes>>;
 #[derive(Serialize)]
 pub struct Status {
     active: bool,
-    addresses: Vec<String>,
+    addresses: Vec<LanAddress>,
     address: Option<String>,
     url: Option<String>,
     key: Option<String>,
@@ -92,23 +95,14 @@ fn configured_port() -> u16 {
     }
     PORT
 }
-fn addresses() -> Result<Vec<String>, String> {
+fn addresses() -> Result<Vec<LanAddress>, String> {
     if let Some(address) = test_address() {
-        return Ok(vec![address]);
+        return Ok(vec![LanAddress {
+            address,
+            interface_alias: "Test LAN".into(),
+        }]);
     }
-    let interfaces = if_addrs::get_if_addrs()
-        .map_err(|_| "LANの接続先を取得できません。Wi-Fi接続を確認してください。")?;
-    let mut result: Vec<_> = interfaces
-        .into_iter()
-        .filter(|interface| interface.is_oper_up() && !interface.is_p2p())
-        .filter_map(|interface| match interface.ip() {
-            IpAddr::V4(ip) if ip.is_private() && !ip.is_loopback() => Some(ip.to_string()),
-            _ => None,
-        })
-        .collect();
-    result.sort();
-    result.dedup();
-    Ok(result)
+    lan_interfaces::load()
 }
 impl LanHost {
     pub async fn status(&self) -> Result<Status, String> {
@@ -119,7 +113,7 @@ impl LanHost {
     }
     pub async fn start(&self, address: String, database: Database) -> Result<Status, String> {
         let interfaces = addresses()?;
-        if !interfaces.contains(&address) {
+        if !interfaces.iter().any(|candidate| candidate.address == address) {
             return Err("このPCのLANアドレスを選択してください。".into());
         }
         let mut current = self.0.lock().await;
@@ -165,7 +159,7 @@ async fn clear_failed(current: &mut Option<Running>) {
         }
     }
 }
-fn status_of(running: Option<&Running>, interfaces: Vec<String>) -> Status {
+fn status_of(running: Option<&Running>, interfaces: Vec<LanAddress>) -> Status {
     let running =
         running.filter(|r| r.shared.active.load(Ordering::SeqCst) && !r.task.is_finished());
     Status {
@@ -448,6 +442,21 @@ mod tests {
         start_listener("127.0.0.1:0".parse().unwrap(), db)
             .await
             .unwrap()
+    }
+    #[tokio::test]
+    async fn listener_binds_only_the_selected_ipv4() {
+        let (_dir, db) = database();
+        let running = launch(db).await;
+        let bound: SocketAddr = running.shared.authority.parse().unwrap();
+        assert_eq!(bound.ip(), Ipv4Addr::LOCALHOST);
+        let other = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 2).into(), bound.port());
+        let result =
+            tokio::time::timeout(Duration::from_secs(3), tokio::net::TcpStream::connect(other)).await;
+        assert!(
+            !matches!(result, Ok(Ok(_))),
+            "listener must not bind all local addresses"
+        );
+        stop_running(running).await;
     }
     async fn raw(
         running: &Running,

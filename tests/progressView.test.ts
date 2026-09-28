@@ -1,10 +1,11 @@
 import { createElement, ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { initialState, today, addDays } from '../src/domain/model';
 import { calendarQuantity } from '../src/domain/calendarQuantity';
 import { progressView } from '../src/domain/progressView';
 import { todayStudyRows } from '../src/domain/todayProgress';
+import { Dashboard } from '../src/app/Dashboard';
 import { Future } from '../src/app/Future';
 import { CalendarQuantity, CalendarQuantityDetails } from '../src/components/CalendarQuantity';
 import { CalendarDaySummary } from '../src/components/CalendarDaySummary';
@@ -286,3 +287,414 @@ for (const offset of [0, 1]) {
     },
   );
 }
+
+describe('今日の教材・周回別進捗', () => {
+  const date = '2030-10-07';
+  function fixture() {
+    const s = initialState();
+    s.settings.materials = [
+      {
+        id: 'm',
+        name: '教材',
+        examId: 'e',
+        total: 100,
+        order: 1,
+        rounds: [{ completed: 30, minutes: 3 }],
+      },
+    ];
+    const session = {
+      id: 's',
+      date,
+      start: 600,
+      end: 660,
+      examId: 'e',
+      materialId: 'm',
+      round: 0,
+      count: 10,
+      fixed: false,
+      kind: 'study' as const,
+    };
+    s.plan = {
+      id: 'p',
+      createdAt: '2030-10-07T00:00:00Z',
+      from: date,
+      sessions: [session, { ...session, id: 's2', start: 700, end: 730, count: 5 }],
+      capacities: [],
+      conflicts: [],
+      shortfalls: [],
+    };
+    return s;
+  }
+  const record = (count: number, extra = {}) => ({
+    id: 'r',
+    date,
+    materialId: 'm',
+    round: 0,
+    count,
+    cancelled: false,
+    createdAt: '2030-10-07T00:00:00Z',
+    updatedAt: '2030-10-07T00:00:00Z',
+    ...extra,
+  });
+  it('問題集と周回ごとに予定・実績を分け、予定外と未入力を区別する', () => {
+    const s = fixture();
+    s.settings.materials.push(
+      {
+        id: 'b',
+        name: '問題集B',
+        examId: 'e',
+        total: 50,
+        order: 2,
+        rounds: [{ completed: 0, minutes: 2 }],
+      },
+      {
+        id: 'c',
+        name: '問題集C',
+        examId: 'e',
+        total: 50,
+        order: 3,
+        rounds: [{ completed: 0, minutes: 2 }],
+      },
+    );
+    s.plan!.sessions = [
+      { ...s.plan!.sessions[0], count: 10 },
+      { ...s.plan!.sessions[0], id: 'b', materialId: 'b', count: 10 },
+    ];
+    s.records = [record(15), record(3, { id: 'c', materialId: 'c' })];
+    expect(todayStudyRows(s, date)).toMatchObject([
+      { materialId: 'm', materialName: '教材', round: 0, planned: 10, actual: 15, reported: true },
+      { materialId: 'b', materialName: '問題集B', round: 0, planned: 10, actual: 0, reported: false },
+      { materialId: 'c', materialName: '問題集C', round: 0, planned: 0, actual: 3, reported: true },
+    ]);
+    s.records.push(record(0, { id: 'zero', materialId: 'b' }));
+    expect(todayStudyRows(s, date)[1]).toMatchObject({ actual: 0, reported: true });
+    s.records[2].cancelled = true;
+    expect(todayStudyRows(s, date)[1]).toMatchObject({ actual: 0, reported: false });
+    s.records[0].count = 8;
+    expect(todayStudyRows(s, date)[0]).toMatchObject({ actual: 8 });
+  });
+
+  it('前倒し前の当日予定を他画面と揃え、同じ問題集の周回を混ぜない', () => {
+    const s = fixture();
+    s.settings.materials[0].rounds.push({ completed: 0, minutes: 3 });
+    s.plan!.sessions = [
+      { ...s.plan!.sessions[0], count: 6 },
+      { ...s.plan!.sessions[0], id: 'second-round', round: 1, count: 4 },
+    ];
+    s.plan!.progressBaseline = {
+      records: {},
+      sessions: { s: { count: 10, end: 660 } },
+      shortfalls: {},
+    };
+    s.records = [record(7), record(0, { id: 'second-round-report', round: 1 })];
+    expect(todayStudyRows(s, date)).toMatchObject([
+      { materialId: 'm', materialName: '教材', round: 0, planned: 10, actual: 7, reported: true },
+      { materialId: 'm', materialName: '教材', round: 1, planned: 4, actual: 0, reported: true },
+    ]);
+  });
+});
+
+describe('ホームの未配置表示', () => {
+  it('承認済み未配置の理由をホームで問題集・周回ごとに直接開ける', () => {
+    const state = initialState();
+    state.settings.materials = [
+      {
+        id: 'a',
+        examId: 'exam',
+        name: '問題集A',
+        total: 20,
+        order: 1,
+        rounds: [{ completed: 0, minutes: 3 }],
+      },
+      {
+        id: 'b',
+        examId: 'exam',
+        name: '問題集B',
+        total: 20,
+        order: 2,
+        rounds: [
+          { completed: 0, minutes: 3 },
+          { completed: 0, minutes: 3 },
+        ],
+      },
+    ];
+    state.plan = {
+      id: 'approved',
+      createdAt: '2030-10-07T00:00:00Z',
+      from: '2030-10-07',
+      sessions: [],
+      capacities: [],
+      conflicts: [],
+      shortfalls: [
+        { materialId: 'a', round: 0, count: 15, minutes: 30, reason: '学習枠がありません。' },
+        { materialId: 'b', round: 1, count: 20, minutes: 40, reason: '期限内に収まりません。' },
+      ],
+    };
+    const html = renderToStaticMarkup(
+      createElement(Dashboard, {
+        state,
+        update: async () => {},
+        navigate: () => {},
+        onReview: () => {},
+      }),
+    );
+    expect(html).toContain('<section class="shortfall-summary"');
+    expect(html).toContain('<h2>未配置 2件・1時間10分</h2>');
+    expect(html).toContain('問題集A · 1周目</span><strong>15問</strong>');
+    expect(html).toContain('<summary>理由</summary>');
+    expect(html).toContain('学習枠がありません。');
+    expect(html).toContain('問題集B · 2周目</span><strong>20問</strong>');
+    expect(html).toContain('期限内に収まりません。');
+    expect(html).not.toContain('理由を確認');
+  });
+});
+
+describe('カレンダーの予定なし・未報告表示', () => {
+  it('予定も記録もない日は予定なしと表示し、0問記録を生成しない', () => {
+    const state = initialState();
+    const before = structuredClone(state);
+    const html = renderToStaticMarkup(
+      createElement(CalendarQuantity, { state, date: today(), filter: 'all', onSelect: () => {} }),
+    );
+    expect(html).toContain('予定なし');
+    expect(html).not.toContain('未記録');
+    expect(html).not.toContain('基準なし');
+    expect(state).toEqual(before);
+  });
+
+  it('未報告の予定量は残して表示する', () => {
+    const state = initialState();
+    state.plan = {
+      id: 'p',
+      createdAt: new Date().toISOString(),
+      from: today(),
+      sessions: [
+        {
+          id: 's',
+          materialId: 'm',
+          examId: 'e',
+          date: today(),
+          round: 0,
+          count: 20,
+          start: 600,
+          end: 660,
+          kind: 'study',
+          fixed: false,
+        },
+      ],
+      capacities: [],
+      conflicts: [],
+      shortfalls: [],
+    };
+    const html = renderToStaticMarkup(
+      createElement(CalendarQuantity, { state, date: today(), filter: 'all', onSelect: () => {} }),
+    );
+    expect(html).toContain('未報告');
+    expect(html).toContain('未報告 / 20問');
+    expect(state.records).toHaveLength(0);
+  });
+});
+
+describe('今日の記録と今後の予定', () => {
+  function fixture() {
+    const state = initialState();
+    const date = today();
+    state.settings.exams = [
+      {
+        id: 'exam',
+        name: '試験',
+        start: date,
+        target: addDays(date, 3),
+        priority: 1,
+        color: '#287569',
+        reviewDays: 1,
+      },
+    ];
+    state.settings.materials = [
+      {
+        id: 'a',
+        examId: 'exam',
+        name: '問題集A',
+        total: 30,
+        order: 1,
+        rounds: [{ completed: 0, minutes: 2 }],
+      },
+      {
+        id: 'b',
+        examId: 'exam',
+        name: '問題集B',
+        total: 30,
+        order: 2,
+        rounds: [{ completed: 0, minutes: 3 }],
+      },
+      {
+        id: 'c',
+        examId: 'exam',
+        name: '問題集C',
+        total: 30,
+        order: 3,
+        rounds: [{ completed: 0, minutes: 4 }],
+      },
+    ];
+    state.plan = {
+      id: 'plan',
+      createdAt: date,
+      from: date,
+      sessions: [
+        {
+          id: 'a-today',
+          date,
+          start: 900,
+          end: 920,
+          examId: 'exam',
+          materialId: 'a',
+          round: 0,
+          count: 10,
+          fixed: false,
+          kind: 'study',
+        },
+        {
+          id: 'b-today',
+          date,
+          start: 930,
+          end: 960,
+          examId: 'exam',
+          materialId: 'b',
+          round: 0,
+          count: 10,
+          fixed: false,
+          kind: 'study',
+        },
+        {
+          id: 'a-fixed',
+          date: addDays(date, 1),
+          start: 900,
+          end: 920,
+          examId: 'exam',
+          materialId: 'a',
+          round: 0,
+          count: 10,
+          fixed: true,
+          kind: 'study',
+        },
+        {
+          id: 'a-free',
+          date: addDays(date, 1),
+          start: 1000,
+          end: 1010,
+          examId: 'exam',
+          materialId: 'a',
+          round: 0,
+          count: 5,
+          fixed: false,
+          kind: 'study',
+        },
+        {
+          id: 'review',
+          date: addDays(date, 2),
+          start: 1000,
+          end: 1030,
+          examId: 'exam',
+          materialId: '',
+          round: 0,
+          count: 0,
+          fixed: false,
+          kind: 'review',
+        },
+      ],
+      capacities: [],
+      shortfalls: [],
+      conflicts: [],
+    };
+    state.records = [
+      {
+        id: 'a-report',
+        date,
+        materialId: 'a',
+        round: 0,
+        count: 15,
+        cancelled: false,
+        createdAt: date,
+        updatedAt: date,
+      },
+      {
+        id: 'b-zero',
+        date,
+        materialId: 'b',
+        round: 0,
+        count: 0,
+        cancelled: false,
+        createdAt: date,
+        updatedAt: date,
+      },
+    ];
+    return state;
+  }
+
+  it('今日の教材ごとに予定・実績・追加分入力を分け、0問と予定外も示す', () => {
+    const state = fixture();
+    state.records.push({
+      id: 'outside',
+      date: today(),
+      materialId: 'c',
+      round: 0,
+      count: 3,
+      cancelled: false,
+      createdAt: today(),
+      updatedAt: today(),
+    });
+    const html = renderToStaticMarkup(
+      createElement(TodayRecorder, { state, update: async () => {} }),
+    );
+    expect(html).toContain('問題集A');
+    expect(html).toContain('15/10問');
+    expect(html).toContain('150%');
+    expect(html).toContain('0/10問');
+    expect(html).toContain('問題集C');
+    expect(html).toContain('3/0問');
+    expect(html).not.toContain('Infinity');
+    expect(html).toContain('予定外の学習を記録');
+    expect(html).toContain('問題集A 1周目の追加分（問）');
+  });
+
+  it('将来の同じ教材でも固定10問と可動5問を区別し、復習を残す', () => {
+    const html = renderToStaticMarkup(
+      createElement(Future, {
+        initialWeek: today(),
+        state: fixture(),
+        update: async () => {},
+        onCalendar: () => {},
+        onProposal: () => {},
+      }),
+    );
+    expect(html).toContain('10問</strong><span class="future-fixed">固定</span>');
+    expect(html).toContain('5問</strong>');
+    expect(html).toContain('試験 · 復習');
+    expect(html).not.toContain('15問</strong><span class="future-fixed">固定</span>');
+  });
+
+  it('全量未配置でも今後の予定に教材別問数を常時示し、理由だけ開いて確認できる', () => {
+    const state = fixture();
+    state.plan!.sessions = state.plan!.sessions.filter((session) => session.date === today());
+    state.plan!.shortfalls = [
+      { materialId: 'a', round: 0, count: 5, minutes: 10, reason: 'Aの学習枠がありません。' },
+      { materialId: 'b', round: 0, count: 2, minutes: 6, reason: 'Bの期限を過ぎました。' },
+    ];
+    const html = renderToStaticMarkup(
+      createElement(Future, {
+        // Explicitly inspect the future; on Sundays the default week includes today.
+        initialWeek: addDays(today(), 1),
+        state,
+        update: async () => {},
+        onCalendar: () => {},
+        onProposal: () => {},
+      }),
+    );
+    expect(html).toContain('この週に配置済み予定はありません');
+    expect(html).toContain('未配置 2件・16分');
+    expect(html).toContain('問題集A · 1周目</span><strong>5問</strong>');
+    expect(html).toContain('問題集B · 1周目</span><strong>2問</strong>');
+    expect(html).toContain('<summary>理由</summary>');
+    expect(html).not.toContain('未配置 7問');
+  });
+});

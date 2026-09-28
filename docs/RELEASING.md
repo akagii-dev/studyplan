@@ -4,7 +4,7 @@
 
 1. Gitの作業状態とリモートを確認し、未コミット変更を保護する。
 2. `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`と対応する`Cargo.lock`のアプリ版を揃える。
-3. READMEの最新版リンクを更新する。変更履歴はルートの`CHANGELOG.md`へ追記し、公開文は`docs/release-vX.Y.Z.md`に短く記載する。検証詳細は`docs/VALIDATION.md`へ分ける。
+3. READMEの最新版リンクと`CHANGELOG.md`を更新する。公開文はCHANGELOGの対象版から短く作り、Git対象外の`.test-data/release-notes.md`へ保存する。版ごとの文書は増やさず、検証詳細は`docs/VALIDATION.md`へ記録する。
 4. 関連テスト・型検査・lint・通常ビルドを確認し、`pnpm desktop:build`でWindows版を作成する。配布EXEの起動試験は隔離Windowsアカウントでのみ行う。未実施は検証記録に明記する。
 5. `src-tauri/target/release/studyplan.exe`を`release/StudyPlan-X.Y.Z.exe`へコピーし、`./scripts/package-update.ps1`で更新ZIPを作る。
 6. `scripts/test-update.ps1`へ新パッケージのディレクトリと旧版EXEを渡し、隔離した複製で更新を確認する。利用者のEXEやSQLiteへ直接適用しない。
@@ -14,7 +14,7 @@
 公開コマンド例（版番号は実際のものへ置換）：
 
 ```powershell
-gh release create vX.Y.Z release/StudyPlan-X.Y.Z.exe release/StudyPlan-update-X.Y.Z.zip --verify-tag --title 'StudyPlan vX.Y.Z' --notes-file docs/release-vX.Y.Z.md
+gh release create vX.Y.Z release/StudyPlan-X.Y.Z.exe release/StudyPlan-update-X.Y.Z.zip --verify-tag --title 'StudyPlan vX.Y.Z' --notes-file .test-data/release-notes.md
 ```
 
 CMDランチャーおよび独立した`SHA256SUMS.txt`は今後生成・添付しない。ZIPの内容は`StudyPlan.exe`、`Update-StudyPlan.ps1`、`update.json`、`README.txt`の4ファイルだけにする。`update.json`内のSHA-256は破損検知に必要なので維持する。古い作業ディレクトリに残ったファイルはZIPへ混入させない。
@@ -29,7 +29,7 @@ v0.6.3以降は公開中の設定欄にAPIキー付き接続QRを表示する。
 
 v0.6.0以降は「設定」→「LAN公開」から開始・停止できる。Node.js・pnpm・Rustは利用者に不要。複数のLAN IPv4がある場合はWi-Fi側を選ぶ。配信先は `http://<選択したIPv4>:4178/studyplan-lan/`。アプリに表示した接続リンクを同じLANのiPhoneで開く。APIキーを知る人は学習データの閲覧・変更・復元ができるため、リンクとキーを公開しない。HTTPは暗号化されず、信頼できる個人LANに限って使う。
 
-公開は明示操作で開始し、選択したprivate IPv4にのみbindする。アプリの終了で停止し、次の公開開始時には新しいキーを発行する。キーはメモリ内だけに保持し、AppState・SQLite・バックアップ・ログへ保存しない。Windowsファイアウォール、ルーター、Tailscaleの設定をアプリが変更することはない。接続できない場合はPCとiPhoneのWi-Fi、既存の4178番許可を確認する。
+公開は明示操作で開始し、選択した接続中のIPv4にのみbindする。private/globalで候補を制限せず、`InterfaceAlias — IPv4`で表示する。デフォルトゲートウェイのある実Wi-Fi/Ethernetを優先し、仮想NICも下位の候補として選択できる。アプリの終了で停止し、次の公開開始時には新しいキーを発行する。キーはメモリ内だけに保持し、AppState・SQLite・バックアップ・ログへ保存しない。Windowsファイアウォール、ルーター、Tailscaleの設定をアプリが変更することはない。接続できない場合はPCとiPhoneのWi-Fi、既存の4178番許可を確認する。
 
 LANファイルはビルド時にallowlistとハッシュを検証してEXEへ内蔵し、実行時にリポジトリやディスク上の任意ファイルを公開しない。`pnpm desktop:build` はLAN資材とDesktop資材を順にビルドする。CLI用helperは`lan-cli` featureを有効にしたときだけ生成し、Desktopの配布ビルドは稼働中helperを更新しない。開発用の直接Cargoビルド前は `pnpm lan:assets` を実行する。テストは専用保存先を指定したdebug版だけで行う。
 

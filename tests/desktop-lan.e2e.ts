@@ -16,6 +16,7 @@ import { resolve } from 'node:path';
 import { type AppState, type Envelope, today } from '../src/domain/model';
 import { activePlanWork } from '../src/domain/progressAllocation';
 import { adjustmentFixture } from './fixtures/adjustment';
+import { type DesktopLanAddress, type DesktopLanStatus } from '../src/desktopLan';
 
 // The native host and both frontends share only this test's dedicated SQLite.
 // Release builds ignore these overrides, so never replace the debug executable.
@@ -26,12 +27,14 @@ let nativeBrowser: Browser | undefined;
 let page: Page;
 let dataDir: string;
 
-interface HostStatus {
-  active: boolean;
-  addresses: string[];
-  address: string | null;
-  url: string | null;
-  key: string | null;
+type HostStatus = DesktopLanStatus;
+interface CandidateTestWindow {
+  __TAURI_INTERNALS__: { invoke: (name: string, args?: unknown) => Promise<unknown> };
+  lanCandidateTest: {
+    calls: { name: string; args?: unknown }[];
+    addresses: DesktopLanAddress[];
+    nativeStatus: () => Promise<unknown>;
+  };
 }
 async function invoke<T>(name: string, args?: unknown): Promise<T> {
   return page.evaluate(
@@ -152,6 +155,136 @@ async function normalClose() {
 }
 test.afterAll(close);
 
+test('実機：LAN候補をInterfaceAliasとIPv4で選択し、再確認でも選択を保持する', async ({ request }, testInfo) => {
+  mkdirSync('.test-data', { recursive: true });
+  dataDir = mkdtempSync(resolve('.test-data/native-lan-candidates-'));
+  await launch();
+  try {
+    // Discovery supplies priority order and has already removed APIPA addresses.
+    // Only LAN IPC is mocked; starting these fixtures never binds a real interface.
+    const candidates: DesktopLanAddress[] = [
+      { address: '133.26.237.171', interface_alias: 'Wi-Fi 2' },
+      { address: '172.28.224.1', interface_alias: 'vEthernet (WSL (Hyper-V firewall))' },
+      { address: '100.101.102.103', interface_alias: 'Tailscale' },
+      { address: '10.20.30.40', interface_alias: 'Fortinet VPN' },
+    ];
+    expect((await invoke<HostStatus>('lan_host_status')).active).toBe(false);
+    await page.evaluate((addresses) => {
+      const target = window as unknown as CandidateTestWindow;
+      const nativeInvoke = target.__TAURI_INTERNALS__.invoke;
+      const nativeFetch = window.fetch.bind(window);
+      let readingNativeStatus = false;
+      const state: CandidateTestWindow['lanCandidateTest'] = {
+        calls: [],
+        addresses,
+        nativeStatus: async () => {
+          readingNativeStatus = true;
+          try { return await nativeInvoke('lan_host_status'); }
+          finally { readingNativeStatus = false; }
+        },
+      };
+      target.lanCandidateTest = state;
+      let selected: string | null = null;
+      // Tauri's invoke property is read-only. Intercept its LAN transport in this
+      // isolated WebView without changing native permissions or the IPC implementation.
+      window.fetch = async (input, init) => {
+        const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+        const name = decodeURIComponent(url.pathname.slice(1));
+        if (url.hostname !== 'ipc.localhost' || !name.startsWith('lan_') ||
+          (readingNativeStatus && name === 'lan_host_status')) return nativeFetch(input, init);
+        const args = JSON.parse(String(init?.body ?? '{}')) as { address?: string };
+        state.calls.push({ name, args });
+        if (name === 'lan_host_start') selected = args.address ?? null;
+        else if (name === 'lan_host_stop') selected = null;
+        else if (name !== 'lan_host_status') return new Response(JSON.stringify(`Unexpected LAN command: ${name}`), {
+          headers: { 'Content-Type': 'application/json', 'Tauri-Response': 'error' },
+        });
+        const status: HostStatus = {
+          active: selected !== null,
+          addresses: state.addresses,
+          address: selected,
+          url: selected ? `http://${selected}:4178/studyplan-lan/` : null,
+          key: selected ? '0'.repeat(64) : null,
+        };
+        return new Response(JSON.stringify(status), {
+          headers: { 'Content-Type': 'application/json', 'Tauri-Response': 'ok' },
+        });
+      };
+    }, candidates);
+    await invoke('plugin:window|set_size', { label: 'main', value: { Logical: { width: 1280, height: 800 } } });
+    await page.locator('.sidebar nav').getByRole('button', { name: '設定', exact: true }).click();
+    const summary = page.locator('.lan-sharing > summary');
+    await summary.focus();
+    await page.keyboard.press('Enter');
+    const panel = page.locator('.lan-sharing');
+    const choices = page.getByRole('combobox', { name: '使用するLANアドレス', exact: true });
+    const selection = panel.locator('output.lan-sharing-selection');
+    const start = page.getByRole('button', { name: 'LANに公開', exact: true });
+    const refresh = page.getByRole('button', { name: '状態を再確認', exact: true });
+    await expect(choices.locator('option')).toHaveText([
+      '選択してください',
+      'Wi-Fi 2 — 133.26.237.171',
+      'vEthernet (WSL (Hyper-V firewall)) — 172.28.224.1',
+      'Tailscale — 100.101.102.103',
+      'Fortinet VPN — 10.20.30.40',
+    ]);
+    await expect(choices).toHaveValue('');
+    await start.click();
+    await expect(choices).toBeFocused();
+    await expect(choices).toHaveAttribute('aria-invalid', 'true');
+    await expect(panel.getByRole('alert')).toContainText('使用するLANアドレスを選んでください');
+    await page.keyboard.press('ArrowDown');
+    await expect(choices).toHaveValue('133.26.237.171');
+    await refresh.click();
+    await expect(choices).toHaveValue('133.26.237.171');
+    await expect(selection).toBeHidden();
+    await panel.screenshot({ path: testInfo.outputPath('lan-candidates-wide.png') });
+    await choices.focus();
+    await page.keyboard.press('End');
+    await expect(choices).toHaveValue('10.20.30.40');
+    await start.focus();
+    await page.keyboard.press('Enter');
+    await expect(panel).toContainText('LAN公開先：Fortinet VPN — 10.20.30.40');
+    await page.getByRole('button', { name: '公開を停止', exact: true }).click();
+    await expect(choices).toHaveValue('10.20.30.40');
+    await choices.selectOption('172.28.224.1');
+    await invoke('plugin:window|set_size', { label: 'main', value: { Logical: { width: 390, height: 844 } } });
+    await expect.poll(() => page.evaluate(() => innerWidth)).toBeLessThan(600);
+    await refresh.click();
+    await expect(choices).toHaveValue('172.28.224.1');
+    await expect(selection).toBeVisible();
+    await expect(selection).toHaveAccessibleName('選択中のLAN公開先');
+    await expect(selection).toHaveText('vEthernet (WSL (Hyper-V firewall)) — 172.28.224.1');
+    expect(await selection.evaluate((element) => getComputedStyle(element).fontSize)).toBe(
+      await choices.evaluate((element) => getComputedStyle(element).fontSize),
+    );
+    expect(await selection.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await panel.screenshot({ path: testInfo.outputPath('lan-candidates-narrow.png') });
+    expect((await new AxeBuilder({ page }).include('.lan-sharing').analyze()).violations).toEqual([]);
+    // A removed adapter must not remain selected or be silently replaced by another NIC.
+    await page.evaluate(() => {
+      const state = (window as unknown as CandidateTestWindow).lanCandidateTest;
+      state.addresses = state.addresses.filter((candidate) => candidate.address !== '172.28.224.1');
+    });
+    await refresh.click();
+    await expect(choices).toHaveValue('');
+    await expect(selection).toHaveCount(0);
+    const result = await page.evaluate(async () => {
+      const state = (window as unknown as CandidateTestWindow).lanCandidateTest;
+      return { calls: state.calls, native: await state.nativeStatus() };
+    });
+    expect(result.calls.filter((call) => call.name === 'lan_host_start')).toEqual([
+      { name: 'lan_host_start', args: { address: '10.20.30.40' } },
+    ]);
+    expect(result.calls.some((call) => call.name === 'lan_network_names')).toBe(false);
+    expect(result.native).toMatchObject({ active: false, key: null });
+    await expect(request.get(base, { timeout: 3000 })).rejects.toThrow();
+  } finally {
+    await close();
+  }
+});
+
 test('実機：設定からLAN公開・キー確認・共有保存・安全な停止を完了できる', async ({
   request,
 }, testInfo) => {
@@ -168,7 +301,7 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
   expect(statusBefore.key).toBeNull();
   await page.locator('.sidebar nav').getByRole('button', { name: '設定', exact: true }).click();
   await page.locator('.lan-sharing > summary').click();
-  await expect(page.locator('.lan-sharing')).toContainText('127.0.0.1（TEST_SSID）');
+  await expect(page.locator('.lan-sharing')).toContainText('Test LAN — 127.0.0.1');
 
   // The UI is the only start/stop entry here; native invocation is read-only.
   const start = page.getByRole('button', { name: 'LANに公開', exact: true });

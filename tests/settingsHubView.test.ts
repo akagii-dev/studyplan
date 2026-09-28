@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { SettingsHub } from '../src/app/SettingsHub';
 import { beginAddition } from '../src/components/guided-setup';
 import { warningVersion } from '../src/components/Warnings';
@@ -98,4 +98,25 @@ it('通知非表示と予定なしを異なる状態として表示する', () =
   expect(html).toContain('未確認');
   expect(html).toContain('通知非表示');
   expect(html).toContain('予定なし');
+});
+
+it('デモの読込失敗は原因と再試行を示し、デスクトップ案内に置き換えない', async () => {
+  vi.doMock('@tauri-apps/api/core', () => ({ isTauri: () => false }));
+  vi.doMock('../src/demo', () => ({ demoMode: true }));
+  try {
+    const { Startup } = await import('../src/components/Startup');
+    const html = renderToStaticMarkup(createElement(Startup, {
+      error: 'ブラウザー内のデモデータを読み取れません。',
+      loading: false,
+      retry: () => {},
+    }));
+    expect(html).toContain('学習データを開けませんでした');
+    expect(html).toContain('ブラウザー内のデモデータを読み取れません。');
+    expect(html).toContain('もう一度読み込む');
+    expect(html).not.toContain('デスクトップ版で開いてください');
+  } finally {
+    vi.doUnmock('@tauri-apps/api/core');
+    vi.doUnmock('../src/demo');
+    vi.resetModules();
+  }
 });

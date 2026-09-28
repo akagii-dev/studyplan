@@ -3,7 +3,6 @@ import { QRCodeSVG } from 'qrcode.react';
 import {
   DesktopLanStatus,
   loadDesktopLanStatus,
-  loadDesktopNetworkNames,
   lanAddressLabel,
   startDesktopLan,
   stopDesktopLan,
@@ -13,7 +12,6 @@ import {
 export function LanSharing() {
   const [status, setStatus] = useState<DesktopLanStatus | null>(null);
   const [address, setAddress] = useState('');
-  const [networkNames, setNetworkNames] = useState<Record<string, string>>({});
   const [pending, setPending] = useState<'check' | 'start' | 'stop' | null>('check');
   const [error, setError] = useState('');
   const [addressError, setAddressError] = useState(false);
@@ -28,7 +26,8 @@ export function LanSharing() {
   const applyStatus = useCallback((next: DesktopLanStatus) => {
     setStatus(next);
     setAddress((current) => next.active ? next.address ?? '' :
-      next.addresses.includes(current) ? current : next.addresses.length === 1 ? next.addresses[0] : '');
+      next.addresses.some((candidate) => candidate.address === current) ? current :
+        next.addresses.length === 1 ? next.addresses[0].address : '');
     if (!next.active) {
       setManualCopy(null);
       setCopyMessage('');
@@ -41,9 +40,6 @@ export function LanSharing() {
     setPending('check');
     setError('');
     setAddressError(false);
-    void loadDesktopNetworkNames().then((names) => {
-      if (mounted.current) setNetworkNames(names);
-    }).catch(() => { if (mounted.current) setNetworkNames({}); });
     try {
       const next = await loadDesktopLanStatus();
       if (mounted.current) applyStatus(next);
@@ -101,6 +97,8 @@ export function LanSharing() {
   }
 
   const connectionLink = status?.active && status.url && status.key ? `${status.url}#key=${status.key}` : '';
+  const activeCandidate = status?.addresses.find((candidate) => candidate.address === status.address);
+  const selectedCandidate = status?.addresses.find((candidate) => candidate.address === address);
   async function copy(kind: 'link' | 'key') {
     const value = kind === 'link' ? connectionLink : status?.key;
     if (!value) return;
@@ -132,6 +130,7 @@ export function LanSharing() {
         {error && <p id="lan-sharing-error" className="error" role="alert">{error}</p>}
         {status?.active ? (
           <>
+            <p>LAN公開先：{activeCandidate ? lanAddressLabel(activeCandidate) : status.address}</p>
             <p id="lan-sharing-key-warning" className="lan-sharing-warning">
               キーを知る人は学習データを閲覧・変更できます。接続リンク・QRコードにもキーを含みます。共有しないでください。
             </p>
@@ -169,16 +168,19 @@ export function LanSharing() {
           </>
         ) : status && !pending && (
           status.addresses.length > 1 ? (
-            <label className="lan-sharing-field">
-              使用するLANアドレス
-              <select ref={addressField} value={address} aria-invalid={addressError || undefined}
+            <div className="lan-sharing-field">
+              <label htmlFor="lan-sharing-address">使用するLANアドレス</label>
+              <select id="lan-sharing-address" ref={addressField} value={address} aria-invalid={addressError || undefined}
                 aria-describedby={addressError ? 'lan-sharing-error' : undefined}
                 onChange={(event) => { setAddress(event.target.value); setAddressError(false); setError(''); }}>
                 <option value="">選択してください</option>
-                {status.addresses.map((candidate) => <option key={candidate} value={candidate}>{lanAddressLabel(candidate, networkNames)}</option>)}
+                {status.addresses.map((candidate) => <option key={candidate.address} value={candidate.address}>{lanAddressLabel(candidate)}</option>)}
               </select>
-            </label>
-          ) : status.addresses.length === 1 ? <p>LANアドレス：{lanAddressLabel(status.addresses[0], networkNames)}</p> :
+              {selectedCandidate && <output className="lan-sharing-selection" htmlFor="lan-sharing-address" aria-label="選択中のLAN公開先">
+                {lanAddressLabel(selectedCandidate)}
+              </output>}
+            </div>
+          ) : status.addresses.length === 1 ? <p>LANアドレス：{lanAddressLabel(status.addresses[0])}</p> :
             <p>LANが見つかりません。Wi-Fiまたは有線LANに接続して、状態を再確認してください。</p>
         )}
         <p className="lan-sharing-lifetime">アプリ終了で公開を停止します。開始するたびにキーが変わります。</p>

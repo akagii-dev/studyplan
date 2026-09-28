@@ -22,7 +22,7 @@
 
 「バックアップ」から設定・計画・実績・入力途中を `.studyplan.json` に保存できます。復元は内容の確認後に全体を置き換え、直前の状態に1回分戻せます。
 
-[最新版 v0.6.4](https://github.com/akagii-dev/studyplan/releases/tag/v0.6.4)のWindows版をダウンロードして起動してください。Windows + Microsoft Edge WebView2 Runtimeが必要です。外部アカウントは不要です。旧版と保存先は共通なので、版を切り替える際は起動中のStudyPlanを閉じてください。
+[最新版 v0.6.5](https://github.com/akagii-dev/studyplan/releases/tag/v0.6.5)のWindows版をダウンロードして起動してください。Windows + Microsoft Edge WebView2 Runtimeが必要です。外部アカウントは不要です。旧版と保存先は共通なので、版を切り替える際は起動中のStudyPlanを閉じてください。
 
 データの保存先は通常 `%APPDATA%\jp.local.studyplan\studyplan.sqlite3`。開発用テストデータは別フォルダーに分離します。保存中にウィンドウを閉じた場合は、最後の入力の保存を待ってから終了します。保存に失敗した場合は終了を中止して知らせます。強制終了や電源断はこの待機の対象外です。
 
@@ -87,8 +87,6 @@ WebView2の画面データも起動ごとに `.test-data/native-webview-*` へ�
 
 詳細は[実装仕様](docs/SPEC.md)と[動作確認記録](docs/VALIDATION.md)を参照してください。
 
-今回の再設計の入力・計算・保存の検証は[再設計の検証記録](docs/ui-redesign-verification.md)、独立した操作評価は[UI/UX再評価](docs/ux-after-review.md)にまとめています。
-
 [実利用フローの監査](docs/REAL_USE_AUDIT.md)には、架空の学生データ、見つかった不整合と修正、確認範囲と残る制約を記録しています。
 
 計画は制約を守る分散型のヒューリスティックです。数学的な最適解は保証しません。入らない課題は不足として表示し、連続学習の長さや余裕率を自動変更しません。
@@ -101,7 +99,7 @@ WebView2の画面データも起動ごとに `.test-data/native-webview-*` へ�
 
 ## 更新パッケージ
 
-`release/StudyPlan-update-0.6.4.zip` を展開し、`Update-StudyPlan.ps1` を右クリックして「PowerShellで実行」を選び、これまで使っていた StudyPlan の実行ファイルを選んでください。アプリを閉じてから行います。設定・計画・記録は同じ保存先を引き継ぎます。旧実行ファイルも控えとして残します。
+`release/StudyPlan-update-0.6.5.zip` を展開し、`Update-StudyPlan.ps1` を右クリックして「PowerShellで実行」を選び、これまで使っていた StudyPlan の実行ファイルを選んでください。アプリを閉じてから行います。設定・計画・記録は同じ保存先を引き継ぎます。旧実行ファイルも控えとして残します。
 
 実行ファイル全体を差し替える更新パッケージです。差分ダウンロードや自動更新は行いません。手動で同梱の `StudyPlan.exe` を差し替えても更新できます。
 

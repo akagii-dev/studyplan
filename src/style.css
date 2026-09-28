@@ -2902,6 +2902,7 @@ textarea {
 .lan-sharing-warning { color: var(--warning-ink); }
 .lan-sharing-field { display: grid; gap: 8px; min-width: 0; }
 .lan-sharing-field > label { font-weight: 650; }
+.lan-sharing-selection { display: none; overflow-wrap: anywhere; }
 .lan-sharing-field textarea {
   width: 100%;
   padding: 8px 10px;
@@ -2928,6 +2929,7 @@ textarea {
   .settings-row-actions { flex-wrap: wrap; }
 }
 @container (max-width: 700px) {
+  .lan-sharing-selection { display: block; }
   .daily-record-row { grid-template-columns: minmax(0, 1fr) auto; }
   .daily-record-amounts { grid-column: 1; }
   .daily-record-form { grid-column: 2; grid-row: 1 / 3; }

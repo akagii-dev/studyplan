@@ -1,5 +1,17 @@
 # 動作確認記録
 
+## v0.6.4・ネットワーク名から接続SSIDへ修正（2026-09-28）
+
+基準main/origin/main `219b0a3`、開始時差分なし。v0.6.3の接続プロファイル名はSSIDとは限らないため取得処理を置換。PowerShell／Get-NetConnectionProfileを除去し、Windows Native Wifiの現在接続属性 `dot11Ssid` とインターフェースGUID→LUID→indexでIPv4へ対応付ける。GetIfEntry2で非Wi-Fiを判別し、WLANサービス停止を有線接続のSSIDとして解釈しない。
+
+- Rust37件成功。異なるindexのSSID取り違え、非Wi-Fi、取得失敗、日本語、前後空白、非UTF-8、制御文字、空・32バイト上限超過を固定。保存データ・IP許可判定・APIキー形式は変更しない。
+- `pnpm verify`：lint・型検査・450件・通常ビルド成功。
+- `PLAYWRIGHT_CHANNEL=chrome pnpm verify:ui`：広幅・狭幅22件成功。`pnpm test:ui`：Desktop全57件成功。非Wi-Fi判別追加後は最終debugビルドの `tests/desktop-lan.e2e.ts` を再実行し、模擬SSID表示・QRデコード・共有保存・キー更新・公開停止が成功。
+- このPCで製品の取得関数を直接実行。WLANサービス停止を確認し、private IPv4の2アドレスは「Wi-Fi以外」と判定。SSID自体をログへ出さず、通常SQLiteを使用していない。サービス・位置情報・ネットワークの設定は変更していない。
+- [Windows公式仕様](https://learn.microsoft.com/en-us/windows/win32/nativewifi/wi-fi-access-location-changes)に従い、権限拒否では「SSID取得不可・位置情報の許可が必要」を表示。権限を自動変更しない。Wi-Fi実接続中のSSID取得・複数実Wi-Fi・iPhoneカメラ読取は未確認。模擬SSIDの画面確認と実環境の非Wi-Fi判定を区別する。
+
+配布検証：`pnpm desktop:build`成功、EXEのFileVersion/ProductVersionは0.6.4。更新ZIPは規定4ファイルだけでmanifest SHA-256一致。v0.6.3の隔離コピーで使用中・破損拒否、正常置換、旧EXE退避、再実行、データ保持を確認。通常アカウントで配布EXEを試験起動していない。
+
 ## v0.6.3・LAN接続QRコードとネットワーク名（2026-09-28）
 
 基準main `3c3a7cb`、開始時差分なし。設定のLAN公開欄へAPIキー付き接続リンクのQRを追加し、ポップアップは使わない。qrcode.reactでローカル生成し、外部QRサービス・学習データ保存への追加はない。警告とコピー操作を維持する。

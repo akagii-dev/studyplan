@@ -2,7 +2,7 @@
 
 ## LAN公開の接続情報
 
-ネットワーク名は `lan_network_names` → `network_names.rs` がWindowsの接続プロファイルとIPv4をInterfaceIndexで対応付けて取得する表示情報。固定の読取り専用PowerShellを非表示・バックグラウンドで実行し、5秒で終了しない場合や取得失敗は空情報へ戻す。LAN公開可否は従来のNIC列挙・IP検証が正本であり、名前から接続先を推測しない。名前とQRはAppState・SQLite・バックアップへ保存しない。
+`lan_network_names` → `network_names.rs` はWindows Native Wifi APIの現在接続属性（dot11Ssid）を取得する。WLANのGUIDをLUID／InterfaceIndexへ変換し、同じindexのIPv4だけへSSIDを対応付ける。接続プロファイル名・アダプター名をSSIDとして代用しない。Wi-Fi以外／未接続／取得不能を区別し、権限拒否時は位置情報の許可が必要なことを表示する。権限変更・周辺スキャンは行わない。LAN公開可否は従来のNIC・IP検証が正本で、SSIDとQRはAppState・SQLite・バックアップへ保存しない。
 
 ## 進捗と画面の契約
 

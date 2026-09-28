@@ -168,7 +168,7 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
   expect(statusBefore.key).toBeNull();
   await page.locator('.sidebar nav').getByRole('button', { name: '設定', exact: true }).click();
   await page.locator('.lan-sharing > summary').click();
-  await expect(page.locator('.lan-sharing')).toContainText('127.0.0.1（検証用ネットワーク）');
+  await expect(page.locator('.lan-sharing')).toContainText('127.0.0.1（TEST_SSID）');
 
   // The UI is the only start/stop entry here; native invocation is read-only.
   const start = page.getByRole('button', { name: 'LANに公開', exact: true });

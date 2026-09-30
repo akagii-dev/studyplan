@@ -27,6 +27,39 @@ const EPS = 1e-7;
 type Boundary = Pick<PlanningContext, 'date' | 'minute'>;
 type AdjustmentBasis = Extract<NonNullable<Proposal['basis']>, { kind: 'remaining-adjustment' }>;
 
+/** Clock classification only; it neither consumes work nor changes reported status. */
+export function isElapsedRemainingSession(session: Session, context: Boundary): boolean {
+  return session.date < context.date ||
+    (session.date === context.date && session.start < context.minute);
+}
+
+/** Explicit bulk selection uses effective outstanding work, never historical comparison slots. */
+export function elapsedRemainingTargets(
+  state: AppState,
+  context: Boundary,
+  sourceDate = context.date,
+): Session[] {
+  return activePlanWork(state, sourceDate).filter(
+    (session) => !session.fixed && isElapsedRemainingSession(session, context),
+  );
+}
+
+/** A pending proposal still refers to its unchanged committed source, even across midnight. */
+export function remainingAdjustmentSourceDate(state: AppState, date: string): string {
+  const basis = state.proposal?.basis;
+  if (basis?.kind !== 'remaining-adjustment') return date;
+  const ids = new Set(basis.targets.flatMap((target) => target.kind === 'session' ? [target.sessionId] : []));
+  return [date, basis.date, ...(state.plan?.sessions ?? [])
+    .filter((session) => ids.has(session.id)).map((session) => session.date)].sort()[0];
+}
+
+function sessionLabel(state: AppState, session: Session): string {
+  const time = (minute: number) =>
+    `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(Math.floor(minute % 60)).padStart(2, '0')}`;
+  const material = state.settings.materials.find((item) => item.id === session.materialId);
+  return `${session.date} ${time(session.start)}–${time(session.end)} ${material?.name ?? session.materialId} ${session.round + 1}周目`;
+}
+
 /** Do not turn unreadable reflection provenance into a newly established allocation basis. */
 export function remainingBasisIssue(state: AppState): string | undefined {
   const plan = state.plan;
@@ -115,11 +148,12 @@ function timeIssue(
   context: Boundary,
   cached?: ValidationCache,
 ): string | undefined {
-  if (
-    session.date < context.date ||
-    (session.date === context.date && session.start < context.minute)
-  )
+  if (isElapsedRemainingSession(session, context))
     return '開始時刻を過ぎた枠です。残りの配置を調整してください。';
+  return sourceIssue(state, session, cached);
+}
+
+function sourceIssue(state: AppState, session: Session, cached?: ValidationCache): string | undefined {
   if (session.date < (state.plan?.allocationStart ?? '')) return '再配置の開始日より前の枠です。';
   const exam = state.settings.exams.find((e) => e.id === session.examId);
   const material = state.settings.materials.find((m) => m.id === session.materialId);
@@ -153,8 +187,20 @@ export function remainingSessionIssue(
   context: Boundary,
   sessions: Session[] = activePlanWork(state, context.date),
 ): string | undefined {
+  if (isElapsedRemainingSession(session, context))
+    return '開始時刻を過ぎた枠です。残りの配置を調整してください。';
+  return remainingSourceIssue(state, session, context, sessions);
+}
+
+/** Validate every non-clock condition so an expired conflict is not hidden as ordinary waiting work. */
+export function remainingSourceIssue(
+  state: AppState,
+  session: Session,
+  context: Boundary,
+  sessions: Session[] = activePlanWork(state, context.date),
+): string | undefined {
   const cached = validationCache(state, sessions, context);
-  const invalid = timeIssue(state, session, context, cached);
+  const invalid = sourceIssue(state, session, cached);
   if (invalid) return invalid;
   const occupied = cached.occupied;
   if (
@@ -210,7 +256,7 @@ export function validateRemainingAllocation(state: AppState, context: Boundary):
   ];
   for (const session of sessions) {
     const issue = remainingSessionIssue(state, session, context, sessions);
-    if (issue) throw new Error(`${session.date}の${session.fixed ? '固定' : ''}予定：${issue}`);
+    if (issue) throw new Error(`${sessionLabel(state, session)}の${session.fixed ? '固定' : ''}予定：${issue}`);
   }
 }
 
@@ -219,6 +265,7 @@ export function calculateRemainingAdjustment(
   targets: RemainingAdjustmentTarget[],
   from: string,
   context: PlanningContext,
+  sourceDate = context.date,
 ): { plan: Plan; summary: AdjustmentBasis['summary']; affectedSessionIds: string[] } {
   const source = state.plan;
   if (!source) throw new Error('確定した計画がありません。');
@@ -241,8 +288,8 @@ export function calculateRemainingAdjustment(
       '計画と現在の設定・計算方式が一致していません。調整未反映の内容を確認してください。',
     );
   requirePlanningInputs(state.settings, context.date);
-  assertRemainingBalance(state, context.date);
-  const active = activePlanWork(state, context.date);
+  assertRemainingBalance(state, sourceDate);
+  const active = activePlanWork(state, sourceDate);
   const selected = new Set<string>();
   const selectedShortfalls = new Set<string>();
   const summary = new Map<string, AdjustmentBasis['summary'][number]>();
@@ -288,12 +335,17 @@ export function calculateRemainingAdjustment(
       (session.date < from || !!remainingSessionIssue(state, session, context, active));
     if (move) {
       if (session.fixed)
-        throw new Error(`${session.date}の固定予定は移動できません。固定を確認してください。`);
+        throw new Error(`${sessionLabel(state, session)}の固定予定は移動できません。元の予定の固定を解除してから、調整対象を選び直してください。`);
       released.add(session.id);
-    } else if (invalid)
+    } else if (invalid) {
+      if (session.fixed)
+        throw new Error(`${sessionLabel(state, session)}の固定予定は実行できません。元の予定の固定を解除してから、調整対象を選び直してください。${invalid}`);
       throw new Error(
-        `${session.date}の予定は実行できません。調整対象に含めてください。${invalid}`,
+        isElapsedRemainingSession(session, context)
+          ? `${sessionLabel(state, session)}に再配置待ちの残量があります。「経過済みの未消化分をまとめて調整」で追加対象を確認してください。`
+          : `${sessionLabel(state, session)}の予定は実行できません。調整対象に含めてください。${invalid}`,
       );
+    }
   }
   // Valid selected slots remain where they are unless the explicit start boundary excludes them.
   if (!released.size && !selectedShortfalls.size) {
@@ -355,9 +407,10 @@ export function calculateRemainingAdjustment(
       (s) => !!fixedOrderIssue(state, s, plan.sessions, context.date, 0, budgets),
     );
     if (!blocked.length) break;
-    if (blocked.some((s) => s.fixed))
+    const fixed = blocked.filter((s) => s.fixed);
+    if (fixed.length)
       throw new Error(
-        '選択した残量を先行させるために固定予定の変更が必要です。固定・順序の競合を確認してください。',
+        `${fixed.map((s) => sessionLabel(state, s)).join('、')}の固定予定が先行する残量と競合しています。固定・順序を確認し、必要な予定の固定を解除してください。`,
       );
     for (const session of blocked) {
       released.add(session.id);

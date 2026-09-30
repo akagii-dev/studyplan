@@ -242,3 +242,52 @@ export function remainingPlacementFixture(baseDate = adjustmentDay, report?: num
   if (report !== undefined) state.records.push(record(report, 'b-record', 'b'));
   return state;
 }
+
+/** 160 = 123 executable in 13 slots + 37 elapsed (1 + 12 + 12 + 12), with no report. */
+export function elapsedPlacementFixture(baseDate = adjustmentDay, otherScopes = false) {
+  const state = adjustmentFixture(baseDate);
+  state.settings.exams = [{
+    ...state.settings.exams[0], target: addDays(baseDate, 20),
+  }];
+  state.settings.materials = [{
+    id: 'book', examId: 'a', name: '対象問題集', total: 160, order: 1,
+    rounds: [{ completed: 0, minutes: 1 }],
+  }];
+  state.settings.windows[0] = {
+    ...state.settings.windows[0], to: addDays(baseDate, 19), start: 540, end: 1080,
+  };
+  state.settings.buffer = 0;
+  state.settings.block = 120;
+  state.settings.rest = 1;
+  const session = state.plan!.sessions[0];
+  state.plan!.sessions = [1, 12, 12, 12].map((count, index) => ({
+    ...session, id: `elapsed-${index}`, count, start: 540 + index * 20,
+    end: 540 + index * 20 + count,
+  })).concat(Array.from({ length: 13 }, (_, index) => ({
+    ...session, id: `future-${index}`, date: addDays(baseDate, index + 1),
+    count: index === 12 ? 15 : 9, start: 540, end: index === 12 ? 555 : 549,
+  })));
+  if (otherScopes) {
+    for (const [index, id, name, total, round] of [
+      [0, 'other', '別教材', 3, 0], [1, 'second', '別周回教材', 4, 1],
+    ] as const) {
+      state.settings.exams.push({ ...state.settings.exams[0], id, name: `${name}の試験` });
+      state.settings.materials.push({
+        id, examId: id, name, total, order: 1,
+        rounds: Array.from({ length: round + 1 }, (_, r) => ({
+          completed: r < round ? total : 0, minutes: 1,
+        })),
+      });
+      state.plan!.sessions.push({
+        ...session, id: `elapsed-${id}`, materialId: id, examId: id, round,
+        count: total, start: 640 + index * 10, end: 640 + index * 10 + total,
+      });
+    }
+  }
+  state.plan!.settingsSnapshot = structuredClone(state.settings);
+  state.plan!.capacities = Array.from({ length: 20 }, (_, index) =>
+    capacityForDate(state.settings, addDays(baseDate, index)),
+  );
+  state.plan!.progressBaseline = createProgressBaseline(state.plan!, []);
+  return state;
+}

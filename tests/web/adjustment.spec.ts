@@ -1,10 +1,105 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { adjustmentFixture, adjustmentContext, restartFixture, legacyRestartFixture, remainingPlacementFixture } from '../fixtures/adjustment';
+import { adjustmentFixture, adjustmentContext, restartFixture, legacyRestartFixture, remainingPlacementFixture, elapsedPlacementFixture } from '../fixtures/adjustment';
 import type { AppState } from '../../src/domain/model';
 import { addDays } from '../../src/domain/model';
 import { activePlanWork } from '../../src/domain/progressAllocation';
 import { remainingWork } from '../../src/domain/remainingWork';
+
+test('開いたまま開始前・開始時刻・進行中・終了後を更新し、実績入力と元の数量を保持する', async ({ page }) => {
+  const source = elapsedPlacementFixture();
+  await page.clock.install({ time: new Date(`${adjustmentContext.date}T08:59:00+09:00`) });
+  await page.addInitScript((data) => {
+    if (!localStorage.getItem('studyplan-demo-state-v1')) localStorage.setItem('studyplan-demo-state-v1', JSON.stringify({ revision: 1, data }));
+  }, source);
+  await page.goto('./');
+  const row = page.locator('.daily-record-row').filter({ hasText: '対象問題集' });
+  for (const [time, pending] of [['08:59', 0], ['09:00', 0], ['09:20', 1], ['09:21', 13], ['09:32', 13]] as const) {
+    await page.clock.setFixedTime(new Date(`${adjustmentContext.date}T${time}:00+09:00`));
+    await page.clock.runFor(60_001);
+    await expect(row).toContainText(new RegExp(`再配置待ち\\s*${pending}問`));
+    await expect(row).toContainText(/残り\s*160問/);
+    await expect(row.getByRole('textbox')).toBeVisible();
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('studyplan-demo-state-v1')!).data as AppState);
+    expect(stored.plan).toEqual(source.plan);
+    expect(stored.records).toEqual([]);
+  }
+});
+
+test('13件の配置と37問の再配置待ちを集約し、別教材・別周回も明示してまとめて承認する', async ({ page }, info) => {
+  await page.clock.install({ time: new Date(adjustmentContext.timestamp) });
+  const source = elapsedPlacementFixture(undefined, true);
+  await page.addInitScript((data) => {
+    if (!localStorage.getItem('studyplan-demo-state-v1')) localStorage.setItem('studyplan-demo-state-v1', JSON.stringify({ revision: 1, data }));
+  }, source);
+  await page.goto('./');
+  const read = () => page.evaluate(() => JSON.parse(localStorage.getItem('studyplan-demo-state-v1')!).data as AppState);
+  const row = page.locator('.daily-record-row').filter({ hasText: '対象問題集' });
+  await expect(row).toContainText(/残り\s*160問/);
+  await expect(row).toContainText(/実行可能\s*123問/);
+  await expect(row).toContainText(/再配置待ち\s*37問/);
+  await expect(row).toContainText(/未配置\s*0問/);
+  await expect(row).not.toContainText('元の配置');
+  await expect(row).not.toContainText('開始時刻を過ぎた枠');
+  const adjust = row.getByRole('button', { name: '残りの配置を調整', exact: true });
+  const details = row.locator('summary').filter({ hasText: '配置先を確認' });
+  await expect(adjust).toBeVisible();
+  await details.focus(); await page.keyboard.press('Enter');
+  await expect(row).toContainText('2030-10-20');
+  await expect(row).not.toContainText('元の配置：');
+  // The action stays before the complete list even when all 13 destinations are expanded.
+  expect(await adjust.evaluate((button) => !!(button.compareDocumentPosition(button.closest('.daily-record-row')!.querySelector('summary')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+  expect((await read()).plan).toEqual(source.plan);
+  expect((await read()).records).toEqual([]);
+  await page.screenshot({ path: info.outputPath('elapsed-destinations.png'), fullPage: true });
+  await adjust.focus(); await page.keyboard.press('Enter');
+  await expect(page.getByLabel('配置する開始日')).toBeFocused();
+  await expect(page.getByLabel('対象の教材・周回')).toHaveValue('book/0');
+  await page.getByLabel('対象の教材・周回').focus();
+  await page.keyboard.press('Tab');
+  await expect(page.locator('.remaining-adjustment input[type="checkbox"]').first()).toBeFocused();
+  const selected = page.getByRole('checkbox', { name: /対象問題集.*2030-10-07.*この予定の残り/ });
+  for (let i = 0; i < 4; i++) await expect(selected.nth(i)).toBeChecked();
+  await expect(page.getByRole('button', { name: '配置案を確認', exact: true })).toBeDisabled();
+  const include = page.getByRole('button', { name: '経過済みの未消化分をすべて含める', exact: true });
+  await expect(page.locator('.remaining-adjustment')).toContainText('別教材');
+  await expect(page.locator('.remaining-adjustment')).toContainText('別周回教材');
+  await include.focus(); await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: '配置案を確認', exact: true }).click();
+  const proposal = page.getByRole('region', { name: '選択した残量の配置案' });
+  await expect(proposal).toContainText('対象 37問');
+  await expect(proposal).toContainText('対象 3問');
+  await expect(proposal).toContainText('対象 4問');
+  expect((await read()).plan).toEqual(source.plan);
+  await page.getByRole('button', { name: '案を破棄する', exact: true }).click();
+  expect((await read()).plan).toEqual(source.plan);
+  expect((await read()).records).toEqual([]);
+  await page.getByRole('button', { name: '今後の予定', exact: true }).click();
+  await page.getByRole('button', { name: '経過済みの未消化分をまとめて調整', exact: true }).click();
+  await page.getByRole('button', { name: '配置案を確認', exact: true }).click();
+  await page.clock.runFor(60_001);
+  await expect(page.getByRole('button', { name: 'この内容で更新', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: /同じ対象で案を作り直す|対象の残量から案を作り直す/ }).click();
+  await expect(proposal).toContainText('対象 37問');
+  await expect(proposal).toContainText('対象 3問');
+  await expect(proposal).toContainText('対象 4問');
+  await page.getByRole('button', { name: 'この内容で更新', exact: true }).click();
+  await expect(page.getByText('計画を更新し、カレンダーに反映しました')).toBeVisible();
+  const approved = await read();
+  expect(approved.records).toEqual([]);
+  expect(approved.plan!.sessions.filter((s) => s.id.startsWith('future-'))).toEqual(source.plan!.sessions.filter((s) => s.id.startsWith('future-')));
+  for (const row of remainingWork(approved, adjustmentContext.date, 721)) {
+    expect(row.balanced).toBe(true);
+    expect(row.remaining).toBe(row.allocated + row.unplaced);
+    expect(row.unavailable).toEqual([]);
+  }
+  expect(activePlanWork(approved, adjustmentContext.date).filter((s) => s.materialId === 'book').reduce((n, s) => n + s.count, 0)).toBe(160);
+  await page.reload();
+  expect((await read()).plan).toEqual(approved.plan);
+  expect((await read()).records).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
+});
 
 test('未報告の対象5問を部分再配置し、実績を作らず配置先・未配置理由・承認と再読込を確認する', async ({ page }, info) => {
   await page.clock.install({ time: new Date(adjustmentContext.timestamp) });
@@ -19,15 +114,12 @@ test('未報告の対象5問を部分再配置し、実績を作らず配置先�
   const read = () => page.evaluate(() => JSON.parse(localStorage.getItem('studyplan-demo-state-v1')!).data as AppState);
   const b = page.locator('.daily-record-row').filter({ hasText: '教材B' });
   await expect(b).toContainText('未報告');
-  await b.locator('.daily-placement summary').focus();
-  await page.keyboard.press('Enter');
-  await expect(b).toContainText('教材・周回全体：残り 10問');
-  await expect(b).toContainText('元の配置');
+  await expect(b).toContainText(/残り\s*10問/);
+  await expect(b).not.toContainText('元の配置');
   await b.getByRole('button', { name: '残りの配置を調整', exact: true }).click();
-  const open = page.getByRole('button', { name: '残りの配置を調整', exact: true });
-  await open.focus(); await page.keyboard.press('Enter');
   await expect(page.getByLabel('配置する開始日')).toBeFocused();
   await page.getByRole('button', { name: 'やめる', exact: true }).click();
+  const open = page.getByRole('button', { name: '残りの配置を調整', exact: true });
   await expect(open).toBeFocused();
   await open.click();
   await page.getByRole('checkbox', { name: /教材B.*2030-10-07.*この予定の残り 5問/ }).check();
@@ -50,7 +142,7 @@ test('未報告の対象5問を部分再配置し、実績を作らず配置先�
   expect(remainingWork(approved, adjustmentContext.date).find((r) => r.materialId === 'b')).toMatchObject({ remaining: 10, allocated: 8, unplaced: 2, balanced: true });
   await page.getByRole('button', { name: '今後の予定', exact: true }).click();
   await page.getByText('残量の内訳', { exact: true }).click();
-  await expect(page.locator('.future-work')).toContainText('残り 10問 = 予定 8問 + 未配置 2問');
+  await expect(page.locator('.future-work')).toContainText(/残り\s*10問.*実行可能\s*8問.*再配置待ち\s*0問.*未配置\s*2問/);
   await page.screenshot({ path: info.outputPath('remaining-destinations.png'), fullPage: true });
   await page.reload();
   expect((await read()).records).toEqual(source.records);
@@ -147,7 +239,7 @@ test('未配置を含む残り26問を指定日から組み直し、破棄と承
   const from = addDays(adjustmentContext.date, 3);
   await page.getByRole('button', { name: '今後の予定', exact: true }).click();
   await page.getByText('残量の内訳').click();
-  await expect(page.locator('.future-work')).toContainText('残り 26問 = 予定 20問 + 未配置 6問');
+  await expect(page.locator('.future-work')).toContainText('残り26問 · 実行可能20問 · 再配置待ち0問 · 未配置6問');
   const open = page.getByRole('button', { name: '計画を仕切り直す' });
   await open.focus();
   await page.keyboard.press('Enter');
@@ -212,7 +304,7 @@ test('実績なしの読込と開き続けた翌日の調整を分けて表示�
   expect(adjusted.plan?.shortfalls.filter((s) => s.materialId === 'book' && s.round === 0)).toEqual([]);
   // Yesterday was reconciled, but today's 09:00 slot is already past at 12:01.
   // It must not be offered as an executable destination or turned into extra shortfall.
-  await expect(page.locator('.future-reconciliation')).toContainText('開始時刻を過ぎた枠');
+  await expect(page.locator('.future-work')).toContainText('再配置待ち');
   await page.clock.runFor(60_001);
   const repeated = await read();
   expect(repeated.records).toEqual([]);

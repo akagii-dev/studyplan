@@ -8,6 +8,7 @@ import { todayStudyRows } from '../domain/todayProgress';
 import { latestReceipt } from '../domain/progressReceipt';
 import { remainingWork } from '../domain/remainingWork';
 import { WorkPlacements } from './WorkPlacements';
+import { usePlanningClock } from '../hooks/usePlanningClock';
 import { ProgressReceiptView, receiptDetailLabel, receiptOutcome } from './ProgressReceiptView';
 
 export interface RecordTarget {
@@ -15,18 +16,15 @@ export interface RecordTarget {
   round: number;
   token: number;
 }
-export function TodayRecorder({ state, update, target, onPlacement }: Props & { target?: RecordTarget | null; onPlacement?: () => void }) {
+export function TodayRecorder({ state, update, target, onPlacement }: Props & { target?: RecordTarget | null; onPlacement?: (materialId: string, round: number) => void }) {
   const rows = todayStudyRows(state);
-  const now = new Date();
-  const minute = now.getHours() * 60 + now.getMinutes();
-  const workDate = today();
+  const { date: workDate, minute } = usePlanningClock();
   const work = useMemo(() => remainingWork(state, workDate, minute), [state, workDate, minute]);
   const inputRefs = useRef(new Map<string, HTMLInputElement>());
   const handled = useRef<number | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [savedRecord, setSavedRecord] = useState<{ id: string; count: number } | null>(null);
-  const [expandedPlacements, setExpandedPlacements] = useState<string[]>([]);
   const [outsideMaterial, setOutsideMaterial] = useState(state.settings.materials[0]?.id ?? '');
   const [outsideRound, setOutsideRound] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -161,17 +159,10 @@ export function TodayRecorder({ state, update, target, onPlacement }: Props & { 
                     {errors[id]}
                   </p>
                 )}
-                {placement && placement.remaining > 0 && <details className="daily-placement" onToggle={(event) => {
-                  const open = event.currentTarget.open;
-                  setExpandedPlacements((current) => open ? [...current.filter((key) => key !== id), id] : current.filter((key) => key !== id));
-                }}>
-                  <summary>{row.materialName}の残りの配置を確認</summary>
-                  {expandedPlacements.includes(id) && <>
-                    {!row.reported && <p>未報告分は記録上の残量です。実績0として確定していません。</p>}
-                    <WorkPlacements row={placement} />
-                    {onPlacement && <button type="button" onClick={onPlacement}>残りの配置を調整</button>}
-                  </>}
-                </details>}
+                {placement && placement.remaining > 0 && <div className="daily-placement">
+                  <WorkPlacements row={placement} unreported={!row.reported}
+                    onAdjust={onPlacement ? () => onPlacement(row.materialId, row.round) : undefined} />
+                </div>}
               </div>
             );
           })}

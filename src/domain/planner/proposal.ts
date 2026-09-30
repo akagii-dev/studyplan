@@ -12,7 +12,11 @@ import { generatePlan } from './generate';
 import { proposalUsesCurrentProgress, reflectProgressSafely } from '../progressReflection';
 import { retainStudyDayBaselines } from '../calendarQuantity';
 import { calculateRestart } from '../planRestart';
-import { calculateRemainingAdjustment, validateRemainingAllocation } from '../remainingAllocation';
+import {
+  calculateRemainingAdjustment,
+  remainingAdjustmentSourceDate,
+  validateRemainingAllocation,
+} from '../remainingAllocation';
 import { remainingOccupiedSessions } from '../progressAllocation';
 import { nonComparisonSessions } from '../planDisplay';
 const EPS = 1e-7;
@@ -96,7 +100,38 @@ export function proposeRemainingAdjustment(
 ): AppState {
   if (state.proposal)
     throw new Error('確認待ちの計画案があります。先にその案を確認または破棄してください。');
-  const result = calculateRemainingAdjustment(state, targets, from, context);
+  return buildRemainingProposal(state, targets, from, context, context.date);
+}
+
+/** Refresh the pending selection without changing the committed plan or silently adding work. */
+export function reproposeRemainingAdjustment(
+  state: AppState,
+  additionalTargets: RemainingAdjustmentTarget[],
+  from: string,
+  context: PlanningContext,
+): AppState {
+  const basis = state.proposal?.basis;
+  if (basis?.kind !== 'remaining-adjustment') throw new Error('残りの配置の確認待ちの案がありません。');
+  if (basis.sourceFingerprint !== restartSourceFingerprint(state))
+    throw new Error('案の作成後に計画・設定・実績が変わりました。元の対象を保持したまま内容を確認してください。');
+  const sourceDate = remainingAdjustmentSourceDate(state, context.date);
+  return buildRemainingProposal(
+    { ...state, proposal: null },
+    [...basis.targets, ...additionalTargets],
+    [from, basis.from, context.date, state.plan?.allocationStart ?? ''].sort().at(-1)!,
+    context,
+    sourceDate,
+  );
+}
+
+function buildRemainingProposal(
+  state: AppState,
+  targets: RemainingAdjustmentTarget[],
+  from: string,
+  context: PlanningContext,
+  sourceDate: string,
+): AppState {
+  const result = calculateRemainingAdjustment(state, targets, from, context, sourceDate);
   if (result.plan === state.plan) return state;
   return {
     ...state,

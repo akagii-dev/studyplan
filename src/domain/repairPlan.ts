@@ -1,5 +1,5 @@
 import { AppState, today, uid } from './model';
-import { propose, proposeRestart, proposeSettings, proposeRemainingAdjustment } from './planning';
+import { propose, proposeRestart, proposeSettings, reproposeRemainingAdjustment } from './planning';
 import { beginRevision, RevisionDraft, sameRevisionBase } from './revision';
 import type { ConstraintIssue } from './planConstraints';
 import { studyCoverageGaps, StudyCoverageGap } from './studyCoverage';
@@ -55,8 +55,7 @@ export function beginStudyCoverageRepair(
 
 export function refreshProposal(state: AppState, from = today()): AppState {
   if (state.proposal?.basis?.kind === 'remaining-adjustment') {
-    const basis = state.proposal.basis;
-    return proposeRemainingAdjustment({ ...state, proposal: null }, basis.targets, [from, basis.from].sort().at(-1)!);
+    return reproposeRemainingAdjustment(state, [], from);
   }
   if (state.proposal?.basis?.kind === 'restart') {
     const start = [from, state.proposal.plan.allocationStart ?? state.proposal.plan.from].sort().at(-1)!;

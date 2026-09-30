@@ -22,6 +22,7 @@ import {
   adjustmentReport,
   restartFixture,
   remainingPlacementFixture,
+  elapsedPlacementFixture,
 } from '../fixtures/adjustment';
 
 // The server and this direct IPC path share only this dedicated test database.
@@ -186,9 +187,47 @@ function placements(state: AppState, date: string) {
 test.beforeEach(({ request }, info) => {
   void request;
   test.skip(
-    info.project.name !== 'wide',
+    info.project.name !== 'wide' && !info.title.startsWith('LAN画面'),
     'Transport contracts run once; UI tests cover both widths.',
   );
+});
+
+test('LAN画面で再配置待ち37問と他教材をまとめて確認し、承認・再読込後も数量を保持する', async ({ page, request }, info) => {
+  const source = elapsedPlacementFixture(undefined, true);
+  await seed(source);
+  await page.clock.install({ time: new Date(adjustmentContext.timestamp) });
+  await page.goto(`./#key=${'a'.repeat(64)}`);
+  const row = page.locator('.daily-record-row').filter({ hasText: '対象問題集' });
+  await expect(row).toContainText(/残り\s*160問/);
+  await expect(row).toContainText(/実行可能\s*123問/);
+  await expect(row).toContainText(/再配置待ち\s*37問/);
+  await expect(row).not.toContainText('元の配置');
+  await row.getByRole('button', { name: '残りの配置を調整', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByLabel('配置する開始日')).toBeFocused();
+  await expect(page.getByRole('button', { name: '配置案を確認', exact: true })).toBeDisabled();
+  const include = page.getByRole('button', { name: '経過済みの未消化分をすべて含める', exact: true });
+  await include.focus(); await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: '配置案を確認', exact: true }).click();
+  const proposal = page.getByRole('region', { name: '選択した残量の配置案' });
+  await expect(proposal).toContainText('対象 37問');
+  await expect(proposal).toContainText('別教材');
+  await expect(proposal).toContainText('別周回教材');
+  expect((await http<Envelope>(request, 'load_state')).data.plan).toEqual(source.plan);
+  await page.screenshot({ path: info.outputPath('lan-elapsed-proposal.png'), fullPage: true });
+  await page.getByRole('button', { name: 'この内容で更新', exact: true }).click();
+  await expect(page.locator('.save-status')).toContainText('Windowsに保存済み');
+  const approved = await http<Envelope>(request, 'load_state');
+  expect(approved.data.proposal).toBeNull();
+  expect(approved.data.records).toEqual([]);
+  expect(approved.data.plan!.sessions.filter((s) => s.id.startsWith('future-'))).toEqual(source.plan!.sessions.filter((s) => s.id.startsWith('future-')));
+  expect(remainingWork(approved.data, adjustmentDay, 720).filter((r) => r.remaining > 0).map((r) => [r.remaining, r.allocated, r.unplaced, r.balanced])).toEqual([[160, 160, 0, true], [3, 3, 0, true], [4, 4, 0, true]]);
+  expect(await direct<Envelope>('load_state')).toEqual(approved);
+  await page.reload();
+  await page.getByRole('button', { name: '今日', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '今日', exact: true })).toBeVisible();
+  expect(await http<Envelope>(request, 'load_state')).toEqual(approved);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
 
 test('対象5問の部分再配置を両保存経路で共有し、再送・競合・古い案の承認を保護する', async ({ request }) => {

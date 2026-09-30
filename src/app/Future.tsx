@@ -2,7 +2,7 @@ import { progressView } from '../domain/progressView';
 import { ProgressValue } from '../components/ProgressValue';
 import { calendarDisplayQuantity, materialUnit } from '../domain/calendarQuantity';
 import { Props, duration } from '../components/common';
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { upcomingSunday, shortDayLabel, weekRangeLabel } from '../domain/calendar';
 import { Session, today, addDays, clock, type RemainingAdjustmentTarget } from '../domain/model';
 import { ShortfallDetails } from '../components/ShortfallDetails';
@@ -12,6 +12,8 @@ import { remainingWork } from '../domain/remainingWork';
 import { currentPlanningStatus } from '../domain/progressAdjustment';
 import { displayPlanSessions } from '../domain/planDisplay';
 import { WorkPlacements } from '../components/WorkPlacements';
+import { usePlanningClock } from '../hooks/usePlanningClock';
+import { elapsedRemainingTargets, isElapsedRemainingSession } from '../domain/remainingAllocation';
 
 export function Future({
   state,
@@ -21,6 +23,8 @@ export function Future({
   onAdjustRemaining,
   initialWeek = upcomingSunday(today()),
   onWeekChange,
+  placementTarget,
+  onPlacementHandled,
 }: Props & {
   onCalendar: (date?: string, revealDay?: boolean) => void;
   onProposal: () => void;
@@ -28,9 +32,11 @@ export function Future({
   onAdjustRemaining?: (targets: RemainingAdjustmentTarget[], from: string) => Promise<boolean>;
   initialWeek?: string;
   onWeekChange?: (date: string) => void;
+  placementTarget?: { materialId: string; round: number; token: number } | null;
+  onPlacementHandled?: () => void;
 }) {
   const [week, setWeek] = useState(initialWeek);
-  const reference = today();
+  const { date: reference, minute } = usePlanningClock();
   const [restartOpen, setRestartOpen] = useState(false);
   const [restartDate, setRestartDate] = useState(reference);
   const [restartError, setRestartError] = useState('');
@@ -43,8 +49,6 @@ export function Future({
     else if (wasRestartOpen.current) restartTrigger.current?.focus();
     wasRestartOpen.current = restartOpen;
   }, [restartOpen]);
-  const now = new Date();
-  const minute = now.getHours() * 60 + now.getMinutes();
   const work = useMemo(() => remainingWork(state, reference, minute), [state, reference, minute]);
   const unavailableIds = new Set(work.flatMap((row) => row.unavailable.map(({ session }) => session.id)));
   const [placementOpen, setPlacementOpen] = useState(false);
@@ -59,16 +63,29 @@ export function Future({
   const placementField = useRef<HTMLInputElement>(null);
   const wasPlacementOpen = useRef(false);
   useLayoutEffect(() => {
-    if (placementOpen) placementField.current?.focus();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (placementOpen) {
+      placementField.current?.focus();
+      timer = setTimeout(() => { placementField.current?.focus(); placementField.current?.scrollIntoView({ block: 'center' }); }, 50);
+    }
     else if (wasPlacementOpen.current) placementTrigger.current?.focus();
     wasPlacementOpen.current = placementOpen;
+    return () => clearTimeout(timer);
   }, [placementOpen]);
   const lowerDate = [reference, state.plan?.allocationStart ?? ''].sort().at(-1)!;
+  const elapsed = elapsedRemainingTargets(state, { date: reference, minute });
+  const missingElapsed = elapsed.filter((session) => !selected.includes(`session:${session.id}`));
+  const fixedElapsed = work.flatMap((row) => row.unavailable)
+    .filter(({ session }) => session.fixed && isElapsedRemainingSession(session, { date: reference, minute }));
+  const additionalGroups = work.flatMap((row) => {
+    const sessions = missingElapsed.filter((s) => s.materialId === row.materialId && s.round === row.round);
+    return sessions.length ? [{ ...row, count: sessions.reduce((n, s) => n + s.count, 0) }] : [];
+  });
   const selectableWork = work.filter((row) => row.remaining > 0);
-  const suggestedWork = selectableWork.find((row) => row.unavailable.length || row.unplaced) ?? selectableWork[0];
+  const suggestedWork = selectableWork.find((row) => row.pending || row.unavailable.length || row.unplaced) ?? selectableWork[0];
   const group = placementGroup || (suggestedWork ? `${suggestedWork.materialId}/${suggestedWork.round}` : '');
   const choices = work.flatMap((row) => [
-    ...[...row.placements, ...row.unavailable.map((item) => item.session)].map((session) => ({
+    ...[...row.placements, ...row.pendingPlacements, ...row.unavailable.map((item) => item.session)].map((session) => ({
       id: `session:${session.id}`,
       group: `${row.materialId}/${row.round}`,
       target: { kind: 'session', sessionId: session.id } as RemainingAdjustmentTarget,
@@ -81,10 +98,28 @@ export function Future({
       label: `${row.name} · ${row.round + 1}周目 · 未配置 ${row.unplaced}${row.unit}`,
     }] : []),
   ]);
+  const handledPlacement = useRef<number | null>(null);
+  useEffect(() => {
+    if (!placementTarget || handledPlacement.current === placementTarget.token) return;
+    handledPlacement.current = placementTarget.token;
+    const row = work.find((r) => r.materialId === placementTarget.materialId && r.round === placementTarget.round);
+    setPlacementGroup(`${placementTarget.materialId}/${placementTarget.round}`);
+    setSelected(row?.pendingPlacements.length ? row.pendingPlacements.map((s) => `session:${s.id}`) :
+      row?.unplaced ? [`shortfall:${row.materialId}/${row.round}`] : []);
+    setPlacementDate(lowerDate);
+    setPlacementOpen(true);
+    onPlacementHandled?.();
+  }, [placementTarget, work, lowerDate, onPlacementHandled]);
+  const openPlacement = (all = false) => {
+    setPlacementDate(lowerDate); setPlacementError(''); setPlacementMessage('');
+    if (all) setSelected(elapsed.map((session) => `session:${session.id}`));
+    setPlacementOpen(true);
+  };
   async function adjustPlacement() {
     if (placingRef.current) return;
     setPlacementError('');
     setPlacementMessage('');
+    if (missingElapsed.length) { setPlacementError('表示された経過済みの未消化分をすべて含めてください。'); return; }
     const targets = choices.filter((choice) => selected.includes(choice.id)).map((choice) => choice.target);
     if (!targets.length) { setPlacementError('配置を調整する対象を選んでください。'); return; }
     placingRef.current = true;
@@ -157,11 +192,31 @@ export function Future({
         )}
       </section>
       {onAdjustRemaining && state.plan && !state.proposal && choices.length > 0 && <section className="remaining-adjustment" aria-label="残りの配置を調整">
-        {!placementOpen ? <button ref={placementTrigger} onClick={() => {
-          setPlacementDate(lowerDate); setPlacementError(''); setPlacementMessage(''); setPlacementOpen(true);
-        }}>残りの配置を調整</button> : <form onSubmit={(event) => { event.preventDefault(); void adjustPlacement(); }}>
+        {!placementOpen ? <div className="actions">
+          <button ref={placementTrigger} onClick={() => openPlacement()}>残りの配置を調整</button>
+          {elapsed.length > 0 && <button onClick={() => openPlacement(true)}>経過済みの未消化分をまとめて調整</button>}
+        </div> : <form onSubmit={(event) => { event.preventDefault(); void adjustPlacement(); }}>
           <h2>残りの配置を調整</h2>
           <p>実績はそのまま、選んだ残量の配置案を確認します。使える配置は維持します。</p>
+          {additionalGroups.length > 0 && <section className="remaining-additional" aria-label="追加が必要な経過済みの未消化分">
+            <h3>追加が必要な経過済みの未消化分</h3>
+            <ul>{additionalGroups.map((row) => <li key={`${row.materialId}/${row.round}`}>
+              {row.name} · {row.round + 1}周目 · {row.count}{row.unit}
+            </li>)}</ul>
+            <button type="button" disabled={placing} onClick={() => {
+              setSelected((ids) => [...new Set([...ids, ...elapsed.map((s) => `session:${s.id}`)])]);
+              placementField.current?.focus();
+            }}>
+              経過済みの未消化分をすべて含める
+            </button>
+          </section>}
+          {fixedElapsed.length > 0 && <div role="status">
+            <strong>経過済みの固定予定を確認してください</strong>
+            <ul>{fixedElapsed.map(({ session }) => <li key={session.id}>
+              {state.settings.materials.find((m) => m.id === session.materialId)?.name} · {session.round + 1}周目 · {session.date} {clock(session.start)} · 残り{session.count}{materialUnit(state.settings.materials.find((m) => m.id === session.materialId)?.unit)}（固定）
+            </li>)}</ul>
+            <button type="button" onClick={() => onCalendar(fixedElapsed[0].session.date, true)}>カレンダーで固定を確認</button>
+          </div>}
           <label htmlFor="remaining-from">配置する開始日</label>
           <input id="remaining-from" ref={placementField} type="date" required min={lowerDate}
             value={placementDate} onChange={(event) => setPlacementDate(event.target.value)} />
@@ -184,7 +239,7 @@ export function Future({
             <ul>{choices.filter((choice) => selected.includes(choice.id)).map((choice) => <li key={choice.id}>{choice.label}</li>)}</ul>
           </details>}
           <div className="actions">
-            <button type="submit" className="primary" disabled={placing}>配置案を確認</button>
+            <button type="submit" className="primary" disabled={placing || missingElapsed.length > 0 || fixedElapsed.length > 0}>配置案を確認</button>
             <button type="button" disabled={placing} onClick={() => setPlacementOpen(false)}>やめる</button>
           </div>
           {placementError && <p className="error" role="alert">{placementError}</p>}
@@ -208,7 +263,11 @@ export function Future({
             {work.map((row) => (
               <li key={`${row.materialId}/${row.round}`} className="future-work-item">
                 <span>{row.name} · {row.round + 1}周目</span>
-                <WorkPlacements row={row} />
+                <WorkPlacements row={row} onAdjust={onAdjustRemaining && !state.proposal ? () => {
+                  setPlacementGroup(`${row.materialId}/${row.round}`);
+                  setSelected(row.pendingPlacements.map((s) => `session:${s.id}`));
+                  openPlacement();
+                } : undefined} />
               </li>
             ))}
           </ul>

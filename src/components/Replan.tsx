@@ -29,7 +29,11 @@ import { proposalUsesCurrentProgress } from '../domain/progressReflection';
 import { materialUnit } from '../domain/calendarQuantity';
 import { remainingWork, remainingAdjustmentPreview } from '../domain/remainingWork';
 import { nonComparisonSessions } from '../domain/planDisplay';
+import { usePlanningClock } from '../hooks/usePlanningClock';
+import { elapsedRemainingTargets, remainingAdjustmentSourceDate } from '../domain/remainingAllocation';
+import { reproposeRemainingAdjustment } from '../domain/planning';
 export function Replan({ state, update, onCalendar, onFuture }: Props & { onCalendar: () => void; onFuture: () => void }) {
+  const currentTime = usePlanningClock();
   const [ack, setAck] = useState(false);
   const [error, err] = useState('');
   const [undo, setUndo] = useState(false);
@@ -71,6 +75,13 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
   const stale = !!p?.settingsBase && !sameRevisionBase(p.settingsBase, state.settings);
   const progressStale = !!plan && !proposalUsesCurrentProgress(plan, state.records);
   const restartIssue = p?.basis ? restartProposalStaleReason(state) : undefined;
+  const basis = p?.basis?.kind === 'remaining-adjustment' ? p.basis : undefined;
+  const extraElapsed = basis ? elapsedRemainingTargets(state, currentTime, remainingAdjustmentSourceDate(state, currentTime.date))
+    .filter((session) => !basis.targets.some((target) => target.kind === 'session' && target.sessionId === session.id)) : [];
+  const extraGroups = state.settings.materials.flatMap((material) => material.rounds.flatMap((_, round) => {
+    const count = extraElapsed.filter((s) => s.materialId === material.id && s.round === round).reduce((n, s) => n + s.count, 0);
+    return count ? [`${material.name} · ${round + 1}周目 · ${count}${materialUnit(material.unit)}`] : [];
+  }));
   const missingSettings = setupIssues(displaySettings).filter((i) => i.severity === 'error');
   useEffect(() => setAck(false), [plan?.id]);
   const impacts = plan ? comparePlans(state.plan, plan, comparisonFrom) : [];
@@ -230,9 +241,11 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
       run: () => void act((s) => refreshProposal(s)),
     }] : []),
     ...(restartIssue ? [{
-      text: restartIssue,
-      action: partial ? '同じ対象で案を作り直す' : '同じ開始日から案を作り直す',
-      run: () => void act((s) => refreshProposal(s)),
+      text: extraGroups.length ? `${restartIssue} 追加対象：${extraGroups.join('、')}。` : restartIssue,
+      action: extraElapsed.length ? '経過済みの未消化分も含めて案を作り直す' : partial ? '同じ対象で案を作り直す' : '同じ開始日から案を作り直す',
+      run: () => void act((s) => extraElapsed.length
+        ? reproposeRemainingAdjustment(s, extraElapsed.map((session) => ({ kind: 'session', sessionId: session.id })), [currentTime.date, basis!.from].sort().at(-1)!)
+        : refreshProposal(s)),
     }] : []),
     ...(plan && plan.calculationVersion !== PLAN_CALCULATION_VERSION
       ? [

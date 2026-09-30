@@ -2977,6 +2977,9 @@ textarea {
 .work-placements p { margin-block: 6px; }
 .work-placements ul { padding-inline-start: 20px; }
 .work-placements li { padding-block: 5px; }
+.work-placements summary { cursor: pointer; min-height: 44px; padding-block: 10px; }
+.work-summary { font-weight: 600; }
+.remaining-additional { border-inline-start: 3px solid var(--border); padding-inline-start: 12px; }
 .work-review { color: var(--error-ink); }
 .remaining-adjustment { margin-block: 12px; }
 .remaining-adjustment form { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 8px; }

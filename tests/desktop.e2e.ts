@@ -30,7 +30,7 @@ import ICAL from 'ical.js';
 import AxeBuilder from '@axe-core/playwright';
 import { startOfWeek } from '../src/domain/calendar';
 import { studentFixture } from './fixtures/student';
-import { adjustmentFixture, restartFixture, legacyRestartFixture, remainingPlacementFixture } from './fixtures/adjustment';
+import { adjustmentFixture, restartFixture, legacyRestartFixture, remainingPlacementFixture, elapsedPlacementFixture } from './fixtures/adjustment';
 import { activePlanWork } from '../src/domain/progressAllocation';
 import { createProgressBaseline, reflectProgress } from '../src/domain/progressReflection';
 let child: ChildProcess;
@@ -596,6 +596,42 @@ test('実機：対象5問だけの配置案を保存し、再起動後の承認�
   await launch();
   expect((await storedState()).plan).toEqual(approved.plan);
   expect((await storedState()).records).toEqual(source.records);
+});
+
+test('実機：狭幅で37問の再配置待ちから別教材も含め、実績を作らず承認・再起動できる', async () => {
+  dataDir = mkdtempSync(resolve('.test-data/elapsed-placement-'));
+  await launch();
+  const date = today();
+  await page.clock.install({ time: new Date(`${date}T12:00:00+09:00`) });
+  await page.setViewportSize({ width: 320, height: 800 });
+  const source = elapsedPlacementFixture(date, true);
+  await seedState(source, 'elapsed-placement-source');
+  await saved();
+  const row = page.locator('.daily-record-row').filter({ hasText: '対象問題集' });
+  await expect(row).toContainText(/実行可能\s*123問/);
+  await expect(row).toContainText(/再配置待ち\s*37問/);
+  await expect(row).not.toContainText('元の配置');
+  await row.getByRole('button', { name: '残りの配置を調整', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByLabel('配置する開始日')).toBeFocused();
+  await page.getByLabel('配置する開始日').fill(addDays(date, 1));
+  await page.getByRole('button', { name: '経過済みの未消化分をすべて含める', exact: true }).click();
+  await page.getByRole('button', { name: '配置案を確認', exact: true }).click();
+  await saved();
+  await expect(page.getByRole('region', { name: '選択した残量の配置案' })).toContainText('対象 37問');
+  expect((await storedState()).plan).toEqual(source.plan);
+  expect((await storedState()).records).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.getByRole('button', { name: 'この内容で更新', exact: true }).click();
+  await saved();
+  const approved = await storedState();
+  expect(approved.records).toEqual([]);
+  expect(approved.plan!.sessions.filter((s) => s.id.startsWith('future-'))).toEqual(source.plan!.sessions.filter((s) => s.id.startsWith('future-')));
+  expect(activePlanWork(approved, date).filter((s) => s.materialId === 'book').reduce((sum, s) => sum + s.count, 0)).toBe(160);
+  await closeWindowNormally();
+  await launch();
+  expect((await storedState()).plan).toEqual(approved.plan);
+  expect((await storedState()).records).toEqual([]);
 });
 
 test('実機：旧未配置を含めて仕切り直し、承認・バックアップ・再起動後も開始境界を保持する', async () => {

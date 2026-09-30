@@ -41,6 +41,7 @@ const fallbackFor = (page: Page): Page =>
 type ReturnPoint = { page: Page; top: number; focus: HTMLElement | null; focusKey?: string };
 export default function App() {
   const [recordTarget, setRecordTarget] = useState<RecordTarget | null>(null);
+  const [placementTarget, setPlacementTarget] = useState<RecordTarget | null>(null);
   const [page, setPageState] = useState<Page>(directPage);
   const [restorePosition, setRestorePosition] = useState<(ReturnPoint & { key: number }) | null>(null);
   const [origin, setOrigin] = useState<ReturnPoint | null>(null);
@@ -304,10 +305,12 @@ export default function App() {
             )}
           <NumericDraftProvider key={reloadEpoch} state={state} update={update} scope={numericScope}>
             {page === 'dashboard' && (
-              <Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} recordTarget={recordTarget} />
+              <Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} recordTarget={recordTarget}
+                onPlacement={(materialId, round) => { setPlacementTarget({ materialId, round, token: Date.now() }); setPage('future'); }} />
             )}{' '}
             {page === 'future' && (
-              <Future {...props} initialWeek={futureWeek} onWeekChange={setFutureWeek} onCalendar={(date, revealDay = !!date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} onRestart={restartPlan} onAdjustRemaining={adjustRemaining} />
+              <Future {...props} initialWeek={futureWeek} onWeekChange={setFutureWeek} onCalendar={(date, revealDay = !!date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} onRestart={restartPlan} onAdjustRemaining={adjustRemaining}
+                placementTarget={placementTarget} onPlacementHandled={() => setPlacementTarget(null)} />
             )}
             {(page === 'settings' || originStack.current.some((entry) => entry.page === 'settings')) && (
               <div hidden={page !== 'settings'}>

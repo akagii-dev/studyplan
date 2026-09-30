@@ -15,6 +15,7 @@ import {
   adjustmentFixture,
   adjustmentReport,
   remainingPlacementFixture,
+  elapsedPlacementFixture,
 } from './fixtures/adjustment';
 import { recordAndAdjust, correctAndAdjust } from '../src/domain/progressAdjustment';
 import {
@@ -45,12 +46,13 @@ it.each([undefined, 0, 2])(
     const expired = remainingWork(state, adjustmentContext.date, 720).find(
       (r) => r.materialId === 'b',
     )!;
-    expect(expired).toMatchObject({ executable: 5, unplaced: 0, needsReview: true });
-    expect(expired.unavailable[0].session.count).toBe(5 - (report ?? 0));
+    expect(expired).toMatchObject({ executable: 5, pending: 5 - (report ?? 0), unplaced: 0, needsReview: false });
+    expect(expired.pendingPlacements[0].count).toBe(5 - (report ?? 0));
+    expect(expired.unavailable).toEqual([]);
     const html = renderToStaticMarkup(createElement(WorkPlacements, { row: expired }));
-    expect(html).toContain('調整未反映・要確認');
-    expect(html).toContain('開始時刻を過ぎた枠');
-    expect(html).toContain(`この予定の残り 5問`);
+    expect(html).not.toContain('調整未反映・要確認');
+    expect(html).not.toContain('開始時刻を過ぎた枠');
+    expect(html).toContain(`再配置待ち${5 - (report ?? 0)}問`);
     expect(state).toEqual(before);
     const failed = {
       ...state,
@@ -62,6 +64,29 @@ it.each([undefined, 0, 2])(
     });
   },
 );
+
+it('13配置先と経過37問は数量を保ち、通常表示は集約し、固定や数量不整合は要確認に残す', () => {
+  const state = elapsedPlacementFixture();
+  const before = structuredClone(state);
+  const row = remainingWork(state, adjustmentContext.date, 720)[0];
+  expect(row).toMatchObject({ remaining: 160, executable: 123, pending: 37, unplaced: 0, balanced: true, needsReview: false });
+  expect(row.placements).toHaveLength(13);
+  expect(row.pendingPlacements.map((s) => s.count)).toEqual([1, 12, 12, 12]);
+  const html = renderToStaticMarkup(createElement(WorkPlacements, { row, onAdjust: () => {} }));
+  expect(html).toContain('残り160問 · 実行可能123問 · 再配置待ち37問 · 未配置0問');
+  expect(html.indexOf('残りの配置を調整')).toBeLessThan(html.indexOf('<summary>'));
+  expect(html).not.toContain('元の配置');
+  expect(html).not.toContain('2030-10-07');
+  expect(state).toEqual(before);
+  state.plan!.sessions[0].fixed = true;
+  const fixed = remainingWork(state, adjustmentContext.date, 720)[0];
+  expect(fixed).toMatchObject({ pending: 36, needsReview: true });
+  expect(fixed.unavailable[0].session).toMatchObject({ fixed: true, count: 1 });
+  state.plan!.sessions.at(-1)!.count += 1;
+  const broken = remainingWork(state, adjustmentContext.date, 720)[0];
+  expect(broken).toMatchObject({ balanced: false, needsReview: true, unplaced: 0 });
+  expect(broken.reasons.join(' ')).toContain('一致していません');
+});
 
 it('部分案の表示はB全体10問と対象5問を混同せず、非対象の5問を結果へ加算しない', () => {
   const state = remainingPlacementFixture();

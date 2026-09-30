@@ -47,6 +47,13 @@ export function proposeRemainingAdjustment(
 ) {
   return proposals.proposeRemainingAdjustment(state, targets, from, context());
 }
+export function reproposeRemainingAdjustment(
+  state: AppState,
+  additionalTargets: RemainingAdjustmentTarget[],
+  from: string,
+) {
+  return proposals.reproposeRemainingAdjustment(state, additionalTargets, from, context());
+}
 export function restartProposalStaleReason(state: AppState) {
   return proposals.restartProposalStaleReason(state, context());
 }

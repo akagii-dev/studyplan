@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline';
 import { parseBackup, type BackupFile } from '../../src/domain/backup';
 import { calendarQuantity } from '../../src/domain/calendarQuantity';
 import { addDays, type AppState, type Envelope } from '../../src/domain/model';
-import { approve, proposeRestart, proposeRemainingAdjustment } from '../../src/domain/planner/proposal';
+import { approve, proposeRestart, proposeRemainingAdjustment, proposePastRemainingAdjustment } from '../../src/domain/planner/proposal';
 import {
   correctAndAdjust,
   currentProgressAdjustment,
@@ -22,7 +22,7 @@ import {
   adjustmentReport,
   restartFixture,
   remainingPlacementFixture,
-  elapsedPlacementFixture,
+  pastPlacementFixture,
 } from '../fixtures/adjustment';
 
 // The server and this direct IPC path share only this dedicated test database.
@@ -192,36 +192,42 @@ test.beforeEach(({ request }, info) => {
   );
 });
 
-test('LAN画面で再配置待ち37問と他教材をまとめて確認し、承認・再読込後も数量を保持する', async ({ page, request }, info) => {
-  const source = elapsedPlacementFixture(undefined, true);
+test('LAN画面で自動繰越済みを二重配分せず、保存済みの過去一括案は今日の予定を保護して承認する', async ({ page, request }, info) => {
+  const source = pastPlacementFixture();
   await seed(source);
   await page.clock.install({ time: new Date(adjustmentContext.timestamp) });
   await page.goto(`./#key=${'a'.repeat(64)}`);
-  const row = page.locator('.daily-record-row').filter({ hasText: '対象問題集' });
-  await expect(row).toContainText(/残り\s*160問/);
-  await expect(row).toContainText(/実行可能\s*123問/);
-  await expect(row).toContainText(/再配置待ち\s*37問/);
-  await expect(row).not.toContainText('元の配置');
-  await row.getByRole('button', { name: '残りの配置を調整', exact: true }).focus();
-  await page.keyboard.press('Enter');
-  await expect(page.getByLabel('配置する開始日')).toBeFocused();
-  await expect(page.getByRole('button', { name: '配置案を確認', exact: true })).toBeDisabled();
-  const include = page.getByRole('button', { name: '経過済みの未消化分をすべて含める', exact: true });
-  await include.focus(); await page.keyboard.press('Enter');
-  await page.getByRole('button', { name: '配置案を確認', exact: true }).click();
-  const proposal = page.getByRole('region', { name: '選択した残量の配置案' });
-  await expect(proposal).toContainText('対象 37問');
-  await expect(proposal).toContainText('別教材');
-  await expect(proposal).toContainText('別周回教材');
+  await expect.poll(async () => (await http<Envelope>(request, 'load_state')).data.plan?.adjustmentBasis?.date).toBe(adjustmentDay);
+  const automaticallyAdjusted = await http<Envelope>(request, 'load_state');
+  await expect(page.locator('.daily-record-row').filter({ hasText: '教材B' }).getByRole('textbox')).toBeVisible();
+  await expect(page.getByText('配置先を確認', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: '今後の予定', exact: true }).click();
+  for (const name of ['計画を仕切り直す', '経過済みの未消化分をまとめて調整', '詳細カレンダーを見る'])
+    await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '残りの配置を調整', exact: true })).toHaveCount(0);
+  const open = page.getByRole('button', { name: '経過済みの未消化分をまとめて調整', exact: true });
+  await expect(open).toBeDisabled();
+  await expect(page.getByText('昨日以前の未消化分は調整済み、またはありません。', { exact: true })).toBeVisible();
+  expect((await http<Envelope>(request, 'load_state')).data.plan).toEqual(automaticallyAdjusted.data.plan);
+  expect(automaticallyAdjusted.data.records).toEqual(source.records);
+
+  const proposed = proposePastRemainingAdjustment(source, addDays(adjustmentDay, 1), adjustmentContext);
+  await seed(proposed);
+  await page.reload();
+  await page.getByRole('button', { name: '今後の予定', exact: true }).click();
+  await page.getByRole('button', { name: '計画案を確認', exact: true }).click();
+  await expect(page.getByRole('region', { name: '選択した残量の配置案' })).toContainText('対象 5問');
   expect((await http<Envelope>(request, 'load_state')).data.plan).toEqual(source.plan);
-  await page.screenshot({ path: info.outputPath('lan-elapsed-proposal.png'), fullPage: true });
+  await page.screenshot({ path: info.outputPath('lan-past-proposal.png'), fullPage: true });
   await page.getByRole('button', { name: 'この内容で更新', exact: true }).click();
+  await expect(page.getByText('計画を更新し、カレンダーに反映しました')).toBeVisible();
   await expect(page.locator('.save-status')).toContainText('Windowsに保存済み');
   const approved = await http<Envelope>(request, 'load_state');
   expect(approved.data.proposal).toBeNull();
-  expect(approved.data.records).toEqual([]);
-  expect(approved.data.plan!.sessions.filter((s) => s.id.startsWith('future-'))).toEqual(source.plan!.sessions.filter((s) => s.id.startsWith('future-')));
-  expect(remainingWork(approved.data, adjustmentDay, 720).filter((r) => r.remaining > 0).map((r) => [r.remaining, r.allocated, r.unplaced, r.balanced])).toEqual([[160, 160, 0, true], [3, 3, 0, true], [4, 4, 0, true]]);
+  expect(approved.data.records).toEqual(source.records);
+  expect(approved.data.plan!.sessions.find((s) => s.id === 'b-keep')).toEqual(source.plan!.sessions.find((s) => s.id === 'b-keep'));
+  expect(approved.data.plan!.sessions.find((s) => s.id === 'a-done')).toEqual(source.plan!.sessions.find((s) => s.id === 'a-done'));
+  expect(remainingWork(approved.data, adjustmentDay).find((r) => r.materialId === 'b')).toMatchObject({ remaining: 10, allocated: 10, unplaced: 0, balanced: true });
   expect(await direct<Envelope>('load_state')).toEqual(approved);
   await page.reload();
   await page.getByRole('button', { name: '今日', exact: true }).click();
@@ -229,7 +235,6 @@ test('LAN画面で再配置待ち37問と他教材をまとめて確認し、承
   expect(await http<Envelope>(request, 'load_state')).toEqual(approved);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
-
 test('対象5問の部分再配置を両保存経路で共有し、再送・競合・古い案の承認を保護する', async ({ request }) => {
   const source = remainingPlacementFixture();
   source.plan!.comparisonSessionIds = ['a-done'];

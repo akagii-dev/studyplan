@@ -14,9 +14,9 @@ import { Startup } from '../components/Startup';
 import { Tutorial } from '../components/Tutorial';
 import { Warning, WarningSettings, WarningsProvider } from '../components/Warnings';
 import { WeeklyReport } from '../components/WeeklyReport';
-import { CalendarView, Session, addDays, today, type RemainingAdjustmentTarget } from '../domain/model';
+import { CalendarView, Session, addDays, today } from '../domain/model';
 import { dateTime, stalePlan } from '../domain/planAudit';
-import { propose, proposeRestart, proposeRemainingAdjustment } from '../domain/planning';
+import { propose, proposeRestart, proposePastRemainingAdjustment } from '../domain/planning';
 import { currentProgressAdjustment } from '../domain/progressAdjustment';
 import { requirePlanningInputs } from '../domain/setupIssues';
 import { usePersistentAppState } from '../hooks/usePersistentAppState';
@@ -41,7 +41,6 @@ const fallbackFor = (page: Page): Page =>
 type ReturnPoint = { page: Page; top: number; focus: HTMLElement | null; focusKey?: string };
 export default function App() {
   const [recordTarget, setRecordTarget] = useState<RecordTarget | null>(null);
-  const [placementTarget, setPlacementTarget] = useState<RecordTarget | null>(null);
   const [page, setPageState] = useState<Page>(directPage);
   const [restorePosition, setRestorePosition] = useState<(ReturnPoint & { key: number }) | null>(null);
   const [origin, setOrigin] = useState<ReturnPoint | null>(null);
@@ -154,10 +153,10 @@ export default function App() {
     await update((current) => proposeRestart(current, from));
     setPage('replan');
   };
-  const adjustRemaining = async (targets: RemainingAdjustmentTarget[], from: string) => {
+  const adjustRemaining = async (from: string) => {
     let created = false;
     await update((current) => {
-      const next = proposeRemainingAdjustment(current, targets, from);
+      const next = proposePastRemainingAdjustment(current, from);
       created = next !== current;
       return next;
     });
@@ -305,12 +304,10 @@ export default function App() {
             )}
           <NumericDraftProvider key={reloadEpoch} state={state} update={update} scope={numericScope}>
             {page === 'dashboard' && (
-              <Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} recordTarget={recordTarget}
-                onPlacement={(materialId, round) => { setPlacementTarget({ materialId, round, token: Date.now() }); setPage('future'); }} />
+              <Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} recordTarget={recordTarget} />
             )}{' '}
             {page === 'future' && (
-              <Future {...props} initialWeek={futureWeek} onWeekChange={setFutureWeek} onCalendar={(date, revealDay = !!date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} onRestart={restartPlan} onAdjustRemaining={adjustRemaining}
-                placementTarget={placementTarget} onPlacementHandled={() => setPlacementTarget(null)} />
+              <Future {...props} initialWeek={futureWeek} onWeekChange={setFutureWeek} onCalendar={(date, revealDay = !!date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} onRestart={restartPlan} onAdjustRemaining={adjustRemaining} />
             )}
             {(page === 'settings' || originStack.current.some((entry) => entry.page === 'settings')) && (
               <div hidden={page !== 'settings'}>

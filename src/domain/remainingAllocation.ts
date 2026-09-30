@@ -53,6 +53,26 @@ export function remainingAdjustmentSourceDate(state: AppState, date: string): st
     .filter((session) => ids.has(session.id)).map((session) => session.date)].sort()[0];
 }
 
+export function pastRemainingSourceDate(state: AppState, date: string): string {
+  return [date, state.plan?.adjustmentBasis?.date ?? state.plan?.from ?? date].sort()[0];
+}
+
+/** Only unreconciled effective work from yesterday or earlier; historical deficits are not added. */
+export function pastRemainingWork(state: AppState, date: string): { sessions: Session[]; issue?: string } {
+  if (!state.plan) return { sessions: [] };
+  const sourceDate = pastRemainingSourceDate(state, date);
+  const sessions = activePlanWork(state, sourceDate).filter((session) => session.date < date);
+  let issue = remainingBasisIssue(state);
+  if (!issue) {
+    try { assertRemainingBalance(state, sourceDate); }
+    catch (error) { issue = error instanceof Error ? error.message : String(error); }
+  }
+  const fixed = sessions.filter((session) => session.fixed);
+  if (!issue && fixed.length)
+    issue = `${fixed.map((session) => sessionLabel(state, session)).join('、')}の固定予定は移動できません。固定を確認してください。`;
+  return { sessions, issue };
+}
+
 function sessionLabel(state: AppState, session: Session): string {
   const time = (minute: number) =>
     `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(Math.floor(minute % 60)).padStart(2, '0')}`;
@@ -241,7 +261,7 @@ export function assertRemainingBalance(state: AppState, date: string): void {
   }
 }
 
-export function validateRemainingAllocation(state: AppState, context: Boundary): void {
+export function validateRemainingAllocation(state: AppState, context: Boundary, preserved: Session[] = []): void {
   const basisIssue = remainingBasisIssue(state);
   if (basisIssue) throw new Error(basisIssue);
   assertRemainingBalance(state, context.date);
@@ -255,9 +275,41 @@ export function validateRemainingAllocation(state: AppState, context: Boundary):
     ),
   ];
   for (const session of sessions) {
-    const issue = remainingSessionIssue(state, session, context, sessions);
+    const unchangedElapsed = isElapsedRemainingSession(session, context) && preserved.some((old) => sameSession(old, session));
+    const issue = unchangedElapsed
+      ? remainingSourceIssue(state, session, context, sessions)
+      : remainingSessionIssue(state, session, context, sessions);
     if (issue) throw new Error(`${sessionLabel(state, session)}の${session.fixed ? '固定' : ''}予定：${issue}`);
   }
+}
+
+const sameSession = (a: Session, b: Session) =>
+  a.id === b.id && a.date === b.date && a.start === b.start && a.end === b.end &&
+  a.materialId === b.materialId && a.examId === b.examId && a.round === b.round &&
+  a.count === b.count && a.fixed === b.fixed && a.kind === b.kind;
+
+export function validatePastRemainingAllocation(source: AppState, plan: Plan, context: Boundary): void {
+  const kept = activePlanWork(source, pastRemainingSourceDate(source, context.date))
+    .filter((session) => session.date >= context.date);
+  const candidate = { ...source, plan };
+  const active = activePlanWork(candidate, context.date);
+  for (const session of kept) {
+    if (!active.some((next) => sameSession(session, next)))
+      throw new Error(`${sessionLabel(source, session)}は今日以降の保持対象です。過去分の調整では変更できません。`);
+  }
+  const unplaced = (shortfalls: Plan['shortfalls']) => {
+    const counts = new Map<string, number>();
+    for (const shortfall of shortfalls) {
+      const key = workKey(shortfall.materialId, shortfall.round);
+      counts.set(key, (counts.get(key) ?? 0) + shortfall.count);
+    }
+    return counts;
+  };
+  const nextUnplaced = unplaced(plan.shortfalls);
+  for (const [key, count] of unplaced(source.plan?.shortfalls ?? []))
+    if ((nextUnplaced.get(key) ?? 0) < count)
+      throw new Error('過去分の調整では、既存の未配置分を保持してください。');
+  validateRemainingAllocation(candidate, context, kept);
 }
 
 export function calculateRemainingAdjustment(
@@ -266,6 +318,7 @@ export function calculateRemainingAdjustment(
   from: string,
   context: PlanningContext,
   sourceDate = context.date,
+  pastOnly = false,
 ): { plan: Plan; summary: AdjustmentBasis['summary']; affectedSessionIds: string[] } {
   const source = state.plan;
   if (!source) throw new Error('確定した計画がありません。');
@@ -313,9 +366,12 @@ export function calculateRemainingAdjustment(
       const session = active.find((s) => s.id === target.sessionId);
       if (!session)
         throw new Error('選択した予定の未消化量が変わりました。対象を選び直してください。');
+      if (pastOnly && session.date >= context.date)
+        throw new Error('過去分の調整は昨日以前の未消化予定だけを対象にします。');
       selected.add(session.id);
       add(session.materialId, session.round, session.count, session.id);
     } else {
+      if (pastOnly) throw new Error('過去分の調整に、既存の未配置分は含めません。');
       const key = workKey(target.materialId, target.round);
       if (selectedShortfalls.has(key)) continue;
       const count = source.shortfalls
@@ -337,7 +393,7 @@ export function calculateRemainingAdjustment(
       if (session.fixed)
         throw new Error(`${sessionLabel(state, session)}の固定予定は移動できません。元の予定の固定を解除してから、調整対象を選び直してください。`);
       released.add(session.id);
-    } else if (invalid) {
+    } else if (invalid && !(pastOnly && session.date >= context.date && isElapsedRemainingSession(session, context))) {
       if (session.fixed)
         throw new Error(`${sessionLabel(state, session)}の固定予定は実行できません。元の予定の固定を解除してから、調整対象を選び直してください。${invalid}`);
       throw new Error(
@@ -378,7 +434,8 @@ export function calculateRemainingAdjustment(
   for (;;) {
     const kept = active.filter((s) => !released.has(s.id));
     const earlier: Record<string, number> = {};
-    for (const session of kept.filter((s) => s.date < from)) {
+    for (const session of kept.filter((s) => s.date < from ||
+      (pastOnly && s.date === from && from === context.date && s.start < context.minute))) {
       const key = workKey(session.materialId, session.round);
       earlier[key] = (earlier[key] ?? 0) + session.count;
     }
@@ -407,6 +464,8 @@ export function calculateRemainingAdjustment(
       (s) => !!fixedOrderIssue(state, s, plan.sessions, context.date, 0, budgets),
     );
     if (!blocked.length) break;
+    if (pastOnly)
+      throw new Error(`${blocked.map((session) => sessionLabel(state, session)).join('、')}の今日以降の予定と順序が競合します。過去分だけの調整では移動できません。`);
     const fixed = blocked.filter((s) => s.fixed);
     if (fixed.length)
       throw new Error(
@@ -448,7 +507,8 @@ export function calculateRemainingAdjustment(
   };
   plan.progressBaseline = createProgressBaseline(plan, state.records, context.date, 0);
   for (const id of historical.keys()) delete plan.progressBaseline.sessions[id];
-  validateRemainingAllocation({ ...state, plan }, context);
+  if (pastOnly) validatePastRemainingAllocation(state, plan, context);
+  else validateRemainingAllocation({ ...state, plan }, context);
   const content = (work: Session[], candidate: Plan) =>
     JSON.stringify([
       [...work].sort((a, b) => a.id.localeCompare(b.id)),

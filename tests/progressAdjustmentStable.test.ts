@@ -25,7 +25,7 @@ import { calendarQuantity } from '../src/domain/calendarQuantity';
 import { capacityForDate, capacityForWeek } from '../src/domain/planner/capacity';
 import { startOfWeek } from '../src/domain/calendar';
 import { createProgressBaseline, reflectProgress } from '../src/domain/progressReflection';
-import { approve, propose, proposeRemainingAdjustment, reproposeRemainingAdjustment, proposeRestart } from '../src/domain/planner/proposal';
+import { approve, propose, proposeRemainingAdjustment, reproposeRemainingAdjustment, proposePastRemainingAdjustment, proposeRestart } from '../src/domain/planner/proposal';
 import {
   remainingSessionIssue,
   remainingBasisIssue,
@@ -33,6 +33,8 @@ import {
   isElapsedRemainingSession,
   remainingAdjustmentSourceDate,
   remainingSourceIssue,
+  pastRemainingWork,
+  validatePastRemainingAllocation,
   validateRemainingAllocation,
 } from '../src/domain/remainingAllocation';
 import { parseBackup } from '../src/domain/backup';
@@ -779,6 +781,75 @@ it('基準不明の旧形式は量が一致していても推測せず、明示�
 const partialAllocationFixture = (report?: number) => remainingPlacementFixture(day, report);
 const targetB = [{ kind: 'session' as const, sessionId: 'b-target' }];
 const beforeStudy = { ...adjustmentContext, minute: 530 };
+
+it.each([undefined, 0, 2])('昨日以前の未消化%sだけを調整し、今日開始済みと未来の枠・比較・実績を維持する', (report) => {
+  const source = remainingPlacementFixture(addDays(day, -1), report);
+  const context = { ...adjustmentContext, minute: 571 };
+  const original = structuredClone(source);
+  const past = pastRemainingWork(source, day);
+  expect(past.issue).toBeUndefined();
+  expect(past.sessions.map((s) => [s.id, s.count])).toEqual([['b-target', 5 - (report ?? 0)]]);
+  const candidate = proposePastRemainingAdjustment(source, day, context);
+  expect(source).toEqual(original);
+  expect(candidate.plan).toBe(source.plan);
+  expect(candidate.proposal!.basis).toMatchObject({
+    purpose: 'past-only', targets: [{ kind: 'session', sessionId: 'b-target' }],
+    summary: [{ materialId: 'b', count: 5 - (report ?? 0) }],
+  });
+  const approved = restoreAllocation(approve(candidate, false, context));
+  validatePastRemainingAllocation(source, approved.plan!, context);
+  expect(approved.records).toEqual(source.records);
+  expect(approved.plan!.sessions.find((s) => s.id === 'b-keep')).toEqual(source.plan!.sessions[2]);
+  expect(approved.plan!.sessions.filter((s) => s.date < day)).toEqual(source.plan!.sessions.filter((s) => s.date < day));
+  expect(activePlanWork(approved, day).filter((s) => s.id !== 'b-keep').every((s) =>
+    s.date > day || s.start >= context.minute)).toBe(true);
+  expect(pastRemainingWork(approved, day)).toEqual({ sessions: [], issue: undefined });
+  conservation(approved);
+  expect(proposePastRemainingAdjustment(approved, day, context)).toBe(approved);
+  const reflected = reconcilePlanning(source, context);
+  expect(pastRemainingWork(reflected, day).sessions).toEqual([]);
+  expect(proposePastRemainingAdjustment(reflected, day, context)).toBe(reflected);
+  let recorded = recordAndAdjust(approved, { ...adjustmentReport(1, 'past-mode-add'), materialId: 'b' }, context);
+  recorded = correctAndAdjust(recorded, 'past-mode-add', 2, false, context);
+  recorded = correctAndAdjust(recorded, 'past-mode-add', 2, true, context);
+  conservation(recorded);
+  expect(pastRemainingWork(recorded, day).sessions).toEqual([]);
+  expect(recorded.records.find((record) => record.id === 'a-record')).toEqual(source.records[0]);
+  const invalid = structuredClone(candidate);
+  invalid.proposal!.plan.sessions.find((s) => s.id === 'b-keep')!.count = 4;
+  expect(() => approve(invalid, false, context)).toThrow('今日以降の保持対象');
+  for (const targets of [[], [{ kind: 'session' as const, sessionId: 'b-keep' }],
+    [{ kind: 'shortfall' as const, materialId: 'b', round: 0 }]]) {
+    const invalidScope = structuredClone(candidate);
+    if (invalidScope.proposal!.basis!.kind !== 'remaining-adjustment') throw new Error('Unexpected basis');
+    invalidScope.proposal!.basis!.targets = targets;
+    expect(() => approve(invalidScope, false, context)).toThrow('過去分の調整対象');
+  }
+  const fixed = structuredClone(source);
+  fixed.plan!.sessions[1].fixed = true;
+  expect(pastRemainingWork(fixed, day).issue).toContain('固定');
+  expect(() => proposePastRemainingAdjustment(fixed, day, context)).toThrow('固定');
+});
+
+it('過去分だけの容量不足を残し、固定した今日の開始済み枠を保持して再生成する', () => {
+  const source = remainingPlacementFixture(addDays(day, -1));
+  source.plan!.sessions[2].fixed = true;
+  source.settings.exams[0].target = addDays(day, 1);
+  source.settings.windows[0].to = day;
+  source.plan!.settingsSnapshot = structuredClone(source.settings);
+  const candidate = proposePastRemainingAdjustment(source, day, adjustmentContext);
+  const refreshed = reproposeRemainingAdjustment(candidate, [], day, adjustmentContext);
+  const approved = approve(restoreAllocation(refreshed), false, adjustmentContext);
+  expect(approved.plan!.shortfalls).toMatchObject([{ materialId: 'b', round: 0, count: 5, reason: expect.any(String) }]);
+  expect(approved.plan!.sessions.find((s) => s.id === 'b-keep')).toEqual(source.plan!.sessions[2]);
+  expect(approved.records).toEqual(source.records);
+  conservation(approved);
+  expect(() => reproposeRemainingAdjustment(candidate,
+    [{ kind: 'session', sessionId: 'b-keep' }], day, adjustmentContext)).toThrow('昨日以前');
+  const next = { ...adjustmentContext, date: addDays(day, 1), minute: 530 };
+  expect(() => approve(candidate, false, next)).toThrow('変わりました');
+  expect(pastRemainingWork(candidate, next.date).issue).toContain('固定');
+});
 
 function multipleElapsedFixture(report?: number) {
   const state = partialAllocationFixture(report);

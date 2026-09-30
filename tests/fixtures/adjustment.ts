@@ -243,6 +243,11 @@ export function remainingPlacementFixture(baseDate = adjustmentDay, report?: num
   return state;
 }
 
+/** Unreconciled yesterday: A's record is final, B's past 5 and today's 5 remain distinct. */
+export function pastPlacementFixture(reference = adjustmentDay, report?: number) {
+  return remainingPlacementFixture(addDays(reference, -1), report);
+}
+
 /** 160 = 123 executable in 13 slots + 37 elapsed (1 + 12 + 12 + 12), with no report. */
 export function elapsedPlacementFixture(baseDate = adjustmentDay, otherScopes = false) {
   const state = adjustmentFixture(baseDate);

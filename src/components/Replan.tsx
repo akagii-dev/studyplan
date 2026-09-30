@@ -30,7 +30,7 @@ import { materialUnit } from '../domain/calendarQuantity';
 import { remainingWork, remainingAdjustmentPreview } from '../domain/remainingWork';
 import { nonComparisonSessions } from '../domain/planDisplay';
 import { usePlanningClock } from '../hooks/usePlanningClock';
-import { elapsedRemainingTargets, remainingAdjustmentSourceDate } from '../domain/remainingAllocation';
+import { elapsedRemainingTargets, remainingAdjustmentSourceDate, pastRemainingWork } from '../domain/remainingAllocation';
 import { reproposeRemainingAdjustment } from '../domain/planning';
 export function Replan({ state, update, onCalendar, onFuture }: Props & { onCalendar: () => void; onFuture: () => void }) {
   const currentTime = usePlanningClock();
@@ -76,7 +76,9 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
   const progressStale = !!plan && !proposalUsesCurrentProgress(plan, state.records);
   const restartIssue = p?.basis ? restartProposalStaleReason(state) : undefined;
   const basis = p?.basis?.kind === 'remaining-adjustment' ? p.basis : undefined;
-  const extraElapsed = basis ? elapsedRemainingTargets(state, currentTime, remainingAdjustmentSourceDate(state, currentTime.date))
+  const extraElapsed = basis ? (basis.purpose === 'past-only'
+    ? pastRemainingWork(state, currentTime.date).sessions
+    : elapsedRemainingTargets(state, currentTime, remainingAdjustmentSourceDate(state, currentTime.date)))
     .filter((session) => !basis.targets.some((target) => target.kind === 'session' && target.sessionId === session.id)) : [];
   const extraGroups = state.settings.materials.flatMap((material) => material.rounds.flatMap((_, round) => {
     const count = extraElapsed.filter((s) => s.materialId === material.id && s.round === round).reduce((n, s) => n + s.count, 0);

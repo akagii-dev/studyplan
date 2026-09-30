@@ -21,7 +21,7 @@ export interface RemainingWorkRow {
   placements: Session[];
   pendingPlacements: Session[];
   pending: number;
-  unavailable: { session: Session; reason: string }[];
+  unavailable: { session: Session; reason: string; clockOnly: boolean }[];
   executable: number;
   reasons: string[];
   unplacedReasons: string[];
@@ -58,7 +58,7 @@ export function remainingWork(state: AppState, date: string, minute = 0): Remain
         );
       const placements: Session[] = [];
       const pendingPlacements: Session[] = [];
-      const unavailable: { session: Session; reason: string }[] = [];
+      const unavailable: RemainingWorkRow['unavailable'] = [];
       for (const session of matching) {
         const sourceIssue = remainingSourceIssue(state, session, { date, minute }, sessions);
         if (!reasons.length && !sourceIssue && !session.fixed && isElapsedRemainingSession(session, { date, minute })) {
@@ -66,7 +66,8 @@ export function remainingWork(state: AppState, date: string, minute = 0): Remain
           continue;
         }
         const issue = sourceIssue ?? remainingSessionIssue(state, session, { date, minute }, sessions);
-        if (issue || reasons.length) unavailable.push({ session, reason: issue ?? reasons[0] });
+        if (issue || reasons.length) unavailable.push({ session, reason: issue ?? reasons[0],
+          clockOnly: !reasons.length && !sourceIssue && isElapsedRemainingSession(session, { date, minute }) });
         else placements.push(session);
       }
       const unplacedReasons = (state.plan?.shortfalls ?? [])

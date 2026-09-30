@@ -12,8 +12,7 @@ export function Dashboard({
   navigate,
   onReview,
   recordTarget,
-  onPlacement,
-}: Props & { navigate: (page: Page) => void; onReview: () => void; recordTarget?: RecordTarget | null; onPlacement?: (materialId: string, round: number) => void }) {
+}: Props & { navigate: (page: Page) => void; onReview: () => void; recordTarget?: RecordTarget | null }) {
   if (!state.plan)
     return (
       <section className="card">
@@ -46,7 +45,7 @@ export function Dashboard({
             今日のスケジュール・時間内訳
           </button>
         </div>
-        <TodayRecorder state={state} update={update} target={recordTarget} onPlacement={onPlacement} />
+        <TodayRecorder state={state} update={update} target={recordTarget} />
         {reviews.length > 0 && (
           <div className="daily-reviews">
             {reviews.map((session) => (

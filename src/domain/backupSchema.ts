@@ -330,6 +330,7 @@ const state = z.looseObject({
         z.object({ date, sourceFingerprint: z.string().max(200), kind: z.literal('restart') }),
         z.object({
           date, sourceFingerprint: z.string().max(200), kind: z.literal('remaining-adjustment'), from: date,
+          purpose: z.literal('past-only').optional(),
           targets: z.array(z.discriminatedUnion('kind', [
             z.object({ kind: z.literal('session'), sessionId: id }),
             z.object({ kind: z.literal('shortfall'), materialId: id, round: count }),

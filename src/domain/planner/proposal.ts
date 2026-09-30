@@ -15,6 +15,9 @@ import { calculateRestart } from '../planRestart';
 import {
   calculateRemainingAdjustment,
   remainingAdjustmentSourceDate,
+  pastRemainingSourceDate,
+  pastRemainingWork,
+  validatePastRemainingAllocation,
   validateRemainingAllocation,
 } from '../remainingAllocation';
 import { remainingOccupiedSessions } from '../progressAllocation';
@@ -65,7 +68,16 @@ export function restartProposalStaleReason(
     return '案の作成後に当日の予定時刻が過ぎました。案を作り直してください。';
   if (proposal.basis.kind === 'remaining-adjustment') {
     try {
-      validateRemainingAllocation({ ...state, plan: proposal.plan }, context);
+      if (proposal.basis.purpose === 'past-only') {
+        const past = pastRemainingWork(state, context.date);
+        if (past.issue) throw new Error(past.issue);
+        const ids = new Set(past.sessions.map((session) => session.id));
+        const targets = proposal.basis.targets;
+        if (!ids.size || targets.some((target) => target.kind !== 'session' || !ids.has(target.sessionId)) ||
+          [...ids].some((id) => !targets.some((target) => target.kind === 'session' && target.sessionId === id)))
+          throw new Error('過去分の調整対象が昨日以前の未消化予定と一致しません。今日以降の予定や既存の未配置分は対象にできません。');
+        validatePastRemainingAllocation(state, proposal.plan, context);
+      } else validateRemainingAllocation({ ...state, plan: proposal.plan }, context);
     } catch (error) {
       return `${error instanceof Error ? error.message : String(error)} 案を作り直してください。`;
     }
@@ -103,6 +115,16 @@ export function proposeRemainingAdjustment(
   return buildRemainingProposal(state, targets, from, context, context.date);
 }
 
+export function proposePastRemainingAdjustment(state: AppState, from: string, context: PlanningContext): AppState {
+  if (state.proposal) throw new Error('確認待ちの計画案があります。先にその案を確認または破棄してください。');
+  const past = pastRemainingWork(state, context.date);
+  if (past.issue) throw new Error(past.issue);
+  if (!past.sessions.length) return state;
+  return buildRemainingProposal(state,
+    past.sessions.map((session) => ({ kind: 'session', sessionId: session.id })),
+    from, context, pastRemainingSourceDate(state, context.date), true);
+}
+
 /** Refresh the pending selection without changing the committed plan or silently adding work. */
 export function reproposeRemainingAdjustment(
   state: AppState,
@@ -114,13 +136,15 @@ export function reproposeRemainingAdjustment(
   if (basis?.kind !== 'remaining-adjustment') throw new Error('残りの配置の確認待ちの案がありません。');
   if (basis.sourceFingerprint !== restartSourceFingerprint(state))
     throw new Error('案の作成後に計画・設定・実績が変わりました。元の対象を保持したまま内容を確認してください。');
-  const sourceDate = remainingAdjustmentSourceDate(state, context.date);
+  const pastOnly = basis.purpose === 'past-only';
+  const sourceDate = pastOnly ? pastRemainingSourceDate(state, context.date) : remainingAdjustmentSourceDate(state, context.date);
   return buildRemainingProposal(
     { ...state, proposal: null },
     [...basis.targets, ...additionalTargets],
     [from, basis.from, context.date, state.plan?.allocationStart ?? ''].sort().at(-1)!,
     context,
     sourceDate,
+    pastOnly,
   );
 }
 
@@ -130,20 +154,22 @@ function buildRemainingProposal(
   from: string,
   context: PlanningContext,
   sourceDate: string,
+  pastOnly = false,
 ): AppState {
-  const result = calculateRemainingAdjustment(state, targets, from, context, sourceDate);
+  const result = calculateRemainingAdjustment(state, targets, from, context, sourceDate, pastOnly);
   if (result.plan === state.plan) return state;
   return {
     ...state,
     proposal: {
       plan: result.plan,
       basedOn: state.plan?.id ?? null,
-      reason: result.affectedSessionIds.length
+      reason: pastOnly ? '昨日以前の未消化分だけを配置します。今日以降の予定と実績は維持します。' : result.affectedSessionIds.length
         ? '選択した残量と、順序を守るために必要な後続の予定だけを調整します。'
         : '選択した残量だけを、実行可能な空き枠へ調整します。',
       unreported: [],
       basis: {
         kind: 'remaining-adjustment',
+        ...(pastOnly ? { purpose: 'past-only' as const } : {}),
         date: context.date,
         sourceFingerprint: restartSourceFingerprint(state),
         from,

@@ -174,6 +174,7 @@ export interface Proposal {
     | { date: DateKey; sourceFingerprint: string; kind: 'restart' }
     | {
         kind: 'remaining-adjustment';
+        purpose?: 'past-only';
         date: DateKey;
         sourceFingerprint: string;
         from: DateKey;

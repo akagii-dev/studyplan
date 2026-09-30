@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { ProgressValue } from './ProgressValue';
 import { Props } from './common';
 import { remaining, today, uid } from '../domain/model';
@@ -6,8 +6,6 @@ import { parseNumberInput } from '../domain/numeric';
 import { recordAndAdjust } from '../domain/planning';
 import { todayStudyRows } from '../domain/todayProgress';
 import { latestReceipt } from '../domain/progressReceipt';
-import { remainingWork } from '../domain/remainingWork';
-import { WorkPlacements } from './WorkPlacements';
 import { usePlanningClock } from '../hooks/usePlanningClock';
 import { ProgressReceiptView, receiptDetailLabel, receiptOutcome } from './ProgressReceiptView';
 
@@ -16,10 +14,9 @@ export interface RecordTarget {
   round: number;
   token: number;
 }
-export function TodayRecorder({ state, update, target, onPlacement }: Props & { target?: RecordTarget | null; onPlacement?: (materialId: string, round: number) => void }) {
+export function TodayRecorder({ state, update, target }: Props & { target?: RecordTarget | null }) {
   const rows = todayStudyRows(state);
-  const { date: workDate, minute } = usePlanningClock();
-  const work = useMemo(() => remainingWork(state, workDate, minute), [state, workDate, minute]);
+  usePlanningClock();
   const inputRefs = useRef(new Map<string, HTMLInputElement>());
   const handled = useRef<number | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -102,7 +99,6 @@ export function TodayRecorder({ state, update, target, onPlacement }: Props & { 
         <div className="daily-record-list" role="list">
           {rows.map((row) => {
             const id = key(row.materialId, row.round);
-            const placement = work.find((item) => item.materialId === row.materialId && item.round === row.round);
             return (
               <div className="daily-record-row" role="listitem" key={id}>
                 <div className="daily-record-name">
@@ -159,10 +155,6 @@ export function TodayRecorder({ state, update, target, onPlacement }: Props & { 
                     {errors[id]}
                   </p>
                 )}
-                {placement && placement.remaining > 0 && <div className="daily-placement">
-                  <WorkPlacements row={placement} unreported={!row.reported}
-                    onAdjust={onPlacement ? () => onPlacement(row.materialId, row.round) : undefined} />
-                </div>}
               </div>
             );
           })}

@@ -75,7 +75,7 @@ export function PlanInsights({
       </p>
       {plan.calculationVersion !== PLAN_CALCULATION_VERSION && (
         <Warning id="planinsights-0" title="以前の計算方式の計画です" version={plan.id}>
-          以前の計算方式で保存した計画です。現在の計算条件（所要時間・通学など）で案を作り直せます。再計画で確認してください。
+          以前の計算方式で保存した計画です。「計画を仕切り直す」から、日ごとの配分を含めた新しい案を確認・承認できます。
         </Warning>
       )}
       {settings ? (

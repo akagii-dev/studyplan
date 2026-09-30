@@ -108,7 +108,13 @@ export function activePlanWork(state: AppState, date: string): Session[] {
       : undefined);
   const today = new Map(basis ? todayRemainders(state, date, basis).map((s) => [s.id, s]) : []);
   return state.plan.sessions
-    .filter((s) => !comparisons.has(s.id) && s.kind === 'study' && s.date >= date && s.date >= (plan.allocationStart ?? date))
+    .filter(
+      (s) =>
+        !comparisons.has(s.id) &&
+        s.kind === 'study' &&
+        s.date >= date &&
+        s.date >= (plan.allocationStart ?? date),
+    )
     .map((s) => {
       if (s.date === date && basis && date === basis.date) return today.get(s.id) ?? resize(s, 0);
       return s;
@@ -138,7 +144,11 @@ export function remainingOccupiedSessions(
 }
 
 /** Keep comparison data verbatim without passing it back through allocation or capacity. */
-export function restoreComparisonSessions(plan: Plan, comparisons: Session[], releasedIds: string[] = []): Plan {
+export function restoreComparisonSessions(
+  plan: Plan,
+  comparisons: Session[],
+  releasedIds: string[] = [],
+): Plan {
   const ids = new Set(comparisons.map((session) => session.id));
   const comparisonSessionIds = [...new Set(releasedIds)].filter((id) => ids.has(id));
   return {
@@ -207,6 +217,11 @@ export function allocateProgress(
   const basis = source.adjustmentBasis!;
   const from = [addDays(context.date, 1), source.allocationStart ?? ''].sort().at(-1)!;
   const residual = basisRemainders(state, basis);
+  const records = recordTotals(state.records);
+  const previousRecords = source.progressBaseline?.records ?? basis.records;
+  const unchanged = (session: Session) =>
+    totalFor(records, session.materialId, session.round) ===
+    totalFor(previousRecords, session.materialId, session.round);
   const budgets: Record<string, number> = {};
   for (const m of state.settings.materials)
     for (const round of m.rounds.keys())
@@ -219,8 +234,32 @@ export function allocateProgress(
   }
   const left = { ...budgets };
   const future: Session[] = [];
-  for (const s of residual.filter((s) => s.date >= from)) {
-    const original = basis.sessions.find((x) => x.id === s.id)!;
+  // An extension may have merged into a retained session under the same ID.
+  // For unchanged work keep that whole allocation, not only its older basis
+  // quantity; a report for another material must not redistribute its tail.
+  const retained = residual.filter((s) => s.date >= from);
+  let capacityReleased = false;
+  for (const [index, session] of retained.entries()) {
+    if (!unchanged(session)) continue;
+    const current = source.sessions.find((s) => s.id === session.id && !comparisonIds.has(s.id));
+    if (!current) {
+      retained[index] = resize(session, 0);
+      continue;
+    }
+    const overlap = retained.some(
+      (other) =>
+        other.id !== session.id &&
+        other.count > 0 &&
+        other.date === current.date &&
+        other.start < current.end &&
+        current.start < other.end,
+    );
+    if (overlap && current.fixed) throw new Error(`${current.date}の固定予定の確認が必要です。`);
+    if (!overlap) retained[index] = current;
+    else capacityReleased = true;
+  }
+  for (const s of retained) {
+    const original = basis.sessions.find((x) => x.id === s.id) ?? s;
     if (s.fixed && s.count !== original.count)
       throw new Error(
         `${s.date}の固定予定（${state.settings.materials.find((m) => m.id === s.materialId)?.name}・${s.round + 1}周目）の残量が変わります。計画全体の見直しで確認してください。`,
@@ -235,10 +274,12 @@ export function allocateProgress(
   // Keep earlier incremental placements too. Restore the original slots first on correction;
   // additions may only occupy the capacity that is still free.
   const originalIds = new Set(basis.sessions.map((s) => s.id));
-  let capacityReleased = false;
   for (const s of [...source.sessions]
     .sort(bySlot)
-    .filter((s) => s.kind === 'study' && s.date >= from && !originalIds.has(s.id) && !comparisonIds.has(s.id))) {
+    .filter(
+      (s) =>
+        s.kind === 'study' && s.date >= from && !originalIds.has(s.id) && !comparisonIds.has(s.id),
+    )) {
     const key = workKey(s.materialId, s.round);
     const count = Math.min(s.count, left[key] ?? 0);
     const kept = resize(s, count);
@@ -257,8 +298,6 @@ export function allocateProgress(
   const comparisons = source.sessions.filter((s) => s.date < from || comparisonIds.has(s.id));
   const history = occupied.filter((s) => s.date < from);
   const reviews = source.sessions.filter((s) => s.date >= from && s.kind === 'review');
-  const records = recordTotals(state.records);
-  const previousRecords = source.progressBaseline?.records ?? basis.records;
   const reserved: Record<string, number> = {};
   const unchangedShortfalls = source.shortfalls.flatMap((short) => {
     if (
@@ -335,8 +374,12 @@ export function allocateProgress(
   // Preserve IDs for unchanged content, regardless of generation-pass ordering.
   const identity = ({ id: _id, ...s }: Session) =>
     JSON.stringify(Object.entries(s).sort(([a], [b]) => a.localeCompare(b)));
-  const ids = new Map(source.sessions.filter((s) => !comparisonIds.has(s.id)).map((s) => [identity(s), s.id]));
-  plan.sessions = plan.sessions.map((s) => comparisonIds.has(s.id) ? s : ({ ...s, id: ids.get(identity(s)) ?? s.id }));
+  const ids = new Map(
+    source.sessions.filter((s) => !comparisonIds.has(s.id)).map((s) => [identity(s), s.id]),
+  );
+  plan.sessions = plan.sessions.map((s) =>
+    comparisonIds.has(s.id) ? s : { ...s, id: ids.get(identity(s)) ?? s.id },
+  );
   plan.from = source.from;
   plan.notBefore = source.notBefore;
   plan.allocationStart = source.allocationStart;
@@ -345,7 +388,13 @@ export function allocateProgress(
   plan.approvedAt = context.timestamp;
   for (const [key, budget] of Object.entries(budgets)) {
     const planned = plan.sessions
-      .filter((s) => !comparisonIds.has(s.id) && s.kind === 'study' && s.date >= from && workKey(s.materialId, s.round) === key)
+      .filter(
+        (s) =>
+          !comparisonIds.has(s.id) &&
+          s.kind === 'study' &&
+          s.date >= from &&
+          workKey(s.materialId, s.round) === key,
+      )
       .reduce((n, s) => n + s.count, 0);
     const unplaced = plan.shortfalls
       .filter((s) => workKey(s.materialId, s.round) === key)

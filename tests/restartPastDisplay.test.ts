@@ -73,15 +73,15 @@ it('当日開始の仕切り直しで旧未報告項目は翌日に復活しな�
   expect(remainingWork(state,next.date).every((r)=>r.balanced)).toBe(true);
 });
 
-it('開始日へ新配置した8問は翌日も残し、仕切り直し前実績4を比率や不足へ流用しない', () => {
+it('開始日へ新配置した6問は翌日も残し、仕切り直し前実績4を比率や不足へ流用しない', () => {
   const context={...adjustmentContext,minute:0};
   const source=recordAndAdjust(adjustmentFixture(),adjustmentReport(4),context);
   const approved=approve(proposeRestart(source,context.date,context),false,context);
   const next={...context,date:addDays(context.date,1),timestamp:`${addDays(context.date,1)}T00:00:00Z`};
   const state=reconcilePlanning(approved,next);
   const row=calendarDisplayQuantity(state,context.date,next.date).rows.find((r)=>r.materialId==='book' && r.round===0)!;
-  expect(row).toMatchObject({planned:null,actual:4,remainder:null,restartPlanned:8});
-  expect(progressView(row,context.date,next.date)).toMatchObject({text:'予定 8問 · 実績 4問',progressRatio:null,deficit:null,prefill:0});
+  expect(row).toMatchObject({planned:null,actual:4,remainder:null,restartPlanned:6});
+  expect(progressView(row,context.date,next.date)).toMatchObject({text:'予定 6問 · 実績 4問',progressRatio:null,deficit:null,prefill:0});
   expect(calendarQuantity(state,context.date,next.date).rows.find((r)=>r.materialId==='book')?.planned).toBe(6);
   expect(state.records).toEqual(source.records);
   expect(remainingWork(state,next.date).every((r)=>r.balanced)).toBe(true);

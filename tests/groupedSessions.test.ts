@@ -76,6 +76,80 @@ function invariant(s: AppState) {
   return p;
 }
 describe('まとまりを優先する学習計画', () => {
+  it.each([30, 60])('まとまりの目安%i分でも、実行可能な日次16分を前半へ集めない', (preferred) => {
+    const s = fixture(96, 1, 6);
+    s.settings.block = 60;
+    s.settings.buffer = 0;
+    s.settings.preferredSessionMinutes = preferred;
+    s.settings.windows[0].end = 600;
+    const p = invariant(s);
+    expect(p.shortfalls).toEqual([]);
+    expect(
+      Array.from({ length: 6 }, (_, i) =>
+        p.sessions
+          .filter((session) => session.date === addDays(date, i))
+          .reduce((sum, session) => sum + session.count, 0),
+      ),
+    ).toEqual([16, 16, 16, 16, 16, 16]);
+  });
+  it('週の余裕率を前半に食い潰さず、異なる日次容量と問題時間へ比例配分する', () => {
+    const s = fixture(337, 4, 7);
+    s.settings.block = 50;
+    s.settings.rest = 10;
+    s.settings.buffer = 0.2;
+    s.settings.exams.push({ ...s.settings.exams[0], id: 'slow' });
+    s.settings.materials.push({
+      ...s.settings.materials[0],
+      id: 'slow',
+      examId: 'slow',
+      total: 58,
+      rounds: [{ completed: 0, minutes: 25 }],
+    });
+    const capacities = [410, 430, 600, 340, 520, 600, 600];
+    s.settings.windows = capacities.map((minutes, i) => ({
+      ...s.settings.windows[0],
+      id: `day-${i}`,
+      from: addDays(date, i),
+      to: addDays(date, i),
+      end: 540 + minutes + (Math.ceil(minutes / 50) - 1) * 10,
+    }));
+    const p = invariant(s);
+    expect(p.shortfalls).toEqual([]);
+    const loads = capacities.map(
+      (capacity, i) =>
+        p.sessions
+          .filter((session) => session.date === addDays(date, i))
+          .reduce((sum, session) => sum + session.end - session.start, 0) / capacity,
+    );
+    expect(Math.max(...loads) - Math.min(...loads)).toBeLessThan(0.12);
+    expect(
+      p.sessions
+        .filter((session) => session.materialId === 'm')
+        .reduce((days, session) => days.add(session.date), new Set()).size,
+    ).toBe(7);
+    expect(capacityForWeek(s.settings, date, p.sessions).used).toBe(2798);
+  });
+  it('日次目安より期限を優先し、整数端数の空きも週上限まで利用する', () => {
+    const s = fixture(29, 2, 1);
+    s.settings.block = 60;
+    s.settings.buffer = 0.2;
+    s.settings.windows[0].end = 600;
+    s.settings.windows[0].to = addDays(date, 6);
+    s.settings.exams.push({ ...s.settings.exams[0], id: 'later', target: addDays(date, 7) });
+    s.settings.materials.push({
+      ...s.settings.materials[0],
+      id: 'later',
+      examId: 'later',
+      total: 69,
+      rounds: [{ completed: 0, minutes: 4 }],
+    });
+    const p = invariant(s);
+    expect(p.shortfalls).toEqual([]);
+    expect(p.sessions.filter((x) => x.materialId === 'm').map((x) => [x.date, x.count])).toEqual([
+      [date, 29],
+    ]);
+    expect(capacityForWeek(s.settings, date, p.sessions).used).toBe(334);
+  });
   it.each([349, 350, 351])(
     '1問未満の日次端数を追加のまとまりにせず、%i問を7日へ分散する',
     (total) => {
@@ -192,7 +266,7 @@ describe('まとまりを優先する学習計画', () => {
       [addDays(date, 1), 7, undefined],
     ]);
   });
-  it('目安を変えると時間のまとまりが変わり、連続上限は超えない', () => {
+  it('大きなまとまりの目安を選んでも、日次目安と連続上限を守る', () => {
     const s = fixture(60, 3, 10);
     s.settings.block = 60;
     s.settings.buffer = 0;
@@ -200,7 +274,9 @@ describe('まとまりを優先する学習計画', () => {
     const a = invariant(s);
     s.settings.preferredSessionMinutes = 60;
     const b = invariant(s);
-    expect(b.sessions.length).toBeLessThan(a.sessions.length);
+    expect(b.sessions.map((x) => [x.date, x.count])).toEqual(
+      a.sessions.map((x) => [x.date, x.count]),
+    );
     expect(b.sessions.every((x) => x.end - x.start <= 60)).toBe(true);
   });
   it('1問が連続上限より長ければ、問を分割せず未配置にする', () => {

@@ -4152,7 +4152,7 @@ test('実機：授業名・初期設定の再編集・今日の予定・初期�
       id: 'm',
       examId: 'e',
       name: 'まとめ問題集',
-      total: 70,
+      total: 140,
       order: 1,
       rounds: [{ completed: 0, minutes: 2 }],
     },
@@ -4193,6 +4193,9 @@ test('実機：授業名・初期設定の再編集・今日の予定・初期�
   ];
   // This report was entered after the approved day's schedule was created.
   seed.plan = generatePlan({ ...seed, records: [] }, date);
+  const todayPlanned = seed.plan.sessions.filter((session) => session.date === date && session.materialId === 'm')
+    .reduce((sum, session) => sum + session.count, 0);
+  expect(todayPlanned).toBeGreaterThan(3);
   seed.plan.sessions[0].fixed = true;
   await seedState(seed, 'edit-seed');
   await nav('対話式の初期設定');
@@ -4226,7 +4229,7 @@ test('実機：授業名・初期設定の再編集・今日の予定・初期�
   await page.screenshot({ path: 'test-results/today-schedule.png', fullPage: true });
   await todayPanel.getByRole('button', { name: '進捗を記録', exact: true }).first().click();
   const recordRow = page.locator('.daily-record-row').filter({ hasText: 'まとめ問題集' });
-  await expect(recordRow.getByRole('textbox')).toHaveValue('12');
+  await expect(recordRow.getByRole('textbox')).toHaveValue(String(todayPlanned - 3));
   await expect(recordRow.getByRole('textbox')).toBeFocused();
   await nav('学習カレンダー');
   await expect(page.locator('.calendar-busy').first()).toContainText('授業');
@@ -5201,7 +5204,7 @@ test('実機：追加前の不足設定を案内し、空の設定から追加�
   expect((await storedState()).plan).toBeNull();
 });
 
-test('実機：論文2問は通常の60分予定として扱い、時間設定と旧案を更新する', async () => {
+test('実機：論文の通常予定と固定2問を保持し、時間設定と旧案を更新する', async () => {
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/time-sessions-'));
   await launch();
@@ -5309,8 +5312,10 @@ test('実機：論文2問は通常の60分予定として扱い、時間設定�
   expect(updated.plan!.sessions.find((x) => x.id === 'fixed')).toEqual(seed.plan.sessions[0]);
   const fresh = updated.plan!.sessions.filter((x) => x.id !== 'fixed');
   expect(fresh.map((x) => [x.count, x.end - x.start, x.allocationReason])).toEqual([
-    [2, 60, undefined],
+    [1, 30, undefined],
+    [1, 30, undefined],
   ]);
+  expect(new Set(fresh.map((session) => session.date)).size).toBe(2);
   await page.getByRole('button', { name: 'カレンダーを見る', exact: true }).click();
   await page.locator('.calendar-event').last().click();
   await expect(

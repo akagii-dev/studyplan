@@ -63,6 +63,11 @@ export function generatePlan(
   if (errors.length) throw new Error(errors.join('\n'));
   if (!s.exams.length || !s.materials.length) throw new Error('試験と教材を登録してください。');
   const to = s.exams.reduce((d, e) => (e.target > d ? e.target : d), from);
+  const weekStarts = new Map<string, string>();
+  const weekStart = (date: string) => {
+    if (!weekStarts.has(date)) weekStarts.set(date, startOfWeek(date));
+    return weekStarts.get(date)!;
+  };
   const weekDays = datesBetween(startOfWeek(from), addDays(startOfWeek(to), 6)).map((d) =>
     capacityForDate(s, d),
   );
@@ -81,7 +86,7 @@ export function generatePlan(
   const kept = retained.filter((session) => !comparisonIds.has(session.id));
   const sessions: Session[] = kept.map((x) => ({ ...x }));
   const weeks = new Map(weeklyCapacities(weekDays, s.buffer, kept).map((w) => [w.from, w]));
-  const weekFor = (date: string) => weeks.get(startOfWeek(date))!;
+  const weekFor = (date: string) => weeks.get(weekStart(date))!;
   const weeklyRoom = (date: string) => Math.max(0, weekFor(date).limit - weekFor(date).used);
   const assign = (session: Session) => {
     sessions.push(session);
@@ -112,7 +117,10 @@ export function generatePlan(
         `${x.date} の固定予定の教材・周回が変更されています。固定を解除して再作成してください。`,
       );
   }
-  const deadline = (t: (typeof tasks)[number]) => addDays(t.exam.target, -t.exam.reviewDays - 1);
+  const deadlines = new Map(
+    s.exams.map((exam) => [exam.id, addDays(exam.target, -exam.reviewDays - 1)]),
+  );
+  const deadline = (t: (typeof tasks)[number]) => deadlines.get(t.exam.id)!;
   const eligible = (t: (typeof tasks)[number], d: string) =>
     d >= t.exam.start &&
     d <= deadline(t) &&
@@ -210,8 +218,56 @@ export function generatePlan(
       }
     return Math.max(0, room);
   };
-  const normalCount = (t: (typeof tasks)[number], room: number, quota: number) =>
-    sessionUnitCount(t.left, t.minutes, room, quota, policy);
+  const normalCount = (
+    t: (typeof tasks)[number],
+    room: number,
+    quota: number,
+    cap: Capacity,
+    start: number,
+  ) => {
+    const neighbour =
+      retention && !retention.preserveSessionBoundaries
+        ? sessions.find(
+            (x) =>
+              x.kind === 'study' &&
+              !x.fixed &&
+              x.date === cap.date &&
+              x.materialId === t.m.id &&
+              x.round === t.round &&
+              Math.abs(x.end - start) < EPS &&
+              cap.slots.some(([lo, hi]) => x.start >= lo - EPS && start < hi - EPS),
+          )
+        : undefined;
+    const minimum = neighbour
+      ? Math.max(0, policy.minimum - (neighbour.end - neighbour.start))
+      : policy.minimum;
+    const count = sessionUnitCount(
+      t.left,
+      t.minutes,
+      allocation === 'balanced'
+        ? Math.min(room, Math.floor((quota + t.minutes / 2 + EPS) / t.minutes) * t.minutes)
+        : room,
+      quota,
+      { ...policy, minimum },
+    );
+    // Complete a small remainder together, but do not inflate every daily share
+    // to the preferred session duration. The quota is a target, not a hard limit.
+    return count > 0 &&
+      (t.left - count) * t.minutes < minimum - EPS &&
+      t.left * t.minutes <= room + EPS
+      ? t.left
+      : count;
+  };
+  const freeSlots = new Map(
+    capacities.map((cap) => {
+      const busy: Interval[] = [...kept, ...sessions.filter((x) => x.kind === 'review')]
+        .filter((x) => x.date === cap.date)
+        .map((x) => [x.start, x.end]);
+      if (cap.date === from && notBefore > 0) busy.push([0, notBefore]);
+      return [cap.date, subtractIntervals(cap.slots, busy)];
+    }),
+  );
+  const quotaCarry = new Map<string, number>();
   for (const cap of capacities) {
     const fixed = kept.filter((x) => x.date === cap.date);
     for (const f of fixed) {
@@ -236,29 +292,58 @@ export function generatePlan(
       ...(cap.date === from && notBefore > 0 ? [[0, notBefore] as Interval] : []),
     ];
     const slots = subtractIntervals(cap.slots, blocked);
-    // Daily quotas distribute remaining work over usable dates; a shared slot is consumed once.
+    // The weekly ceiling contributes to the daily target, without reserving or
+    // removing any physical slots. Carry whole-unit/minimum-session rounding
+    // forward instead of filling the start of the week with preferred blocks.
+    const usable = (group: typeof tasks, c: Capacity) =>
+      (freeSlots.get(c.date) ?? [])
+        .filter(([a, b]) => group.some((t) => eligible(t, c.date) && t.minutes <= b - a + EPS))
+        .reduce((n, [a, b]) => n + b - a, 0);
+    const open = tasks.filter((t) => t.left > 0);
+    const futureCaps = capacities.filter((c) => c.date >= cap.date);
+    const weekFree = new Map<string, number>();
+    for (const c of futureCaps) {
+      const week = weekStart(c.date);
+      weekFree.set(week, (weekFree.get(week) ?? 0) + usable(open, c));
+    }
+    const weight = (c: Capacity) =>
+      Math.min(1, weeklyRoom(c.date) / Math.max(1, weekFree.get(weekStart(c.date)) ?? 0));
+    const shares = s.exams.map((e) => {
+      const group = tasks.filter((t) => t.exam.id === e.id && t.left > 0);
+      const need = group.reduce((n, t) => n + t.left * t.minutes, 0);
+      const today = usable(group, cap);
+      const future = futureCaps.reduce((n, c) => n + usable(group, c) * weight(c), 0);
+      const carry = Math.min(need, quotaCarry.get(e.id) ?? 0);
+      const share =
+        today > 0
+          ? Math.max(0, carry + ((need - carry) * today * weight(cap)) / Math.max(EPS, future))
+          : 0;
+      // Work whose deadline cannot be met using later slots may exceed its
+      // fair share today. Overloaded tasks do not claim impossible demand.
+      const opportunity = (afterToday: boolean) => {
+        const byWeek = new Map<string, number>();
+        for (const c of futureCaps) {
+          if (afterToday && c.date === cap.date) continue;
+          const week = weekStart(c.date);
+          byWeek.set(week, (byWeek.get(week) ?? 0) + usable(group, c));
+        }
+        return [...byWeek].reduce(
+          (n, [week, minutes]) => n + Math.min(minutes, weeklyRoom(week)),
+          0,
+        );
+      };
+      const urgent = Math.max(0, Math.min(need, opportunity(false)) - opportunity(true));
+      return { id: e.id, need, share, urgent };
+    });
+    const target = usable(open, cap) * weight(cap);
+    const urgentTotal = shares.reduce((n, x) => n + x.urgent, 0);
+    const flexibleTotal = shares.reduce((n, x) => n + Math.max(0, x.share - x.urgent), 0);
+    const scale = Math.min(1, Math.max(0, target - urgentTotal) / Math.max(EPS, flexibleTotal));
     const quota = new Map(
-      s.exams.map((e) => {
-        const group = tasks.filter((t) => t.exam.id === e.id && t.left > 0);
-        const need = group.reduce((n, t) => n + t.left * t.minutes, 0);
-        const usable = (c: Capacity) => {
-          if (!group.some((t) => eligible(t, c.date))) return 0;
-          const busy: Interval[] = [...kept, ...sessions.filter((x) => x.kind === 'review')]
-            .filter((x) => x.date === c.date)
-            .map((x) => [x.start, x.end]);
-          if (c.date === from && notBefore > 0) busy.push([0, notBefore]);
-          return subtractIntervals(c.slots, busy)
-            .filter(([a, b]) => group.some((t) => t.minutes <= b - a + EPS))
-            .reduce((n, [a, b]) => n + b - a, 0);
-        };
-        const future = capacities
-          .filter((c) => c.date >= cap.date)
-          .reduce((n, c) => n + usable(c), 0);
-        return [
-          e.id,
-          allocation === 'earliest' ? need : (need * usable(cap)) / Math.max(1, future),
-        ];
-      }),
+      shares.map((x) => [
+        x.id,
+        allocation === 'earliest' ? x.need : x.urgent + Math.max(0, x.share - x.urgent) * scale,
+      ]),
     );
     const used = new Map<string, number>();
     for (const [start, end] of slots) {
@@ -272,12 +357,10 @@ export function generatePlan(
               t,
               availableRoom(t, cap.date, cursor, end),
               (quota.get(t.exam.id) || 0) - (used.get(t.exam.id) || 0),
+              cap,
+              cursor,
             ) > 0 &&
             (used.get(t.exam.id) || 0) < (quota.get(t.exam.id) || 0) - EPS &&
-            // Whole-unit rounding can leave a fraction of one question in the daily
-            // quota. Do not turn that fraction into another preferred-size session.
-            (!used.has(t.exam.id) ||
-              (quota.get(t.exam.id) || 0) - (used.get(t.exam.id) || 0) + EPS >= t.minutes) &&
             canStart(t, cap.date, cursor),
         );
         candidates.sort((a, b) => {
@@ -300,6 +383,8 @@ export function generatePlan(
           t,
           availableRoom(t, cap.date, cursor, end),
           (quota.get(t.exam.id) || 0) - (used.get(t.exam.id) || 0),
+          cap,
+          cursor,
         );
         if (count <= 0) break;
         const length = count * t.minutes;
@@ -320,6 +405,8 @@ export function generatePlan(
         used.set(t.exam.id, (used.get(t.exam.id) || 0) + length);
       }
     }
+    for (const [examId, minutes] of quota)
+      quotaCarry.set(examId, minutes - (used.get(examId) ?? 0));
     // Review gets its own dated period and consumes the same global slots.
     const reviewExams = s.exams
       .filter(
@@ -422,6 +509,26 @@ export function generatePlan(
       !sessions.some((x) => x.id === donor.id) ||
       donor.kind !== 'study' ||
       donor.end - donor.start >= policy.minimum - EPS
+    )
+      continue;
+    // A small extension already belongs to an unchanged retained block. Leave
+    // it for the adjacent merge below instead of moving it to another date.
+    if (
+      retention &&
+      !retention.preserveSessionBoundaries &&
+      kept.some(
+        (x) =>
+          !x.fixed &&
+          x.kind === 'study' &&
+          x.date === donor.date &&
+          x.materialId === donor.materialId &&
+          x.round === donor.round &&
+          Math.abs(x.end - donor.start) < EPS &&
+          donor.end - x.start >= policy.minimum - EPS &&
+          capacities
+            .find((c) => c.date === donor.date)
+            ?.slots.some(([lo, hi]) => x.start >= lo - EPS && donor.end <= hi + EPS),
+      )
     )
       continue;
     const length = donor.end - donor.start;
@@ -591,9 +698,12 @@ export function generatePlan(
     settingsUpdatedAt: state.settingsUpdatedAt,
     notBefore,
     from,
-    ...(comparisons.length ? { comparisonSessionIds: comparisons.map((session) => session.id) } : {}),
-    sessions: [...sessions, ...comparisons.map((session) => ({ ...session }))]
-      .sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start),
+    ...(comparisons.length
+      ? { comparisonSessionIds: comparisons.map((session) => session.id) }
+      : {}),
+    sessions: [...sessions, ...comparisons.map((session) => ({ ...session }))].sort(
+      (a, b) => a.date.localeCompare(b.date) || a.start - b.start,
+    ),
     capacities: [
       ...(preserve ? (state.plan?.capacities.filter((c) => c.date < from) ?? []) : []),
       ...capacities,

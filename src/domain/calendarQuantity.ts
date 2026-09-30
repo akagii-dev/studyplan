@@ -1,7 +1,9 @@
 import { AppState, Plan, StudyDayBaseline, today } from './model';
-import { originalSessionCount } from './progressReflection';
+import { originalSessionCount, proposalUsesCurrentProgress } from './progressReflection';
 import { activePlanWork, workKey } from './progressAllocation';
 import { displayPlanSessions, isArchivedPlanDate } from './planDisplay';
+import { samePlanningSettings } from './planAudit';
+import { assertRemainingBalance, remainingBasisIssue } from './remainingAllocation';
 
 const keyOf = (id: string, round: number, unit: string) => JSON.stringify([id, round, unit]);
 export const materialUnit = (unit?: string) => unit?.trim() || '問';
@@ -99,6 +101,8 @@ export interface QuantityRow {
   currentRemaining?: number;
   /** Display-only start-day allocation. Records before the restart are not its denominator. */
   restartPlanned?: number;
+  /** Display-only evidence that this historical remainder is included in the approved allocation. */
+  adjustment?: 'applied' | 'unplaced';
 }
 export interface QuantityTotal {
   unit: string;
@@ -110,10 +114,50 @@ export interface QuantityTotal {
   shortage: number | null;
   currentRemaining?: number;
   restartPlanned?: number;
+  adjustment?: QuantityRow['adjustment'];
 }
 /** Historical shortage is confirmed only by an actual report, including an explicit zero. */
 export const recordedShortage = (row: Pick<QuantityRow, 'planned' | 'actual' | 'reported'>) =>
   row.planned === null ? null : row.reported ? Math.max(0, row.planned - row.actual) : 0;
+
+// Immutable state snapshots share the same balance check across all calendar days.
+const adjustmentCache = new WeakMap<AppState, {
+  plan: Plan;
+  settings: AppState['settings'];
+  records: AppState['records'];
+  boundary: string;
+  tasks?: Map<string, NonNullable<QuantityRow['adjustment']>>;
+}>();
+
+/** A draft, an old record snapshot, or a failed allocation cannot settle a historical remainder. */
+function historicalAdjustments(state: AppState, date: string) {
+  const plan = state.plan;
+  const reconciliation = state.draft.planReconciliation as { status?: string } | undefined;
+  const progress = state.draft.progressAdjustment as { status?: string } | undefined;
+  if (!plan || reconciliation?.status === 'blocked' ||
+    progress?.status === 'review' || progress?.status === 'failed' ||
+    !plan.settingsSnapshot || !samePlanningSettings(plan.settingsSnapshot, state.settings) || remainingBasisIssue(state) ||
+    !proposalUsesCurrentProgress(plan, state.records)) return undefined;
+  const boundary = plan.adjustmentBasis?.date ?? plan.from;
+  if (date >= boundary) return undefined;
+  const cached = adjustmentCache.get(state);
+  if (cached?.plan === plan && cached.settings === state.settings &&
+    cached.records === state.records && cached.boundary === boundary) return cached.tasks;
+  let tasks: Map<string, NonNullable<QuantityRow['adjustment']>> | undefined;
+  try {
+    assertRemainingBalance(state, boundary);
+    tasks = new Map(state.settings.materials.flatMap((material) => material.rounds.map((_, round) => [
+      workKey(material.id, round),
+      plan.shortfalls.some((item) => item.materialId === material.id && item.round === round && item.count > 0)
+        ? 'unplaced' as const : 'applied' as const,
+    ] as const)));
+  } catch {
+    // An inconsistent snapshot is not evidence of a completed adjustment.
+  }
+  adjustmentCache.set(state, { plan, settings: state.settings, records: state.records, boundary, tasks });
+  return tasks;
+}
+
 export function calendarQuantity(
   state: AppState,
   date: string,
@@ -197,8 +241,13 @@ export function calendarQuantity(
     row.reported = true;
     rows.set(key, row);
   }
+  const adjustments = past ? historicalAdjustments(state, date) : undefined;
   for (const row of rows.values()) {
     row.remainder = row.planned === null ? null : Math.max(0, row.planned - row.actual);
+    if (row.remainder !== null && row.remainder > 0) {
+      const adjustment = adjustments?.get(workKey(row.materialId, row.round));
+      if (adjustment) row.adjustment = adjustment;
+    }
     if (currentRemaining)
       row.currentRemaining = currentRemaining.get(workKey(row.materialId, row.round)) ?? 0;
   }
@@ -232,7 +281,14 @@ export function quantityTotals(rows: readonly QuantityRow[]): QuantityTotal[] {
     total.partial ||= !row.reported && (row.planned === null || row.planned > 0);
     totals.set(row.unit, total);
   }
-  return [...totals.values()];
+  return [...totals.values()].map((total) => {
+    const attention = rows.filter((row) => row.unit === total.unit &&
+      (!row.reported || (row.restartPlanned !== undefined && row.actual < row.restartPlanned) ||
+        (recordedShortage(row) ?? 0) > 0));
+    if (attention.length && attention.every((row) => row.adjustment))
+      total.adjustment = attention.some((row) => row.adjustment === 'unplaced') ? 'unplaced' : 'applied';
+    return total;
+  });
 }
 
 /** Ordinary schedule views omit archived plans and today's removed, unreported tasks.
@@ -253,9 +309,10 @@ export function calendarDisplayQuantity(
   if (date < reference && date === state.plan?.allocationStart) {
     // The old daily baseline describes work before the restart. Keep all valid
     // records, but show the approved replacement slots as a separate quantity.
+    const adjustments = historicalAdjustments(state, date);
     const rows = new Map<string, QuantityRow>(quantity.rows.filter((row) => row.reported)
       .map((row) => [keyOf(row.materialId, row.round, row.unit),
-        { ...row, planned: null, remainder: null }]));
+        { ...row, planned: null, remainder: null, adjustment: undefined }]));
     const source = snapshot(state, { ...state.plan, sessions: displayPlanSessions(state, reference) }, date, true);
     for (const item of source.rows) {
       if (item.count <= 0 || (filter !== 'all' && item.examId !== filter)) continue;
@@ -271,7 +328,9 @@ export function calendarDisplayQuantity(
         reported: false,
         remainder: null,
       };
-      rows.set(key, { ...row, restartPlanned: item.count });
+      rows.set(key, { ...row, restartPlanned: item.count,
+        adjustment: !row.reported || row.actual < item.count
+          ? adjustments?.get(workKey(item.materialId, item.round)) : undefined });
     }
     const displayed = [...rows.values()];
     return { ...quantity, known: false, rows: displayed, totals: quantityTotals(displayed) };

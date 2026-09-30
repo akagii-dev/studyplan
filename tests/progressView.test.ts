@@ -2,7 +2,7 @@ import { createElement, ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { initialState, today, addDays } from '../src/domain/model';
-import { calendarQuantity } from '../src/domain/calendarQuantity';
+import { calendarDisplayQuantity, calendarQuantity, quantityTotals } from '../src/domain/calendarQuantity';
 import { progressView } from '../src/domain/progressView';
 import { todayStudyRows } from '../src/domain/todayProgress';
 import { Dashboard } from '../src/app/Dashboard';
@@ -17,7 +17,7 @@ import {
   remainingPlacementFixture,
   elapsedPlacementFixture,
 } from './fixtures/adjustment';
-import { recordAndAdjust, correctAndAdjust } from '../src/domain/progressAdjustment';
+import { recordAndAdjust, correctAndAdjust, reconcilePlanning } from '../src/domain/progressAdjustment';
 import {
   approve,
   proposeRestart,
@@ -291,7 +291,7 @@ it('訂正・取消を反映し、比較不能と0予定の比率を作らない
 });
 
 it.each([
-  { offset: 0, expected: 8 },
+  { offset: 0, expected: 6 },
   { offset: 1, expected: 0 },
 ])(
   '今日6・実績4から$offset日後に仕切り直し、今日残り$expectedを画面と入力で共有する',
@@ -381,13 +381,13 @@ it('仕切り直し後の追加・訂正・取消は今日の有効量へ反映�
         .reduce((n, s) => n + s.count, 0),
     ).toBe(left);
   };
-  check(5, 7);
+  check(5, 5);
   state = correctAndAdjust(state, 'extra', 3, false, context);
-  check(7, 5);
+  check(7, 3);
   state = correctAndAdjust(state, 'extra', 3, true, context);
-  check(4, 8);
+  check(4, 6);
   state = correctAndAdjust(state, 'record', 4, true, context);
-  check(0, 8);
+  check(0, 6);
 });
 
 for (const offset of [0, 1]) {
@@ -890,5 +890,124 @@ describe('今日の記録と今後の予定', () => {
     expect(html).toContain('問題集B · 1周目</span><strong>2問</strong>');
     expect(html).toContain('<summary>理由</summary>');
     expect(html).not.toContain('未配置 7問');
+  });
+});
+
+
+describe('過去分の調整済み表示', () => {
+  const date = adjustmentContext.date;
+  const reference = addDays(date, 1);
+  function reflected(count?: number) {
+    const initial = adjustmentFixture();
+    const source = count === undefined ? initial : recordAndAdjust(initial, adjustmentReport(count), adjustmentContext);
+    return reconcilePlanning(source, {
+      ...adjustmentContext, date: reference, minute: 0, timestamp: reference + 'T00:00:00+09:00',
+    });
+  }
+  const rowOf = (state: ReturnType<typeof reflected>) =>
+    calendarQuantity(state, date, reference).rows.find((row) => row.materialId === 'book' && row.round === 0)!;
+
+  it.each([undefined, 0, 2])('確定計画へ繰り越した実績%sの不足・未報告を残し、調整済みを共有表示する', (count) => {
+    const state = reflected(count);
+    const before = structuredClone(state);
+    const row = rowOf(state);
+    expect(state.plan!.shortfalls).toEqual([]);
+    expect(row).toMatchObject({ planned: 6, actual: count ?? 0, reported: count !== undefined, adjustment: 'applied' });
+    const view = progressView(row, date, reference);
+    expect(view).toMatchObject({
+      text: count === undefined ? '未報告 / 6問' : String(count) + '/6問',
+      deficit: count === undefined ? null : 6 - count,
+      warning: false,
+      adjustment: 'applied',
+    });
+    expect(view.supplement).toContain('調整済み');
+    if (count !== undefined) expect(view.supplement).toContain(String(6 - count) + '問不足');
+    expect(calendarQuantity(state, date, reference).totals[0].adjustment).toBe('applied');
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(reference + 'T12:00:00'));
+    try {
+      for (const element of [
+        createElement(CalendarQuantity, { state, date, filter: 'all', onSelect: () => {} }),
+        createElement(CalendarQuantityDetails, { state, date, filter: 'all', onRecord: () => {} }),
+        createElement(CalendarDaySummary, { state, date, filter: 'all', density: 'compact', onSelect: () => {} }),
+      ]) {
+        const html = renderToStaticMarkup(element);
+        expect(html).toContain('調整済み');
+        expect(html).toContain('未報告');
+        expect(html).not.toContain('quantity-warning');
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(state).toEqual(before);
+  });
+
+  it.each(['blocked', 'review', 'failed', 'corrected', 'cancelled', 'same-day', 'unknown', 'broken', 'unbalanced', 'changed-settings'] as const)(
+    '反映根拠が成立しない%sを調整済みにしない', (reason) => {
+      const previous = reflected(2);
+      expect(rowOf(previous).adjustment).toBe('applied');
+      const state = structuredClone(previous);
+      if (reason === 'blocked') state.draft.planReconciliation = { asOf: reference, status: 'blocked', reason: 'pending-proposal' };
+      if (reason === 'review' || reason === 'failed') state.draft.progressAdjustment = { recordId: 'record', status: reason };
+      if (reason === 'corrected') state.records[0].count = 1;
+      if (reason === 'cancelled') state.records[0].cancelled = true;
+      if (reason === 'same-day') state.plan!.adjustmentBasis!.date = date;
+      if (reason === 'unknown') { delete state.plan!.adjustmentBasis; delete state.plan!.progressBaseline; }
+      if (reason === 'broken') state.plan!.adjustmentBasis!.records = { invalid: 2 };
+      if (reason === 'unbalanced') state.plan!.sessions.find((session) => session.date > reference && session.kind === 'study')!.count += 1;
+      if (reason === 'changed-settings') state.settings.buffer = 0.1;
+      const before = structuredClone(state);
+      const row = rowOf(state);
+      expect(row.adjustment).toBeUndefined();
+      expect(progressView(row, date, reference).warning).toBe(true);
+      expect(progressView(row, date, reference).supplement).not.toContain('調整済み');
+      expect(state).toEqual(before);
+    },
+  );
+
+  it('案だけでは済みにせず、確定済みの根拠は別案や計算版の変更だけでは失わない', () => {
+    const approved = reflected(2);
+    const initial = adjustmentFixture();
+    initial.proposal = { plan: approved.plan!, basedOn: initial.plan!.id, reason: '未承認の案', unreported: [] };
+    expect(rowOf(initial).adjustment).toBeUndefined();
+    approved.proposal = initial.proposal;
+    approved.plan!.calculationVersion = 1;
+    expect(rowOf(approved).adjustment).toBe('applied');
+    expect(progressView(rowOf(approved), reference, reference).supplement).not.toContain('調整済み');
+    expect(progressView(rowOf(approved), addDays(reference, 1), reference).supplement).not.toContain('調整済み');
+  });
+
+  it('未配置が残る調整と、未反映行が混じる合計を完了扱いしない', () => {
+    const state = reflected(2);
+    const session = state.plan!.sessions.find((item) => item.date > reference && item.materialId === 'book' && item.round === 0)!;
+    session.count -= 1;
+    session.end -= 3;
+    state.plan!.shortfalls.push({ materialId: 'book', round: 0, count: 1, minutes: 3, reason: '学習枠が不足しています。' });
+    state.plan!.progressBaseline = createProgressBaseline(state.plan!, state.records, reference);
+    const row = rowOf(state);
+    expect(row.adjustment).toBe('unplaced');
+    expect(progressView(row, date, reference)).toMatchObject({
+      deficit: 4, warning: true, supplement: '4問不足 · 調整済み・未配置あり',
+    });
+    expect(calendarQuantity(state, date, reference).totals[0].adjustment).toBe('unplaced');
+    expect(quantityTotals([row, { ...row, materialId: 'unreflected', adjustment: undefined }])[0].adjustment).toBeUndefined();
+  });
+
+  it.each([undefined, 2, 6])('仕切り直し開始日の実績%sを旧分母へ戻さず、未完了分だけ後日の反映済みを示す', (count) => {
+    const state = reflected(count);
+    state.plan!.allocationStart = date;
+    state.plan!.from = reference;
+    const before = structuredClone(state);
+    const displayed = calendarDisplayQuantity(state, date, reference);
+    const row = displayed.rows.find((item) => item.materialId === 'book' && item.round === 0)!;
+    const adjustment = count === 6 ? undefined : 'applied';
+    expect(row).toMatchObject({ planned: null, actual: count ?? 0, restartPlanned: 6, adjustment });
+    expect(progressView(row, date, reference)).toMatchObject({
+      text: count === undefined ? '予定 6問 · 未報告' : '予定 6問 · 実績 ' + count + '問',
+      deficit: null, progressRatio: null, warning: false, supplement: count === 6 ? '' : '調整済み',
+    });
+    expect(displayed.totals[0].adjustment).toBe('applied');
+    expect(calendarQuantity(state, date, reference).rows.find((item) => item.materialId === 'book')!.planned).toBe(6);
+    expect(state).toEqual(before);
   });
 });

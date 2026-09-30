@@ -127,6 +127,16 @@ describe('対話での再計画', () => {
     const fixed = structuredClone(s.plan!.sessions[0]);
     const settings = structuredClone(s.settings);
     classes(settings);
+    settings.windows.push({
+      ...settings.windows[0],
+      id: 'fixed-conflict',
+      kind: 'class',
+      from: fixed.date,
+      to: fixed.date,
+      weekdays: [0, 1, 2, 3, 4, 5, 6],
+      start: fixed.start,
+      end: fixed.end,
+    });
     const n = proposeSettings(s, settings, date);
     expect(n.proposal!.plan.sessions).toContainEqual(fixed);
     expect(n.proposal!.plan.conflicts.length).toBeGreaterThan(0);

@@ -3,7 +3,7 @@ import { QuantityRow, QuantityTotal } from './calendarQuantity';
 /** Presentation only. Never turns a missing report into a saved zero or offsets tasks. */
 export function progressState(
   value: Pick<QuantityRow, 'planned' | 'actual' | 'reported' | 'unit'> &
-    Partial<Pick<QuantityTotal, 'shortage' | 'partial' | 'currentRemaining' | 'restartPlanned'>>,
+    Partial<Pick<QuantityTotal, 'shortage' | 'partial' | 'currentRemaining' | 'restartPlanned' | 'adjustment'>>,
   date: string,
   reference: string,
 ) {
@@ -12,6 +12,7 @@ export function progressState(
   const past = date < reference;
   const restartPlanned = past ? value.restartPlanned : undefined;
   const comparisonAvailable = planned !== null && restartPlanned === undefined;
+  const adjustment = past && (comparisonAvailable || restartPlanned !== undefined) ? value.adjustment : undefined;
   const currentRemaining = date === reference ? value.currentRemaining : undefined;
   const deficit =
     past && hasReport && comparisonAvailable
@@ -35,10 +36,12 @@ export function progressState(
         : partial
           ? ('partial' as const)
           : ('reported' as const),
-    warning: past && (!hasReport || partial || (deficit ?? 0) > 0),
+    warning: past && (adjustment === 'unplaced' ||
+      (adjustment !== 'applied' && (!hasReport || partial || (deficit ?? 0) > 0))),
     prefill: restartPlanned === undefined ? currentRemaining ?? (planned === null ? 0 : Math.max(0, planned - actual)) : 0,
     ...(currentRemaining === undefined ? {} : { currentRemaining }),
     ...(restartPlanned === undefined ? {} : { restartPlanned }),
+    ...(adjustment === undefined ? {} : { adjustment }),
     unit,
   };
 }
@@ -73,6 +76,7 @@ export function progressView(
     supplement: [
       state.reportStatus === 'partial' ? '未報告あり' : '',
       (deficit ?? 0) > 0 ? `${deficit}${unit}不足` : '',
+      state.adjustment === 'applied' ? '調整済み' : state.adjustment === 'unplaced' ? '調整済み・未配置あり' : '',
     ]
       .filter(Boolean)
       .join(' · '),

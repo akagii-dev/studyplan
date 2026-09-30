@@ -23,6 +23,7 @@ import { remainingWork } from '../src/domain/remainingWork';
 import { addDays, completed, remaining, reported, type AppState } from '../src/domain/model';
 import { calendarQuantity } from '../src/domain/calendarQuantity';
 import { capacityForDate, capacityForWeek } from '../src/domain/planner/capacity';
+import { generatePlan } from '../src/domain/planner/generate';
 import { startOfWeek } from '../src/domain/calendar';
 import { createProgressBaseline, reflectProgress } from '../src/domain/progressReflection';
 import { approve, propose, proposeRemainingAdjustment, reproposeRemainingAdjustment, proposePastRemainingAdjustment, proposeRestart } from '../src/domain/planner/proposal';
@@ -58,6 +59,40 @@ it('予定6に4問を追加しても、他の教材・周回と未来24問の配
 });
 
 const day = adjustmentContext.date;
+
+it.each([undefined, 0, 4])('均等な計画の未報告・実績%sを翌日に繰り越しても、保持枠へ少量ずつ追加する', (count) => {
+  const context = { ...adjustmentContext, minute: 0 };
+  const source = adjustmentFixture();
+  source.settings.exams = [{ ...source.settings.exams[0], target: addDays(day, 6) }];
+  source.settings.materials = [{ ...source.settings.materials[0], total: 96,
+    rounds: [{ completed: 0, minutes: 1 }] }];
+  source.settings.windows = [{ ...source.settings.windows[0], to: addDays(day, 5), end: 600 }];
+  source.settings.block = 60;
+  source.plan = generatePlan({ ...source, plan: null }, day, false, 0, 'balanced', context);
+  const snapshot = structuredClone(source);
+  const daily = (state: AppState, currentDate: string) => Array.from({ length: 6 }, (_, i) =>
+    activePlanWork(state, currentDate).filter((x) => x.date === addDays(day, i))
+      .reduce((sum, x) => sum + x.count, 0));
+  expect(daily(source, day)).toEqual([16, 16, 16, 16, 16, 16]);
+  const recorded = count === undefined ? source : recordAndAdjust(source, adjustmentReport(count), context);
+  const tomorrow = addDays(day, 1);
+  const nextContext = { ...context, date: tomorrow, timestamp: `${tomorrow}T00:00:00.000Z` };
+  const adjusted = reconcilePlanning(recorded, nextContext);
+  const extra = (16 - (count ?? 0)) / 4;
+  expect(daily(adjusted, tomorrow).slice(1)).toEqual([16, ...Array(4).fill(16 + extra)]);
+  for (const kept of source.plan.sessions.filter((x) => x.date >= tomorrow)) {
+    expect(adjusted.plan!.sessions.find((x) => x.id === kept.id)).toMatchObject({
+      date: kept.date, start: kept.start, materialId: kept.materialId, round: kept.round,
+    });
+  }
+  expect(adjusted.plan!.shortfalls).toEqual([]);
+  expect(adjusted.plan!.sessions.filter((x) => x.date >= tomorrow)).toHaveLength(5);
+  expect(adjusted.plan!.sessions.filter((x) => x.date >= tomorrow)
+    .every((x) => x.end - x.start >= 10 && x.allocationReason === undefined)).toBe(true);
+  conservation(adjusted, tomorrow);
+  expect(reconcilePlanning(adjusted, nextContext)).toBe(adjusted);
+  expect(source).toEqual(snapshot);
+});
 
 it.each(['unreported', 'zero', 'partial'] as const)(
   '前日%sの翌日に4・2問を記録し、画面と配分の今日残量を一致させる',
@@ -633,6 +668,8 @@ it('仕切り直し開始前の固定はそのまま保持して競合にし、�
 it('部分記録後に本日から仕切り直しても、再配置量から新しい実績だけを差し引く', () => {
   const context = { ...adjustmentContext, minute: 0 };
   const source = recordAndAdjust(restartFixture(), adjustmentReport(4), context);
+  // Keep a meaningful daily share after spreading the remaining 66 minutes.
+  source.settings.exams[0].target = addDays(day, 3);
   source.studyDayBaselines = {
     [day]: {
       planId: source.plan!.id,

@@ -120,7 +120,9 @@ it('5問へ訂正すると翌日に10問、取消後は未報告として当日�
   state = correctProgress(state, 'report', 5, true);
   expect(reported(state, date, 'book', 0)).toBe(false);
   state = propose(state, date, '取消後', context);
-  expect(bookCount(state, date)).toBe(15);
+  expect(bookCount(state, date)).toBe(8);
+  expect(bookCount(state, tomorrow)).toBe(7);
+  expect(state.proposal!.plan.shortfalls).toEqual([]);
 });
 
 it('報告済みの組だけを翌日に送り、未報告の別問題集は当日へ配置する', () => {

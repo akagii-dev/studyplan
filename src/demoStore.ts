@@ -20,7 +20,7 @@ export function demoInitialState(date = today()): AppState {
     id: 'demo-material',
     examId: 'demo-exam',
     name: 'サンプル問題集',
-    total: 60,
+    total: 80,
     order: 1,
     rounds: [{ completed: 0, minutes: 3 }],
   }];

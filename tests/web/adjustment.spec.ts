@@ -102,6 +102,16 @@ test('過去の未消化5問だけを一括調整し、今日の開始済み予�
   await page.reload();
   expect((await read()).plan).toEqual(approved.plan);
   expect((await read()).records).toEqual(source.records);
+  await page.getByRole('button', { name: '今後の予定', exact: true }).click();
+  await page.getByRole('button', { name: '詳細カレンダーを見る', exact: true }).click();
+  const pastDay = addDays(adjustmentContext.date, -1);
+  await page.getByRole('button', { name: `${pastDay}を表示`, exact: true }).click();
+  const pastRecord = page.locator('.session-detail').filter({ has: page.getByRole('heading', { name: '教材B', exact: true }) });
+  await expect(pastRecord).toContainText('未報告');
+  await expect(pastRecord).toContainText('調整済み');
+  await page.screenshot({ path: info.outputPath('calendar-adjusted.png'), fullPage: true });
+  expect((await read()).plan).toEqual(approved.plan);
+  expect((await read()).records).toEqual(source.records);
 });
 test('保存済みの対象5問の部分配置案も実績を作らず承認・再読込できる', async ({ page }, info) => {
   await page.clock.install({ time: new Date(adjustmentContext.timestamp) });
@@ -300,6 +310,7 @@ test('実績なしの読込と開き続けた翌日の調整を分けて表示�
   // Yesterday was reconciled; today's 09:00 slot remains today's work at 12:01.
   await expect(page.locator('.future-work')).not.toContainText('再配置待ち');
   await expect(page.getByText('配置先を確認', { exact: true })).toHaveCount(0);
+  await expect(page.locator('.future-day').filter({ has: page.getByRole('button', { name: /^2030-10-07 / }) })).toContainText('調整済み');
   await page.clock.runFor(60_001);
   const repeated = await read();
   expect(repeated.records).toEqual([]);
@@ -327,7 +338,7 @@ test('承認待ちの案がある調整未反映を未来画面で示す', async
   expect(stored.draft.planReconciliation).toMatchObject({ status: 'blocked', reason: 'pending-proposal' });
 });
 
-for (const { offset, expected } of [{ offset: 0, expected: 8 }, { offset: 1, expected: 0 }]) {
+for (const { offset, expected } of [{ offset: 0, expected: 6 }, { offset: 1, expected: 0 }]) {
   test(`今日6問に4問記録後、${offset}日後から仕切り直して今日の残り${expected}問を入力へ引き継ぐ`, async ({ page }, info) => {
     if (info.project.name === 'narrow') await page.setViewportSize({ width: 390, height: 844 });
     const date = adjustmentContext.date;

@@ -28,6 +28,8 @@ export interface RetainedAllocation {
   rebuildReviews?: boolean;
   /** An explicit restart may use the remainder of a reported, but unfinished day. */
   allowReportedDay?: boolean;
+  /** Targeted adjustment keeps unrelated retained sessions separate from new work. */
+  preserveSessionBoundaries?: boolean;
 }
 export function generatePlan(
   state: AppState,
@@ -46,7 +48,7 @@ export function generatePlan(
           ...(state.plan?.sessions.map((x) => x.id) ?? []),
           ...(state.plan?.adjustmentBasis?.sessions.map((x) => x.id) ?? []),
         ]
-      : [],
+      : (state.plan?.comparisonSessionIds ?? []),
   );
   const nextId = () => {
     let id: string;
@@ -65,7 +67,7 @@ export function generatePlan(
     capacityForDate(s, d),
   );
   const capacities = weekDays.filter((c) => c.date >= from && c.date <= to);
-  const kept =
+  const retained =
     retention?.sessions ??
     (preserve
       ? (state.plan?.sessions.filter(
@@ -74,6 +76,9 @@ export function generatePlan(
             (x.date < from || (x.date === from && x.start < notBefore) || x.fixed),
         ) ?? [])
       : []);
+  const comparisonIds = new Set(state.plan?.comparisonSessionIds ?? []);
+  const comparisons = retained.filter((session) => comparisonIds.has(session.id));
+  const kept = retained.filter((session) => !comparisonIds.has(session.id));
   const sessions: Session[] = kept.map((x) => ({ ...x }));
   const weeks = new Map(weeklyCapacities(weekDays, s.buffer, kept).map((w) => [w.from, w]));
   const weekFor = (date: string) => weeks.get(startOfWeek(date))!;
@@ -269,6 +274,10 @@ export function generatePlan(
               (quota.get(t.exam.id) || 0) - (used.get(t.exam.id) || 0),
             ) > 0 &&
             (used.get(t.exam.id) || 0) < (quota.get(t.exam.id) || 0) - EPS &&
+            // Whole-unit rounding can leave a fraction of one question in the daily
+            // quota. Do not turn that fraction into another preferred-size session.
+            (!used.has(t.exam.id) ||
+              (quota.get(t.exam.id) || 0) - (used.get(t.exam.id) || 0) + EPS >= t.minutes) &&
             canStart(t, cap.date, cursor),
         );
         candidates.sort((a, b) => {
@@ -493,7 +502,11 @@ export function generatePlan(
       b = sessions[i];
     if (
       ((!keptIds.has(a.id) && !keptIds.has(b.id)) ||
-        (retention && !a.fixed && !b.fixed && (!keptIds.has(a.id) || !keptIds.has(b.id)))) &&
+        (retention &&
+          !retention.preserveSessionBoundaries &&
+          !a.fixed &&
+          !b.fixed &&
+          (!keptIds.has(a.id) || !keptIds.has(b.id)))) &&
       a.kind === 'study' &&
       b.kind === 'study' &&
       a.date === b.date &&
@@ -578,7 +591,9 @@ export function generatePlan(
     settingsUpdatedAt: state.settingsUpdatedAt,
     notBefore,
     from,
-    sessions: sessions.sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start),
+    ...(comparisons.length ? { comparisonSessionIds: comparisons.map((session) => session.id) } : {}),
+    sessions: [...sessions, ...comparisons.map((session) => ({ ...session }))]
+      .sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start),
     capacities: [
       ...(preserve ? (state.plan?.capacities.filter((c) => c.date < from) ?? []) : []),
       ...capacities,

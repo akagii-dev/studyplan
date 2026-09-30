@@ -76,6 +76,10 @@ LAN APIと起動手順は[配信手順](RELEASING.md#lan版のローカル配信
 
 ### 実績による通常調整
 
+部分調整は `planning.proposeRemainingAdjustment()` → `remainingAllocation.calculateRemainingAdjustment()` → 既存の `approve()` を通す。対象の有効量は `activePlanWork()`、全体残量は `remaining()` を使用し、保持モードの `generatePlan()` へ対象と順序依存分だけを渡す。`allowReportedDay` はこの明示操作でも有効にし、実績登録を配置放棄と解釈しない。`Proposal.basis` の任意の識別子・対象・影響範囲を拡張し、保存・競合・requestIdの経路は共用する。比較専用枠は `nonComparisonSessions()` で通常表示・案の数量比較・容量表示から外し、後続の全体再計画でもエンジンが占有や作業量へ戻さない。
+
+`remainingWork()` は数量の整合性に加え、共通の `remainingSessionIssue()` による実行可能な配置先・無効枠・未配置理由を返す。`WorkPlacements` が今日と今後の予定へ同じ意味で表示し、対象量の案は `remainingAdjustmentPreview()` で無関係な保持量と分離する。基準不明・破損・計算失敗・数量不整合を未配置へ変換しない。承認でも同じ枠検証と数量保存則を確認し、移動元や完了済み比較枠を新しい実績反映基準に混ぜない。容量の参照は `remainingOccupiedSessions()` で共有し、将来の完了済み比較枠を空き時間・週容量へ二重計上せず、過去・開始済み枠の既存の週占有は維持する。
+
 未消化分の反映も `usePersistentAppState` の読込・復帰・日付更新境界から `planning.reconcilePlanning()` → `progressAdjustment.reconcilePlanning()` → `prepareAdjustment()` / `allocateProgress()` を通す。表示やselectorには副作用を置かない。実績を生成せず、意味のある配置変更だけ履歴へ残し、同じ条件の再実行では同じstateを返す。計算保留の理由とSQLiteの保存未確認は別責務とし、保存キュー・競合復旧を共用する。
 
 全体の仕切り直しは `planning.proposeRestart()` → `planner/proposal.proposeRestart()` → `planRestart.calculateRestart()` → 既存の `approve()`。開始境界と元計画・実績・設定の前提を保持し、承認時に再検証する。`remainingWork()` は教材・周回・単位別のT/C/R/A/Uと整合性を返す。UIに計算式を複製しない。`comparePlans()` の比較開始を操作日へ指定することで、新開始日より前から取り除く予定も差分に含める。計算は `PlanningContext` だけを日時の入力とし、保存・Reactへ依存しない。

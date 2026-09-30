@@ -6,6 +6,7 @@ import { startOfWeek } from '../domain/calendar';
 import { dateTime } from '../domain/planAudit';
 import { duration } from './common';
 import { PLAN_CALCULATION_VERSION, sessionPolicy } from '../domain/sessionPolicy';
+import { nonComparisonSessions } from '../domain/planDisplay';
 
 export function PlanInsights({
   state,
@@ -61,7 +62,7 @@ export function PlanInsights({
   const weeks = useMemo(() => {
     if (!settings || (plan.calculationVersion ?? 0) < 7) return [];
     return [...new Set(days.map(startOfWeek))].map((date) =>
-      capacityForWeek(settings, date, plan.sessions),
+      capacityForWeek(settings, date, nonComparisonSessions(plan)),
     );
   }, [plan, settings]);
   return (
@@ -171,7 +172,7 @@ export function PlanInsights({
                         .reduce((n, x) => n + x.count, 0);
                       return shortage
                         ? `期限内に未配置 ${shortage}問`
-                        : (p.sessions
+                        : (nonComparisonSessions(p)
                             .filter(
                               (x) => x.examId === e.id && x.kind === 'study' && x.date >= p.from,
                             )
@@ -231,7 +232,7 @@ export function PlanInsights({
             </thead>
             <tbody>
               {days.map((d) => {
-                const sessions = plan.sessions.filter((x) => x.date === d && x.kind === 'study');
+                const sessions = nonComparisonSessions(plan).filter((x) => x.date === d && x.kind === 'study');
                 return (
                   <tr key={d}>
                     <td>{d}</td>

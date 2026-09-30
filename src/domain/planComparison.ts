@@ -1,4 +1,5 @@
 import { Plan, Session } from './model';
+import { nonComparisonSessions } from './planDisplay';
 
 export interface ScheduleSummary {
   count: number;
@@ -26,8 +27,8 @@ export function comparePlans(before: Plan | null, after: Plan, comparisonFrom = 
     s.kind === 'study' &&
     s.count > 0 &&
     (s.date > comparisonFrom || (s.date === comparisonFrom && s.start >= minute));
-  const oldSessions = (before?.sessions ?? []).filter(eligible);
-  const newSessions = after.sessions.filter(eligible);
+  const oldSessions = nonComparisonSessions(before).filter(eligible);
+  const newSessions = nonComparisonSessions(after).filter(eligible);
   const materialIds = [
     ...new Set([
       ...oldSessions.map((s) => s.materialId),

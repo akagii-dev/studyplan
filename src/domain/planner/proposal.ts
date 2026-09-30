@@ -1,6 +1,6 @@
 import { validateSettings } from './validation';
 import { startOfWeek } from '../calendar';
-import { AppState, reported, Settings } from '../model';
+import { AppState, reported, Settings, type RemainingAdjustmentTarget } from '../model';
 import { overlapsBusy, sameSettings } from '../planAudit';
 import { fixedIssueMessage, fixedOrderIssue, fixedTimeIssue } from '../planConstraints';
 import { sameRevisionBase, validateRevisedSettings } from '../revision';
@@ -12,14 +12,19 @@ import { generatePlan } from './generate';
 import { proposalUsesCurrentProgress, reflectProgressSafely } from '../progressReflection';
 import { retainStudyDayBaselines } from '../calendarQuantity';
 import { calculateRestart } from '../planRestart';
+import { calculateRemainingAdjustment, validateRemainingAllocation } from '../remainingAllocation';
+import { remainingOccupiedSessions } from '../progressAllocation';
+import { nonComparisonSessions } from '../planDisplay';
 const EPS = 1e-7;
 
 /** Bounded, deterministic precondition for an explicit restart candidate. */
 export function restartSourceFingerprint(state: AppState): string {
-  const source = JSON.stringify([state.plan, state.settings, state.records], (_key, value: unknown) =>
-    value && typeof value === 'object' && !Array.isArray(value)
-      ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)))
-      : value,
+  const source = JSON.stringify(
+    [state.plan, state.settings, state.records],
+    (_key, value: unknown) =>
+      value && typeof value === 'object' && !Array.isArray(value)
+        ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)))
+        : value,
   );
   let a = 0x811c9dc5;
   let b = 0x9e3779b9;
@@ -31,23 +36,42 @@ export function restartSourceFingerprint(state: AppState): string {
   return `${source.length}:${(a >>> 0).toString(16)}:${(b >>> 0).toString(16)}`;
 }
 
-export function restartProposalStaleReason(state: AppState, context: PlanningContext): string | undefined {
+export function restartProposalStaleReason(
+  state: AppState,
+  context: PlanningContext,
+): string | undefined {
   const proposal = state.proposal;
-  if (proposal?.basis?.kind !== 'restart') return undefined;
-  if (proposal.basis.date !== context.date ||
-    proposal.basis.sourceFingerprint !== restartSourceFingerprint(state))
+  if (!proposal?.basis) return undefined;
+  if (
+    proposal.basis.date !== context.date ||
+    proposal.basis.sourceFingerprint !== restartSourceFingerprint(state)
+  )
     return '案の作成後に基準日・計画・設定・実績が変わりました。案を作り直してください。';
-  if (proposal.plan.sessions.some((session) =>
-    !session.fixed && session.date === context.date &&
-    session.date >= proposal.plan.from && session.start >= (proposal.plan.notBefore ?? 0) &&
-    session.start < context.minute &&
-    !(state.plan?.sessions.some((old) => old.id === session.id))))
+  if (
+    proposal.plan.sessions.some(
+      (session) =>
+        !session.fixed &&
+        session.date === context.date &&
+        session.date >= proposal.plan.from &&
+        session.start >= (proposal.plan.notBefore ?? 0) &&
+        session.start < context.minute &&
+        !state.plan?.sessions.some((old) => old.id === session.id),
+    )
+  )
     return '案の作成後に当日の予定時刻が過ぎました。案を作り直してください。';
+  if (proposal.basis.kind === 'remaining-adjustment') {
+    try {
+      validateRemainingAllocation({ ...state, plan: proposal.plan }, context);
+    } catch (error) {
+      return `${error instanceof Error ? error.message : String(error)} 案を作り直してください。`;
+    }
+  }
   return undefined;
 }
 
 export function proposeRestart(state: AppState, from: string, context: PlanningContext): AppState {
-  if (state.proposal) throw new Error('確認待ちの計画案があります。先にその案を確認または破棄してください。');
+  if (state.proposal)
+    throw new Error('確認待ちの計画案があります。先にその案を確認または破棄してください。');
   const plan = calculateRestart(state, from, context);
   return {
     ...state,
@@ -60,6 +84,37 @@ export function proposeRestart(state: AppState, from: string, context: PlanningC
         kind: 'restart',
         date: context.date,
         sourceFingerprint: restartSourceFingerprint(state),
+      },
+    },
+  };
+}
+export function proposeRemainingAdjustment(
+  state: AppState,
+  targets: RemainingAdjustmentTarget[],
+  from: string,
+  context: PlanningContext,
+): AppState {
+  if (state.proposal)
+    throw new Error('確認待ちの計画案があります。先にその案を確認または破棄してください。');
+  const result = calculateRemainingAdjustment(state, targets, from, context);
+  if (result.plan === state.plan) return state;
+  return {
+    ...state,
+    proposal: {
+      plan: result.plan,
+      basedOn: state.plan?.id ?? null,
+      reason: result.affectedSessionIds.length
+        ? '選択した残量と、順序を守るために必要な後続の予定だけを調整します。'
+        : '選択した残量だけを、実行可能な空き枠へ調整します。',
+      unreported: [],
+      basis: {
+        kind: 'remaining-adjustment',
+        date: context.date,
+        sourceFingerprint: restartSourceFingerprint(state),
+        from,
+        targets: structuredClone(targets),
+        summary: result.summary,
+        affectedSessionIds: result.affectedSessionIds,
       },
     },
   };
@@ -160,16 +215,20 @@ export function approve(state: AppState, acknowledge: boolean, context: Planning
   // verbatim and must not be revalidated or rewritten as future work.
   const validationFrom = p.plan.from > context.date ? p.plan.from : context.date;
   const minute = validationFrom === context.date ? context.minute : 0;
-  for (const x of p.plan.sessions.filter(
+  const validationSessions =
+    p.basis?.kind === 'remaining-adjustment'
+      ? remainingOccupiedSessions({ ...state, plan: p.plan, settings }, context)
+      : nonComparisonSessions(p.plan);
+  for (const x of validationSessions.filter(
     (x) => x.fixed && (x.date > validationFrom || (x.date === validationFrom && x.start >= minute)),
   )) {
     const issue =
       fixedTimeIssue(settings, x, capacityForDate(settings, x.date)) ??
-      fixedOrderIssue({ ...state, settings }, x, p.plan.sessions, p.plan.from, p.plan.notBefore);
+      fixedOrderIssue({ ...state, settings }, x, validationSessions, p.plan.from, p.plan.notBefore);
     if (issue) throw new Error(fixedIssueMessage(x, issue));
   }
   if (
-    p.plan.sessions.some(
+    validationSessions.some(
       (x) =>
         (x.date > validationFrom || (x.date === validationFrom && x.start >= minute)) &&
         overlapsBusy(settings, x).length > 0,
@@ -177,11 +236,11 @@ export function approve(state: AppState, acknowledge: boolean, context: Planning
   )
     throw new Error('授業・予定と重複しています。固定予定や設定を確認して案を作り直してください。');
   for (const weekDate of new Set(
-    p.plan.sessions
+    validationSessions
       .filter((x) => x.date > validationFrom || (x.date === validationFrom && x.start >= minute))
       .map((x) => startOfWeek(x.date)),
   )) {
-    const week = capacityForWeek(settings, weekDate, p.plan.sessions);
+    const week = capacityForWeek(settings, weekDate, validationSessions);
     if (week.used > week.limit + EPS)
       throw new Error(
         `${week.from}〜${week.to}の週の割当上限を超えています。案を作り直してください。`,

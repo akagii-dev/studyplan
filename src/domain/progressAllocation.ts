@@ -93,6 +93,7 @@ function todayRemainders(
 export function activePlanWork(state: AppState, date: string): Session[] {
   if (!state.plan) return [];
   const plan = state.plan;
+  const comparisons = new Set(plan.comparisonSessionIds ?? []);
   const basis =
     plan.adjustmentBasis ??
     (plan.progressBaseline
@@ -107,12 +108,47 @@ export function activePlanWork(state: AppState, date: string): Session[] {
       : undefined);
   const today = new Map(basis ? todayRemainders(state, date, basis).map((s) => [s.id, s]) : []);
   return state.plan.sessions
-    .filter((s) => s.kind === 'study' && s.date >= date && s.date >= (plan.allocationStart ?? date))
+    .filter((s) => !comparisons.has(s.id) && s.kind === 'study' && s.date >= date && s.date >= (plan.allocationStart ?? date))
     .map((s) => {
       if (s.date === date && basis && date === basis.date) return today.get(s.id) ?? resize(s, 0);
       return s;
     })
     .filter((s) => s.count > 0);
+}
+
+/** Future comparison-only study slots consume neither free time nor weekly capacity. */
+export function remainingOccupiedSessions(
+  state: AppState,
+  context: Pick<PlanningContext, 'date' | 'minute'>,
+  work = activePlanWork(state, context.date),
+): Session[] {
+  const active = new Map(work.map((session) => [session.id, session]));
+  const comparisons = new Set(state.plan?.comparisonSessionIds ?? []);
+  return (state.plan?.sessions ?? []).flatMap((session) => {
+    if (comparisons.has(session.id)) return [];
+    if (
+      session.kind === 'review' ||
+      session.date < context.date ||
+      (session.date === context.date && session.start < context.minute)
+    )
+      return [session];
+    const effective = active.get(session.id);
+    return effective ? [effective] : [];
+  });
+}
+
+/** Keep comparison data verbatim without passing it back through allocation or capacity. */
+export function restoreComparisonSessions(plan: Plan, comparisons: Session[], releasedIds: string[] = []): Plan {
+  const ids = new Set(comparisons.map((session) => session.id));
+  const comparisonSessionIds = [...new Set(releasedIds)].filter((id) => ids.has(id));
+  return {
+    ...plan,
+    ...(comparisonSessionIds.length ? { comparisonSessionIds } : {}),
+    sessions: [
+      ...plan.sessions.filter((session) => !ids.has(session.id)),
+      ...structuredClone(comparisons),
+    ].sort(bySlot),
+  };
 }
 
 /** Capture before editing records. A new day expires yesterday's still-effective work. */
@@ -167,6 +203,7 @@ export function allocateProgress(
   requirePlanningInputs(state.settings, context.date);
   validateRevisedSettings(state, state.settings, context.date, context.minute);
   const source = state.plan!;
+  const comparisonIds = new Set(source.comparisonSessionIds ?? []);
   const basis = source.adjustmentBasis!;
   const from = [addDays(context.date, 1), source.allocationStart ?? ''].sort().at(-1)!;
   const residual = basisRemainders(state, basis);
@@ -201,7 +238,7 @@ export function allocateProgress(
   let capacityReleased = false;
   for (const s of [...source.sessions]
     .sort(bySlot)
-    .filter((s) => s.kind === 'study' && s.date >= from && !originalIds.has(s.id))) {
+    .filter((s) => s.kind === 'study' && s.date >= from && !originalIds.has(s.id) && !comparisonIds.has(s.id))) {
     const key = workKey(s.materialId, s.round);
     const count = Math.min(s.count, left[key] ?? 0);
     const kept = resize(s, count);
@@ -216,7 +253,9 @@ export function allocateProgress(
     }
     if (count > 0 && overlap) capacityReleased = true;
   }
-  const history = source.sessions.filter((s) => s.date < from);
+  const occupied = remainingOccupiedSessions(state, context);
+  const comparisons = source.sessions.filter((s) => s.date < from || comparisonIds.has(s.id));
+  const history = occupied.filter((s) => s.date < from);
   const reviews = source.sessions.filter((s) => s.date >= from && s.kind === 'review');
   const records = recordTotals(state.records);
   const previousRecords = source.progressBaseline?.records ?? basis.records;
@@ -292,11 +331,12 @@ export function allocateProgress(
     expanded = true;
   }
   if (plan.conflicts.length) throw new Error(plan.conflicts.join(' '));
+  plan = restoreComparisonSessions(plan, comparisons, source.comparisonSessionIds);
   // Preserve IDs for unchanged content, regardless of generation-pass ordering.
   const identity = ({ id: _id, ...s }: Session) =>
     JSON.stringify(Object.entries(s).sort(([a], [b]) => a.localeCompare(b)));
-  const ids = new Map(source.sessions.map((s) => [identity(s), s.id]));
-  plan.sessions = plan.sessions.map((s) => ({ ...s, id: ids.get(identity(s)) ?? s.id }));
+  const ids = new Map(source.sessions.filter((s) => !comparisonIds.has(s.id)).map((s) => [identity(s), s.id]));
+  plan.sessions = plan.sessions.map((s) => comparisonIds.has(s.id) ? s : ({ ...s, id: ids.get(identity(s)) ?? s.id }));
   plan.from = source.from;
   plan.notBefore = source.notBefore;
   plan.allocationStart = source.allocationStart;
@@ -305,7 +345,7 @@ export function allocateProgress(
   plan.approvedAt = context.timestamp;
   for (const [key, budget] of Object.entries(budgets)) {
     const planned = plan.sessions
-      .filter((s) => s.kind === 'study' && s.date >= from && workKey(s.materialId, s.round) === key)
+      .filter((s) => !comparisonIds.has(s.id) && s.kind === 'study' && s.date >= from && workKey(s.materialId, s.round) === key)
       .reduce((n, s) => n + s.count, 0);
     const unplaced = plan.shortfalls
       .filter((s) => workKey(s.materialId, s.round) === key)

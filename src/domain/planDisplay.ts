@@ -1,4 +1,10 @@
-import { AppState, today } from './model';
+import { AppState, type Plan, today } from './model';
+
+/** Preserved comparison slots are neither scheduled work nor occupied capacity. */
+export function nonComparisonSessions(plan: Plan | null | undefined) {
+  const ids = new Set(plan?.comparisonSessionIds ?? []);
+  return (plan?.sessions ?? []).filter((session) => !ids.has(session.id));
+}
 
 /** A restart archives older dates for ordinary schedule views, never for stored comparisons. */
 export function isArchivedPlanDate(state: AppState, date: string, reference = today()): boolean {
@@ -13,7 +19,7 @@ export function displayPlanSessions(state: AppState, reference = today()) {
     [...state.history, ...(state.plan ? [state.plan] : [])].reverse()
       .find((plan) => plan.allocationStart === start && plan.from === start);
   const minute = boundaryPlan?.notBefore ?? 0;
-  return (state.plan?.sessions ?? []).filter(
+  return nonComparisonSessions(state.plan).filter(
     (session) => !isArchivedPlanDate(state, session.date, reference) &&
       !(session.date === start && session.start < minute),
   );

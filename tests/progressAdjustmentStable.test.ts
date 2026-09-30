@@ -6,6 +6,7 @@ import {
   adjustAfterProgress,
   correctAndAdjust,
   currentProgressAdjustment,
+  reconcilePlanning,
   recordAndAdjust,
 } from '../src/domain/progressAdjustment';
 import { planChanges, latestReceipt, summarizePlanChanges } from '../src/domain/progressReceipt';
@@ -13,15 +14,19 @@ import {
   activePlanWork,
   allocateProgress,
   prepareAdjustment,
+  remainingOccupiedSessions,
 } from '../src/domain/progressAllocation';
 import { calculateRestart } from '../src/domain/planRestart';
+import { displayPlanSessions } from '../src/domain/planDisplay';
+import { comparePlans } from '../src/domain/planComparison';
 import { remainingWork } from '../src/domain/remainingWork';
 import { addDays, completed, remaining, reported, type AppState } from '../src/domain/model';
 import { calendarQuantity } from '../src/domain/calendarQuantity';
 import { capacityForDate, capacityForWeek } from '../src/domain/planner/capacity';
 import { startOfWeek } from '../src/domain/calendar';
 import { createProgressBaseline, reflectProgress } from '../src/domain/progressReflection';
-import { approve, propose } from '../src/domain/planner/proposal';
+import { approve, propose, proposeRemainingAdjustment, proposeRestart } from '../src/domain/planner/proposal';
+import { remainingSessionIssue, remainingBasisIssue } from '../src/domain/remainingAllocation';
 import { parseBackup } from '../src/domain/backup';
 import { validateSettings } from '../src/domain/planner/validation';
 import {
@@ -29,6 +34,7 @@ import {
   adjustmentContext,
   adjustmentReport,
   restartFixture,
+  remainingPlacementFixture,
 } from './fixtures/adjustment';
 
 it('予定6に4問を追加しても、他の教材・周回と未来24問の配置を変えない', () => {
@@ -761,3 +767,413 @@ it('基準不明の旧形式は量が一致していても推測せず、明示�
   expect(plan.progressBaseline).toBeDefined();
   conservation({ ...recorded, draft: {}, plan });
 });
+
+const partialAllocationFixture = (report?: number) => remainingPlacementFixture(day, report);
+const targetB = [{ kind: 'session' as const, sessionId: 'b-target' }];
+const beforeStudy = { ...adjustmentContext, minute: 530 };
+
+it.each([undefined, 0, 2])(
+  '未報告・0・部分(%s)でも有効な対象配置を維持し、変更不要なら同一state',
+  (report) => {
+    const source = partialAllocationFixture(report);
+    const active = activePlanWork(source, day);
+    const selected = active.find((s) => s.id === 'b-target')!;
+    expect(selected.count).toBe(5 - (report ?? 0));
+    expect(remainingSessionIssue(source, selected, beforeStudy, active)).toBeUndefined();
+    expect(proposeRemainingAdjustment(source, targetB, day, beforeStudy)).toBe(source);
+    expect(source.records.filter((r) => r.materialId === 'b')).toHaveLength(
+      report === undefined ? 0 : 1,
+    );
+  },
+);
+
+it.each([undefined, 0, 2])(
+  '明示操作で対象5問の未消化分(%s)だけを配置し、AとBの別枠を保護',
+  (report) => {
+    const source = partialAllocationFixture(report);
+    source.plan!.sessions.push({
+      ...source.plan!.sessions[0],
+      id: 'historical-review',
+      kind: 'review',
+      materialId: '',
+      count: 0,
+      start: 630,
+      end: 650,
+    });
+    const candidate = proposeRemainingAdjustment(source, targetB, day, adjustmentContext);
+    expect(candidate.plan).toBe(source.plan);
+    expect(candidate.records).toEqual(source.records);
+    expect(candidate.proposal!.basis).toMatchObject({
+      kind: 'remaining-adjustment',
+      summary: [{ materialId: 'b', round: 0, count: 5 - (report ?? 0), sessionIds: ['b-target'] }],
+    });
+    const approved = approve(candidate, false, adjustmentContext);
+    expect(approved.records).toEqual(source.records);
+    expect(approved.plan!.sessions.find((s) => s.id === 'a-done')).toEqual(
+      source.plan!.sessions.find((s) => s.id === 'a-done'),
+    );
+    expect(approved.plan!.adjustmentBasis!.sessions.some((s) => s.id === 'a-done')).toBe(false);
+    expect(approved.plan!.progressBaseline!.sessions['a-done']).toBeUndefined();
+    expect(approved.plan!.sessions.find((s) => s.id === 'b-target')).toBeUndefined();
+    expect(approved.plan!.sessions.find((s) => s.id === 'b-keep')).toEqual(
+      source.plan!.sessions.find((s) => s.id === 'b-keep'),
+    );
+    expect(
+      approved
+        .plan!.sessions.filter((s) => s.materialId === 'b' && s.id !== 'b-keep')
+        .reduce((sum, s) => sum + s.count, 0),
+    ).toBe(5 - (report ?? 0));
+    expect(
+      activePlanWork(approved, day)
+        .filter((s) => s.materialId === 'b')
+        .reduce((sum, s) => sum + s.count, 0),
+    ).toBe(10 - (report ?? 0));
+    expect(
+      calendarQuantity(approved, day, day).rows.find((r) => r.materialId === 'b')?.planned,
+    ).toBe(5);
+    expect(restoreAllocation(approved).plan).toEqual(approved.plan);
+  },
+);
+
+function restoreAllocation(state: AppState) {
+  return parseBackup(
+    JSON.stringify({
+      format: 'StudyPlanBackup',
+      version: 1,
+      createdAt: adjustmentContext.timestamp,
+      appVersion: '0.6.5',
+      data: state,
+    }),
+  ).data;
+}
+
+it('報告済みの当日にも配置でき、開始日の指定だけで選択枠を後ろへ移す', () => {
+  const source = partialAllocationFixture(2);
+  const today = approve(
+    proposeRemainingAdjustment(source, targetB, day, { ...adjustmentContext, minute: 571 }),
+    false,
+    { ...adjustmentContext, minute: 571 },
+  );
+  expect(activePlanWork(today, day).some((s) => s.materialId === 'b' && s.date === day)).toBe(true);
+  const later = approve(
+    proposeRemainingAdjustment(source, targetB, addDays(day, 2), beforeStudy),
+    false,
+    beforeStudy,
+  );
+  expect(later.plan!.sessions.find((s) => s.id === 'b-keep')).toEqual(
+    source.plan!.sessions.find((s) => s.id === 'b-keep'),
+  );
+  expect(
+    activePlanWork(later, day)
+      .filter((s) => s.materialId === 'b' && s.id !== 'b-keep')
+      .every((s) => s.date >= addDays(day, 2)),
+  ).toBe(true);
+});
+
+it.each([3, 0])('部分配置・配置不能でも選択5問を保存し、未配置理由を示す（空き%s問）', (room) => {
+  const source = partialAllocationFixture();
+  source.settings.exams[0].target = addDays(day, 2);
+  source.settings.windows[0].to = addDays(day, 1);
+  source.settings.windows.push({
+    ...source.settings.windows[0],
+    id: 'restrict-tomorrow',
+    kind: 'busy',
+    from: addDays(day, 1),
+    start: 555 + room * 3,
+    end: 600,
+  });
+  source.plan!.settingsSnapshot = structuredClone(source.settings);
+  const approved = approve(
+    proposeRemainingAdjustment(source, targetB, day, adjustmentContext),
+    false,
+    adjustmentContext,
+  );
+  expect(approved.records).toEqual(source.records);
+  expect(
+    activePlanWork(approved, day)
+      .filter((s) => s.materialId === 'b')
+      .reduce((sum, s) => sum + s.count, 0),
+  ).toBe(5 + room);
+  expect(approved.plan!.shortfalls).toMatchObject([
+    { materialId: 'b', count: 5 - room, reason: expect.any(String) },
+  ]);
+  expect(remaining(approved, 'b', 0)).toBe(10);
+});
+
+it('部分再配置後の追加・訂正・取消・再読込・同一ID再送で二重消化も移動元の復活も起きない', () => {
+  const source = partialAllocationFixture(2);
+  let state = approve(
+    proposeRemainingAdjustment(source, targetB, day, adjustmentContext),
+    false,
+    adjustmentContext,
+  );
+  const assert = () => {
+    expect(state.records.find((r) => r.id === 'a-record')).toEqual(source.records[0]);
+    expect(state.plan!.sessions.find((s) => s.id === 'b-target')).toBeUndefined();
+    const work = activePlanWork(state, day)
+      .filter((s) => s.materialId === 'b')
+      .reduce((sum, s) => sum + s.count, 0);
+    const unplaced = state
+      .plan!.shortfalls.filter((s) => s.materialId === 'b')
+      .reduce((sum, s) => sum + s.count, 0);
+    expect(work + unplaced).toBe(remaining(state, 'b', 0));
+  };
+  const added = { ...adjustmentReport(2, 'b-add'), materialId: 'b' };
+  state = recordAndAdjust(state, added, adjustmentContext);
+  assert();
+  expect(recordAndAdjust(state, added, adjustmentContext)).toBe(state);
+  state = restoreAllocation(state);
+  assert();
+  state = correctAndAdjust(state, 'b-record', 0, false, adjustmentContext);
+  assert();
+  state = correctAndAdjust(state, 'b-add', 2, true, adjustmentContext);
+  assert();
+  const correctedA = correctAndAdjust(state, 'a-record', 9, false, adjustmentContext);
+  conservation(correctedA);
+  expect(correctedA.plan!.sessions.find((s) => s.id === 'a-done')).toEqual(
+    source.plan!.sessions[0],
+  );
+  expect(activePlanWork(correctedA, day).some((s) => s.id === 'a-done')).toBe(false);
+  const cancelledA = correctAndAdjust(correctedA, 'a-record', 9, true, adjustmentContext);
+  conservation(cancelledA);
+  expect(activePlanWork(cancelledA, day).some((s) => s.id === 'a-done')).toBe(false);
+});
+
+it('部分再配置案の古い前提・無効な候補枠・固定・基準不明・数量不整合を承認しない', () => {
+  const source = partialAllocationFixture();
+  const candidate = proposeRemainingAdjustment(source, targetB, day, adjustmentContext);
+  const changed = structuredClone(candidate);
+  changed.plan!.sessions[2].start += 1;
+  expect(() => approve(changed, false, adjustmentContext)).toThrow('変わりました');
+  const invalid = structuredClone(candidate);
+  invalid.proposal!.plan.sessions.find((s) => s.materialId === 'b' && s.id !== 'b-keep')!.start = 0;
+  expect(() => approve(invalid, false, adjustmentContext)).toThrow();
+  expect(() => approve(candidate, false, { ...adjustmentContext, date: addDays(day, 1) })).toThrow(
+    '変わりました',
+  );
+  const fixed = structuredClone(source);
+  fixed.plan!.sessions[1].fixed = true;
+  expect(() => proposeRemainingAdjustment(fixed, targetB, day, adjustmentContext)).toThrow('固定');
+  const unknown = structuredClone(source);
+  delete unknown.plan!.progressBaseline;
+  expect(() => proposeRemainingAdjustment(unknown, targetB, day, adjustmentContext)).toThrow(
+    '反映基準',
+  );
+  const mismatch = structuredClone(source);
+  mismatch.plan!.sessions[2].count = 6;
+  expect(() => proposeRemainingAdjustment(mismatch, targetB, day, adjustmentContext)).toThrow(
+    '一致',
+  );
+  for (const field of ['adjustmentBasis', 'progressBaseline'] as const) {
+    for (const [key, count] of [
+      ['not-json', 1],
+      [`[ "${day}","b",0 ]`, 1],
+      ['["2030-02-30","b",0]', 1],
+      [JSON.stringify([day, 'b', -1]), 1],
+      [JSON.stringify([day, 'b', 0]), -1],
+      [JSON.stringify([day, 'b', 0]), 0.5],
+    ] as [string, number][]) {
+      const broken = structuredClone(source);
+      if (field === 'adjustmentBasis')
+        broken.plan!.adjustmentBasis = { date: day, records: {}, sessions: [] };
+      broken.plan![field]!.records[key] = count;
+      expect(remainingBasisIssue(broken)).toContain('反映基準が壊れて');
+      expect(() => proposeRemainingAdjustment(broken, targetB, day, adjustmentContext)).toThrow(
+        '反映基準が壊れて',
+      );
+    }
+  }
+  expect(remainingBasisIssue(source)).toBeUndefined();
+});
+
+it('開始前に完了した比較枠は空き枠や週上限を塞がず、実績・比較量と開始済み枠の占有を保護する', () => {
+  const source = partialAllocationFixture();
+  source.settings.exams.push({ ...source.settings.exams[0], id: 'a-exam' });
+  source.settings.materials[0].examId = 'a-exam';
+  Object.assign(source.plan!.sessions[0], { examId: 'a-exam', start: 600, end: 620 });
+  const window = source.settings.windows[0];
+  source.settings.windows = [
+    { ...window, to: day, end: 620 },
+    { ...window, id: 'tomorrow-only', from: addDays(day, 1), to: addDays(day, 1), end: 555 },
+  ];
+  source.settings.exams.forEach((exam) => {
+    exam.target = addDays(day, 2);
+  });
+  source.settings.buffer = 0.6;
+  source.plan!.settingsSnapshot = structuredClone(source.settings);
+  source.plan!.progressBaseline = createProgressBaseline(source.plan!, []);
+  const context = { ...adjustmentContext, minute: 590 };
+  let state = approve(proposeRemainingAdjustment(source, targetB, day, context), false, context);
+  const check = () => {
+    expect(state.records.find((r) => r.id === 'a-record')).toEqual(source.records[0]);
+    expect(state.plan!.sessions.find((s) => s.id === 'a-done')).toEqual(source.plan!.sessions[0]);
+    expect(state.plan!.adjustmentBasis!.sessions.some((s) => s.id === 'a-done')).toBe(false);
+    expect(state.plan!.shortfalls).toEqual([]);
+    expect(activePlanWork(state, day).some((s) => s.id === 'a-done')).toBe(false);
+    const b = activePlanWork(state, day).filter((s) => s.materialId === 'b');
+    expect(b.reduce((sum, s) => sum + s.count, 0)).toBe(remaining(state, 'b', 0));
+    expect(
+      b.every(
+        (s) => remainingSessionIssue(state, s, context, activePlanWork(state, day)) === undefined,
+      ),
+    ).toBe(true);
+    expect(currentProgressAdjustment(state)?.status).not.toBe('failed');
+  };
+  check();
+  expect(displayPlanSessions(state, day).some((s) => s.id === 'a-done')).toBe(false);
+  expect(calendarQuantity(state, day, day).rows.find((row) => row.materialId === 'a'))
+    .toMatchObject({ planned: 10, actual: 10 });
+  // Whole-plan operations must keep a released comparison out of capacity too.
+  for (const fixed of [false, true]) {
+    const withComparison = structuredClone(state);
+    withComparison.plan!.sessions.find((s) => s.id === 'a-done')!.fixed = fixed;
+    const withoutComparison = structuredClone(withComparison);
+    withoutComparison.plan!.sessions = withoutComparison.plan!.sessions.filter((s) => s.id !== 'a-done');
+    for (const boundary of [context, { ...context, date: addDays(day, 1), minute: 530 }]) {
+      for (const make of [
+        (value: AppState) => proposeRestart(value, boundary.date, boundary),
+        (value: AppState) => propose(value, boundary.date, '配置の見直し', boundary),
+      ]) {
+        const candidate = make(withComparison);
+        const expected = make(withoutComparison).proposal!.plan;
+        expect(candidate.proposal!.plan.shortfalls).toEqual(expected.shortfalls);
+        expect(candidate.proposal!.plan.conflicts).toEqual(expected.conflicts);
+        expect(comparePlans(withComparison.plan, candidate.proposal!.plan, boundary.date)
+          .some((change) => change.materialId === 'a')).toBe(false);
+        const approved = approve(candidate, true, boundary);
+        expect(approved.records).toEqual(state.records);
+        expect(activePlanWork(approved, boundary.date).some((s) => s.id === 'a-done')).toBe(false);
+      }
+    }
+  }
+  expect(
+    activePlanWork(state, day).find((s) => s.materialId === 'b' && s.date === day),
+  ).toMatchObject({ start: 600, end: 615, count: 5 });
+  state = recordAndAdjust(state, { ...adjustmentReport(2, 'b-added'), materialId: 'b' }, context);
+  check();
+  state = correctAndAdjust(state, 'b-added', 1, false, context);
+  check();
+  state = correctAndAdjust(state, 'b-added', 1, true, context);
+  check();
+  expect(state.plan!.comparisonSessionIds).toEqual(['a-done']);
+  for (const minute of [601, 630]) {
+    const later = { ...context, minute };
+    state = restoreAllocation(state);
+    const future = activePlanWork(state, day).find((s) => s.id === 'b-keep')!;
+    expect(remainingSessionIssue(state, future, later)).toBeUndefined();
+    expect(remainingOccupiedSessions(state, later).some((s) => s.id === 'a-done')).toBe(false);
+    state = recordAndAdjust(state, { ...adjustmentReport(1, `later-${minute}`), materialId: 'b' }, later);
+    expect(currentProgressAdjustment(state)?.status).not.toBe('failed');
+    state = correctAndAdjust(state, `later-${minute}`, 1, true, later);
+    expect(currentProgressAdjustment(state)?.status).not.toBe('failed');
+    expect(state.records.find((r) => r.id === 'a-record')).toEqual(source.records[0]);
+  }
+  const tomorrow = { ...context, date: addDays(day, 1), minute: 530 };
+  state = reconcilePlanning(restoreAllocation(state), tomorrow);
+  expect(state.plan!.comparisonSessionIds).toEqual(['a-done']);
+  expect(remainingOccupiedSessions(state, tomorrow).some((s) => s.id === 'a-done')).toBe(false);
+  expect(activePlanWork(state, tomorrow.date).filter((s) => s.materialId === 'b').reduce((n, s) => n + s.count, 0) +
+    state.plan!.shortfalls.filter((s) => s.materialId === 'b').reduce((n, s) => n + s.count, 0)).toBe(remaining(state, 'b', 0));
+  const kept = activePlanWork(source, day).find((s) => s.id === 'b-keep')!;
+  expect(
+    remainingSessionIssue(source, kept, { ...context, minute: 610 }, activePlanWork(source, day)),
+  ).toContain('週の割当上限');
+});
+
+it('選択5問を3問と2問の実行可能枠へ分け、未選択の未配置2問は埋めない', () => {
+  const source = partialAllocationFixture();
+  source.settings.materials[1].total = 12;
+  source.settings.exams[0].target = addDays(day, 3);
+  source.settings.windows = [
+    { ...source.settings.windows[0], to: day },
+    {
+      ...source.settings.windows[0],
+      id: 'next',
+      from: addDays(day, 1),
+      to: addDays(day, 1),
+      end: 564,
+    },
+    {
+      ...source.settings.windows[0],
+      id: 'last',
+      from: addDays(day, 2),
+      to: addDays(day, 2),
+      end: 546,
+    },
+  ];
+  source.plan!.shortfalls = [
+    { materialId: 'b', round: 0, count: 2, minutes: 6, reason: '既存の未配置' },
+  ];
+  source.plan!.settingsSnapshot = structuredClone(source.settings);
+  const result = approve(
+    proposeRemainingAdjustment(source, targetB, day, adjustmentContext),
+    false,
+    adjustmentContext,
+  );
+  expect(
+    result
+      .plan!.sessions.filter((s) => s.materialId === 'b' && s.id !== 'b-keep')
+      .map((s) => [s.date, s.count]),
+  ).toEqual([
+    [addDays(day, 1), 3],
+    [addDays(day, 2), 2],
+  ]);
+  expect(result.plan!.shortfalls).toEqual(source.plan!.shortfalls);
+  expect(remaining(result, 'b', 0)).toBe(12);
+  const again = proposeRemainingAdjustment(
+    result,
+    [{ kind: 'shortfall', materialId: 'b', round: 0 }],
+    day,
+    adjustmentContext,
+  );
+  expect(again).toBe(result);
+});
+
+it.each([false, true])(
+  '順序依存だけを影響範囲へ含め、後続の固定=%sでは黙って動かさない',
+  (fixed) => {
+    const source = partialAllocationFixture();
+    source.settings.materials.push({
+      id: 'c',
+      examId: 'a',
+      name: '後続C',
+      total: 2,
+      order: 3,
+      rounds: [{ completed: 0, minutes: 3 }],
+    });
+    source.plan!.sessions.push({
+      ...source.plan!.sessions[2],
+      id: 'c-follow',
+      materialId: 'c',
+      count: 2,
+      start: 555,
+      end: 561,
+      fixed,
+    });
+    source.plan!.settingsSnapshot = structuredClone(source.settings);
+    source.plan!.progressBaseline = createProgressBaseline(source.plan!, []);
+    if (fixed) {
+      expect(() =>
+        proposeRemainingAdjustment(source, targetB, addDays(day, 2), adjustmentContext),
+      ).toThrow('固定・順序');
+    } else {
+      const candidate = proposeRemainingAdjustment(
+        source,
+        targetB,
+        addDays(day, 2),
+        adjustmentContext,
+      );
+      expect(candidate.proposal!.basis).toMatchObject({ affectedSessionIds: ['c-follow'] });
+      const result = approve(candidate, false, adjustmentContext);
+      expect(result.plan!.sessions.find((s) => s.id === 'b-keep')).toEqual(
+        source.plan!.sessions[2],
+      );
+      expect(result.plan!.sessions.some((s) => s.id === 'c-follow')).toBe(false);
+      const b = result.plan!.sessions.filter((s) => s.materialId === 'b');
+      for (const c of result.plan!.sessions.filter((s) => s.materialId === 'c'))
+        expect(b.every((s) => s.date < c.date || (s.date === c.date && s.end <= c.start))).toBe(
+          true,
+        );
+    }
+  },
+);

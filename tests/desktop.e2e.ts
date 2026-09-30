@@ -30,7 +30,7 @@ import ICAL from 'ical.js';
 import AxeBuilder from '@axe-core/playwright';
 import { startOfWeek } from '../src/domain/calendar';
 import { studentFixture } from './fixtures/student';
-import { adjustmentFixture, restartFixture, legacyRestartFixture } from './fixtures/adjustment';
+import { adjustmentFixture, restartFixture, legacyRestartFixture, remainingPlacementFixture } from './fixtures/adjustment';
 import { activePlanWork } from '../src/domain/progressAllocation';
 import { createProgressBaseline, reflectProgress } from '../src/domain/progressReflection';
 let child: ChildProcess;
@@ -560,6 +560,42 @@ test('実機：未消化反映の保存失敗では正本を保持し、復帰�
   });
   expect(await attempts()).toBe(1);
   expect((await storedState()).plan).toEqual(source.plan);
+});
+
+test('実機：対象5問だけの配置案を保存し、再起動後の承認でもA実績とBの非対象配置を保持する', async () => {
+  dataDir = mkdtempSync(resolve('.test-data/remaining-placement-'));
+  await launch();
+  const date = today();
+  const source = remainingPlacementFixture(date);
+  source.plan!.comparisonSessionIds = ['a-done'];
+  await seedState(source, 'remaining-placement-source');
+  await saved();
+  await nav('今後の予定');
+  await page.getByRole('button', { name: '残りの配置を調整', exact: true }).click();
+  await page.getByLabel('配置する開始日').fill(addDays(date, 1));
+  await page.getByRole('checkbox', { name: new RegExp(`教材B.*${date}.*この予定の残り 5問`) }).check();
+  await page.getByRole('button', { name: '配置案を確認', exact: true }).click();
+  await saved();
+  await expect(page.getByRole('region', { name: '選択した残量の配置案' })).toContainText('対象 5問 · 配置 5問 · 未配置 0問');
+  const pending = await storedState();
+  expect(pending.plan).toEqual(source.plan);
+  expect(pending.records).toEqual(source.records);
+  await closeWindowNormally();
+  await launch();
+  await nav('再計画の確認');
+  await page.getByRole('button', { name: 'この内容で更新', exact: true }).click();
+  await saved();
+  const approved = await storedState();
+  expect(approved.proposal).toBeNull();
+  expect(approved.plan!.comparisonSessionIds).toEqual(['a-done']);
+  expect(approved.records).toEqual(source.records);
+  expect(approved.plan!.sessions.find((s) => s.id === 'b-target')).toBeUndefined();
+  expect(approved.plan!.sessions.find((s) => s.id === 'b-keep')).toEqual(source.plan!.sessions.find((s) => s.id === 'b-keep'));
+  expect(activePlanWork(approved, date).filter((s) => s.materialId === 'b').reduce((sum, s) => sum + s.count, 0)).toBe(10);
+  await closeWindowNormally();
+  await launch();
+  expect((await storedState()).plan).toEqual(approved.plan);
+  expect((await storedState()).records).toEqual(source.records);
 });
 
 test('実機：旧未配置を含めて仕切り直し、承認・バックアップ・再起動後も開始境界を保持する', async () => {
@@ -4335,6 +4371,9 @@ test('実機：選択日と週内訳・月移動・授業だけの日・予定�
   await expect(
     page.getByRole('button', { name: `${date}の時間の内訳を表示`, exact: true }),
   ).toHaveAttribute('aria-pressed', 'true');
+  if (addDays(today(), 1).slice(0, 7) !== month) {
+    await page.locator('.calendar-toolbar').getByRole('button', { name: '次の期間', exact: true }).click();
+  }
   const futureSection = page.locator('.calendar-list > section').filter({
     has: page.getByRole('button', {
       name: `${addDays(today(), 1)}の時間の内訳を表示`,

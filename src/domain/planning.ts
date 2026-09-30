@@ -1,4 +1,4 @@
-import { AppState, Progress, Settings, today, uid } from './model';
+import { AppState, Progress, Settings, today, uid, type RemainingAdjustmentTarget } from './model';
 import {
   correctAndAdjust as correctAndAdjustWithContext,
   recordAndAdjust as recordAndAdjustWithContext,
@@ -39,6 +39,13 @@ export function propose(state: AppState, from: string, reason: string) {
 }
 export function proposeRestart(state: AppState, from: string) {
   return proposals.proposeRestart(state, from, context());
+}
+export function proposeRemainingAdjustment(
+  state: AppState,
+  targets: RemainingAdjustmentTarget[],
+  from: string,
+) {
+  return proposals.proposeRemainingAdjustment(state, targets, from, context());
 }
 export function restartProposalStaleReason(state: AppState) {
   return proposals.restartProposalStaleReason(state, context());

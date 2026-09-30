@@ -96,6 +96,7 @@ const session = z.looseObject({
 });
 const plan = z.looseObject({
   id,
+  comparisonSessionIds: z.array(id).optional(),
   allocationStart: date.optional(),
   approvedAt: z.iso.datetime().optional(),
   createdAt: text,
@@ -325,11 +326,18 @@ const state = z.looseObject({
       reason: text,
       unreported: z.array(id),
       settingsBase: settings.optional(),
-      basis: z.object({
-        date,
-        sourceFingerprint: z.string().max(200),
-        kind: z.literal('restart'),
-      }).optional(),
+      basis: z.discriminatedUnion('kind', [
+        z.object({ date, sourceFingerprint: z.string().max(200), kind: z.literal('restart') }),
+        z.object({
+          date, sourceFingerprint: z.string().max(200), kind: z.literal('remaining-adjustment'), from: date,
+          targets: z.array(z.discriminatedUnion('kind', [
+            z.object({ kind: z.literal('session'), sessionId: id }),
+            z.object({ kind: z.literal('shortfall'), materialId: id, round: count }),
+          ])).min(1),
+          summary: z.array(z.object({ materialId: id, round: count, count, sessionIds: z.array(id), includeUnplaced: z.boolean() })),
+          affectedSessionIds: z.array(id),
+        }),
+      ]).optional(),
     })
     .nullable(),
   theme: z.enum(['mint', 'sky', 'lime']).optional(),

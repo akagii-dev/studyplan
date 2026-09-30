@@ -3025,6 +3025,13 @@
                   "type": "string",
                   "maxLength": 200
                 },
+                "comparisonSessionIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
                 "allocationStart": {
                   "type": "string",
                   "format": "date",
@@ -3900,6 +3907,13 @@
                 "type": "string",
                 "maxLength": 200
               },
+              "comparisonSessionIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 200
+                }
+              },
               "allocationStart": {
                 "type": "string",
                 "format": "date",
@@ -4773,6 +4787,13 @@
                     "id": {
                       "type": "string",
                       "maxLength": 200
+                    },
+                    "comparisonSessionIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      }
                     },
                     "allocationStart": {
                       "type": "string",
@@ -6095,28 +6116,162 @@
                   "additionalProperties": {}
                 },
                 "basis": {
-                  "type": "object",
-                  "properties": {
-                    "date": {
-                      "type": "string",
-                      "format": "date",
-                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "sourceFingerprint": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "kind": {
+                          "type": "string",
+                          "const": "restart"
+                        }
+                      },
+                      "required": [
+                        "date",
+                        "sourceFingerprint",
+                        "kind"
+                      ],
+                      "additionalProperties": false
                     },
-                    "sourceFingerprint": {
-                      "type": "string",
-                      "maxLength": 200
-                    },
-                    "kind": {
-                      "type": "string",
-                      "const": "restart"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "sourceFingerprint": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "kind": {
+                          "type": "string",
+                          "const": "remaining-adjustment"
+                        },
+                        "from": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "targets": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "session"
+                                  },
+                                  "sessionId": {
+                                    "type": "string",
+                                    "maxLength": 200
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "sessionId"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "shortfall"
+                                  },
+                                  "materialId": {
+                                    "type": "string",
+                                    "maxLength": 200
+                                  },
+                                  "round": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000000
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "materialId",
+                                  "round"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        },
+                        "summary": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "materialId": {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              "round": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              },
+                              "count": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000000
+                              },
+                              "sessionIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "maxLength": 200
+                                }
+                              },
+                              "includeUnplaced": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "materialId",
+                              "round",
+                              "count",
+                              "sessionIds",
+                              "includeUnplaced"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "affectedSessionIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "maxLength": 200
+                          }
+                        }
+                      },
+                      "required": [
+                        "date",
+                        "sourceFingerprint",
+                        "kind",
+                        "from",
+                        "targets",
+                        "summary",
+                        "affectedSessionIds"
+                      ],
+                      "additionalProperties": false
                     }
-                  },
-                  "required": [
-                    "date",
-                    "sourceFingerprint",
-                    "kind"
-                  ],
-                  "additionalProperties": false
+                  ]
                 }
               },
               "required": [
@@ -9252,6 +9407,13 @@
                       "type": "string",
                       "maxLength": 200
                     },
+                    "comparisonSessionIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      }
+                    },
                     "allocationStart": {
                       "type": "string",
                       "format": "date",
@@ -10127,6 +10289,13 @@
                     "type": "string",
                     "maxLength": 200
                   },
+                  "comparisonSessionIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 200
+                    }
+                  },
                   "allocationStart": {
                     "type": "string",
                     "format": "date",
@@ -11000,6 +11169,13 @@
                         "id": {
                           "type": "string",
                           "maxLength": 200
+                        },
+                        "comparisonSessionIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "maxLength": 200
+                          }
                         },
                         "allocationStart": {
                           "type": "string",
@@ -12322,28 +12498,162 @@
                       "additionalProperties": {}
                     },
                     "basis": {
-                      "type": "object",
-                      "properties": {
-                        "date": {
-                          "type": "string",
-                          "format": "date",
-                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "date": {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            "sourceFingerprint": {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            "kind": {
+                              "type": "string",
+                              "const": "restart"
+                            }
+                          },
+                          "required": [
+                            "date",
+                            "sourceFingerprint",
+                            "kind"
+                          ],
+                          "additionalProperties": false
                         },
-                        "sourceFingerprint": {
-                          "type": "string",
-                          "maxLength": 200
-                        },
-                        "kind": {
-                          "type": "string",
-                          "const": "restart"
+                        {
+                          "type": "object",
+                          "properties": {
+                            "date": {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            "sourceFingerprint": {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            "kind": {
+                              "type": "string",
+                              "const": "remaining-adjustment"
+                            },
+                            "from": {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            "targets": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "const": "session"
+                                      },
+                                      "sessionId": {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "sessionId"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "const": "shortfall"
+                                      },
+                                      "materialId": {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      "round": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 1000000000
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "materialId",
+                                      "round"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            },
+                            "summary": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "materialId": {
+                                    "type": "string",
+                                    "maxLength": 200
+                                  },
+                                  "round": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000000
+                                  },
+                                  "count": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000000
+                                  },
+                                  "sessionIds": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "maxLength": 200
+                                    }
+                                  },
+                                  "includeUnplaced": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "materialId",
+                                  "round",
+                                  "count",
+                                  "sessionIds",
+                                  "includeUnplaced"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "affectedSessionIds": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "maxLength": 200
+                              }
+                            }
+                          },
+                          "required": [
+                            "date",
+                            "sourceFingerprint",
+                            "kind",
+                            "from",
+                            "targets",
+                            "summary",
+                            "affectedSessionIds"
+                          ],
+                          "additionalProperties": false
                         }
-                      },
-                      "required": [
-                        "date",
-                        "sourceFingerprint",
-                        "kind"
-                      ],
-                      "additionalProperties": false
+                      ]
                     }
                   },
                   "required": [

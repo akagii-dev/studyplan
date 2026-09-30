@@ -129,6 +129,8 @@ export interface Shortfall {
   reason: string;
 }
 export interface Plan {
+  /** Preserved comparison slots explicitly released from future work and capacity. */
+  comparisonSessionIds?: string[];
   /** Explicit restart boundary; ordinary adjustment must not allocate before it. */
   allocationStart?: DateKey;
   approvedAt?: string;
@@ -167,14 +169,32 @@ export interface ProgressReflectionNotice {
   completed: { materialId: string; round: number }[];
 }
 export interface Proposal {
-  /** Preconditions captured for an explicit whole-plan restart. */
-  basis?: { date: DateKey; sourceFingerprint: string; kind: 'restart' };
+  /** Preconditions captured for an explicit allocation operation. */
+  basis?:
+    | { date: DateKey; sourceFingerprint: string; kind: 'restart' }
+    | {
+        kind: 'remaining-adjustment';
+        date: DateKey;
+        sourceFingerprint: string;
+        from: DateKey;
+        targets: RemainingAdjustmentTarget[];
+        summary: {
+          materialId: string;
+          round: number;
+          count: number;
+          sessionIds: string[];
+          includeUnplaced: boolean;
+        }[];
+        affectedSessionIds: string[];
+      };
   settingsBase?: Settings;
   plan: Plan;
   basedOn: string | null;
   reason: string;
   unreported: string[];
 }
+export type RemainingAdjustmentTarget =
+  { kind: 'session'; sessionId: string } | { kind: 'shortfall'; materialId: string; round: number };
 export type CalendarView = 'month' | 'week' | 'list';
 export type CalendarDensity = 'compact' | 'standard' | 'detailed';
 /** Daily display annotations only; never subtract these from study capacity. */

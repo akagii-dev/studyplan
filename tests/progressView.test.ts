@@ -10,11 +10,145 @@ import { Future } from '../src/app/Future';
 import { CalendarQuantity, CalendarQuantityDetails } from '../src/components/CalendarQuantity';
 import { CalendarDaySummary } from '../src/components/CalendarDaySummary';
 import { TodayRecorder } from '../src/components/TodayRecorder';
-import { adjustmentContext, adjustmentFixture, adjustmentReport } from './fixtures/adjustment';
+import {
+  adjustmentContext,
+  adjustmentFixture,
+  adjustmentReport,
+  remainingPlacementFixture,
+} from './fixtures/adjustment';
 import { recordAndAdjust, correctAndAdjust } from '../src/domain/progressAdjustment';
-import { approve, proposeRestart } from '../src/domain/planner/proposal';
+import {
+  approve,
+  proposeRestart,
+  proposeRemainingAdjustment,
+} from '../src/domain/planner/proposal';
 import { activePlanWork } from '../src/domain/progressAllocation';
-import { remainingWork } from '../src/domain/remainingWork';
+import { remainingWork, remainingAdjustmentPreview } from '../src/domain/remainingWork';
+import { WorkPlacements } from '../src/components/WorkPlacements';
+import { createProgressBaseline } from '../src/domain/progressReflection';
+
+it.each([undefined, 0, 2])(
+  '未報告・0・部分(%s)の有効残量と配置先を分け、無効枠を未配置へ変換しない',
+  (report) => {
+    const state = remainingPlacementFixture(adjustmentContext.date, report);
+    const before = structuredClone(state);
+    const row = remainingWork(state, adjustmentContext.date, 530).find(
+      (r) => r.materialId === 'b',
+    )!;
+    expect(row).toMatchObject({
+      remaining: 10 - (report ?? 0),
+      executable: 10 - (report ?? 0),
+      unplaced: 0,
+      needsReview: false,
+    });
+    expect(row.placements.map((s) => s.count)).toEqual([5 - (report ?? 0), 5]);
+    const expired = remainingWork(state, adjustmentContext.date, 720).find(
+      (r) => r.materialId === 'b',
+    )!;
+    expect(expired).toMatchObject({ executable: 5, unplaced: 0, needsReview: true });
+    expect(expired.unavailable[0].session.count).toBe(5 - (report ?? 0));
+    const html = renderToStaticMarkup(createElement(WorkPlacements, { row: expired }));
+    expect(html).toContain('調整未反映・要確認');
+    expect(html).toContain('開始時刻を過ぎた枠');
+    expect(html).toContain(`この予定の残り 5問`);
+    expect(state).toEqual(before);
+    const failed = {
+      ...state,
+      draft: { progressAdjustment: { status: 'failed', detail: '計算を完了できません' } },
+    };
+    expect(remainingWork(failed, adjustmentContext.date)[1]).toMatchObject({
+      unplaced: 0,
+      needsReview: true,
+    });
+  },
+);
+
+it('部分案の表示はB全体10問と対象5問を混同せず、非対象の5問を結果へ加算しない', () => {
+  const state = remainingPlacementFixture();
+  const proposed = proposeRemainingAdjustment(
+    state,
+    [{ kind: 'session', sessionId: 'b-target' }],
+    adjustmentContext.date,
+    adjustmentContext,
+  );
+  const preview = remainingAdjustmentPreview(proposed)!;
+  expect(preview.rows[0]).toMatchObject({ count: 5, placed: 5, unplaced: 0, balanced: true });
+  expect(preview.rows[0].destinations.some((s) => s.id === 'b-keep')).toBe(false);
+  expect(preview.affected).toEqual([]);
+});
+
+it.each(['kept', 'moved', 'unplaced'] as const)(
+  '同じ教材の選択2問と順序で動く関連3問を分離する（%s）',
+  (mode) => {
+    const day = adjustmentContext.date;
+    const state = remainingPlacementFixture();
+    state.settings.materials.push({
+      id: 'c',
+      examId: 'a',
+      name: '後続C',
+      total: 5,
+      order: 3,
+      rounds: [{ completed: 0, minutes: 3 }],
+    });
+    state.plan!.sessions.push({
+      ...state.plan!.sessions[2],
+      id: 'c-other',
+      materialId: 'c',
+      count: 3,
+      start: 555,
+      end: 564,
+    });
+    state.plan!.sessions.push({
+      ...state.plan!.sessions[2],
+      id: 'c-target',
+      materialId: 'c',
+      date: addDays(day, mode === 'kept' ? 3 : 2),
+      count: 2,
+      start: 570,
+      end: 576,
+    });
+    state.plan!.settingsSnapshot = structuredClone(state.settings);
+    state.plan!.progressBaseline = createProgressBaseline(state.plan!, []);
+    const proposed = proposeRemainingAdjustment(
+      state,
+      [
+        { kind: 'session', sessionId: 'b-target' },
+        { kind: 'session', sessionId: 'c-target' },
+      ],
+      addDays(day, mode === 'kept' ? 2 : mode === 'moved' ? 3 : 4),
+      adjustmentContext,
+    );
+    const preview = remainingAdjustmentPreview(proposed)!;
+    const row = preview.rows.find((r) => r.materialId === 'c')!;
+    expect(preview.affected.filter((s) => s.materialId === 'c').reduce((sum, s) => sum + s.count, 0)).toBe(3);
+    expect(row).toMatchObject({
+      count: 2,
+      placed: mode === 'unplaced' ? 0 : 2,
+      unplaced: mode === 'unplaced' ? 2 : 0,
+      relatedCount: 3,
+      relatedUnplaced: mode === 'unplaced' ? 3 : 0,
+      balanced: true,
+    });
+    expect(row.destinations.reduce((sum, s) => sum + s.count, 0)).toBe(row.placed);
+    expect(row.relatedDestinations.reduce((sum, s) => sum + s.count, 0) + row.relatedUnplaced).toBe(
+      3,
+    );
+    if (mode === 'kept') expect(row.destinations.map((s) => s.id)).toEqual(['c-target']);
+    if (mode === 'moved') {
+      expect(row.destinations).toHaveLength(1);
+      expect(row.destinations[0].end - row.destinations[0].start).toBe(6);
+      expect(row.relatedDestinations[0].start).toBe(row.destinations[0].end);
+      expect(row.relatedDestinations[0].end - row.relatedDestinations[0].start).toBe(9);
+    }
+    const broken = structuredClone(proposed);
+    const shortfall = broken.proposal!.plan.shortfalls.find((s) => s.materialId === 'c');
+    if (shortfall) shortfall.count -= 1;
+    else broken.proposal!.plan.sessions.find((s) => s.materialId === 'c')!.count -= 1;
+    expect(
+      remainingAdjustmentPreview(broken)!.rows.find((r) => r.materialId === 'c')!.balanced,
+    ).toBe(false);
+  },
+);
 
 for (const offset of [-1, 0, 1]) {
   it.each([undefined, 0, 3, 6, 10, 12])(`日区分${offset}の実績%sを画面間で統一する`, (count) => {
@@ -235,14 +369,19 @@ for (const offset of [0, 1]) {
       let source = adjustmentFixture();
       if (report !== 'unreported') {
         source = recordAndAdjust(source, adjustmentReport(report === 'zero' ? 0 : 4), context);
-        if (report === 'cancelled')
-          source = correctAndAdjust(source, 'record', 4, true, context);
+        if (report === 'cancelled') source = correctAndAdjust(source, 'record', 4, true, context);
       }
-      const state = approve(proposeRestart(source, addDays(context.date, offset), context), false, context);
+      const state = approve(
+        proposeRestart(source, addDays(context.date, offset), context),
+        false,
+        context,
+      );
       const before = structuredClone(state);
       const hasReport = report === 'zero' || report === 'recorded';
       const actual = report === 'recorded' ? 4 : 0;
-      expect(activePlanWork(state, context.date).filter((s) => s.date === context.date)).toEqual([]);
+      expect(activePlanWork(state, context.date).filter((s) => s.date === context.date)).toEqual(
+        [],
+      );
       expect(remainingWork(state, context.date)).toMatchObject([
         { total: 30, completed: actual, allocated: 30 - actual, unplaced: 0, balanced: true },
         { total: 30, completed: 0, allocated: 30, unplaced: 0, balanced: true },
@@ -259,13 +398,30 @@ for (const offset of [0, 1]) {
       try {
         for (const element of [
           createElement(Future, {
-            state, update: async () => {}, initialWeek: addDays(context.date, -6),
-            onCalendar: () => {}, onProposal: () => {},
+            state,
+            update: async () => {},
+            initialWeek: addDays(context.date, -6),
+            onCalendar: () => {},
+            onProposal: () => {},
           }),
-          createElement(CalendarQuantity, { state, date: context.date, filter: 'all', onSelect: () => {} }),
-          createElement(CalendarQuantityDetails, { state, date: context.date, filter: 'all', onRecord: () => {} }),
+          createElement(CalendarQuantity, {
+            state,
+            date: context.date,
+            filter: 'all',
+            onSelect: () => {},
+          }),
+          createElement(CalendarQuantityDetails, {
+            state,
+            date: context.date,
+            filter: 'all',
+            onRecord: () => {},
+          }),
           createElement(CalendarDaySummary, {
-            state, date: context.date, filter: 'all', density: 'standard', onSelect: () => {},
+            state,
+            date: context.date,
+            filter: 'all',
+            density: 'standard',
+            onSelect: () => {},
           }),
         ]) {
           const html = renderToStaticMarkup(element);
@@ -363,7 +519,14 @@ describe('今日の教材・周回別進捗', () => {
     s.records = [record(15), record(3, { id: 'c', materialId: 'c' })];
     expect(todayStudyRows(s, date)).toMatchObject([
       { materialId: 'm', materialName: '教材', round: 0, planned: 10, actual: 15, reported: true },
-      { materialId: 'b', materialName: '問題集B', round: 0, planned: 10, actual: 0, reported: false },
+      {
+        materialId: 'b',
+        materialName: '問題集B',
+        round: 0,
+        planned: 10,
+        actual: 0,
+        reported: false,
+      },
       { materialId: 'c', materialName: '問題集C', round: 0, planned: 0, actual: 3, reported: true },
     ]);
     s.records.push(record(0, { id: 'zero', materialId: 'b' }));

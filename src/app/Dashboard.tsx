@@ -45,7 +45,7 @@ export function Dashboard({
             今日のスケジュール・時間内訳
           </button>
         </div>
-        <TodayRecorder state={state} update={update} target={recordTarget} />
+        <TodayRecorder state={state} update={update} target={recordTarget} onPlacement={() => navigate('future')} />
         {reviews.length > 0 && (
           <div className="daily-reviews">
             {reviews.map((session) => (

@@ -76,6 +76,25 @@ function invariant(s: AppState) {
   return p;
 }
 describe('まとまりを優先する学習計画', () => {
+  it.each([349, 350, 351])(
+    '1問未満の日次端数を追加のまとまりにせず、%i問を7日へ分散する',
+    (total) => {
+      const s = fixture(total, 1, 7);
+      s.settings.block = 60;
+      s.settings.buffer = 0;
+      s.settings.windows[0].end = 600;
+      const p = invariant(s);
+      const counts = Array.from({ length: 7 }, (_, i) =>
+        p.sessions
+          .filter((session) => session.date === addDays(date, i))
+          .reduce((sum, session) => sum + session.count, 0),
+      );
+      expect(p.shortfalls).toEqual([]);
+      expect(counts.reduce((sum, count) => sum + count, 0)).toBe(total);
+      expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1);
+      expect(counts.every((count) => count >= 49 && count <= 51)).toBe(true);
+    },
+  );
   it('37問を30日に数分ずつばらまかず、時間のまとまりを保つ', () => {
     const p = invariant(fixture());
     expect(p.shortfalls).toEqual([]);

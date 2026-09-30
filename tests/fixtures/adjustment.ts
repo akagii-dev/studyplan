@@ -118,14 +118,37 @@ export function legacyRestartFixture(date = adjustmentDay) {
   delete source.plan!.approvedAt;
   source.plan!.sessions[0].fixed = true;
   source.plan!.sessions.push({
-    ...source.plan!.sessions[0], id: 'old-review', kind: 'review', materialId: '',
-    start: 630, end: 650, count: 0, fixed: false,
+    ...source.plan!.sessions[0],
+    id: 'old-review',
+    kind: 'review',
+    materialId: '',
+    start: 630,
+    end: 650,
+    count: 0,
+    fixed: false,
   });
   const past = addDays(date, -1);
   source.records = [
-    { ...adjustmentReport(4, 'past-four'), date: past, createdAt: `${past}T01:00:00Z`, updatedAt: `${past}T01:00:00Z` },
-    { ...adjustmentReport(0, 'past-zero'), date: past, materialId: 'other', createdAt: `${past}T01:00:00Z`, updatedAt: `${past}T01:00:00Z` },
-    { ...adjustmentReport(7, 'past-cancelled'), date: addDays(date, -2), cancelled: true, createdAt: `${past}T01:00:00Z`, updatedAt: `${past}T01:00:00Z` },
+    {
+      ...adjustmentReport(4, 'past-four'),
+      date: past,
+      createdAt: `${past}T01:00:00Z`,
+      updatedAt: `${past}T01:00:00Z`,
+    },
+    {
+      ...adjustmentReport(0, 'past-zero'),
+      date: past,
+      materialId: 'other',
+      createdAt: `${past}T01:00:00Z`,
+      updatedAt: `${past}T01:00:00Z`,
+    },
+    {
+      ...adjustmentReport(7, 'past-cancelled'),
+      date: addDays(date, -2),
+      cancelled: true,
+      createdAt: `${past}T01:00:00Z`,
+      updatedAt: `${past}T01:00:00Z`,
+    },
   ];
   return source;
 }
@@ -168,5 +191,54 @@ export function restartFixture(baseDate = adjustmentDay) {
     },
   ];
   state.plan!.progressBaseline = createProgressBaseline(state.plan!, state.records);
+  return state;
+}
+
+/** A is complete; B has 5 selected questions today and 5 unrelated valid questions tomorrow. */
+export function remainingPlacementFixture(baseDate = adjustmentDay, report?: number) {
+  const state = adjustmentFixture(baseDate);
+  state.settings.exams = [state.settings.exams[0]];
+  state.settings.exams[0].target = addDays(baseDate, 4);
+  state.settings.materials = [
+    {
+      id: 'a',
+      examId: 'a',
+      name: '教材A',
+      total: 10,
+      order: 1,
+      rounds: [{ completed: 0, minutes: 2 }],
+    },
+    {
+      id: 'b',
+      examId: 'a',
+      name: '教材B',
+      total: 10,
+      order: 2,
+      rounds: [{ completed: 0, minutes: 3 }],
+    },
+  ];
+  state.settings.windows[0] = {
+    ...state.settings.windows[0],
+    to: addDays(baseDate, 3),
+    start: 540,
+    end: 600,
+  };
+  state.settings.buffer = 0;
+  state.plan!.sessions = [
+    { ...state.plan!.sessions[0], id: 'a-done', materialId: 'a', count: 10, start: 540, end: 560 },
+    { ...state.plan!.sessions[0], id: 'b-target', materialId: 'b', count: 5, start: 570, end: 585 },
+    { ...state.plan!.sessions[1], id: 'b-keep', materialId: 'b', count: 5, start: 540, end: 555 },
+  ];
+  state.plan!.settingsSnapshot = structuredClone(state.settings);
+  state.plan!.progressBaseline = createProgressBaseline(state.plan!, []);
+  const record = (count: number, id: string, materialId: string) => ({
+    ...adjustmentReport(count, id),
+    date: baseDate,
+    materialId,
+    createdAt: `${baseDate}T03:00:00.000Z`,
+    updatedAt: `${baseDate}T03:00:00.000Z`,
+  });
+  state.records = [record(10, 'a-record', 'a')];
+  if (report !== undefined) state.records.push(record(report, 'b-record', 'b'));
   return state;
 }

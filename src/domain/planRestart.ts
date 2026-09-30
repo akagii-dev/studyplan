@@ -19,6 +19,7 @@ export function calculateRestart(state: AppState, from: string, context: Plannin
   const notBefore = from === context.date ? context.minute : 0;
   // Keep actual historical slots; upcoming non-fixed slots before the new start
   // belong only in the caller's archived plan, never in both active allocations.
+  const comparisonIds = new Set(state.plan?.comparisonSessionIds ?? []);
   const sessions = (state.plan?.sessions ?? []).filter((s) => s.date < context.date || s.fixed);
   const budgets = Object.fromEntries(
     state.settings.materials.flatMap((m) =>
@@ -47,6 +48,7 @@ export function calculateRestart(state: AppState, from: string, context: Plannin
   for (const fixed of sessions.filter(
     (s) =>
       s.fixed &&
+      !comparisonIds.has(s.id) &&
       s.kind === 'study' &&
       (s.date > from || (s.date === from && s.start >= notBefore)) &&
       (active.get(s.id) ?? 0) !== s.count,
@@ -63,6 +65,7 @@ export function calculateRestart(state: AppState, from: string, context: Plannin
         .filter(
           (s) =>
             s.kind === 'study' &&
+            !comparisonIds.has(s.id) &&
             (s.date > from || (s.date === from && s.start >= notBefore)) &&
             workKey(s.materialId, s.round) === key,
         )

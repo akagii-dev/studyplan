@@ -27,7 +27,8 @@ import { StudyCoverageGap } from '../domain/studyCoverage';
 import { comparePlans, mainDailyChanges, ScheduleChange } from '../domain/planComparison';
 import { proposalUsesCurrentProgress } from '../domain/progressReflection';
 import { materialUnit } from '../domain/calendarQuantity';
-import { remainingWork } from '../domain/remainingWork';
+import { remainingWork, remainingAdjustmentPreview } from '../domain/remainingWork';
+import { nonComparisonSessions } from '../domain/planDisplay';
 export function Replan({ state, update, onCalendar, onFuture }: Props & { onCalendar: () => void; onFuture: () => void }) {
   const [ack, setAck] = useState(false);
   const [error, err] = useState('');
@@ -54,8 +55,11 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
   }, [result]);
   const p = state.proposal;
   const plan = p?.plan;
+  const planSessions = nonComparisonSessions(plan);
   const restart = p?.basis?.kind === 'restart';
-  const comparisonFrom = restart ? p.basis!.date : (plan?.from ?? today());
+  const partial = p?.basis?.kind === 'remaining-adjustment';
+  const partialPreview = remainingAdjustmentPreview(state);
+  const comparisonFrom = p?.basis ? p.basis.date : (plan?.from ?? today());
   const displaySettings = plan?.settingsSnapshot ?? state.settings;
   const unitFor = (id: string) => materialUnit(
     displaySettings.materials.find((m) => m.id === id)?.unit ??
@@ -66,7 +70,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
   const previousUnplaced = new Map(previousWork.map((row) => [`${row.materialId}/${row.round}`, row.unplaced]));
   const stale = !!p?.settingsBase && !sameRevisionBase(p.settingsBase, state.settings);
   const progressStale = !!plan && !proposalUsesCurrentProgress(plan, state.records);
-  const restartIssue = restart ? restartProposalStaleReason(state) : undefined;
+  const restartIssue = p?.basis ? restartProposalStaleReason(state) : undefined;
   const missingSettings = setupIssues(displaySettings).filter((i) => i.severity === 'error');
   useEffect(() => setAck(false), [plan?.id]);
   const impacts = plan ? comparePlans(state.plan, plan, comparisonFrom) : [];
@@ -98,10 +102,10 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
       s.kind,
       s.fixed,
     ]);
-  const previousSessions = (state.plan?.sessions ?? []).filter(
+  const previousSessions = nonComparisonSessions(state.plan).filter(
     (s) => s.date >= comparisonFrom,
   );
-  const proposedSessions = (plan?.sessions ?? []).filter((s) => s.date >= comparisonFrom);
+  const proposedSessions = planSessions.filter((s) => s.date >= comparisonFrom);
   const detailedChanges = [
     ...previousSessions
       .filter((s) => !proposedSessions.some((n) => signature(n) === signature(s)))
@@ -185,7 +189,9 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
       err(String(e));
     }
   };
-  const timeProblems = (plan?.sessions ?? []).flatMap((session) => {
+  // Partial proposals validate effective allocations in restartIssue, including fixed slots.
+  // Their preserved comparison slots must not be revalidated as outstanding work here.
+  const timeProblems = (partial ? [] : planSessions).flatMap((session) => {
     if (
       !session.fixed ||
       session.date < plan!.from ||
@@ -198,7 +204,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
       fixedOrderIssue(
         { ...state, settings: displaySettings },
         session,
-        plan!.sessions,
+        planSessions,
         plan!.from,
         plan!.notBefore,
       );
@@ -218,9 +224,14 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
     ...new Set([...(plan?.conflicts ?? []), ...timeProblems.map((x) => x.message)]),
   ];
   const approvalBlocks = [
+    ...(partialPreview?.rows.some((row) => !row.balanced) ? [{
+      text: '選択した残量と配置案の内訳が一致していません。',
+      action: '対象の残量から案を作り直す',
+      run: () => void act((s) => refreshProposal(s)),
+    }] : []),
     ...(restartIssue ? [{
       text: restartIssue,
-      action: '同じ開始日から案を作り直す',
+      action: partial ? '同じ対象で案を作り直す' : '同じ開始日から案を作り直す',
       run: () => void act((s) => refreshProposal(s)),
     }] : []),
     ...(plan && plan.calculationVersion !== PLAN_CALCULATION_VERSION
@@ -240,7 +251,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
             run: () =>
               void act((s) => {
                 requirePlanningInputs(s.settings);
-                return restart ? refreshProposal(s) : propose(s, today(), '現在の設定・残数で案を作り直しました。');
+                return restart || partial ? refreshProposal(s) : propose(s, today(), '現在の設定・残数で案を作り直しました。');
               }),
           },
         ]
@@ -253,7 +264,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
             run: () =>
               void act((s) => {
                 const candidate = s.proposal?.plan.settingsSnapshot;
-                return restart ? refreshProposal(s) : s.proposal?.settingsBase && candidate
+                return restart || partial ? refreshProposal(s) : s.proposal?.settingsBase && candidate
                   ? proposeSettings(s, candidate, today())
                   : propose(s, today(), '現在の設定・残数で案を作り直しました。');
               }),
@@ -394,6 +405,30 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
             <div className="eyebrow">PLAN PREVIEW · 承認待ち</div>
             <h2>計画案</h2>
             <p>{p.reason}</p>
+            {partialPreview && <section className="replan-placement" aria-label="選択した残量の配置案">
+              <h3>選択した残量の配置案</h3>
+              {partialPreview.rows.map((row) => <div key={`${row.materialId}/${row.round}`}>
+                <h4>{row.name} · {row.round + 1}周目</h4>
+                <p>対象 {row.count}{row.unit} · 配置 {row.placed}{row.unit} · 未配置 {row.unplaced}{row.unit}</p>
+                {!row.balanced && <p className="error" role="alert">対象数量と配置の内訳が一致していません。案を作り直してください。</p>}
+                <ul>{row.destinations.map((session) => <li key={session.id}>
+                  {session.date} {clock(session.start)}〜{clock(session.end)} · {session.count}{row.unit}{session.fixed ? '（固定）' : ''}
+                </li>)}</ul>
+                {row.unplaced > 0 && row.reasons.map((reason) => <p key={reason}>{reason}</p>)}
+                {row.relatedCount > 0 && <div>
+                  <p>同じ教材・周回の関連分 {row.relatedCount}{row.unit} · 未配置 {row.relatedUnplaced}{row.unit}</p>
+                  <ul>{row.relatedDestinations.map((session) => <li key={session.id}>
+                    {session.date} {clock(session.start)}〜{clock(session.end)} · {session.count}{row.unit}
+                  </li>)}</ul>
+                </div>}
+              </div>)}
+              {partialPreview.affected.length > 0 && <div>
+                <h4>順序を守るために変更する関連予定</h4>
+                <ul>{partialPreview.affected.map((session) => <li key={session.id}>
+                  {materialLabel(session.materialId)} · {session.round + 1}周目 · {session.date} {clock(session.start)}〜{clock(session.end)} · {session.count}{unitFor(session.materialId)}
+                </li>)}</ul>
+              </div>}
+            </section>}
             {restart && (
               <p className="replan-restart-note">
                 開始日：<time dateTime={plan.allocationStart ?? plan.from}>{plan.allocationStart ?? plan.from}</time>。実績・履歴と固定予定を残し、未配置も再評価しました。
@@ -705,7 +740,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                     </tr>
                   </thead>
                   <tbody>
-                    {plan.sessions
+                    {planSessions
                       .filter((s) => s.date >= plan.from)
                       .map((s) => (
                         <tr key={s.id}>

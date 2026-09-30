@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { ProgressValue } from './ProgressValue';
 import { Props } from './common';
 import { remaining, today, uid } from '../domain/model';
@@ -6,6 +6,8 @@ import { parseNumberInput } from '../domain/numeric';
 import { recordAndAdjust } from '../domain/planning';
 import { todayStudyRows } from '../domain/todayProgress';
 import { latestReceipt } from '../domain/progressReceipt';
+import { remainingWork } from '../domain/remainingWork';
+import { WorkPlacements } from './WorkPlacements';
 import { ProgressReceiptView, receiptDetailLabel, receiptOutcome } from './ProgressReceiptView';
 
 export interface RecordTarget {
@@ -13,13 +15,18 @@ export interface RecordTarget {
   round: number;
   token: number;
 }
-export function TodayRecorder({ state, update, target }: Props & { target?: RecordTarget | null }) {
+export function TodayRecorder({ state, update, target, onPlacement }: Props & { target?: RecordTarget | null; onPlacement?: () => void }) {
   const rows = todayStudyRows(state);
+  const now = new Date();
+  const minute = now.getHours() * 60 + now.getMinutes();
+  const workDate = today();
+  const work = useMemo(() => remainingWork(state, workDate, minute), [state, workDate, minute]);
   const inputRefs = useRef(new Map<string, HTMLInputElement>());
   const handled = useRef<number | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [savedRecord, setSavedRecord] = useState<{ id: string; count: number } | null>(null);
+  const [expandedPlacements, setExpandedPlacements] = useState<string[]>([]);
   const [outsideMaterial, setOutsideMaterial] = useState(state.settings.materials[0]?.id ?? '');
   const [outsideRound, setOutsideRound] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -97,6 +104,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
         <div className="daily-record-list" role="list">
           {rows.map((row) => {
             const id = key(row.materialId, row.round);
+            const placement = work.find((item) => item.materialId === row.materialId && item.round === row.round);
             return (
               <div className="daily-record-row" role="listitem" key={id}>
                 <div className="daily-record-name">
@@ -153,6 +161,17 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
                     {errors[id]}
                   </p>
                 )}
+                {placement && placement.remaining > 0 && <details className="daily-placement" onToggle={(event) => {
+                  const open = event.currentTarget.open;
+                  setExpandedPlacements((current) => open ? [...current.filter((key) => key !== id), id] : current.filter((key) => key !== id));
+                }}>
+                  <summary>{row.materialName}の残りの配置を確認</summary>
+                  {expandedPlacements.includes(id) && <>
+                    {!row.reported && <p>未報告分は記録上の残量です。実績0として確定していません。</p>}
+                    <WorkPlacements row={placement} />
+                    {onPlacement && <button type="button" onClick={onPlacement}>残りの配置を調整</button>}
+                  </>}
+                </details>}
               </div>
             );
           })}

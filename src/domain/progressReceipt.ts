@@ -1,4 +1,5 @@
 import { AppState, Plan, Shortfall } from './model';
+import { nonComparisonSessions } from './planDisplay';
 
 export type AdjustmentStatus =
   'applied' | 'unchanged' | 'unplaced' | 'review' | 'failed' | 'recorded';
@@ -55,7 +56,7 @@ type PlanAmount = Omit<
 
 function amounts(plan: Plan | null, from: string) {
   const groups = new Map<string, PlanAmount>();
-  for (const session of plan?.sessions ?? []) {
+  for (const session of nonComparisonSessions(plan)) {
     if (session.date < from) continue;
     if (session.kind === 'study' && session.count === 0 && session.start === session.end) continue;
     const key = JSON.stringify([

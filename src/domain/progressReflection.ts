@@ -38,7 +38,7 @@ export function createProgressBaseline(
     records: recordTotals(records),
     sessions: Object.fromEntries(
       plan.sessions
-        .filter((session) => plannedFromHere(session, from, minute))
+        .filter((session) => !plan.comparisonSessionIds?.includes(session.id) && plannedFromHere(session, from, minute))
         .map((session) => [session.id, { count: session.count, end: session.end }]),
     ),
     shortfalls: Object.fromEntries(

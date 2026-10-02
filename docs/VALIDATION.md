@@ -209,6 +209,22 @@ Library画像3件（`libfile_ba50707372008191bb652cc660f647d9`、`libfile_902eee
 
 `pnpm verify`（単体510件/34ファイル・lint・型検査・通常ビルド）と関連5単体ファイル136件は成功。追加で既存Rust保存単体11件（架空データ・専用一時保存先）が成功し、再オープン・再送・revision競合・訂正取消を確認。初回は依存キャッシュのアクセス制限で起動できず、許可された再実行で成功した。製品コード・テストは変更せず、UI/Desktop/LAN E2Eは今回再実行していない。繰越から保存再開までの一連の結合シナリオ、実アプリ再起動による読込は未検証。Library画像は取得/materializeツールがこのWorkに提供されず、未取得・実画像未閲覧。クラウドのworkspace_pathはローカルパスへ流用していない。push・PR・リリース・アプリ更新は行わない。
 
+## 引き継ぎ先PCでのmain統合（2026-09-30）
+
+開始時はmainのv0.6.4 `b45dc8c`、未コミット・未追跡変更なし。fetch後の `origin/main` は `ca5fb7b`（製品v0.6.9は `f88b30d`）。共通祖先と独自コミットがないことを確認し、`git merge --ff-only origin/main` で統合した。競合・再cherry-pick・旧PWAコードの上書きはない。製品版0.6.9、計算版12を維持し、SPEC／ARCHITECTUREの現行節に残った旧計算版の記載だけ修正した。親が統合と自己レビューを担当し、今回サブエージェントや専用Skillは使用していない。
+
+Node 22.19.0、pnpm 12.5.1、Rust/Cargo 1.98.1のWindows環境で依存を固定インストールし、最新LAN資材とdebug版Desktop・LAN補助EXEを作り直した。以下は引き継ぎ元の報告ではなく、このPCでの再実行結果。
+
+- `pnpm verify`：lint・型検査・単体510件/34ファイル・通常ビルド成功。予定6に4問→追加2問→超過2問で、30＝実績4＋今日2＋未来24、30＝実績6＋未来24、30＝実績8＋残予定22を検証。分割/一括、訂正・取消、日付越え、再実行も数量保存と比較履歴保持を確認。架空96問/6日は16問ずつで、未消化追加を既存配置へ分散し、同IDの追加量を失わないことも確認。
+- `PLAYWRIGHT_CHANNEL=chrome pnpm verify:ui`：1280px/320pxの全28件成功。昨日以前だけの一括調整、今日の開始済み枠の保持、未報告と調整済みの区別、仕切り直し後の旧予定除外、訂正取消・再読込・キーボード・axeを確認。今回生成された広幅の3入口、狭幅のカレンダー画像を閲覧した。
+- `pnpm lan:assets` と `cargo build --manifest-path src-tauri/Cargo.toml --features lan-cli --bins --locked`：成功。`cargo test --manifest-path src-tauri/Cargo.toml --lib --locked` は39件成功。LAN候補のglobal/private IPv4・InterfaceAlias・順位・選択IP限定bind、保存・復元・認証境界を検証。
+- `pnpm test:ui`：最終ソースのDesktop全60件を一括実行して成功。専用SQLiteで周回保護、1440分境界のバックアップ往復、部分記録・日付越え・過去限定調整・仕切り直し・再起動・復元・通常/最大化/最小化の終了・読込保存失敗からの復旧を確認。InterfaceAlias候補の広幅/狭幅画像も閲覧した。引き継ぎ元で残っていた「修正後の全60件一括再実行未実施」をこの環境では解消した。
+- `node --test tests/lanHost.test.mjs`：2件成功。`PLAYWRIGHT_CHANNEL=chrome pnpm test:lan`：25件成功、幅非依存の重複11件skip。Desktopと同じ保存境界、再送・409競合・古い案の承認拒否・通信断・復元・HTTP狭幅操作を確認。同じPCからLAN IPv4へのHTTP接続も成功。
+
+製品コードやテストの追加変更は不要だった。通常利用のSQLite・バックアップには触れず、学習データの移行・復元も実施していない。Firewall・portproxy・認証設定は変更していない。試験出力・専用SQLite・資材はignore対象のまま。v0.6.9のタグ・配布物の再公開/上書きは行わない。
+
+未検証：別端末からのLAN到達性、iPhone実機、スクリーンリーダー実聴、隔離Windowsアカウントでの配布EXE起動。依存注釈・バンドル容量警告は既存のまま。保存済みの不均等な計画は統合だけで書き換えず、必要なら「計画を仕切り直す」の案を確認・承認する。
+
 ## 別PCへの引き継ぎ文書（2026-09-30）
 
 fetch後のmain/origin/mainとv0.6.9の製品コミットは`f88b30d`。公開ReleaseのEXE/ZIPと同コミットのデモ配信成功を再確認。実ツールのエージェント一覧は親1体・サブ0体。`docs/HANDOFF.md`へv0.6.4側の独自変更を保護する統合手順、過去の担当、最新指示、検証と未検証の境界をまとめた。未追跡`build-temp-lan.ps1`を保持し、実データ・移行先には変更を加えていない。

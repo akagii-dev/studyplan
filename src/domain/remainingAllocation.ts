@@ -319,6 +319,8 @@ export function calculateRemainingAdjustment(
   context: PlanningContext,
   sourceDate = context.date,
   pastOnly = false,
+  balanceFuture = false,
+  extraUnplaced: Record<string, number> = {},
 ): { plan: Plan; summary: AdjustmentBasis['summary']; affectedSessionIds: string[] } {
   const source = state.plan;
   if (!source) throw new Error('確定した計画がありません。');
@@ -333,7 +335,7 @@ export function calculateRemainingAdjustment(
   const basisIssue = remainingBasisIssue(state);
   if (basisIssue) throw new Error(basisIssue);
   if (
-    source.calculationVersion !== PLAN_CALCULATION_VERSION ||
+    (source.calculationVersion !== PLAN_CALCULATION_VERSION && !(balanceFuture && source.calculationVersion === 12)) ||
     !source.settingsSnapshot ||
     !samePlanningSettings(source.settingsSnapshot, state.settings)
   )
@@ -368,6 +370,8 @@ export function calculateRemainingAdjustment(
         throw new Error('選択した予定の未消化量が変わりました。対象を選び直してください。');
       if (pastOnly && session.date >= context.date)
         throw new Error('過去分の調整は昨日以前の未消化予定だけを対象にします。');
+      if (balanceFuture && (session.fixed || session.date < from || isElapsedRemainingSession(session, context)))
+        throw new Error('均等配分の対象は指定日以降の未開始・変更可能な予定だけです。');
       selected.add(session.id);
       add(session.materialId, session.round, session.count, session.id);
     } else {
@@ -388,12 +392,12 @@ export function calculateRemainingAdjustment(
     const invalid = timeIssue(state, session, context);
     const move =
       selected.has(session.id) &&
-      (session.date < from || !!remainingSessionIssue(state, session, context, active));
+      (balanceFuture || session.date < from || !!remainingSessionIssue(state, session, context, active));
     if (move) {
       if (session.fixed)
         throw new Error(`${sessionLabel(state, session)}の固定予定は移動できません。元の予定の固定を解除してから、調整対象を選び直してください。`);
       released.add(session.id);
-    } else if (invalid && !(pastOnly && session.date >= context.date && isElapsedRemainingSession(session, context))) {
+    } else if (invalid && !((pastOnly || balanceFuture) && session.date >= context.date && isElapsedRemainingSession(session, context))) {
       if (session.fixed)
         throw new Error(`${sessionLabel(state, session)}の固定予定は実行できません。元の予定の固定を解除してから、調整対象を選び直してください。${invalid}`);
       throw new Error(
@@ -424,6 +428,17 @@ export function calculateRemainingAdjustment(
   const retainedShortfalls = source.shortfalls.filter(
     (s) => !selectedShortfalls.has(workKey(s.materialId, s.round)),
   );
+  for (const [key, count] of Object.entries(extraUnplaced)) {
+    if (!Number.isSafeInteger(count) || count <= 0) throw new Error('削減量が無効です。');
+    const [materialId, round] = JSON.parse(key) as [string, number];
+    const material = state.settings.materials.find(m => m.id === materialId);
+    const units = active.filter(s => selected.has(s.id) && workKey(s.materialId, s.round) === key)
+      .reduce((n, s) => n + s.count, 0);
+    if (!balanceFuture || !material?.rounds[round] || count > units)
+      throw new Error('削減量が変更可能な残量を超えています。');
+    retainedShortfalls.push({ materialId, round, count, minutes: count * material.rounds[round].minutes,
+      reason: '高優先度の期限内不足を解消するための配置削減。問題数は未配置の残量として保持しています。' });
+  }
   const reserved: Record<string, number> = {};
   for (const short of retainedShortfalls) {
     const key = workKey(short.materialId, short.round);
@@ -435,7 +450,7 @@ export function calculateRemainingAdjustment(
     const kept = active.filter((s) => !released.has(s.id));
     const earlier: Record<string, number> = {};
     for (const session of kept.filter((s) => s.date < from ||
-      (pastOnly && s.date === from && from === context.date && s.start < context.minute))) {
+      ((pastOnly || balanceFuture) && s.date === from && from === context.date && s.start < context.minute))) {
       const key = workKey(session.materialId, session.round);
       earlier[key] = (earlier[key] ?? 0) + session.count;
     }
@@ -458,6 +473,7 @@ export function calculateRemainingAdjustment(
         unplaced: reserved,
         allowReportedDay: true,
         preserveSessionBoundaries: true,
+        ...(balanceFuture ? { dailyQuantityBalance: true } : {}),
       },
     );
     const blocked = kept.filter(
@@ -508,7 +524,7 @@ export function calculateRemainingAdjustment(
   plan.progressBaseline = createProgressBaseline(plan, state.records, context.date, 0);
   for (const id of historical.keys()) delete plan.progressBaseline.sessions[id];
   if (pastOnly) validatePastRemainingAllocation(state, plan, context);
-  else validateRemainingAllocation({ ...state, plan }, context);
+  else validateRemainingAllocation({ ...state, plan }, context, balanceFuture ? active.filter(s => !released.has(s.id)) : []);
   const content = (work: Session[], candidate: Plan) =>
     JSON.stringify([
       [...work].sort((a, b) => a.id.localeCompare(b.id)),
@@ -523,4 +539,57 @@ export function calculateRemainingAdjustment(
     summary: [...summary.values()],
     affectedSessionIds,
   };
+}
+
+/** Revalidate the explicit scope as well as quantity/time at the approval boundary. */
+export function validateBalancedRemainingAllocation(source: AppState, plan: Plan, context: Boundary): void {
+  const basis = source.proposal?.basis;
+  if (basis?.kind !== 'remaining-adjustment' || basis.purpose !== 'balance-future')
+    throw new Error('均等配分の対象を確認できません。');
+  const primary = new Set(basis.balanceMaterialIds ?? []);
+  if (!primary.size || [...primary].some(id => !source.settings.materials.some(m => m.id === id)))
+    throw new Error('均等配分の教材を確認できません。');
+  const active = activePlanWork(source, context.date);
+  const ids = new Set<string>();
+  const selectedMaterials = new Set<string>();
+  const minimumPriority = Math.min(...source.settings.materials.filter(m => primary.has(m.id))
+    .map(m => source.settings.exams.find(e => e.id === m.examId)!.priority));
+  for (const target of basis.targets) {
+    if (target.kind === 'shortfall') {
+      if (!primary.has(target.materialId)) throw new Error('対象外の未配置量は保持してください。');
+      selectedMaterials.add(target.materialId);
+      continue;
+    }
+    const session = active.find(s => s.id === target.sessionId);
+    if (!session || session.fixed || session.date < basis.from || isElapsedRemainingSession(session, context))
+      throw new Error('均等配分の対象が変更可能な未来の予定と一致しません。');
+    const priority = source.settings.exams.find(e => e.id === session.examId)!.priority;
+    if (!primary.has(session.materialId) && (!basis.allowLowerPriorityReduction || priority >= minimumPriority))
+      throw new Error('対象外の同優先度・高優先度の予定は変更できません。');
+    ids.add(session.id);
+    selectedMaterials.add(session.materialId);
+  }
+  const exams = new Set(source.settings.materials.filter(m => selectedMaterials.has(m.id)).map(m => m.examId));
+  for (const id of basis.affectedSessionIds) {
+    const session = active.find(s => s.id === id);
+    if (!session || session.fixed || session.date < basis.from || isElapsedRemainingSession(session, context) || !exams.has(session.examId))
+      throw new Error('対象外の予定が影響範囲へ含まれています。');
+    ids.add(id);
+  }
+  const next = activePlanWork({ ...source, plan }, context.date);
+  const expectedPolicy = [...new Set([...(source.plan?.dailyBalanceMaterialIds ?? []), ...primary])].sort();
+  if (JSON.stringify(plan.dailyBalanceMaterialIds) !== JSON.stringify(expectedPolicy))
+    throw new Error('均等配分の対象方針が案作成時と一致しません。');
+  const preserved = active.filter(s => !ids.has(s.id));
+  for (const session of preserved) {
+    if (!next.some(s => sameSession(s, session))) throw new Error(`${sessionLabel(source, session)}は均等配分の保持対象です。`);
+    const original = source.plan?.sessions.find(s => s.id === session.id);
+    if (!plan.sessions.some(s => sameSession(s, session) || (original && sameSession(s, original))))
+      throw new Error(`${sessionLabel(source, session)}の保持対象の保存内容が変わっています。`);
+  }
+  for (const session of source.plan?.sessions ?? [])
+    if ((session.date < context.date || session.kind === 'review' || source.plan?.comparisonSessionIds?.includes(session.id)) &&
+        !plan.sessions.some(s => sameSession(s, session)))
+      throw new Error('実績の比較履歴・復習は均等配分で変更できません。');
+  validateRemainingAllocation({ ...source, plan }, context, preserved);
 }

@@ -2838,9 +2838,10 @@ textarea {
 .daily-record-error { grid-column: 1 / -1; color: var(--error-ink); margin: 0; }
 .daily-record-saved { margin: 12px 0 0; color: var(--ink); }
 .outside-record { margin-top: 16px; }
-.outside-record form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-top: 10px; }
-.outside-record label { display: grid; gap: 4px; min-width: 110px; }
-.outside-record input { width: 90px; }
+.study-record-form { display: grid; gap: 12px; min-width: 0; }
+.outside-record .study-record-form { margin-top: 12px; }
+.study-record-form label { min-width: 0; }
+.study-record-form input, .study-record-form select { max-width: 100%; }
 .daily-reviews { border-top: 1px solid var(--border); margin-top: 14px; }
 .daily-reviews > div { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; }
 .daily-adjustment { padding: 10px 14px; background: var(--soft); border-radius: 8px; margin-bottom: 16px; }
@@ -2985,7 +2986,13 @@ textarea {
 .calendar-only-layout { display: grid; gap: 20px; min-width: 0; }
 .day-panel-close { float: inline-end; margin-inline-start: 12px; }
 .future-week strong { font-variant-numeric: tabular-nums; }
-.future-week button { min-width: 36px; min-height: 36px; }
+.future-week button { min-width: 44px; min-height: 44px; }
+.future-priorities { display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 0; list-style: none; }
+.future-balance { margin-block: 16px; }
+.future-balance summary { min-height: 44px; align-content: center; cursor: pointer; }
+.future-balance form { display: grid; gap: 12px; margin-top: 12px; }
+.future-balance fieldset { min-width: 0; }
+.future-balance label.block { display: flex; align-items: center; gap: 8px; min-height: 44px; }
 .calendar-mode { width: fit-content; margin-block-end: 12px; }
 .calendar-quantity { text-align: start; color: var(--ink); }
 .calendar-amounts { margin: 6px 0; font-variant-numeric: tabular-nums; }

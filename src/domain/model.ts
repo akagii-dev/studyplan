@@ -41,6 +41,13 @@ export interface Exception {
   start: number;
   end: number;
 }
+export interface ClassCancellation {
+  id: string;
+  from: DateKey;
+  to: DateKey;
+  /** Omitted means every class; selected IDs remain inert if their class is later deleted. */
+  classIds?: string[];
+}
 export type ScheduleKind = 'class' | 'busy' | 'exception';
 export type ScheduleAnswer = 'none' | 'deferred' | 'registered';
 export type MealKey = 'breakfast' | 'lunch' | 'dinner';
@@ -68,6 +75,7 @@ export interface Settings {
   materials: Material[];
   windows: WindowRule[];
   exceptions: Exception[];
+  classCancellations?: ClassCancellation[];
   /** Legacy daily limit, retained only for reading older saved data. Not used in new plans. */
   focus?: number;
   block: number;
@@ -129,6 +137,8 @@ export interface Shortfall {
   reason: string;
 }
 export interface Plan {
+  /** Materials explicitly approved for daily balancing on later progress edits. */
+  dailyBalanceMaterialIds?: string[];
   /** Preserved comparison slots explicitly released from future work and capacity. */
   comparisonSessionIds?: string[];
   /** Explicit restart boundary; ordinary adjustment must not allocate before it. */
@@ -174,7 +184,9 @@ export interface Proposal {
     | { date: DateKey; sourceFingerprint: string; kind: 'restart' }
     | {
         kind: 'remaining-adjustment';
-        purpose?: 'past-only';
+        purpose?: 'past-only' | 'balance-future';
+        balanceMaterialIds?: string[];
+        allowLowerPriorityReduction?: boolean;
         date: DateKey;
         sourceFingerprint: string;
         from: DateKey;

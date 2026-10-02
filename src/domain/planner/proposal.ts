@@ -19,8 +19,10 @@ import {
   pastRemainingWork,
   validatePastRemainingAllocation,
   validateRemainingAllocation,
+  validateBalancedRemainingAllocation,
 } from '../remainingAllocation';
-import { remainingOccupiedSessions } from '../progressAllocation';
+import { calculateFutureBalance } from '../futureBalance';
+import { activePlanWork, remainingOccupiedSessions, workKey } from '../progressAllocation';
 import { nonComparisonSessions } from '../planDisplay';
 const EPS = 1e-7;
 
@@ -77,7 +79,8 @@ export function restartProposalStaleReason(
           [...ids].some((id) => !targets.some((target) => target.kind === 'session' && target.sessionId === id)))
           throw new Error('過去分の調整対象が昨日以前の未消化予定と一致しません。今日以降の予定や既存の未配置分は対象にできません。');
         validatePastRemainingAllocation(state, proposal.plan, context);
-      } else validateRemainingAllocation({ ...state, plan: proposal.plan }, context);
+      } else if (proposal.basis.purpose === 'balance-future') validateBalancedRemainingAllocation(state, proposal.plan, context);
+      else validateRemainingAllocation({ ...state, plan: proposal.plan }, context);
     } catch (error) {
       return `${error instanceof Error ? error.message : String(error)} 案を作り直してください。`;
     }
@@ -125,6 +128,24 @@ export function proposePastRemainingAdjustment(state: AppState, from: string, co
     from, context, pastRemainingSourceDate(state, context.date), true);
 }
 
+export function proposeBalancedRemaining(
+  state: AppState, materialIds: string[], from: string, context: PlanningContext,
+  allowLowerPriorityReduction = false,
+): AppState {
+  if (state.proposal) throw new Error('確認待ちの計画案があります。先に確認または破棄してください。');
+  const result = calculateFutureBalance(state, materialIds, from, context, allowLowerPriorityReduction);
+  return { ...state, proposal: {
+    plan: result.plan, basedOn: state.plan?.id ?? null, unreported: [],
+    reason: allowLowerPriorityReduction
+      ? '対象教材の期限内配分を均します。空き容量と総量を保つ組替えを先に使い、なお不足する場合だけ低優先度の可動枠を最小限減らします。削減分は未配置として保持します。'
+      : '選択した教材の変更可能な未来量を均等に配分します。固定・開始済み・実績・他教材は保持します。',
+    basis: { kind: 'remaining-adjustment', purpose: 'balance-future', date: context.date,
+      sourceFingerprint: restartSourceFingerprint(state), from,
+      balanceMaterialIds: [...new Set(materialIds)].sort(), allowLowerPriorityReduction,
+      targets: result.targets, summary: result.summary, affectedSessionIds: result.affectedSessionIds },
+  } };
+}
+
 /** Refresh the pending selection without changing the committed plan or silently adding work. */
 export function reproposeRemainingAdjustment(
   state: AppState,
@@ -136,6 +157,12 @@ export function reproposeRemainingAdjustment(
   if (basis?.kind !== 'remaining-adjustment') throw new Error('残りの配置の確認待ちの案がありません。');
   if (basis.sourceFingerprint !== restartSourceFingerprint(state))
     throw new Error('案の作成後に計画・設定・実績が変わりました。元の対象を保持したまま内容を確認してください。');
+  if (basis.purpose === 'balance-future') {
+    if (additionalTargets.length) throw new Error('均等配分の教材は元の選択を保持して再生成してください。');
+    return proposeBalancedRemaining({ ...state, proposal: null }, basis.balanceMaterialIds ?? [],
+      [from, basis.from, context.date, state.plan?.allocationStart ?? ''].sort().at(-1)!, context,
+      !!basis.allowLowerPriorityReduction);
+  }
   const pastOnly = basis.purpose === 'past-only';
   const sourceDate = pastOnly ? pastRemainingSourceDate(state, context.date) : remainingAdjustmentSourceDate(state, context.date);
   return buildRemainingProposal(
@@ -247,6 +274,38 @@ export function proposeSettings(
     proposal: { ...candidate.proposal!, settingsBase: structuredClone(state.settings) },
   };
 }
+/** Recalculate only on approval: rendering stale status must not repeat the bounded search. */
+function validateBalancedProposalQuantities(state: AppState, context: PlanningContext): void {
+  const proposal = state.proposal!;
+  const basis = proposal.basis;
+  if (basis?.kind !== 'remaining-adjustment' || basis.purpose !== 'balance-future') return;
+  const expected = calculateFutureBalance(state, basis.balanceMaterialIds ?? [], basis.from,
+    context, !!basis.allowLowerPriorityReduction);
+  const scope = (targets: RemainingAdjustmentTarget[]) => JSON.stringify([...new Set(targets.map(target =>
+    JSON.stringify(target.kind === 'session' ? ['session', target.sessionId] :
+      ['shortfall', target.materialId, target.round])))].sort());
+  const affected = (ids: string[]) => JSON.stringify([...new Set(ids)].sort());
+  const quantities = (plan: typeof proposal.plan) => {
+    const totals = new Map<string, { placed: number; unplaced: number }>();
+    const row = (materialId: string, round: number) => {
+      const key = workKey(materialId, round);
+      if (!totals.has(key)) totals.set(key, { placed: 0, unplaced: 0 });
+      return totals.get(key)!;
+    };
+    for (const session of activePlanWork({ ...state, plan }, context.date))
+      row(session.materialId, session.round).placed += session.count;
+    for (const short of plan.shortfalls) {
+      const total = row(short.materialId, short.round);
+      total.unplaced += short.count;
+    }
+    return JSON.stringify([...totals].sort(([a], [b]) => a.localeCompare(b)));
+  };
+  if (scope(basis.targets) !== scope(expected.targets) ||
+      affected(basis.affectedSessionIds) !== affected(expected.affectedSessionIds) ||
+      quantities(proposal.plan) !== quantities(expected.plan))
+    throw new Error('必要最小の削減量または配分対象が案作成時と一致しません。案を作り直してください。');
+}
+
 export function approve(state: AppState, acknowledge: boolean, context: PlanningContext): AppState {
   const p = state.proposal;
   if (!p) throw new Error('再計画案がありません。');
@@ -272,6 +331,7 @@ export function approve(state: AppState, acknowledge: boolean, context: Planning
   if (errors.length) throw new Error(errors.join(' '));
   requirePlanningInputs(settings, context.date);
   validateRevisedSettings(state, settings, context.date, context.minute);
+  validateBalancedProposalQuantities(state, context);
   // An automatic progress proposal starts tomorrow. Earlier sessions are archived
   // verbatim and must not be revalidated or rewritten as future work.
   const validationFrom = p.plan.from > context.date ? p.plan.from : context.date;

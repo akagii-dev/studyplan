@@ -296,3 +296,49 @@ export function elapsedPlacementFixture(baseDate = adjustmentDay, otherScopes = 
   state.plan!.progressBaseline = createProgressBaseline(state.plan!, []);
   return state;
 }
+
+/** One future 30-minute slot: 20+20 minutes cannot fit; the minimum loss is 10. */
+export function priorityReductionFixture(baseDate = adjustmentDay) {
+  const state = adjustmentFixture(baseDate);
+  const next = addDays(baseDate, 1);
+  state.settings.exams = state.settings.exams.map((exam, i) => ({ ...exam, target: addDays(next, 1), priority: i === 0 ? 3 : 1 }));
+  state.settings.materials = state.settings.materials.map(m => ({ ...m, total: 2, rounds: [{ completed: 0, minutes: 10 }] }));
+  state.settings.windows = [{ ...state.settings.windows[0], from: next, to: next, start: 540, end: 570 }];
+  state.settings.block = 30; state.settings.rest = 10; state.settings.buffer = 0;
+  const base = state.plan!.sessions[0];
+  state.plan!.sessions = [
+    { ...base, id: 'high-one', date: next, start: 540, end: 550, count: 1, round: 0 },
+    { ...base, id: 'low-two', date: next, start: 550, end: 570, count: 2, round: 0, materialId: 'other', examId: 'b' },
+  ];
+  state.plan!.shortfalls = [{ materialId: 'book', round: 0, count: 1, minutes: 10, reason: '期限内の時間不足' }];
+  state.plan!.settingsSnapshot = structuredClone(state.settings);
+  state.plan!.progressBaseline = createProgressBaseline(state.plan!, state.records);
+  delete state.plan!.adjustmentBasis;
+  return state;
+}
+
+/** Three elapsed days: partial, explicit zero and cancelled reports; future fixed work remains. */
+export function multiDayRolloverFixture(baseDate = adjustmentDay) {
+  const state = adjustmentFixture(baseDate);
+  state.settings.exams[0].target = addDays(baseDate, 24);
+  state.settings.materials[0].rounds = Array.from({ length: 4 }, () => ({ completed: 0, minutes: 3 }));
+  state.settings.windows[0] = { ...state.settings.windows[0], to: addDays(baseDate, 23), end: 720 };
+  const template = state.plan!.sessions.find((s) => s.id === 'book-5')!;
+  state.plan!.sessions.push(...Array.from({ length: 10 }, (_, i) => ({
+    ...template, id: `book-${i + 10}`, date: addDays(baseDate, i + 10), round: i < 5 ? 2 : 3,
+  })));
+  state.plan!.capacities = Array.from({ length: 24 }, (_, i) => capacityForDate(state.settings, addDays(baseDate, i)));
+  state.plan!.settingsSnapshot = structuredClone(state.settings);
+  state.plan!.progressBaseline = createProgressBaseline(state.plan!, []);
+  state.plan!.sessions.find((s) => s.id === 'other-4')!.fixed = true;
+  state.records = [
+    { ...adjustmentReport(4, 'rollover-partial'), date: baseDate },
+    { ...adjustmentReport(0, 'rollover-zero'), date: addDays(baseDate, 1), materialId: 'other' },
+    { ...adjustmentReport(2, 'rollover-cancelled'), date: addDays(baseDate, 2), cancelled: true },
+  ];
+  for (const record of state.records) {
+    record.createdAt = record.updatedAt = `${record.date}T03:00:00.000Z`;
+  }
+  // The baseline predates these reports, as in a plan loaded after several days away.
+  return state;
+}

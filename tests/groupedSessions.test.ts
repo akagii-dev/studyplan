@@ -5,6 +5,8 @@ import { overlapsBusy } from '../src/domain/planAudit';
 import { resetSetup, restoreReset } from '../src/domain/reset';
 import { sessionPolicy, sessionUnitCount } from '../src/domain/sessionPolicy';
 import { approve, propose, validateSettings } from '../src/domain/planning';
+import { generatePlan as generateRetained } from '../src/domain/planner/generate';
+import { dailyWaterfill } from '../src/domain/planner/dailyWaterfill';
 import {
   currentPresentation,
   samePlanningSettings,
@@ -12,6 +14,7 @@ import {
   stalePlan,
 } from '../src/domain/planAudit';
 const date = '2026-10-05';
+const calculationContext = { date, minute: 0, timestamp: `${date}T00:00:00Z`, idPrefix: 'water' };
 function fixture(total = 37, minutes = 2, days = 30): AppState {
   const s = initialState();
   s.settings.exams = [
@@ -75,6 +78,94 @@ function invariant(s: AppState) {
       expect(p.sessions[i].start).toBeGreaterThanOrEqual(p.sessions[i - 1].end - 1e-6);
   return p;
 }
+describe('保持境界と明示的な数量の水位配分', () => {
+  it('日別上限・保持数量・独立した週上限を整数で扱う', () => {
+    const days = Array.from({ length: 7 }, (_, i) => ({
+      date: addDays(date, i), week: date, base: 0, capacity: i ? 30 : 5,
+    }));
+    expect([...dailyWaterfill(101, days, new Map([[date, 1000]])).values()])
+      .toEqual([5, 16, 16, 16, 16, 16, 16]);
+    expect([...dailyWaterfill(30, [
+      { ...days[0], base: 10, capacity: 100 }, { ...days[1], capacity: 100 },
+    ], new Map()).values()]).toEqual([10, 20]);
+    const limited = days.map((d, i) => ({ ...d, week: i < 3 ? 'a' : 'b', capacity: 50 }));
+    const result = dailyWaterfill(70, limited, new Map([['a', 20], ['b', 80]]));
+    expect([...result.values()].reduce((n, q) => n + q, 0)).toBe(70);
+    expect(limited.slice(0, 3).reduce((n, d) => n + result.get(d.date)!, 0)).toBe(20);
+    expect([...dailyWaterfill(1000, limited, new Map([['a', 20], ['b', 80]])).values()]
+      .reduce((n, q) => n + q, 0)).toBe(100);
+  });
+  it('保持した後続周回まで4日しかない前段の残量を、20日へ薄めない', () => {
+    const state = fixture(80, 1, 20);
+    state.settings.buffer = 0;
+    state.settings.block = 120;
+    state.settings.windows[0].end = 660;
+    state.settings.materials[0].rounds = [{ completed: 40, minutes: 1 }, { completed: 0, minutes: 1 }];
+    const successor = { id: 'successor', date: addDays(date, 4), start: 540, end: 620,
+      examId: 'e', materialId: 'm', round: 1, count: 80, fixed: false, kind: 'study' as const };
+    const retention = { sessions: [successor], remaining: { '["m",0]': 40, '["m",1]': 80 } };
+    const original = structuredClone(state);
+    const plan = generateRetained(state, date, true, 0, 'balanced', calculationContext, retention);
+    expect(plan.shortfalls).toEqual([]);
+    expect(plan.sessions.find((s) => s.id === successor.id)).toEqual(successor);
+    expect(Array.from({ length: 4 }, (_, i) => plan.sessions.filter((s) => s.round === 0 &&
+      s.date === addDays(date, i)).reduce((n, s) => n + s.count, 0))).toEqual([10, 10, 10, 10]);
+    expect(state).toEqual(original);
+    expect(generateRetained(state, date, true, 0, 'balanced', calculationContext, retention)).toEqual(plan);
+  });
+  it('追加分だけでなく保持した同じ教材を含めた最終日量を均す', () => {
+    const state = fixture(50, 2, 5);
+    state.settings.buffer = 0;
+    const held = { id: 'held', date, start: 540, end: 580, examId: 'e', materialId: 'm',
+      round: 0, count: 20, fixed: true, kind: 'study' as const };
+    const plan = generateRetained(state, date, true, 0, 'balanced', calculationContext, {
+      sessions: [held], remaining: { '["m",0]': 50 }, dailyQuantityBalance: true,
+    });
+    expect(plan.sessions.find((s) => s.id === held.id)).toEqual(held);
+    expect(plan.shortfalls).toEqual([]);
+    const counts = Array.from({ length: 5 }, (_, i) => plan.sessions.filter((s) =>
+      s.date === addDays(date, i)).reduce((n, s) => n + s.count, 0));
+    expect(counts).toEqual([20, 8, 8, 7, 7]);
+  });
+  it.each([[4, 4, 4], [2, 7, 4]])('周回ごとの時間%sを使い残数・順序・週上限を守る', (...minutes) => {
+    const state = fixture(101, 4, 10);
+    state.settings.block = 60;
+    state.settings.rest = 10;
+    state.settings.buffer = 0.2;
+    state.settings.windows[0].end = 1080;
+    state.settings.materials[0].rounds = minutes.map((value) => ({ completed: 0, minutes: value }));
+    const retention = { sessions: [], remaining: Object.fromEntries(minutes.map((_, round) =>
+      [JSON.stringify(['m', round]), 101])), dailyQuantityBalance: true };
+    const plan = generateRetained(state, date, true, 0, 'balanced', calculationContext, retention);
+    expect(plan.shortfalls).toEqual([]);
+    expect(plan.conflicts).toEqual([]);
+    for (const [round, value] of minutes.entries()) {
+      const sessions = plan.sessions.filter((s) => s.round === round);
+      expect(sessions.reduce((n, s) => n + s.count, 0)).toBe(101);
+      for (const session of sessions) {
+        expect(session.end - session.start).toBeCloseTo(session.count * value);
+        expect(plan.capacities.find((c) => c.date === session.date)!.slots.some(([a,b]) =>
+          session.start >= a && session.end <= b + 1e-7)).toBe(true);
+        if (session.end - session.start < 10) expect(session.allocationReason).toBeTruthy();
+      }
+    }
+    for (let index = 1; index < plan.sessions.length; index++) {
+      expect(plan.sessions[index].round).toBeGreaterThanOrEqual(plan.sessions[index - 1].round);
+      if (plan.sessions[index].date === plan.sessions[index - 1].date)
+        expect(plan.sessions[index].start).toBeGreaterThanOrEqual(plan.sessions[index - 1].end);
+    }
+    for (const week of [date, addDays(date, 7)]) {
+      const result = capacityForWeek(state.settings, week, plan.sessions);
+      expect(result.used).toBeLessThanOrEqual(result.limit);
+    }
+    if (minutes.every((value) => value === 4)) {
+      const counts = Array.from({ length: 10 }, (_, i) => plan.sessions.filter((s) =>
+        s.date === addDays(date, i)).reduce((n, s) => n + s.count, 0));
+      expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(3);
+    }
+    expect(generateRetained(state, date, true, 0, 'balanced', calculationContext, retention)).toEqual(plan);
+  });
+});
 describe('まとまりを優先する学習計画', () => {
   it.each([30, 60])('まとまりの目安%i分でも、実行可能な日次16分を前半へ集めない', (preferred) => {
     const s = fixture(96, 1, 6);
@@ -425,4 +516,65 @@ describe('警告後に実行する初期化と復元', () => {
     const n = resetSetup(resetSetup(fixture(), true), true);
     expect(n.resetBackup!.resetBackup).toBeUndefined();
   });
+});
+
+
+describe('未来全量の水位回帰', () => {
+  it.each([[8, 4], [4, 8], [6, 3]])('速度%s・%s分の2周1220問を30日の末尾まで配分する', (first, second) => {
+    const state = fixture(610, first, 30);
+    state.settings.buffer = 0;
+    state.settings.block = 60;
+    state.settings.rest = 10;
+    state.settings.windows[0].end = 1080;
+    state.settings.materials[0].rounds.push({ completed: 0, minutes: second });
+    const original = structuredClone(state);
+    const plan = generateRetained(state, date, true, 0, 'balanced', calculationContext, {
+      sessions: [], remaining: { '["m",0]': 610, '["m",1]': 610 }, dailyQuantityBalance: true, preserveSessionBoundaries: true,
+    });
+    const counts = Array.from({ length: 30 }, (_, i) => plan.sessions.filter(s => s.date === addDays(date, i)).reduce((n,s)=>n+s.count,0));
+    expect(plan.shortfalls).toEqual([]);
+    expect(counts).toEqual([...Array(20).fill(41), ...Array(10).fill(40)]);
+    expect(state).toEqual(original);
+    for (const round of [0, 1]) expect(plan.sessions.filter(s => s.round === round).reduce((n,s)=>n+s.count,0)).toBe(610);
+    for (const session of plan.sessions) {
+      expect(session.end - session.start).toBeGreaterThanOrEqual(10);
+      expect(session.allocationReason).toBeUndefined();
+      expect(plan.capacities.find(c => c.date === session.date)!.slots.some(([a,b]) => session.start >= a && session.end <= b)).toBe(true);
+    }
+    const earlier = plan.sessions.filter(s => s.round === 0).at(-1)!;
+    const later = plan.sessions.find(s => s.round === 1)!;
+    expect(earlier.date < later.date || (earlier.date === later.date && earlier.end <= later.start)).toBe(true);
+    for (const week of new Set(plan.sessions.map(s => s.date))) {
+      const capacity = capacityForWeek(state.settings, week, plan.sessions);
+      expect(capacity.used).toBeLessThanOrEqual(capacity.limit);
+    }
+  });
+});
+
+
+it.each([false,true])('保持先行の開始境界だけでquotaを分けず追加前段と後続2周を期限内へ置く（固定%s）', fixed => {
+  const state = fixture(60,4,12);
+  state.settings.buffer=0.2;
+  state.settings.materials[0].rounds=[{completed:40,minutes:4},{completed:0,minutes:4},{completed:0,minutes:4}];
+  const held={id:'held-predecessor',date:addDays(date,1),start:540,end:580,examId:'e',materialId:'m',round:0,count:10,fixed,kind:'study' as const};
+  const source=structuredClone(state);
+  const plan=generateRetained(state,date,true,0,'balanced',calculationContext,{sessions:[held],remaining:{'["m",0]':20,'["m",1]':60,'["m",2]':60}});
+  expect(plan.shortfalls).toEqual([]);
+  expect(plan.sessions.find(s=>s.id===held.id)).toEqual(held);
+  for(const [round,total] of [[0,20],[1,60],[2,60]]) expect(plan.sessions.filter(s=>s.round===round).reduce((n,s)=>n+s.count,0)).toBe(total);
+  expect(state).toEqual(source);
+});
+
+
+it.each([5,9])('保持先行が%d日後でも後続をその終了前へ置かず実行期間内の不足を残す', offset => {
+  const state=fixture(60,4,12);
+  state.settings.buffer=0; state.settings.block=48;state.settings.rest=12;
+  state.settings.materials[0].rounds=[{completed:48,minutes:4},{completed:0,minutes:4},{completed:0,minutes:4}];
+  const held={id:'late-fixed-predecessor',date:addDays(date,offset),start:540,end:588,examId:'e',materialId:'m',round:0,count:12,fixed:true,kind:'study' as const};
+  const plan=generateRetained(state,date,true,0,'balanced',calculationContext,{sessions:[held],remaining:{'["m",0]':12,'["m",1]':60,'["m",2]':60}});
+  expect(plan.sessions.find(s=>s.id===held.id)).toEqual(held);
+  const later=plan.sessions.filter(s=>s.round>0);
+  expect(later.every(s=>s.date>held.date || (s.date===held.date && s.start>=held.end))).toBe(true);
+  expect(plan.shortfalls.reduce((n,s)=>n+s.count,0)).toBe(offset===5 ? 0 : 24);
+  for (const round of [1,2]) expect(later.filter(s=>s.round===round).reduce((n,s)=>n+s.count,0)+plan.shortfalls.filter(s=>s.round===round).reduce((n,s)=>n+s.count,0)).toBe(60);
 });

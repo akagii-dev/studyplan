@@ -2,6 +2,7 @@ import { mealEvents } from './mealEvents';
 import { Plan, Session, Settings, weekday, addDays } from './model';
 import { sessionPolicy, PLAN_CALCULATION_VERSION } from './sessionPolicy';
 import { commuteEvents } from './commute';
+import { classIsCancelled } from './classCancellations';
 
 export function sameSettings(a: Settings, b: Settings): boolean {
   const normalize = (s: Settings) =>
@@ -11,6 +12,7 @@ export function sameSettings(a: Settings, b: Settings): boolean {
       materials: s.materials,
       windows: s.windows,
       exceptions: s.exceptions,
+      classCancellations: s.classCancellations ?? [],
       meals: s.meals ?? {},
       commute: s.commute?.enabled ? s.commute : null,
       block: s.block,
@@ -31,6 +33,7 @@ export function samePlanningSettings(a: Settings, b: Settings): boolean {
       materials: s.materials.map(({ name: _name, ...material }) => material),
       windows: s.windows.map(({ name: _name, ...window }) => window),
       exceptions: s.exceptions.map(({ name: _name, ...exception }) => exception),
+      classCancellations: s.classCancellations ?? [],
       meals: s.meals ?? {},
       commute: s.commute?.enabled ? s.commute : null,
       block: s.block,
@@ -85,7 +88,8 @@ export function blockingEvents(settings: Settings, date: string): UnavailableEve
           w.kind !== 'study' &&
           w.from <= date &&
           date <= w.to &&
-          w.weekdays.includes(weekday(date)),
+          w.weekdays.includes(weekday(date)) &&
+          (w.kind !== 'class' || !classIsCancelled(settings, w.id, date)),
       )
       .map((w) => ({ id: w.id, name: w.name, kind: w.kind, start: w.start, end: w.end })),
     ...settings.exceptions.filter((e) => e.date === date).map((e) => ({ ...e, kind: 'exception' })),

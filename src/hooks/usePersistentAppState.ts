@@ -22,6 +22,18 @@ export function usePersistentAppState() {
   const pendingSaves = useRef(0);
   const [error, setError] = useState('');
   const planningErrorFrom = useRef<string | undefined | null>(null);
+  const failedRecordSave = useRef<{ message: string; records: AppState['records'] } | null>(null);
+  const confirmSavedRecord = useCallback((id: string) => {
+    const failure = failedRecordSave.current;
+    if (!failure?.records.some(record => record.id === id)) return;
+    // A retry may only dismiss its own save failure after all affected records are confirmed.
+    const matches = failure.records.every(expected => dataRef.current?.records.some(record =>
+      record.id === expected.id && record.date === expected.date && record.materialId === expected.materialId &&
+      record.round === expected.round && record.count === expected.count && record.cancelled === expected.cancelled));
+    if (!matches) return;
+    setError(current => current === failure.message ? '' : current);
+    failedRecordSave.current = null;
+  }, []);
   const [startupError, setStartupError] = useState('');
   const [loading, setLoading] = useState(true);
   const loadRequest = useRef<Promise<void> | null>(null);
@@ -120,6 +132,7 @@ export function usePersistentAppState() {
       showError('別の端末で更新されました。入力は保持しています。最新の内容を読み込んでから変更してください。');
       return Promise.reject(new Error('別の端末で更新されました。'));
     }
+    const previousRecords = dataRef.current!.records;
     let next: AppState;
     try {
       next = fn(dataRef.current!);
@@ -210,6 +223,8 @@ export function usePersistentAppState() {
         unconfirmed.current = true;
         autoReconcileSuppressed.current = true;
         setSaved(false);
+        failedRecordSave.current = { message: String(e), records: next.records.filter(record =>
+          !previousRecords.some(previous => JSON.stringify(previous) === JSON.stringify(record))) };
         showError(String(e));
         if (lanMode || isRevisionConflict(e))
           setRecovery({ checking: false, detail: String(e), preserveInput: true, conflict: isRevisionConflict(e) });
@@ -338,6 +353,7 @@ export function usePersistentAppState() {
     update,
     error,
     setError: showError,
+    confirmSavedRecord,
     startupError,
     loading,
     initialize,

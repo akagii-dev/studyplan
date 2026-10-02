@@ -1,9 +1,9 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { ProgressValue } from './ProgressValue';
 import { Props } from './common';
-import { remaining, today, uid } from '../domain/model';
-import { parseNumberInput } from '../domain/numeric';
-import { recordAndAdjust } from '../domain/planning';
+import { remaining, today } from '../domain/model';
+import { StudyRecordForm, StudyCountInput } from './StudyRecordForm';
+import { useRecordInput, useStudyRecord } from '../hooks/useStudyRecord';
 import { todayStudyRows } from '../domain/todayProgress';
 import { latestReceipt } from '../domain/progressReceipt';
 import { usePlanningClock } from '../hooks/usePlanningClock';
@@ -19,17 +19,14 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
   usePlanningClock();
   const inputRefs = useRef(new Map<string, HTMLInputElement>());
   const handled = useRef<number | null>(null);
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [savedRecord, setSavedRecord] = useState<{ id: string; count: number } | null>(null);
-  const [outsideMaterial, setOutsideMaterial] = useState(state.settings.materials[0]?.id ?? '');
-  const [outsideRound, setOutsideRound] = useState(0);
-  const [busy, setBusy] = useState(false);
-  const sending = useRef(false);
-  const request = useRef(uid());
   const date = today();
+  const [drafts, setDrafts] = useRecordInput<Record<string, string>>(`today/${date}/inputs`, {});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [savedRecord, setSavedRecord] = useState<{ id: string; count: number; unit: string } | null>(null);
+  const [outsideMaterial, setOutsideMaterial] = useRecordInput('today/material', state.settings.materials[0]?.id ?? '');
+  const [outsideRound, setOutsideRound] = useRecordInput('today/round', 0);
+  const { busy, save: record } = useStudyRecord(update, `today/${date}`);
   const key = (materialId: string, round: number) => JSON.stringify([materialId, round]);
-  const outside = state.settings.materials.find((material) => material.id === outsideMaterial);
 
   useEffect(() => {
     if (!target || handled.current === target.token) return;
@@ -38,7 +35,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
     const id = key(row.materialId, row.round);
     setDrafts((current) => ({
       ...current,
-      [id]: String(Math.min(row.progress.prefill, remaining(state, row.materialId, row.round))),
+      [id]: current[id] || String(Math.min(row.progress.prefill, remaining(state, row.materialId, row.round))),
     }));
     // AppShell restores its heading in a frame; the explicit recording target wins afterwards.
     const timer = window.setTimeout(() => {
@@ -51,45 +48,19 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
     return () => window.clearTimeout(timer);
   }, [target, state]);
 
-  async function save(event: FormEvent, materialId: string, round: number) {
-    event.preventDefault();
-    if (sending.current) return;
+  async function save(event: FormEvent | undefined, materialId: string, round: number) {
+    event?.preventDefault();
     const id = key(materialId, round);
-    let count: number;
-    try {
-      count = parseNumberInput(drafts[id] ?? '', 0, remaining(state, materialId, round), 1);
-    } catch (error) {
-      setErrors((current) => ({ ...current, [id]: (error as Error).message }));
-      return;
-    }
-    sending.current = true;
-    setBusy(true);
     setErrors((current) => ({ ...current, [id]: '' }));
     setSavedRecord(null);
-    const recordId = request.current;
-    const now = new Date().toISOString();
+    const text = drafts[id] ?? '';
     try {
-      await update((current) => {
-        const next = recordAndAdjust(current, {
-          id: recordId,
-          date,
-          materialId,
-          round,
-          count,
-          cancelled: false,
-          createdAt: now,
-          updatedAt: now,
-        });
-        return next;
-      });
-      request.current = uid();
-      setDrafts((current) => ({ ...current, [id]: '' }));
-      setSavedRecord({ id: recordId, count });
+      const result = await record({ date, materialId, round, text });
+      if (!result) return;
+      setDrafts((current) => current[id] === text ? { ...current, [id]: '' } : current);
+      setSavedRecord(result);
     } catch (error) {
-      setErrors((current) => ({ ...current, [id]: String(error) }));
-    } finally {
-      sending.current = false;
-      setBusy(false);
+      setErrors((current) => ({ ...current, [id]: error instanceof Error ? error.message : String(error) }));
     }
   }
 
@@ -114,7 +85,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
                 >
                   <label>
                     {row.reported ? '追加分' : '実績'}
-                    <input
+                    <StudyCountInput
                       ref={(node) => {
                         if (node) inputRefs.current.set(id, node);
                         else inputRefs.current.delete(id);
@@ -122,6 +93,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
                       type="text"
                       inputMode="numeric"
                       value={drafts[id] ?? ''}
+                      disabled={busy}
                       aria-label={`${row.materialName} ${row.round + 1}周目の${row.reported ? '追加分' : '実績'}（${row.unit}）`}
                       onChange={(event) => {
                         setDrafts((current) => ({ ...current, [id]: event.target.value }));
@@ -165,59 +137,15 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
       <details className="outside-record">
         <summary>予定外の学習を記録</summary>
         {state.settings.materials.length ? (
-          <form onSubmit={(event) => void save(event, outsideMaterial, outsideRound)}>
-            <label>
-              問題集
-              <select
-                value={outsideMaterial}
-                onChange={(event) => {
-                  setOutsideMaterial(event.target.value);
-                  setOutsideRound(0);
-                }}
-              >
-                {state.settings.materials.map((material) => (
-                  <option key={material.id} value={material.id}>
-                    {material.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              周回
-              <select
-                value={outsideRound}
-                onChange={(event) => setOutsideRound(Number(event.target.value))}
-              >
-                {outside?.rounds.map((_, round) => (
-                  <option key={round} value={round}>
-                    {round + 1}周目
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              追加問数
-              <input
-                type="text"
-                inputMode="numeric"
-                value={drafts[key(outsideMaterial, outsideRound)] ?? ''}
-                onChange={(event) =>
-                  setDrafts((current) => ({
-                    ...current,
-                    [key(outsideMaterial, outsideRound)]: event.target.value,
-                  }))
-                }
-              />
-            </label>
-            <button data-submit className="primary" type="submit" disabled={busy}>
-              記録
-            </button>
-            {errors[key(outsideMaterial, outsideRound)] && (
-              <p className="daily-record-error" role="alert">
-                {errors[key(outsideMaterial, outsideRound)]}
-              </p>
-            )}
-          </form>
+          <StudyRecordForm state={state} reference={date} fixedDate busy={busy}
+            value={{ date, materialId: outsideMaterial, round: outsideRound, text: drafts[key(outsideMaterial, outsideRound)] ?? '' }}
+            onChange={(value) => {
+              setOutsideMaterial(value.materialId); setOutsideRound(value.round);
+              setDrafts((current) => ({ ...current, [key(value.materialId, value.round)]: value.text }));
+              setErrors((current) => ({ ...current, [key(value.materialId, value.round)]: '' }));
+            }}
+            onSubmit={() => void save(undefined, outsideMaterial, outsideRound)}
+            error={errors[key(outsideMaterial, outsideRound)] ?? ''} />
         ) : (
           <p>先に問題集を登録してください。</p>
         )}
@@ -225,7 +153,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
       {savedRecord && (
         <div className="daily-record-saved" role="status">
           <p>
-            {savedRecord.count}問を記録しました。
+            {savedRecord.count}{savedRecord.unit}を記録しました。
             {latestReceipt(state, savedRecord.id) &&
               receiptOutcome(latestReceipt(state, savedRecord.id)!)}
           </p>

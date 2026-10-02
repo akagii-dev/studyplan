@@ -1,5 +1,7 @@
 import { backupSchema } from './backupSchema';
 import type { AppState } from './model';
+import type { RevisionDraft } from './revision';
+import { classCancellationErrors } from './classCancellations';
 
 export const MAX_BACKUP_BYTES = 50 * 1024 * 1024;
 export interface BackupFile {
@@ -25,8 +27,20 @@ export function parseBackup(text: string): BackupFile {
       `バックアップの形式に対応していないか、内容が壊れています（${path}）。現在のデータは変更していません。`,
     );
   }
+  const file = value as BackupFile;
+  for (const state of [file.data, file.data.resetBackup].filter((state) => !!state)) {
+    const revision = state.draft.revision as RevisionDraft | undefined;
+    const settings = [state.settings, state.plan?.settingsSnapshot,
+      ...state.history.map((plan) => plan.settingsSnapshot), state.proposal?.plan.settingsSnapshot,
+      state.proposal?.settingsBase, revision?.base, revision?.settings];
+    for (const item of settings) {
+      if (!item) continue;
+      const error = classCancellationErrors(item)[0];
+      if (error) throw new Error(`バックアップの${error}現在のデータは変更していません。`);
+    }
+  }
   // Keep the original JSON, including optional fields written by this app version.
-  return value as BackupFile;
+  return file;
 }
 export function backupSummary(state: AppState) {
   return {

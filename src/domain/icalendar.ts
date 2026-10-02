@@ -1,4 +1,5 @@
-import { AppState, addDays, weekday } from './model';
+import { AppState, addDays } from './model';
+import { classesForDate } from './classCancellations';
 
 export interface CalendarExportOptions {
   from: string;
@@ -99,10 +100,8 @@ export function calendarEvents(state: AppState, options: CalendarExportOptions):
     }
   }
   if (options.classes) {
-    const classes = state.settings.windows.filter((w) => w.kind === 'class');
     for (let date = options.from; date <= options.to; date = addDays(date, 1)) {
-      for (const rule of classes) {
-        if (date < rule.from || date > rule.to || !rule.weekdays.includes(weekday(date))) continue;
+      for (const rule of classesForDate(state.settings, date)) {
         append({
           uid: `class-${encodeURIComponent(rule.id)}-${date}@studyplan.local`,
           date,

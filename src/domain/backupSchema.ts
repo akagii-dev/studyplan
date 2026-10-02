@@ -39,11 +39,15 @@ const windowRule = z.looseObject({
   kind: z.enum(['study', 'class', 'busy']),
 });
 const exception = z.looseObject({ id, name: text, date, start: minute, end: minute });
+const classCancellation = z.looseObject({
+  id: id.min(1), from: date, to: date, classIds: z.array(id.min(1)).min(1).optional(),
+});
 const settings = z.looseObject({
   exams: z.array(exam),
   materials: z.array(material),
   windows: z.array(windowRule),
   exceptions: z.array(exception),
+  classCancellations: z.array(classCancellation).optional(),
   block: count.min(1).max(1440),
   minimumSessionMinutes: count.min(1).max(1440).optional(),
   preferredSessionMinutes: count.min(1).max(1440).optional(),
@@ -96,6 +100,7 @@ const session = z.looseObject({
 });
 const plan = z.looseObject({
   id,
+  dailyBalanceMaterialIds: z.array(id.min(1)).optional(),
   comparisonSessionIds: z.array(id).optional(),
   allocationStart: date.optional(),
   approvedAt: z.iso.datetime().optional(),
@@ -199,6 +204,10 @@ const draft = z.looseObject({
   window: draftWindow.optional(),
   exception: draftException.optional(),
   classPeriod: period.optional(),
+  classCancellation: z.looseObject({
+    id, from: text, to: text, range: z.boolean(), scope: z.enum(['all', 'selected']),
+    classIds: z.array(id),
+  }).optional(),
   progress: z
     .looseObject({ date: text, materialId: id, round: count, choice: text, custom: text })
     .optional(),
@@ -330,7 +339,9 @@ const state = z.looseObject({
         z.object({ date, sourceFingerprint: z.string().max(200), kind: z.literal('restart') }),
         z.object({
           date, sourceFingerprint: z.string().max(200), kind: z.literal('remaining-adjustment'), from: date,
-          purpose: z.literal('past-only').optional(),
+          purpose: z.enum(['past-only', 'balance-future']).optional(),
+          balanceMaterialIds: z.array(id.min(1)).optional(),
+          allowLowerPriorityReduction: z.boolean().optional(),
           targets: z.array(z.discriminatedUnion('kind', [
             z.object({ kind: z.literal('session'), sessionId: id }),
             z.object({ kind: z.literal('shortfall'), materialId: id, round: count }),

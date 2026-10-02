@@ -80,10 +80,34 @@ fn unique(items: &Value) -> Result<(), String> {
     }
     Ok(())
 }
+/// Draft settings may contain unfinished relationships; validate only committed cancellation entries.
+fn check_class_cancellations(s: &Value) -> Result<(), String> {
+    if let Some(cancellations) = s.get("classCancellations") {
+        unique(cancellations)?;
+        for item in cancellations.as_array().unwrap() {
+            if item["id"].as_str().unwrap().trim().is_empty() {
+                return Err("休講のIDを確認してください。".into());
+            }
+            if item["from"].as_str().unwrap() > item["to"].as_str().unwrap() {
+                return Err("休講の開始日・終了日を確認してください。".into());
+            }
+            if let Some(class_ids) = item.get("classIds") {
+                let mut ids = HashSet::new();
+                for id in class_ids.as_array().unwrap() {
+                    if id.as_str().unwrap().trim().is_empty() || !ids.insert(id.as_str().unwrap()) {
+                        return Err("休講の対象の授業を確認してください。".into());
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
 fn check_settings(s: &Value) -> Result<(), String> {
     for key in ["exams", "materials", "windows", "exceptions"] {
         unique(&s[key])?;
     }
+    check_class_cancellations(s)?;
     for m in s["materials"].as_array().unwrap() {
         if !s["exams"]
             .as_array()
@@ -149,6 +173,13 @@ fn check_state(data: &Value) -> Result<(), String> {
     }
     if !data["proposal"].is_null() {
         check_plan(&data["proposal"]["plan"], &data["settings"])?;
+        if let Some(settings) = data["proposal"].get("settingsBase") {
+            check_class_cancellations(settings)?;
+        }
+    }
+    if let Some(revision) = data["draft"].get("revision") {
+        check_class_cancellations(&revision["base"])?;
+        check_class_cancellations(&revision["settings"])?;
     }
     Ok(())
 }
@@ -233,6 +264,76 @@ mod tests {
         data["settings"]["materials"] = json!([{"id":"m","examId":"e","name":"教材","order":1,"total":7,"rounds":[{"completed":0,"minutes":3}]}]);
         data["plan"] = json!({"id":"p","createdAt":"2026-09-20T00:00:00Z","from":"2026-09-20","sessions":[{"id":"s","date":"2026-09-21","start":540,"end":540,"examId":"e","materialId":"m","round":0,"count":0,"fixed":false,"kind":"study"}],"capacities":[],"shortfalls":[],"conflicts":[],"progressBaseline":{"records":{},"sessions":{"s":{"count":5,"end":555}},"shortfalls":{}}});
         data
+    }
+    #[test]
+    fn class_cancellations_and_balance_intent_survive_save_backup_restore_and_reopen() {
+        let folder = tempfile::tempdir().unwrap();
+        let path = folder.path().join("cancellations.sqlite3");
+        let mut conn = db::open(&path).unwrap();
+        let mut data = consumed_state();
+        data["settings"]["classCancellations"] = json!([
+            {"id":"all","from":"2026-10-02","to":"2026-10-08"},
+            {"id":"selected","from":"2026-10-02","to":"2026-10-02","classIds":["deleted-class"]}
+        ]);
+        data["plan"]["settingsSnapshot"] = data["settings"].clone();
+        data["plan"]["dailyBalanceMaterialIds"] = json!(["m"]);
+        data["history"] = json!([data["plan"].clone()]);
+        data["proposal"] = json!({"plan":data["plan"].clone(),"basedOn":"p","reason":"平準化","unreported":[],"basis":{
+            "kind":"remaining-adjustment","purpose":"balance-future","date":"2026-10-02","from":"2026-10-03","sourceFingerprint":"synthetic",
+            "balanceMaterialIds":["m"],"allowLowerPriorityReduction":true,
+            "targets":[{"kind":"shortfall","materialId":"m","round":0}],"summary":[],"affectedSessionIds":[]
+        }});
+        data["draft"]["classCancellation"] = json!({"id":"","from":"","to":"","range":true,"scope":"selected","classIds":[]});
+        db::commit(&mut conn, 0, "class-cancellation", data.clone()).unwrap();
+        let exported = packet(&conn).unwrap();
+        let restored = parse(&exported.to_string()).unwrap();
+        assert_eq!(restored["data"], data);
+        db::restore(&mut conn, 1, "restore", restored["data"].clone()).unwrap();
+        drop(conn);
+        let reopened = db::open(&path).unwrap();
+        assert_eq!(db::load(&reopened).unwrap().unwrap().data, data);
+    }
+    #[test]
+    fn invalid_class_cancellations_fail_atomically_in_current_and_historical_settings() {
+        let mut conn = db::open(Path::new(":memory:")).unwrap();
+        db::commit(&mut conn, 0, "initial", state()).unwrap();
+        for invalid in [
+            json!([{"id":"off","from":"2026-10-03","to":"2026-10-02"}]),
+            json!([{"id":"off","from":"2026-02-30","to":"2026-10-02"}]),
+            json!([{"id":"off","from":"2026-10-02","to":"2026-10-02","classIds":[]}]),
+            json!([{"id":"off","from":"2026-10-02","to":"2026-10-02","classIds":["c","c"]}]),
+        ] {
+            for historical in [false, true] {
+                let mut data = consumed_state();
+                if historical {
+                    data["plan"]["settingsSnapshot"] = data["settings"].clone();
+                    data["plan"]["settingsSnapshot"]["classCancellations"] = invalid.clone();
+                    data["history"] = json!([data["plan"].clone()]);
+                    data["plan"] = Value::Null;
+                } else {
+                    data["settings"]["classCancellations"] = invalid.clone();
+                }
+                assert!(db::commit(&mut conn, 1, "invalid", data.clone()).is_err());
+                assert!(db::restore(&mut conn, 1, "invalid-restore", data).is_err());
+                assert_eq!(db::load(&conn).unwrap().unwrap().data, state());
+            }
+        }
+    }
+    #[test]
+    fn unfinished_revision_and_proposal_settings_keep_legacy_relationships() {
+        let mut data = consumed_state();
+        let mut unfinished = data["settings"].clone();
+        unfinished["exams"] = json!([]);
+        data["draft"]["revision"] = json!({"id":"revision","base":unfinished,"settings":unfinished,"stage":"item","topic":"material","itemId":"m","index":0});
+        data["proposal"] = json!({"plan":data["plan"].clone(),"basedOn":"p","reason":"draft","unreported":[],"settingsBase":unfinished});
+        assert!(check_data(&data).is_ok());
+        for path in [["draft", "revision", "base"], ["draft", "revision", "settings"]] {
+            let mut invalid = data.clone();
+            invalid[path[0]][path[1]][path[2]]["classCancellations"] = json!([{"id":"off","from":"2026-10-03","to":"2026-10-02"}]);
+            assert!(check_data(&invalid).is_err());
+        }
+        data["proposal"]["settingsBase"]["classCancellations"] = json!([{"id":"off","from":"2026-10-03","to":"2026-10-02"}]);
+        assert!(check_data(&data).is_err());
     }
     #[test]
     fn consumed_zero_duration_sessions_survive_save_export_restore_and_reopen() {

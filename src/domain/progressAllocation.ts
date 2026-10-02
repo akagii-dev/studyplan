@@ -216,12 +216,23 @@ export function allocateProgress(
   const comparisonIds = new Set(source.comparisonSessionIds ?? []);
   const basis = source.adjustmentBasis!;
   const from = [addDays(context.date, 1), source.allocationStart ?? ''].sort().at(-1)!;
+  // Today's effective work is preserved by ordinary adjustment. If an elapsed
+  // predecessor is still unfinished, keeping today's successor cannot preserve
+  // order; reject the candidate rather than silently change today's allocation.
+  const active = activePlanWork(state, context.date);
+  if (active.some(session => session.date === context.date &&
+      fixedOrderIssue(state, session, active, context.date)))
+    throw new Error('今日の予定を保つと教材・周回の順序を守れません。「計画を仕切り直す」で確認してください。');
   const residual = basisRemainders(state, basis);
   const records = recordTotals(state.records);
   const previousRecords = source.progressBaseline?.records ?? basis.records;
   const unchanged = (session: Session) =>
     totalFor(records, session.materialId, session.round) ===
     totalFor(previousRecords, session.materialId, session.round);
+  const balanced = new Set(source.dailyBalanceMaterialIds ?? []);
+  const rebalance = new Set(state.settings.materials.filter(m => balanced.has(m.id) &&
+    m.rounds.some((_, round) => totalFor(records, m.id, round) !== totalFor(previousRecords, m.id, round)))
+    .map(m => m.id));
   const budgets: Record<string, number> = {};
   for (const m of state.settings.materials)
     for (const round of m.rounds.keys())
@@ -237,7 +248,11 @@ export function allocateProgress(
   // An extension may have merged into a retained session under the same ID.
   // For unchanged work keep that whole allocation, not only its older basis
   // quantity; a report for another material must not redistribute its tail.
-  const retained = residual.filter((s) => s.date >= from);
+  const retained = [
+    ...residual.filter(s => s.date >= from && !rebalance.has(s.materialId)),
+    ...source.sessions.filter(s => s.kind === 'study' && s.date >= from && s.fixed &&
+      rebalance.has(s.materialId) && !comparisonIds.has(s.id)),
+  ];
   let capacityReleased = false;
   for (const [index, session] of retained.entries()) {
     if (!unchanged(session)) continue;
@@ -278,7 +293,8 @@ export function allocateProgress(
     .sort(bySlot)
     .filter(
       (s) =>
-        s.kind === 'study' && s.date >= from && !originalIds.has(s.id) && !comparisonIds.has(s.id),
+        s.kind === 'study' && s.date >= from && !originalIds.has(s.id) && !comparisonIds.has(s.id) &&
+        !rebalance.has(s.materialId),
     )) {
     const key = workKey(s.materialId, s.round);
     const count = Math.min(s.count, left[key] ?? 0);
@@ -344,6 +360,7 @@ export function allocateProgress(
       sessions: [...history, ...reviews, ...kept],
       remaining: allocatable,
       unplaced: reserved,
+      ...(rebalance.size ? { dailyQuantityBalance: true } : {}),
     });
     for (const short of unchangedShortfalls) {
       const generated = plan.shortfalls.find(
@@ -383,6 +400,7 @@ export function allocateProgress(
   plan.from = source.from;
   plan.notBefore = source.notBefore;
   plan.allocationStart = source.allocationStart;
+  if (source.dailyBalanceMaterialIds) plan.dailyBalanceMaterialIds = [...source.dailyBalanceMaterialIds];
   plan.adjustmentBasis = basis;
   plan.progressBaseline = createProgressBaseline(plan, state.records, from);
   plan.approvedAt = context.timestamp;

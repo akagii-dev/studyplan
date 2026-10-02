@@ -87,9 +87,10 @@ test('同revisionの保存競合で他端末の実績と入力途中の値を失
   await expect(book(other).getByRole('textbox')).toHaveValue('3');
   await counts(request, 4, 2, 24);
   await other.screenshot({ path: info.outputPath('lan-conflict.png'), fullPage: true });
-  await recovery.getByRole('button', { name: '入力を取り消して最新を読み込む' }).click();
+  await recovery.getByRole('button', { name: '最新の保存内容を読み込む' }).click();
   await expect(recovery).not.toBeVisible();
   await expect(book(other)).toContainText('4/6問');
+  await expect(book(other).getByRole('textbox')).toHaveValue('3');
   await record(other, 2);
   await counts(request, 6, 0, 24);
   await book(page).getByRole('textbox').fill('1');
@@ -100,7 +101,7 @@ test('同revisionの保存競合で他端末の実績と入力途中の値を失
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: '最新を読み込む', exact: true }).click();
   await expect(book(page)).toContainText('6/6問');
-  await expect(book(page).getByRole('textbox')).toHaveValue('');
+  await expect(book(page).getByRole('textbox')).toHaveValue('1');
   await other.close();
 });
 
@@ -114,7 +115,7 @@ test('通信断は保存済みにせず、入力とSQLiteを保持し復旧後�
   await expect(book(page).getByRole('textbox')).toHaveValue('4');
   expect((await stored(request)).data.records).toHaveLength(0);
   await context.setOffline(false);
-  await page.getByRole('button', { name: '入力を取り消して最新を読み込む' }).click();
+  await page.getByRole('button', { name: '最新の保存内容を読み込む' }).click();
   await expect(page.getByRole('dialog', { name: '保存状態の確認' })).not.toBeVisible();
   await record(page, 4);
   await counts(request, 4, 2, 24);
@@ -193,4 +194,86 @@ test('localhostのService Workerは表示ファイルだけを保持しAPIを保
     } catch { return true; }
   })).toBe(true);
   await context.setOffline(false);
+});
+
+async function holdRecordResponse(page: Page, count: number) {
+  let release!: () => void;
+  let committed!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const ready = new Promise<void>((resolve) => { committed = resolve; });
+  let held = false;
+  await page.route('**/api/commit_state', async (route) => {
+    const args = route.request().postDataJSON();
+    if (held || !args.data.records.some((entry: { materialId: string; count: number }) => entry.materialId === 'book' && entry.count === count)) {
+      await route.continue();
+      return;
+    }
+    held = true;
+    const response = await route.fetch();
+    committed();
+    await gate;
+    await route.fulfill({ response });
+  });
+  return { ready, release };
+}
+
+test('LAN記録の応答待ちに画面を往復しても共有busyと入力の保存完了を引き継ぐ', async ({ page, request }) => {
+  await open(page);
+  await book(page).getByRole('textbox').fill('4');
+  const hold = await holdRecordResponse(page, 4);
+  try {
+    await book(page).getByRole('button', { name: '記録', exact: true }).click();
+    await hold.ready;
+    expect((await stored(request)).data.records).toHaveLength(1);
+    await page.getByRole('button', { name: '記録履歴', exact: true }).click();
+    await page.getByRole('button', { name: '過去日の学習を記録' }).click();
+    await expect(page.getByLabel('追加問題数（1問単位）')).toBeDisabled();
+    await expect(page.getByRole('button', { name: '保存中…', exact: true })).toBeDisabled();
+    await page.getByRole('button', { name: '今日', exact: true }).click();
+    await expect(book(page).getByRole('textbox')).toHaveValue('4');
+    await expect(book(page).getByRole('textbox')).toBeDisabled();
+    hold.release();
+    await expect(book(page).getByRole('textbox')).toBeEnabled();
+    await expect(book(page).getByRole('textbox')).toHaveValue('');
+    await record(page, 2);
+    await counts(request, 6, 0, 24);
+    expect((await stored(request)).data.records).toHaveLength(2);
+  } finally { hold.release(); }
+});
+
+test('LAN過去日記録の応答待ちに別日の対象へ移っても旧完了callbackで対象を戻さない', async ({ page, request }) => {
+  const current = await stored(request);
+  const firstDay = addDays(adjustmentContext.date, -2);
+  const nextDay = addDays(adjustmentContext.date, -1);
+  await call(request, 'restore_backup', { expected: current.revision, requestId: crypto.randomUUID(),
+    text: JSON.stringify({ format: 'StudyPlanBackup', version: 1, createdAt: adjustmentContext.timestamp,
+      appVersion: '0.5.1', data: adjustmentFixture(firstDay) }) });
+  await open(page);
+  await page.getByRole('button', { name: '記録履歴', exact: true }).click();
+  await page.getByRole('button', { name: '過去日の学習を記録' }).click();
+  await page.getByLabel('記録対象日').fill(firstDay);
+  await page.getByLabel('追加問題数（1問単位）').fill('3');
+  await expect(page.locator('.save-status')).toContainText('Windowsに保存済み');
+  const hold = await holdRecordResponse(page, 3);
+  try {
+    await page.getByRole('button', { name: '記録する', exact: true }).click();
+    await hold.ready;
+    await page.getByRole('button', { name: '今後の予定', exact: true }).click();
+    await page.getByRole('button', { name: '詳細カレンダーを見る' }).click();
+    await page.getByRole('button', { name: `${nextDay}を表示`, exact: true }).click();
+    await page.locator('.day-panel .session-detail').filter({ hasText: '別問題集' }).getByRole('button', { name: '進捗を記録', exact: true }).click();
+    hold.release();
+    await expect(page.getByRole('heading', { name: '進捗の記録', exact: true })).toBeVisible();
+    await expect(page.getByLabel('記録対象日')).toHaveValue(nextDay);
+    await expect(page.getByLabel('教材', { exact: true })).toHaveValue('other');
+    await expect(page.getByLabel('追加問題数（1問単位）')).toHaveValue('');
+    await page.getByLabel('追加問題数（1問単位）').fill('2');
+    await page.getByRole('button', { name: '記録する', exact: true }).click();
+    await expect(page.locator('.progress-result')).toContainText('＋2問を記録しました');
+    const records = (await stored(request)).data.records;
+    expect(records).toHaveLength(2);
+    expect(records.map(({ date, materialId, count }) => ({ date, materialId, count }))).toEqual([
+      { date: firstDay, materialId: 'book', count: 3 }, { date: nextDay, materialId: 'other', count: 2 },
+    ]);
+  } finally { hold.release(); }
 });

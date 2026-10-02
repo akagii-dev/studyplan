@@ -13,8 +13,7 @@ async function navigate(page: Page, name: string) {
 }
 async function futureWeek(page: Page) {
   await navigate(page, '今後の予定');
-  if ((await page.locator('.future-week time').getAttribute('datetime')) !== '2026-09-20')
-    await navigate(page, '前の週');
+  await expect(page.locator('.future-week time')).toHaveAttribute('datetime', contractDay);
 }
 const dayList = (page: Page, date: string) =>
   page
@@ -39,13 +38,14 @@ async function inspectScreens(page: Page, actual: number | null, pastActual: num
     actual,
     null,
   );
+  for (const amount of await dayList(page, contractFuture).locator('li > strong').all())
+    await expect(amount).toHaveText(/^\d+問$/);
+  await navigate(page, '前の週');
   await progress(
     dayList(page, contractPast).locator('li').filter({ hasText: '一部の教材' }),
     pastActual,
     pastActual === null ? null : 10 - pastActual,
   );
-  for (const amount of await dayList(page, contractFuture).locator('li > strong').all())
-    await expect(amount).toHaveText(/^\d+問$/);
   await page.getByRole('button', { name: '詳細カレンダーを見る' }).focus();
   const scroll = await page.evaluate(() => window.scrollY);
   await navigate(page, '詳細カレンダーを見る');
@@ -77,7 +77,7 @@ async function inspectScreens(page: Page, actual: number | null, pastActual: num
     );
   await expect(page.locator('main')).not.toContainText(/基準なし|実績あり/);
   await navigate(page, '← 今後の予定へ戻る');
-  await expect(page.locator('.future-week time')).toHaveAttribute('datetime', '2026-09-20');
+  await expect(page.locator('.future-week time')).toHaveAttribute('datetime', '2026-09-17');
   expect(Math.abs((await page.evaluate(() => window.scrollY)) - scroll)).toBeLessThan(3);
   await navigate(page, '設定');
   await navigate(page, '週間レポート');
@@ -128,6 +128,7 @@ test('同一fixtureを各画面で照合し、履歴の訂正・取消・再読�
   ).toEqual([]);
   await page.screenshot({ path: info.outputPath('weekly-report.png'), fullPage: true });
   await futureWeek(page);
+  await navigate(page, '前の週');
   await dayList(page, contractPast).getByRole('button').click();
   await navigate(page, '学習量');
   await page.screenshot({ path: info.outputPath('calendar.png'), fullPage: true });
@@ -250,6 +251,7 @@ test('再配分後も履歴の不足を残し、取得不能な旧データは�
   );
   await page.reload();
   await futureWeek(page);
+  await navigate(page, '前の週');
   const row = dayList(page, contractPast).locator('li').filter({ hasText: '一部の教材' });
   await expect(row.locator('.progress-value')).toHaveText('6問');
   await expect(

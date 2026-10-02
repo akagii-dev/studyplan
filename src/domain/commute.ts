@@ -1,5 +1,6 @@
 import { mealEvents } from './mealEvents';
 import { Commute, Settings, addDays, today, weekday, clock } from './model';
+import { classesForDate, classCancellationErrors } from './classCancellations';
 
 export const defaultCommute = (): Commute => ({
   enabled: false,
@@ -43,10 +44,7 @@ export function commuteEvents(settings: Settings, date: string) {
   for (const offset of [-1, 0, 1]) {
     const day = addDays(date, offset);
     if (day < c.from || day > c.to) continue;
-    const classes = settings.windows.filter(
-      (w) =>
-        w.kind === 'class' && w.from <= day && day <= w.to && w.weekdays.includes(weekday(day)),
-    );
+    const classes = classesForDate(settings, day);
     if (c.mode === 'classDays' ? !classes.length : !c.weekdays.includes(weekday(day))) continue;
     const outbound =
       c.mode === 'classDays' && !c.departureTimesConfirmed
@@ -71,11 +69,12 @@ export function commuteEvents(settings: Settings, date: string) {
 
 export function commuteScheduleErrors(settings: Settings): string[] {
   const c = settings.commute;
-  if (!c?.enabled || commuteErrors(c).length) return [];
+  if (!c?.enabled || commuteErrors(c).length || classCancellationErrors(settings).length) return [];
   if (c.mode === 'classDays' && !c.departureTimesConfirmed)
     return ['通学の往路・復路の出発時刻を対話で確認してください。'];
   const errors: string[] = [];
-  // Recurring meals are daily: one matching date for each weekday suffices for each class period.
+  // Probe each weekday again after a cancellation ends, so a cancelled first week cannot
+  // hide a later commute/meal conflict. There is no need to scan an entire multi-year period.
   const ranges =
     c.mode === 'weekdays'
       ? [{ from: c.from, to: c.to, weekdays: c.weekdays }]
@@ -83,8 +82,13 @@ export function commuteScheduleErrors(settings: Settings): string[] {
   for (const range of ranges) {
     const from = range.from > c.from ? range.from : c.from,
       to = range.to < c.to ? range.to : c.to;
-    for (let i = 0; i < 7; i++) {
-      const day = addDays(from, i);
+    const starts = new Set([from]);
+    if (c.mode === 'classDays')
+      for (const item of settings.classCancellations ?? [])
+        if (item.to >= from && item.to < to) starts.add(addDays(item.to, 1));
+    const days = new Set([...starts].flatMap((start) =>
+      Array.from({ length: 7 }, (_, i) => addDays(start, i))));
+    for (const day of days) {
       if (day > to || !range.weekdays.includes(weekday(day))) continue;
       for (const offset of [0, 1]) {
         const date = addDays(day, offset);

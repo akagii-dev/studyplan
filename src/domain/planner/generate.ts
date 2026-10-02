@@ -14,7 +14,8 @@ import { PLAN_CALCULATION_VERSION, sessionPolicy, sessionUnitCount } from '../se
 import { weeklyCapacities } from '../weeklyCapacity';
 import { capacityForDate } from './capacity';
 import { PlanningContext } from './context';
-import { datesBetween, subtractIntervals } from './intervals';
+import { datesBetween, mergeIntervals, subtractIntervals } from './intervals';
+import { dailyWaterfill } from './dailyWaterfill';
 import { validateSettings } from './validation';
 import { createProgressBaseline } from '../progressReflection';
 const EPS = 1e-7;
@@ -30,6 +31,8 @@ export interface RetainedAllocation {
   allowReportedDay?: boolean;
   /** Targeted adjustment keeps unrelated retained sessions separate from new work. */
   preserveSessionBoundaries?: boolean;
+  /** Explicit redistribution balances final daily quantities; ordinary adjustment keeps its scope. */
+  dailyQuantityBalance?: boolean;
 }
 export function generatePlan(
   state: AppState,
@@ -189,6 +192,29 @@ export function generatePlan(
     a.exam.id === b.exam.id &&
     (a.m.order < b.m.order ||
       (a.m.order === b.m.order && (a.m.id < b.m.id || (a.m.id === b.m.id && a.round < b.round))));
+  const taskBounds = new Map(tasks.map((task) => {
+    let first = { date: from, time: notBefore }, last = { date: deadline(task), time: 1440 };
+    if (retention) for (const session of kept) {
+      if (session.kind !== 'study' || session.count <= 0 || session.date < from) continue;
+      const other = tasks.find((t) => t.m.id === session.materialId && t.round === session.round);
+      if (!other) continue;
+      if (precedes(other, task) && (session.date > first.date ||
+        (session.date === first.date && session.end > first.time)))
+        first = { date: session.date, time: session.end };
+      if (precedes(task, other) && (session.date < last.date ||
+        (session.date === last.date && session.start < last.time)))
+        last = { date: session.date, time: session.start };
+    }
+    return [task, { first, last }];
+  }));
+  // Physical opportunity only: apply the weekly ceiling once after combining intervals.
+  const taskInterval = (task: (typeof tasks)[number], date: string, a: number, b: number): Interval | null => {
+    const { first, last } = taskBounds.get(task)!;
+    if (!eligible(task, date) || date < first.date || date > last.date) return null;
+    const start = date === first.date ? Math.max(a, first.time) : a;
+    const end = date === last.date ? Math.min(b, last.time) : b;
+    return end - start + EPS >= task.minutes ? [start, end] : null;
+  };
   const canStart = (t: (typeof tasks)[number], date: string, time: number) =>
     !tasks.some(
       (p) =>
@@ -206,17 +232,8 @@ export function generatePlan(
   // Kept successors are an upper bound for new predecessor work. Do not insert
   // an earlier round after an already reserved later round.
   const availableRoom = (t: (typeof tasks)[number], date: string, start: number, end: number) => {
-    let room = Math.min(end - start, weeklyRoom(date));
-    if (retention)
-      for (const x of kept) {
-        const successor = tasks.find(
-          (other) => other.m.id === x.materialId && other.round === x.round,
-        );
-        if (x.kind !== 'study' || x.date < from || !successor || !precedes(t, successor)) continue;
-        if (x.date < date) return 0;
-        if (x.date === date) room = Math.min(room, x.start - start);
-      }
-    return Math.max(0, room);
+    const interval = taskInterval(t, date, start, end);
+    return !interval || interval[0] > start + EPS ? 0 : Math.max(0, Math.min(interval[1] - start, weeklyRoom(date)));
   };
   const normalCount = (
     t: (typeof tasks)[number],
@@ -241,7 +258,7 @@ export function generatePlan(
     const minimum = neighbour
       ? Math.max(0, policy.minimum - (neighbour.end - neighbour.start))
       : policy.minimum;
-    const count = sessionUnitCount(
+    let count = sessionUnitCount(
       t.left,
       t.minutes,
       allocation === 'balanced'
@@ -250,6 +267,22 @@ export function generatePlan(
       quota,
       { ...policy, minimum },
     );
+    // The daily quota also crosses concentration blocks. Reserve enough of it
+    // for a normal next session instead of losing a one-unit daily tail.
+    if (retention?.dailyQuantityBalance && count > 0 && quota > room + EPS &&
+      quota - count * t.minutes > EPS && quota - count * t.minutes < policy.minimum - EPS) {
+      const adjusted = Math.floor((quota - policy.minimum + EPS) / t.minutes);
+      count = adjusted * t.minutes >= minimum - EPS ? Math.min(count, adjusted) : 0;
+    }
+    // Leave a normal-duration tail for the next block when this block cannot
+    // finish the round. A sub-minimum predecessor would otherwise stop every
+    // later round until the chronological fallback pass.
+    if (retention?.dailyQuantityBalance && count > 0 && count < t.left &&
+      (t.left - count) * t.minutes < policy.minimum - EPS && t.left * t.minutes > room + EPS) {
+      const tail = Math.ceil((policy.minimum - EPS) / t.minutes);
+      const adjusted = t.left - tail;
+      count = adjusted * t.minutes >= minimum - EPS ? Math.min(count, adjusted) : 0;
+    }
     // Complete a small remainder together, but do not inflate every daily share
     // to the preferred session duration. The quota is a target, not a hard limit.
     return count > 0 &&
@@ -267,6 +300,47 @@ export function generatePlan(
       return [cap.date, subtractIntervals(cap.slots, busy)];
     }),
   );
+  const usableIntervals = (group: typeof tasks, c: Capacity) =>
+    mergeIntervals((freeSlots.get(c.date) ?? []).flatMap(([a, b]) => group.flatMap((task) => {
+      const interval = taskInterval(task, c.date, a, b);
+      return interval ? [interval] : [];
+    })));
+  const usable = (group: typeof tasks, c: Capacity) =>
+    usableIntervals(group, c).reduce((n, [a, b]) => n + b - a, 0);
+  const opportunity = (group: typeof tasks, caps: Capacity[]) => {
+    const byWeek = new Map<string, number>();
+    for (const c of caps) {
+      const week = weekStart(c.date);
+      byWeek.set(week, (byWeek.get(week) ?? 0) + usable(group, c));
+    }
+    return [...byWeek].reduce((n, [week, minutes]) => n + Math.min(minutes, weeklyRoom(week)), 0);
+  };
+  // A retained successor gives earlier work a different deadline of its own.
+  // Combining it with later work would hide that bound in the quota denominator.
+  // Different retained predecessors only delay the start of later work: they
+  // must not give sequential work independent quotas extending to the same end.
+  // taskInterval still applies each task's first boundary to physical capacity.
+  const bucketKey = (t: (typeof tasks)[number]) => JSON.stringify([
+    t.exam.id, retention?.dailyQuantityBalance ? (t.m.unit ?? '問') : '', taskBounds.get(t)!.last,
+  ]);
+  const bucketTasks = new Map<string, typeof tasks>();
+  const balancedMaterials = new Set(tasks.filter((t) => t.left > 0).map((t) => t.m.id));
+  for (const task of tasks) {
+    const key = bucketKey(task);
+    bucketTasks.set(key, [...(bucketTasks.get(key) ?? []), task]);
+  }
+  const ordered = (group: typeof tasks) => [...group].sort((a, b) =>
+    a.m.order - b.m.order || a.m.id.localeCompare(b.m.id) || a.round - b.round);
+  const minutesForUnits = (group: typeof tasks, count: number) => {
+    let minutes = 0;
+    for (const task of ordered(group)) {
+      const units = Math.min(count, task.left);
+      minutes += units * task.minutes;
+      count -= units;
+      if (count <= 0) break;
+    }
+    return minutes;
+  };
   const quotaCarry = new Map<string, number>();
   for (const cap of capacities) {
     const fixed = kept.filter((x) => x.date === cap.date);
@@ -295,10 +369,6 @@ export function generatePlan(
     // The weekly ceiling contributes to the daily target, without reserving or
     // removing any physical slots. Carry whole-unit/minimum-session rounding
     // forward instead of filling the start of the week with preferred blocks.
-    const usable = (group: typeof tasks, c: Capacity) =>
-      (freeSlots.get(c.date) ?? [])
-        .filter(([a, b]) => group.some((t) => eligible(t, c.date) && t.minutes <= b - a + EPS))
-        .reduce((n, [a, b]) => n + b - a, 0);
     const open = tasks.filter((t) => t.left > 0);
     const futureCaps = capacities.filter((c) => c.date >= cap.date);
     const weekFree = new Map<string, number>();
@@ -308,34 +378,49 @@ export function generatePlan(
     }
     const weight = (c: Capacity) =>
       Math.min(1, weeklyRoom(c.date) / Math.max(1, weekFree.get(weekStart(c.date)) ?? 0));
-    const shares = s.exams.map((e) => {
-      const group = tasks.filter((t) => t.exam.id === e.id && t.left > 0);
+    const shares = [...bucketTasks].map(([id, all]) => {
+      const group = all.filter((t) => t.left > 0);
       const need = group.reduce((n, t) => n + t.left * t.minutes, 0);
       const today = usable(group, cap);
       const future = futureCaps.reduce((n, c) => n + usable(group, c) * weight(c), 0);
-      const carry = Math.min(need, quotaCarry.get(e.id) ?? 0);
-      const share =
+      const carry = Math.min(need, quotaCarry.get(id) ?? 0);
+      let share =
         today > 0
           ? Math.max(0, carry + ((need - carry) * today * weight(cap)) / Math.max(EPS, future))
           : 0;
+      let units: number | undefined;
+      if (retention?.dailyQuantityBalance && group.length) {
+        const quantity = group.reduce((n, t) => n + t.left, 0);
+        // Different round speeds affect the capacity estimate. Exact placement
+        // below always uses that round's duration and re-fills the remaining days.
+        const minutes = need / quantity;
+        const days = futureCaps.map((c) => ({
+          date: c.date,
+          week: weekStart(c.date),
+          base: kept.filter((s) => s.kind === 'study' && s.date === c.date &&
+            balancedMaterials.has(s.materialId) && all.some((t) =>
+            t.exam.id === s.examId && (t.m.unit ?? '問') ===
+            (tasks.find((other) => other.m.id === s.materialId)?.m.unit ?? '問')))
+            .reduce((n, s) => n + s.count, 0),
+          capacity: usableIntervals(group, c).reduce((n, [a, b]) => {
+            const fits = Math.floor((b - a + EPS) / minutes);
+            return n + (fits * minutes >= policy.minimum - EPS ? fits : 0);
+          }, 0),
+        }));
+        const weekLimits = new Map(days.map((day) =>
+          [day.week, Math.floor((weeklyRoom(day.date) + EPS) / minutes)]));
+        units = dailyWaterfill(quantity, days, weekLimits).get(cap.date) ?? 0;
+        share = minutesForUnits(group, units);
+      }
       // Work whose deadline cannot be met using later slots may exceed its
       // fair share today. Overloaded tasks do not claim impossible demand.
-      const opportunity = (afterToday: boolean) => {
-        const byWeek = new Map<string, number>();
-        for (const c of futureCaps) {
-          if (afterToday && c.date === cap.date) continue;
-          const week = weekStart(c.date);
-          byWeek.set(week, (byWeek.get(week) ?? 0) + usable(group, c));
-        }
-        return [...byWeek].reduce(
-          (n, [week, minutes]) => n + Math.min(minutes, weeklyRoom(week)),
-          0,
-        );
-      };
-      const urgent = Math.max(0, Math.min(need, opportunity(false)) - opportunity(true));
-      return { id: e.id, need, share, urgent };
+      const urgent = Math.max(0, Math.min(need, opportunity(group, futureCaps)) -
+        opportunity(group, futureCaps.filter((c) => c.date > cap.date)));
+      return { id, need, share, urgent, units };
     });
-    const target = usable(open, cap) * weight(cap);
+    const target = retention?.dailyQuantityBalance
+      ? Math.min(usable(open, cap), weeklyRoom(cap.date))
+      : usable(open, cap) * weight(cap);
     const urgentTotal = shares.reduce((n, x) => n + x.urgent, 0);
     const flexibleTotal = shares.reduce((n, x) => n + Math.max(0, x.share - x.urgent), 0);
     const scale = Math.min(1, Math.max(0, target - urgentTotal) / Math.max(EPS, flexibleTotal));
@@ -356,11 +441,11 @@ export function generatePlan(
             normalCount(
               t,
               availableRoom(t, cap.date, cursor, end),
-              (quota.get(t.exam.id) || 0) - (used.get(t.exam.id) || 0),
+              (quota.get(bucketKey(t)) || 0) - (used.get(bucketKey(t)) || 0),
               cap,
               cursor,
             ) > 0 &&
-            (used.get(t.exam.id) || 0) < (quota.get(t.exam.id) || 0) - EPS &&
+            (used.get(bucketKey(t)) || 0) < (quota.get(bucketKey(t)) || 0) - EPS &&
             canStart(t, cap.date, cursor),
         );
         candidates.sort((a, b) => {
@@ -368,9 +453,7 @@ export function generatePlan(
             (t.left * t.minutes) /
             Math.max(
               1,
-              capacities
-                .filter((c) => c.date >= cap.date && eligible(t, c.date))
-                .reduce((n, c) => n + c.allocatable, 0),
+              opportunity([t], futureCaps),
             );
           return (
             pressure(b) * (1 + b.exam.priority * 0.15) -
@@ -382,7 +465,7 @@ export function generatePlan(
         const count = normalCount(
           t,
           availableRoom(t, cap.date, cursor, end),
-          (quota.get(t.exam.id) || 0) - (used.get(t.exam.id) || 0),
+          (quota.get(bucketKey(t)) || 0) - (used.get(bucketKey(t)) || 0),
           cap,
           cursor,
         );
@@ -402,7 +485,7 @@ export function generatePlan(
         });
         cursor += length;
         t.left -= count;
-        used.set(t.exam.id, (used.get(t.exam.id) || 0) + length);
+        used.set(bucketKey(t), (used.get(bucketKey(t)) || 0) + length);
       }
     }
     for (const [examId, minutes] of quota)

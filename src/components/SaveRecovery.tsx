@@ -49,7 +49,7 @@ export function SaveRecovery({
           <>
             <h2>{checking ? '保存内容を確認しています…' : conflict ? '別の端末で更新されました' : '保存状態を確認できません'}</h2>
             <p>{conflict
-              ? 'この画面の入力は未保存です。最新を読み込むと、この画面の入力を取り消します。'
+              ? '記録欄の入力は保持します。最新を読み込むと、未保存の設定変更は取り消されます。'
               : '最後の変更を保存できたか不明です。確認できるまで編集を止めています。'}</p>
             {!conflict && <p>保存済みの内容を読み直した後、反映されていない変更は入力し直してください。</p>}
             {detail && (
@@ -60,7 +60,7 @@ export function SaveRecovery({
             )}
             <div className="actions">
               <button autoFocus className="primary" disabled={checking} onClick={retry}>
-                {preserveInput ? '入力を取り消して最新を読み込む' : '保存済みの内容を読み直す'}
+                {preserveInput ? '最新の保存内容を読み込む' : '保存済みの内容を読み直す'}
               </button>
               {!lanMode && <button disabled={checking} onClick={() => setConfirmClose(true)}>
                 保存を確認せずに終了

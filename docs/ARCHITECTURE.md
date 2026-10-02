@@ -83,7 +83,7 @@ LAN APIと起動手順は[配信手順](RELEASING.md#lan版のローカル配信
 
 UIからの調整は `pastRemainingWork()` → `proposePastRemainingAdjustment()` を使い、反映基準に残る昨日以前の未消化分だけを選ぶ。通常繰越後は過去比較枠を選び直さない。今日・未来・未配置分の個別選択と配置先確認欄は撤去し、残量表示だけを共通化する。保存済み部分案には任意の `purpose: 'past-only'` を付け、従来案の互換を維持する。`validatePastRemainingAllocation()` は今日以降の保持量・日時の不変を検査し、時刻経過だけの保持枠には共通の時刻以外の検証を適用する。新しい配置先には通常の現在時刻検証を適用する。`reproposeRemainingAdjustment()` は元計画・設定・実績のfingerprintを照合し、明示された昨日以前の追加対象と既存対象から案を更新する。別の残量台帳は追加しない。
 
-未消化分の反映も `usePersistentAppState` の読込・復帰・日付更新境界から `planning.reconcilePlanning()` → `progressAdjustment.reconcilePlanning()` → `prepareAdjustment()` / `allocateProgress()` を通す。表示やselectorには副作用を置かない。実績を生成せず、意味のある配置変更だけ履歴へ残し、同じ条件の再実行では同じstateを返す。計算保留の理由とSQLiteの保存未確認は別責務とし、保存キュー・競合復旧を共用する。
+未消化分の反映も `usePersistentAppState` の読込・復帰・日付更新境界から `planning.reconcilePlanning()` → `progressAdjustment.reconcilePlanning()` → `prepareAdjustment()` / `allocateProgress()` を通す。表示やselectorには副作用を置かない。実績を生成せず、意味のある配置変更だけ履歴へ残し、同じ条件の再実行では同じstateを返す。計算保留の理由とSQLiteの保存未確認は別責務とし、保存キュー・競合復旧を共用する。`Dashboard`は日付越えの`currentPlanReconciliation()`も参照し、実績登録を伴わない保留を「実績保存成功」と表示しない。`Future`と同じ保存済みの保留理由を使い、確定計画保持と確認先を知らせる。`allocateProgress()` は `activePlanWork()` で求めた当日の未消化枠を共通 `fixedOrderIssue()` で照合し、当日保持と順序を両立できなければ原計画を保つ既存の未反映経路へ戻す。`generatePlan()` の日次目安は同一試験・同一終了境界で共有し、開始境界は `taskInterval` / `canStart` の実配置制約として適用する。
 
 全体の仕切り直しは `planning.proposeRestart()` → `planner/proposal.proposeRestart()` → `planRestart.calculateRestart()` → 既存の `approve()`。開始境界と元計画・実績・設定の前提を保持し、承認時に再検証する。`remainingWork()` は教材・周回・単位別のT/C/R/A/Uと整合性を返す。UIに計算式を複製しない。`comparePlans()` の比較開始を操作日へ指定することで、新開始日より前から取り除く予定も差分に含める。計算は `PlanningContext` だけを日時の入力とし、保存・Reactへ依存しない。
 
@@ -178,3 +178,12 @@ SQLiteのテーブル・保存キーは維持する。任意項目 departureTime
 `calendarQuantity.ts` は日別の数量比較と確定基準の保持を担当する。参照日を引数に渡せる純粋処理として計画生成から分離する。記録・承認・復元の既存更新境界から基準保持を呼び、表示コンポーネントからは呼ばない。`CalendarQuantity.tsx` は同じ集計結果の概要と教材別内訳を描画し、`Calendar.tsx` が既存の日付・表示範囲・フィルターを共有する。`Future.tsx` の選択週はAppの画面状態へ保持し、既存の戻る位置復元を利用する。
 
 計算の再現性・非破壊性と質問遷移、指定出発時刻、食事との重複、日またぎ、旧設定の再確認、承認時の再検証を単体テストで確認する。SQLiteを使った実機テストで保存・再起動・質問操作・既存機能を確認する。結果は [VALIDATION.md](VALIDATION.md) に記録する。
+
+
+### 再開実装の共通境界（2026-10-03）
+
+`dailyWaterfill`と`generatePlan`は実枠・保持境界・週予算・周回順序を共有し、現在計算版は13。`calculateFutureBalance`は明示対象を案へまとめ、空き容量→数量保持の組替え→必要最小削減の順で探索する。`validateBalancedRemainingAllocation`は未配置だけの教材も順序依存の保持/影響試験へ含める。`approve`で再算定した対象と数量を照合し、画面stale判定に探索を入れない。
+
+記録フォームは`StudyRecordForm`・`useStudyRecord`を共用する。`StudyRecordMemory`はAppのreloadEpochより上で、入力・記録ID・送信ロックと入力世代を共有する。`useSyncExternalStore`で再mount後もbusyと入力変更を通知し、旧フォーム完了が新対象を上書きしない。Appの対象変更・明示復元も共通通知APIを使う。保存キューとrevisionは`usePersistentAppState`が所有し、対応する記録の保存確認だけで旧保存失敗通知を解除する。
+
+`classCancellations`は日付両端・授業対象・重複を共通検証し、容量・時間割・通学・ICSで有効授業を選ぶ。Rustは確定設定と計画snapshotを全体検証し、未完成のrevision/proposal下書きには休講項目検証だけを追加して旧入力途中の関係を保持する。SQLite表や正本は変更しない。

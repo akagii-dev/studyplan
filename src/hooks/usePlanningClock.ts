@@ -18,10 +18,12 @@ export function usePlanningClock() {
     };
     refresh();
     window.addEventListener('focus', refresh);
+    window.addEventListener('pageshow', refresh);
     document.addEventListener('visibilitychange', refresh);
     return () => {
       clearTimeout(timer);
       window.removeEventListener('focus', refresh);
+      window.removeEventListener('pageshow', refresh);
       document.removeEventListener('visibilitychange', refresh);
     };
   }, []);

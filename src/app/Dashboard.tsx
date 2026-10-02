@@ -3,7 +3,7 @@ import { Props, duration } from '../components/common';
 import { ShortfallDetails } from '../components/ShortfallDetails';
 import { TodayRecorder, RecordTarget } from '../components/TodayRecorder';
 import { today } from '../domain/model';
-import { currentProgressAdjustment } from '../domain/progressAdjustment';
+import { currentPlanReconciliation, currentProgressAdjustment } from '../domain/progressAdjustment';
 import { Page } from './navigation';
 
 export function Dashboard({
@@ -23,11 +23,18 @@ export function Dashboard({
       </section>
     );
 
+  const reconciliation = currentPlanReconciliation(state);
   const result = currentProgressAdjustment(state);
   const reviews = state.plan.sessions.filter((session) => session.date === today() && session.kind === 'review');
   return (
     <div className="daily-page">
-      {(result?.status === 'review' || result?.status === 'failed') && (
+      {reconciliation?.status === 'blocked' ? (
+        <div className="daily-adjustment" role="status">
+          <strong>調整未反映・要確認。現在の計画を保持しています。</strong>
+          {reconciliation.detail && <p>{reconciliation.detail}</p>}
+          <button onClick={() => navigate('future')}>今後の予定を確認</button>
+        </div>
+      ) : (result?.status === 'review' || result?.status === 'failed') && (
         <div className="daily-adjustment" role="status">
           {result.status === 'failed' ? '実績は保存されました。予定調整に失敗しました。' : '予定の確認が必要です。'}
           {result.status === 'failed' ? (

@@ -1,4 +1,6 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
+import * as remainingAllocationModule from '../src/domain/remainingAllocation';
+import { calculateFutureBalance } from '../src/domain/futureBalance';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ProgressReceiptView, receiptOutcome } from '../src/components/ProgressReceiptView';
@@ -17,6 +19,7 @@ import {
   remainingOccupiedSessions,
 } from '../src/domain/progressAllocation';
 import { calculateRestart } from '../src/domain/planRestart';
+import { validateBalancedRemainingAllocation } from '../src/domain/remainingAllocation';
 import { displayPlanSessions } from '../src/domain/planDisplay';
 import { comparePlans } from '../src/domain/planComparison';
 import { remainingWork } from '../src/domain/remainingWork';
@@ -26,7 +29,7 @@ import { capacityForDate, capacityForWeek } from '../src/domain/planner/capacity
 import { generatePlan } from '../src/domain/planner/generate';
 import { startOfWeek } from '../src/domain/calendar';
 import { createProgressBaseline, reflectProgress } from '../src/domain/progressReflection';
-import { approve, propose, proposeRemainingAdjustment, reproposeRemainingAdjustment, proposePastRemainingAdjustment, proposeRestart } from '../src/domain/planner/proposal';
+import { approve, propose, restartProposalStaleReason, proposeRemainingAdjustment, reproposeRemainingAdjustment, proposePastRemainingAdjustment, proposeRestart, proposeBalancedRemaining } from '../src/domain/planner/proposal';
 import {
   remainingSessionIssue,
   remainingBasisIssue,
@@ -46,6 +49,8 @@ import {
   adjustmentReport,
   restartFixture,
   remainingPlacementFixture,
+  priorityReductionFixture,
+  multiDayRolloverFixture,
 } from './fixtures/adjustment';
 
 it('予定6に4問を追加しても、他の教材・周回と未来24問の配置を変えない', () => {
@@ -161,6 +166,80 @@ it('日付越え後の部分4問で容量不足6問を隠さず、今日2・未�
       .reduce((n, s) => n + s.count, 0),
   ).toBe(2);
 });
+function balancedFutureFixture(fixed = false) {
+  const state = adjustmentFixture();
+  const book = state.settings.materials[0];
+  book.total = 60;
+  book.rounds = [{ completed: 0, minutes: 6 }];
+  state.plan!.sessions = state.plan!.sessions.filter(s => s.materialId !== 'book' || s.date <= addDays(day, 2));
+  for (const session of state.plan!.sessions.filter(s => s.materialId === 'book')) {
+    session.round = 0;
+    session.count = session.date === day ? 6 : session.date === addDays(day, 1) ? 30 : 24;
+    session.start = 540; session.end = session.start + session.count * 6;
+  }
+  // The committed source is valid; several consecutive blocks express the skew.
+  const template = state.plan!.sessions.find(s => s.materialId === 'book')!;
+  state.plan!.sessions = state.plan!.sessions.filter(s => s.materialId !== 'book');
+  for (let index = 0; index < 10; index++) {
+    const quantity = index === 0 ? 6 : index <= 3 ? 18 : 0;
+    if (quantity) for (let part = 0; part < 3; part++) {
+      const count = quantity / 3;
+      state.plan!.sessions.push({ ...template, id: `balance-${index}-${part}`, date: addDays(day,index),
+        start: 540 + part * 40, end: 540 + part * 40 + count * 6, count, round: 0, fixed: fixed && index === 2 });
+    }
+  }
+  state.settings.windows[0].end = 900;
+  state.settings.block = 120; state.settings.rest = 10;
+  state.plan!.settingsSnapshot = structuredClone(state.settings);
+  state.plan!.sessions.filter(s => s.materialId === 'other').forEach(s => { s.start = 800; s.end = 827; });
+  state.plan!.progressBaseline = createProgressBaseline(state.plan!, state.records);
+  delete state.plan!.adjustmentBasis;
+  return state;
+}
+
+it.each([false, true])('明示した可動未来だけを平準化し固定%s・当日・他教材・実績を保持する', fixed => {
+  const source = balancedFutureFixture(fixed);
+  const original = structuredClone(source);
+  const from = addDays(day,1);
+  const candidate = proposeBalancedRemaining(source, ['book'], from, adjustmentContext);
+  expect(source).toEqual(original);
+  expect(candidate.plan).toBe(source.plan);
+  expect(candidate.proposal!.basis).toMatchObject({ purpose: 'balance-future', balanceMaterialIds: ['book'] });
+  validateBalancedRemainingAllocation(candidate, candidate.proposal!.plan, adjustmentContext);
+  let state = approve(candidate, false, adjustmentContext);
+  conservation(state);
+  expect(state.records).toEqual(source.records);
+  expect(state.plan!.dailyBalanceMaterialIds).toEqual(['book']);
+  for (const held of activePlanWork(source, day).filter(s => s.materialId === 'other' || s.date === day || s.fixed))
+    expect(activePlanWork(state, day).find(s => s.id === held.id)).toEqual(held);
+  const totals = Array.from({ length:9 }, (_,index) => activePlanWork(state,day)
+    .filter(s => s.materialId==='book' && s.date===addDays(from,index)).reduce((n,s)=>n+s.count,0));
+  if (!fixed) expect(Math.max(...totals)-Math.min(...totals)).toBeLessThanOrEqual(1);
+  const preserved = source.plan!.sessions.filter(s => s.materialId==='other');
+  state = recordAndAdjust(state, { ...adjustmentReport(30, 'balanced-add'), materialId:'book',round:0 }, adjustmentContext);
+  conservation(state);
+  expect(state.plan!.sessions.filter(s => s.materialId==='other')).toEqual(preserved);
+  state = correctAndAdjust(restoreAllocation(state), 'balanced-add', 20, false, adjustmentContext);
+  conservation(state);
+  state = correctAndAdjust(restoreAllocation(state), 'balanced-add', 20, true, adjustmentContext);
+  conservation(state);
+  expect(state.plan!.dailyBalanceMaterialIds).toEqual(['book']);
+  expect(reconcilePlanning(restoreAllocation(state), adjustmentContext)).toEqual(state);
+});
+
+it('均等配分案は前提変更・対象外改ざん・開始時刻経過を承認できない', () => {
+  const source = balancedFutureFixture();
+  const candidate = proposeBalancedRemaining(source,['book'],addDays(day,1),adjustmentContext);
+  const changed = structuredClone(candidate);
+  changed.records.push({ ...adjustmentReport(1,'after-proposal') });
+  expect(() => approve(changed,false,adjustmentContext)).toThrow('変わりました');
+  const tampered = structuredClone(candidate);
+  tampered.proposal!.plan.sessions.find(s => s.materialId==='other')!.start++;
+  expect(() => approve(tampered,false,adjustmentContext)).toThrow('保持対象');
+  expect(() => approve(candidate,false,{ ...adjustmentContext,date:addDays(day,1) })).toThrow('変わりました');
+  expect(reproposeRemainingAdjustment(candidate,[],addDays(day,1),adjustmentContext).plan).toBe(source.plan);
+});
+
 const count = (state: AppState, materialId: string, round: number, date = day) =>
   activePlanWork(state, date)
     .filter((s) => s.materialId === materialId && s.round === round)
@@ -1445,3 +1524,191 @@ it.each([false, true])(
     }
   },
 );
+
+
+it.each([30, 40])('期限内%d分では低優先の必要量だけ削減し未配置へ一度移す', capacity => {
+  const state = priorityReductionFixture(day);
+  state.settings.windows[0].end = 540 + capacity;
+  state.settings.block = capacity;
+  state.plan!.settingsSnapshot = structuredClone(state.settings);
+  const original = structuredClone(state);
+  const result = calculateFutureBalance(state, ['book'], addDays(day,1), adjustmentContext, true);
+  expect(state).toEqual(original);
+  const counts = (id: string) => result.plan.sessions.filter(s => s.materialId === id).reduce((n,s)=>n+s.count,0);
+  expect(counts('book')).toBe(2);
+  expect(counts('other')).toBe(capacity === 30 ? 1 : 2);
+  expect(result.plan.shortfalls.filter(s => s.materialId === 'book')).toEqual([]);
+  const low = result.plan.shortfalls.filter(s => s.materialId === 'other');
+  expect(low.reduce((n,s)=>n+s.count,0)).toBe(capacity === 30 ? 1 : 0);
+  expect(counts('other') + low.reduce((n,s)=>n+s.count,0)).toBe(2);
+  expect(result.plan.conflicts).toEqual([]);
+});
+
+it('1500候補で最小性を確定できなければ削減なし案へ戻る', () => {
+  const state = priorityReductionFixture(day);
+  state.settings.materials.find(m => m.id === 'other')!.total = 1600;
+  state.plan!.sessions.find(s => s.materialId === 'other')!.count = 1600;
+  state.plan!.sessions.find(s => s.materialId === 'other')!.end = 16550;
+  const before = structuredClone(state);
+  const originalPlan = structuredClone(state.plan!);
+  const spy = vi.spyOn(remainingAllocationModule, 'calculateRemainingAdjustment').mockImplementation((_state, targets, _from, _context, _sourceDate, _pastOnly, _balance, reserve = {}) => {
+    const reserved = reserve['["other",0]'] ?? 0;
+    const plan = structuredClone(originalPlan);
+    if (reserved >= 1600) plan.shortfalls = [];
+    if (reserved) plan.shortfalls.push({ materialId:'other',round:0,count:reserved,minutes:reserved*10,reason:'reserved' });
+    return { plan, summary: [], affectedSessionIds: targets.flatMap(t => t.kind === 'session' ? [t.sessionId] : []) };
+  });
+  try {
+    const result = calculateFutureBalance(state,['book'],addDays(day,1),adjustmentContext,true);
+    expect(result.plan.shortfalls).toEqual(originalPlan.shortfalls);
+    expect(result.targets.every(t => t.kind !== 'session' || t.sessionId !== 'low-two')).toBe(true);
+    expect(spy).toHaveBeenCalledTimes(1501);
+    expect(state).toEqual(before);
+  } finally { spy.mockRestore(); }
+});
+
+
+it('低優先の期限内移動で総量を保てるときは削減しない', () => {
+  const state = priorityReductionFixture(day);
+  state.settings.exams.find(e => e.id === 'b')!.target = addDays(day,3);
+  state.settings.windows[0].to = addDays(day,2);
+  state.plan!.settingsSnapshot = structuredClone(state.settings);
+  const result = calculateFutureBalance(state,['book'],addDays(day,1),adjustmentContext,true);
+  expect(result.plan.shortfalls).toEqual([]);
+  for (const id of ['book','other']) expect(result.plan.sessions.filter(s => s.materialId===id).reduce((n,s)=>n+s.count,0)).toBe(2);
+  expect(result.plan.sessions.filter(s => s.materialId==='book').every(s => s.date === addDays(day,1))).toBe(true);
+  expect(result.plan.sessions.some(s => s.materialId==='other' && s.date === addDays(day,2))).toBe(true);
+});
+
+it('不足が残っても低優先の固定量は削減しない', () => {
+  const state = priorityReductionFixture(day);
+  const donor = state.plan!.sessions.find(s => s.materialId==='other')!;
+  donor.fixed = true;
+  const result = calculateFutureBalance(state,['book'],addDays(day,1),adjustmentContext,true);
+  expect(result.plan.sessions.find(s => s.id===donor.id)).toEqual(donor);
+  expect(result.plan.shortfalls.filter(s => s.materialId==='book').reduce((n,s)=>n+s.count,0)).toBe(1);
+  expect(result.plan.shortfalls.filter(s => s.materialId==='other')).toEqual([]);
+});
+
+
+it('未配置だけの教材でも同試験の後続を順序依存で移動し承認できる', () => {
+  const source = priorityReductionFixture(day);
+  const other = source.settings.materials.find(m => m.id === 'other')!;
+  other.examId = 'a'; other.order = 2;
+  source.settings.exams.find(e => e.id === 'a')!.target = addDays(day,3);
+  source.settings.windows[0].to = addDays(day,2);
+  source.plan!.sessions = source.plan!.sessions.filter(s => s.materialId === 'other').map(s => ({ ...s, examId:'a', start:540,end:560 }));
+  source.plan!.shortfalls = [{ materialId:'book',round:0,count:2,minutes:20,reason:'unplaced' }];
+  source.plan!.settingsSnapshot = structuredClone(source.settings);
+  source.plan!.progressBaseline = createProgressBaseline(source.plan!,source.records);
+  const candidate = proposeBalancedRemaining(source,['book'],addDays(day,1),adjustmentContext);
+  expect(candidate.proposal!.basis).toMatchObject({ targets:[{ kind:'shortfall',materialId:'book',round:0 }], affectedSessionIds:['low-two'] });
+  const result = approve(candidate,false,adjustmentContext);
+  expect(result.plan!.shortfalls).toEqual([]);
+  expect(result.plan!.sessions.filter(s=>s.materialId==='book').reduce((n,s)=>n+s.count,0)).toBe(2);
+  expect(result.plan!.sessions.filter(s=>s.materialId==='other').reduce((n,s)=>n+s.count,0)).toBe(2);
+});
+
+it('数量を保存しても必要最小を超える低優先削減案は承認できない', () => {
+  const candidate = proposeBalancedRemaining(priorityReductionFixture(day),['book'],addDays(day,1),adjustmentContext,true);
+  const original = structuredClone(candidate);
+  const plan = candidate.proposal!.plan;
+  plan.sessions = plan.sessions.filter(s => s.materialId !== 'other');
+  plan.shortfalls.find(s => s.materialId==='other')!.count = 2;
+  plan.shortfalls.find(s => s.materialId==='other')!.minutes = 20;
+  expect(() => approve(candidate,false,adjustmentContext)).toThrow('必要最小');
+  expect(approve(JSON.parse(JSON.stringify(original)),false,adjustmentContext).plan!.shortfalls.find(s=>s.materialId==='other')!.count).toBe(1);
+});
+
+it('最小削減案の保存再読込と生成ID・配列順・理由文の差は承認を妨げない', () => {
+  const candidate = JSON.parse(JSON.stringify(proposeBalancedRemaining(priorityReductionFixture(day),['book'],addDays(day,1),adjustmentContext,true))) as AppState;
+  const plan = candidate.proposal!.plan;
+  const ids = new Map(plan.sessions.map((s,i)=>[s.id,`renamed-${i}`]));
+  plan.sessions = plan.sessions.map(s=>({ ...s,id:ids.get(s.id)! })).reverse();
+  plan.adjustmentBasis!.sessions = plan.adjustmentBasis!.sessions.map(s=>({ ...s,id:ids.get(s.id)! })).reverse();
+  plan.progressBaseline!.sessions = Object.fromEntries(Object.entries(plan.progressBaseline!.sessions).map(([id,value])=>[ids.get(id)!,value]));
+  plan.shortfalls.reverse().forEach(s=>{ s.reason='同じ不足の説明'; });
+  const basis = candidate.proposal!.basis!;
+  if (basis.kind==='remaining-adjustment') { basis.targets.reverse(); basis.affectedSessionIds.reverse(); }
+  expect(approve(candidate,false,adjustmentContext).plan!.shortfalls.find(s=>s.materialId==='other')!.count).toBe(1);
+});
+
+
+it('均等配分の描画用stale判定では探索せず承認時だけ再検証する', () => {
+  const candidate = proposeBalancedRemaining(priorityReductionFixture(day),['book'],addDays(day,1),adjustmentContext,true);
+  const spy = vi.spyOn(remainingAllocationModule,'calculateRemainingAdjustment');
+  try {
+    expect(restartProposalStaleReason(candidate,adjustmentContext)).toBeUndefined();
+    expect(restartProposalStaleReason(candidate,adjustmentContext)).toBeUndefined();
+    expect(spy).not.toHaveBeenCalled();
+    approve(candidate,false,adjustmentContext);
+    expect(spy).toHaveBeenCalled();
+  } finally { spy.mockRestore(); }
+});
+
+
+it.each([[1,false],[3,false],[3,true]])('通常%d日越えは今日を保持し前段追加と後続3周を配置する（固定%s）', (offset,fixed) => {
+  const source=multiDayRolloverFixture(day);
+  source.records.push({...adjustmentReport(9,'other-before-rollover'),materialId:'other'});
+  source.plan!.sessions.find(s=>s.id==='book-4')!.fixed=fixed;
+  source.plan!.settingsSnapshot=structuredClone(source.settings);
+  source.plan!.progressBaseline=createProgressBaseline(source.plan!,[]);
+  const current=addDays(day,offset);
+  const context={...adjustmentContext,date:current,minute:121,timestamp:`${current}T02:01:00Z`};
+  const original=structuredClone(source);
+  const result=reconcilePlanning(source,context);
+  expect(source).toEqual(original);
+  expect(result.plan!.shortfalls).toEqual([]);
+  expect(result.draft.planReconciliation,JSON.stringify(result.draft.planReconciliation)).toMatchObject({status:'applied'});
+  expect(result.records).toEqual(source.records);
+  for(const session of source.plan!.sessions.filter(s=>s.date<=current || s.materialId==='other' || s.fixed)) expect(result.plan!.sessions.find(s=>s.id===session.id)).toEqual(session);
+  for(const [round,wanted] of [[0,26],[1,30],[2,30],[3,30]]) expect(activePlanWork(result,current).filter(s=>s.materialId==='book'&&s.round===round).reduce((n,s)=>n+s.count,0)).toBe(wanted);
+  conservation(result,current);
+  expect(reconcilePlanning(JSON.parse(JSON.stringify(result)),context)).toEqual(result);
+  const next={...context,date:addDays(current,1),timestamp:`${addDays(current,1)}T02:01:00Z`};
+  const again=reconcilePlanning(result,next);
+  expect(again.plan!.shortfalls).toEqual([]);
+  expect(again.records).toEqual(source.records);
+  conservation(again,next.date);
+  expect(reconcilePlanning(again,next)).toEqual(again);
+});
+
+
+it('直接6日越えで今日の後続と未消化前段が衝突したら元計画を保持して要確認にする', () => {
+  const source=prepareAdjustment(multiDayRolloverFixture(day),{...adjustmentContext,minute:0});
+  expect(source.plan!.adjustmentBasis!.date).toBe(day);
+  const context={...adjustmentContext,date:addDays(day,6),minute:0,timestamp:`${addDays(day,6)}T00:00:00Z`};
+  const original=structuredClone(source);
+  const elapsedBefore=activePlanWork(source,day).filter(s=>s.materialId==='book'&&s.round===0&&s.date<context.date).reduce((n,s)=>n+s.count,0);
+  expect(elapsedBefore).toBe(26);
+  const result=reconcilePlanning(source,context);
+  expect(source).toEqual(original);
+  expect(result.draft.planReconciliation).toMatchObject({status:'blocked',reason:'failed'});
+  expect(String((result.draft.planReconciliation as { detail: string }).detail)).toContain('教材・周回の順序');
+  expect(String((result.draft.planReconciliation as { detail: string }).detail)).toContain('計画を仕切り直す');
+  expect(result.plan).toEqual(source.plan);
+  expect(result.plan!.adjustmentBasis).toEqual(source.plan!.adjustmentBasis);
+  expect(result.history).toEqual(source.history);
+  expect(result.records).toEqual(source.records);
+  expect(result.settings).toEqual(source.settings);
+  expect(remaining(result,'book',0)).toBe(26);
+  expect(activePlanWork(result,day).filter(s=>s.materialId==='book'&&s.round===0&&s.date<context.date).reduce((n,s)=>n+s.count,0)).toBe(elapsedBefore);
+  const rows=remainingWork(result,context.date);
+  expect(rows.find(row=>row.materialId==='book'&&row.round===0)).toMatchObject({remaining:26,unplaced:0,needsReview:true});
+  expect(rows.find(row=>row.materialId==='book'&&row.round===1)!.reasons.some(reason=>reason.includes('教材・周回の順序'))).toBe(true);
+  expect(reconcilePlanning(result,context)).toEqual(result);
+});
+
+it('今日の後続枠が全完了なら未消化前段があっても通常調整を誤停止しない', () => {
+  const source=multiDayRolloverFixture(day);
+  const current=addDays(day,6);
+  source.records.push({...adjustmentReport(6,'today-successor-finished'),date:current,round:1,createdAt:`${current}T03:00:00Z`,updatedAt:`${current}T03:00:00Z`});
+  const context={...adjustmentContext,date:current,minute:720,timestamp:`${current}T03:00:00Z`};
+  const result=reconcilePlanning(source,context);
+  expect(result.draft.planReconciliation).toMatchObject({status:'applied'});
+  expect(result.plan!.shortfalls).toEqual([]);
+  expect(result.records).toEqual(source.records);
+  for(const session of source.plan!.sessions.filter(s=>s.date<=current)) expect(result.plan!.sessions.find(s=>s.id===session.id)).toEqual(session);
+  expect(activePlanWork(result,current).filter(s=>s.materialId==='book'&&s.round===1&&s.date===current)).toEqual([]);
+  conservation(result,current);
+});

@@ -178,3 +178,16 @@ it('詳細カレンダーは日付選択前に常設の日一覧・可処分時�
   expect(todayHtml).toContain('today-schedule');
   expect(todayHtml).toContain('daily-time');
 });
+it('標準表示は今日から7日で、前日に選んだ手動範囲は復元しない', () => {
+  const { state } = fixture(0);
+  const props = { state, update: async () => {}, onCalendar: () => {}, onProposal: () => {} };
+  for (const selection of [null, { from: addDays(today(), 7), selectedOn: addDays(today(), -1) }]) {
+    const html = renderToStaticMarkup(createElement(Future, { ...props, selection }));
+    expect(html).toContain(`dateTime="${today()}"`);
+    expect(html).toContain('future-today');
+  }
+  const selected = addDays(today(), 7);
+  const html = renderToStaticMarkup(createElement(Future, { ...props, selection: { from: selected, selectedOn: today() } }));
+  expect(html).toContain(`dateTime="${selected}"`);
+  expect(html).toContain('今日から');
+});

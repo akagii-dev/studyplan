@@ -1,9 +1,8 @@
 import { NumberInput } from './NumberInput';
 import { materialUnit } from '../domain/calendarQuantity';
-import { useRef, useState } from 'react';
-import { CheckCircle2 } from 'lucide-react';
-import { Progress as ProgressRecord, completed, remaining, today, uid } from '../domain/model';
-import { correctAndAdjust, recordAndAdjust } from '../domain/planning';
+import { useState } from 'react';
+import { Progress as ProgressRecord, remaining } from '../domain/model';
+import { correctAndAdjust } from '../domain/planning';
 import { currentProgressAdjustment } from '../domain/progressAdjustment';
 import { latestReceipt, progressReceipts } from '../domain/progressReceipt';
 import {
@@ -12,275 +11,65 @@ import {
   receiptLabel,
   receiptOutcome,
 } from './ProgressReceiptView';
-import { parseNumberInput } from '../domain/numeric';
-import { Empty, Field, Props, useDraft } from './common';
-export function Progress({
-  state,
-  update,
-  onHistory,
-  onReplan,
-}: Props & { onHistory?: () => void; onReplan?: () => void }) {
-  const initial = {
-    date: today(),
-    materialId: state.settings.materials[0]?.id ?? '',
-    round: 0,
-    choice: '',
-    custom: '',
-  };
-  const [form, set] = useDraft(state, update, 'progress', initial);
-  const [message, msg] = useState('');
+import { StudyRecordForm, type StudyRecordFields } from './StudyRecordForm';
+import { useRecordInput, useStudyRecord } from '../hooks/useStudyRecord';
+import { usePlanningClock } from '../hooks/usePlanningClock';
+import { Empty, Props } from './common';
+export function Progress({ state, update, onHistory, onReplan }: Props & { onHistory?: () => void; onReplan?: () => void }) {
+  const { date: reference } = usePlanningClock();
+  const initial = { date: reference, materialId: state.settings.materials[0]?.id ?? '', round: 0, choice: '', custom: '' };
+  const form = (state.draft.progress as typeof initial | undefined) ?? initial;
+  const [local, setLocal, completeLocal] = useRecordInput<StudyRecordFields | null>('progress/input', null);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
   const [savedRecordId, setSavedRecordId] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const sending = useRef(false);
-  const request = useRef(uid());
-  const numberEdits = (state.draft.numberEdits ?? {}) as Record<
-    string,
-    { text: string; base: string }
-  >;
-  const legacyKeys = Object.keys(numberEdits).filter(
-    (key) => key.startsWith('progress/') && key.endsWith('/追加問題数（1問単位）'),
-  );
-  const legacyEdit = legacyKeys
-    .map((key) => numberEdits[key])
-    .find((edit) => edit.base === form.custom);
-  const customText = legacyEdit?.text ?? form.custom;
-  const clearLegacyEdit = (draft: typeof state.draft) => ({
-    ...draft,
-    numberEdits: Object.fromEntries(
-      Object.entries((draft.numberEdits ?? {}) as Record<string, unknown>).filter(
-        ([key]) => !legacyKeys.includes(key),
-      ),
-    ),
-  });
-  const setCustomForm = (progress: typeof form) => {
-    void update((s) => ({ ...s, draft: { ...clearLegacyEdit(s.draft), progress } })).catch(
-      () => {},
-    );
+  const { busy, save: record } = useStudyRecord(update, 'progress');
+  const numberEdits = (state.draft.numberEdits ?? {}) as Record<string, { text: string; base: string }>;
+  const legacyKeys = Object.keys(numberEdits).filter((key) => key.startsWith('progress/') && key.endsWith('/追加問題数（1問単位）'));
+  const legacyEdit = legacyKeys.map((key) => numberEdits[key]).find((edit) => edit.base === form.custom);
+  const rest = state.settings.materials.some((item) => item.id === form.materialId && item.rounds[form.round]) ? remaining(state, form.materialId, form.round) : 0;
+  const value = local ?? { date: form.date, materialId: form.materialId, round: form.round,
+    text: form.choice === 'all' ? String(rest) : form.choice && form.choice !== 'other' ? form.choice : legacyEdit?.text ?? form.custom };
+  const clearLegacy = (draft: typeof state.draft) => ({ ...draft, numberEdits: Object.fromEntries(
+    Object.entries((draft.numberEdits ?? {}) as Record<string, unknown>).filter(([key]) => !legacyKeys.includes(key)),
+  ) });
+  const change = (next: StudyRecordFields) => {
+    setLocal(next); setError(''); setMessage(''); setSavedRecordId(null);
+    void update((current) => ({ ...current, draft: { ...clearLegacy(current.draft), progress: {
+      date: next.date, materialId: next.materialId, round: next.round, choice: 'other', custom: next.text,
+    } } })).catch(() => {});
   };
-  const material = state.settings.materials.find((m) => m.id === form.materialId);
-  const unit = materialUnit(material?.unit);
-  const rest = material ? remaining(state, material.id, form.round) : 0;
-  const customCount = (() => {
-    try {
-      return parseNumberInput(customText, 0, rest, 1);
-    } catch {
-      return NaN;
-    }
-  })();
-  const count =
-    form.choice === 'all'
-      ? rest
-      : form.choice === 'other'
-        ? customCount
-        : form.choice === ''
-          ? NaN
-          : Number(form.choice);
-  const valid =
-    material &&
-    material.rounds[form.round] &&
-    Number.isInteger(count) &&
-    count >= 0 &&
-    count <= rest &&
-    form.date &&
-    form.date <= today();
   async function save() {
-    if (sending.current || !valid) return;
-    sending.current = true;
-    setBusy(true);
-    msg('');
-    setSavedRecordId(null);
-    const id = request.current;
+    setError(''); setMessage(''); setSavedRecordId(null);
     try {
-      await update((s) => {
-        const now = new Date().toISOString();
-        let next = recordAndAdjust(s, {
-          id,
-          date: form.date,
-          materialId: form.materialId,
-          round: form.round,
-          count,
-          cancelled: false,
-          createdAt: now,
-          updatedAt: now,
-        });
-        next = {
-          ...next,
-          draft: { ...clearLegacyEdit(next.draft), progress: { ...form, choice: '', custom: '' } },
-        };
-        return next;
-      });
-      request.current = uid();
-      msg(`＋${count}${unit}を記録しました。`);
-      setSavedRecordId(id);
-    } catch (e) {
-      msg(String(e));
-    } finally {
-      setBusy(false);
-      sending.current = false;
+      const result = await record(value, (next) => ({ ...next, draft: { ...clearLegacy(next.draft), progress: {
+        date: value.date, materialId: value.materialId, round: value.round, choice: '', custom: '',
+      } } }));
+      if (!result) return;
+      completeLocal({ ...value, text: '' });
+      setMessage('＋' + result.count + result.unit + 'を記録しました。');
+      setSavedRecordId(result.id);
+    } catch (failure) {
+      completeLocal(value);
+      setError(failure instanceof Error ? failure.message : String(failure));
     }
   }
-  return (
-    <div className="split">
-      <section className="card">
-        <div className="eyebrow">DAILY CHECK-IN</div>
-        <h2>進捗の記録</h2>
-        <Field label="① 記録対象日">
-          <input
-            type="date"
-            max={today()}
-            value={form.date}
-            onChange={(e) => {
-              set({ ...form, date: e.target.value });
-              msg('');
-            }}
-          />
-        </Field>
-        <div className="two">
-          <Field label="教材">
-            <select
-              value={form.materialId}
-              onChange={(e) => {
-                setCustomForm({
-                  ...form,
-                  materialId: e.target.value,
-                  round: 0,
-                  choice: '',
-                  custom: '',
-                });
-                msg('');
-              }}
-            >
-              <option value="" disabled>
-                教材を選択
-              </option>
-              {state.settings.materials.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="周回">
-            <select
-              value={form.round}
-              onChange={(e) => {
-                setCustomForm({ ...form, round: +e.target.value, choice: '', custom: '' });
-                msg('');
-              }}
-            >
-              {material?.rounds.map((_, i) => (
-                <option key={i} value={i}>
-                  {i + 1}周目
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
-        {material && (
-          <div className="progress-summary">
-            <span>
-              完了 <b>{completed(state, material.id, form.round)}</b>
-              {unit}
-            </span>
-            <span>
-              残り <b>{rest}</b>
-              {unit}
-            </span>
-            <span>
-              {Math.round((completed(state, material.id, form.round) / material.total) * 100)}%
-            </span>
-          </div>
-        )}
-        <h3>② 追加で完了した{unit === '問' ? '問題数' : '量'}を選んでください。</h3>
-        <div className="count-choices">
-          {[0, 5, 10, 15, 20].map((n) => (
-            <button
-              key={n}
-              disabled={!material || n > rest}
-              className={form.choice === String(n) ? 'selected' : ''}
-              onClick={() => set({ ...form, choice: String(n) })}
-            >
-              {n}
-              <small>{unit}</small>
-            </button>
-          ))}
-          <button
-            className={form.choice === 'other' ? 'selected' : ''}
-            onClick={() => set({ ...form, choice: 'other' })}
-          >
-            その他
-          </button>
-          <button
-            className={`all ${form.choice === 'all' ? 'selected' : ''}`}
-            disabled={!material}
-            onClick={() => set({ ...form, choice: 'all' })}
-          >
-            残りすべて：{rest}
-            {unit}
-          </button>
-        </div>
-        {form.choice === 'other' && (
-          <Field label={unit === '問' ? '追加問題数（1問単位）' : `追加量（1${unit}単位）`}>
-            <input
-              autoFocus
-              type="text"
-              inputMode="numeric"
-              value={customText}
-              onChange={(e) => {
-                const custom = e.target.value;
-                msg('');
-                setCustomForm({ ...form, custom });
-              }}
-              onKeyDown={(e) => {
-                if (
-                  e.key !== 'Enter' ||
-                  e.repeat ||
-                  e.nativeEvent.isComposing ||
-                  e.nativeEvent.keyCode === 229
-                )
-                  return;
-                e.preventDefault();
-                e.stopPropagation();
-                try {
-                  parseNumberInput(customText, 0, rest, 1);
-                  void save();
-                } catch (error) {
-                  msg((error as Error).message);
-                }
-              }}
-            />
-          </Field>
-        )}
-        <p className="hint">今回の追加分を記録します。0{unit}も報告済みになります。</p>
-        <button data-submit className="primary wide" disabled={!valid || busy} onClick={save}>
-          <CheckCircle2 size={18} />
-          {busy ? '保存中…' : '記録する'}
-        </button>
-        {message && (
-          <div role="status" className="note progress-result">
-            <p>{message}</p>
-            {savedRecordId && latestReceipt(state, savedRecordId) && (
-              <details>
-                <summary>
-                  {receiptLabel(latestReceipt(state, savedRecordId)!)} ·{' '}
-                  {receiptDetailLabel(latestReceipt(state, savedRecordId)!)}
-                </summary>
-                <ProgressReceiptView state={state} receipt={latestReceipt(state, savedRecordId)!} />
-              </details>
-            )}
-            <div className="actions">
-              <button onClick={onHistory}>記録を訂正</button>
-              <button onClick={onReplan}>
-                {currentProgressAdjustment(state)?.status === 'failed'
-                  ? '今後の予定を確認'
-                  : '計画全体を見直す'}
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
-    </div>
-  );
+  return <div className="split"><section className="card">
+    <div className="eyebrow">DAILY CHECK-IN</div>
+    <h2>進捗の記録</h2>
+    <StudyRecordForm state={state} value={value} onChange={change} onSubmit={() => void save()} reference={reference} busy={busy} error={error} />
+    {message && <div role="status" className="note progress-result">
+      <p>{message}</p>
+      {savedRecordId && latestReceipt(state, savedRecordId) && <details>
+        <summary>{receiptLabel(latestReceipt(state, savedRecordId)!)} · {receiptDetailLabel(latestReceipt(state, savedRecordId)!)}</summary>
+        <ProgressReceiptView state={state} receipt={latestReceipt(state, savedRecordId)!} />
+      </details>}
+      <div className="actions">
+        <button onClick={onHistory}>記録を訂正</button>
+        <button onClick={onReplan}>{currentProgressAdjustment(state)?.status === 'failed' ? '今後の予定を確認' : '計画全体を見直す'}</button>
+      </div>
+    </div>}
+  </section></div>;
 }
 export function History({
   state,

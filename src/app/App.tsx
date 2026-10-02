@@ -1,3 +1,4 @@
+import { clearRecordMemory, createRecordMemory, deleteRecordInput, StudyRecordMemory } from '../hooks/useStudyRecord';
 import { RecordTarget } from '../components/TodayRecorder';
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { Calendar } from '../components/Calendar';
@@ -16,14 +17,13 @@ import { Warning, WarningSettings, WarningsProvider } from '../components/Warnin
 import { WeeklyReport } from '../components/WeeklyReport';
 import { CalendarView, Session, addDays, today } from '../domain/model';
 import { dateTime, stalePlan } from '../domain/planAudit';
-import { propose, proposeRestart, proposePastRemainingAdjustment } from '../domain/planning';
+import { propose, proposeRestart, proposePastRemainingAdjustment, proposeBalancedRemaining } from '../domain/planning';
 import { currentProgressAdjustment } from '../domain/progressAdjustment';
 import { requirePlanningInputs } from '../domain/setupIssues';
 import { usePersistentAppState } from '../hooks/usePersistentAppState';
 import { AppShell } from './AppShell';
 import { Dashboard } from './Dashboard';
-import { upcomingSunday } from '../domain/calendar';
-import { Future } from './Future';
+import { Future, type FutureSelection } from './Future';
 import { AvailabilityTarget, SettingsHub } from './SettingsHub';
 import { Page, pageNames } from './navigation';
 const Backup = lazy(() =>
@@ -38,14 +38,15 @@ const directPage = (): Page => {
 const fallbackFor = (page: Page): Page =>
   page === 'calendar' || page === 'replan' ? 'future' :
     page === 'progress' ? 'history' : page === 'today' ? 'dashboard' : 'settings';
-type ReturnPoint = { page: Page; top: number; focus: HTMLElement | null; focusKey?: string };
+type ReturnPoint = { page: Page; top: number; focus: HTMLElement | null; focusKey?: string; day?: string };
 export default function App() {
+  const recordMemory = useRef(createRecordMemory());
   const [recordTarget, setRecordTarget] = useState<RecordTarget | null>(null);
   const [page, setPageState] = useState<Page>(directPage);
   const [restorePosition, setRestorePosition] = useState<(ReturnPoint & { key: number }) | null>(null);
   const [origin, setOrigin] = useState<ReturnPoint | null>(null);
   const originStack = useRef<ReturnPoint[]>([]);
-  const [futureWeek, setFutureWeek] = useState(() => upcomingSunday(today()));
+  const [futureSelection, setFutureSelection] = useState<FutureSelection | null>(null);
   const [calendarMode, setCalendarMode] = useState<'content' | 'quantity'>('content');
   const [calendarDate, setCalendarDate] = useState(today());
   const [calendarRevealDay, setCalendarRevealDay] = useState(false);
@@ -55,6 +56,7 @@ export default function App() {
   const [reportDayOpen, setReportDayOpen] = useState(false);
   const [availabilityTarget, setAvailabilityTarget] = useState<AvailabilityTarget | null>(null);
   const setPage = (destination: Page, keepAvailability = false) => {
+    if (destination === 'future') setFutureSelection(null);
     if (destination === page) return;
     if (destination !== 'dashboard') setRecordTarget(null);
     if (page === 'report') setReportDayOpen(false);
@@ -62,7 +64,7 @@ export default function App() {
     if (mainPages.has(destination)) originStack.current = [];
     else {
       const focus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      originStack.current.push({ page, top: window.scrollY, focus,
+      originStack.current.push({ page, top: window.scrollY, focus, day: today(),
         focusKey: focus?.dataset.returnFocus });
     }
     setOrigin(originStack.current.at(-1) ?? null);
@@ -75,7 +77,9 @@ export default function App() {
     const previous = originStack.current.pop() ?? { page: fallbackFor(page), top: 0, focus: null };
     setOrigin(originStack.current.at(-1) ?? null);
     setAvailabilityTarget(null);
-    setRestorePosition({ ...previous, key: Date.now() });
+    setRestorePosition(previous.page === 'future' && previous.day !== today()
+      ? { page: 'future', top: 0, focus: null, key: Date.now() }
+      : { ...previous, key: Date.now() });
     setPageState(previous.page);
     window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${directDetails.has(previous.page) ? `#${previous.page}` : ''}`);
   };
@@ -98,16 +102,21 @@ export default function App() {
     const selector = settingsInputTarget === 'exam' || settingsInputTarget === 'material'
       ? `[data-settings-edit="${settingsInputTarget}"]`
       : '.guided-setup input:not([type="hidden"]), .guided-setup select';
-    const target = document.querySelector<HTMLElement>(selector);
-    target?.focus({ preventScroll: true });
-    target?.scrollIntoView({ block: 'center' });
-    setSettingsInputTarget(null);
+    // AppShell moves focus to the heading first; the requested input wins in the same frame.
+    const frame = requestAnimationFrame(() => {
+      const target = document.querySelector<HTMLElement>(selector);
+      target?.focus({ preventScroll: true });
+      target?.scrollIntoView({ block: 'center' });
+      setSettingsInputTarget(null);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [page, settingsInputTarget]);
   const {
     state,
     update,
     error,
     setError,
+    confirmSavedRecord,
     startupError,
     loading,
     initialize,
@@ -126,6 +135,9 @@ export default function App() {
     checkConnection,
     reloadEpoch,
   } = usePersistentAppState();
+  useEffect(() => {
+    recordMemory.current.confirmed = confirmSavedRecord;
+  }, [confirmSavedRecord]);
   const generate = () => {
     void update((s) => {
       requirePlanningInputs(s.settings);
@@ -162,12 +174,22 @@ export default function App() {
     });
     return created;
   };
+  const balanceFuture = async (materialIds: string[], from: string, allowReduction: boolean) => {
+    let created = false;
+    await update((current) => {
+      const next = proposeBalancedRemaining(current, materialIds, from, allowReduction);
+      created = next !== current;
+      return next;
+    });
+    return created;
+  };
   const onRecord = (session: Pick<Session, 'date' | 'materialId' | 'round'>) => {
     if (session.date === today()) {
       setRecordTarget({ materialId: session.materialId, round: session.round, token: Date.now() });
       setPage('dashboard');
       return;
     }
+    deleteRecordInput(recordMemory.current, 'progress/input');
     void update((s) => ({
       ...s,
       draft: {
@@ -273,7 +295,7 @@ export default function App() {
           dismissError={() => setError('')}
           externalUpdate={externalRevision !== null}
           reloadExternal={() => {
-            if (window.confirm('この画面の入力を取り消し、Windowsに保存された最新の内容を読み込みますか？'))
+            if (window.confirm('記録欄の入力を保持し、Windowsに保存された最新の内容を読み込みますか？ 未保存の設定変更は取り消されます。'))
               void readSavedState();
           }}
           connectionError={connectionError}
@@ -302,12 +324,13 @@ export default function App() {
                 {page !== 'replan' && <button onClick={generate}>現在の設定で計画案を作成</button>}
               </Warning>
             )}
+          <StudyRecordMemory.Provider value={recordMemory.current}>
           <NumericDraftProvider key={reloadEpoch} state={state} update={update} scope={numericScope}>
             {page === 'dashboard' && (
               <Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} recordTarget={recordTarget} />
             )}{' '}
             {page === 'future' && (
-              <Future {...props} initialWeek={futureWeek} onWeekChange={setFutureWeek} onCalendar={(date, revealDay = !!date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} onRestart={restartPlan} onAdjustRemaining={adjustRemaining} />
+              <Future {...props} selection={futureSelection} onWeekChange={(from) => setFutureSelection({ from, selectedOn: today() })} onCalendar={(date, revealDay = !!date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} onRestart={restartPlan} onAdjustRemaining={adjustRemaining} onBalanceFuture={balanceFuture} />
             )}
             {(page === 'settings' || originStack.current.some((entry) => entry.page === 'settings')) && (
               <div hidden={page !== 'settings'}>
@@ -421,7 +444,10 @@ export default function App() {
                   state={state}
                   saving={saving > 0}
                   saved={saved}
-                  onRestore={restore}
+                  onRestore={async (text) => {
+                    await restore(text);
+                    clearRecordMemory(recordMemory.current);
+                  }}
                   onExport={exportSaved}
                 />
               </Suspense>
@@ -436,6 +462,7 @@ export default function App() {
               </div>
             )}
           </NumericDraftProvider>
+          </StudyRecordMemory.Provider>
         </AppShell>
       </WarningsProvider>
     </>

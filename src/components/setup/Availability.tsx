@@ -7,6 +7,7 @@ import { ClassNames } from '../ClassNames';
 import { Empty, Field, Props, useDraft, weekdays } from '../common';
 import { ScheduleReview } from '../SetupImpact';
 import { TimetablePreview } from '../TimetablePreview';
+import { ClassCancellations } from './ClassCancellations';
 
 function DeleteAction({ label, onDelete }: { label: string; onDelete: () => Promise<void> }) {
   const [confirming, setConfirming] = useState(false);
@@ -375,6 +376,7 @@ export function Availability({ state, update, focusTarget }: Props & { focusTarg
             ))}
         </details>
       </section>
+      <ClassCancellations state={state} update={update} />
       <section className="card">
         <h2>勉強できない日・時間はありますか？</h2>
         <div className="two">

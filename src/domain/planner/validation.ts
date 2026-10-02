@@ -2,8 +2,9 @@ import { commuteErrors, commuteScheduleErrors } from '../commute';
 import { addDays, Settings } from '../model';
 import { sessionPolicy } from '../sessionPolicy';
 import { MAX_MINUTES_PER_UNIT } from '../materialConstraints';
+import { classCancellationErrors } from '../classCancellations';
 export function validateSettings(s: Settings): string[] {
-  const errors: string[] = [...commuteErrors(s.commute), ...commuteScheduleErrors(s)];
+  const errors: string[] = [...classCancellationErrors(s), ...commuteErrors(s.commute), ...commuteScheduleErrors(s)];
   const policy = sessionPolicy(s);
   if (
     !Number.isInteger(policy.minimum) ||

@@ -1,6 +1,7 @@
 import { AppState, Settings, completed, clock, uid, mealKeys, mealNames, today } from './model';
 import { sameSettings } from './planAudit';
 import { sessionPolicy } from './sessionPolicy';
+import { classCancellationLabel } from './classCancellations';
 
 export type RevisionTopic =
   'exam' | 'material' | 'study' | 'class' | 'busy' | 'exception' | 'focus' | 'meal' | 'commute';
@@ -87,6 +88,15 @@ export function sameRevisionBase(a: Settings, b: Settings) {
 }
 export function settingChanges(before: Settings, after: Settings): string[] {
   const changes: string[] = [];
+  for (const item of before.classCancellations ?? [])
+    if (!after.classCancellations?.some((next) => next.id === item.id))
+      changes.push(`休講を取消：${classCancellationLabel(before, item)}`);
+  for (const item of after.classCancellations ?? []) {
+    const previous = before.classCancellations?.find((old) => old.id === item.id);
+    if (!previous) changes.push(`休講を追加：${classCancellationLabel(after, item)}`);
+    else if (JSON.stringify(previous) !== JSON.stringify(item))
+      changes.push(`休講：${classCancellationLabel(before, previous)} → ${classCancellationLabel(after, item)}`);
+  }
   if (JSON.stringify(before.commute) !== JSON.stringify(after.commute)) {
     const c = after.commute;
     changes.push(

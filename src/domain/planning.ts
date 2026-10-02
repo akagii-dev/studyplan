@@ -57,6 +57,9 @@ export function reproposeRemainingAdjustment(
 export function proposePastRemainingAdjustment(state: AppState, from: string) {
   return proposals.proposePastRemainingAdjustment(state, from, context());
 }
+export function proposeBalancedRemaining(state: AppState, materialIds: string[], from: string, allowLowerPriorityReduction = false) {
+  return proposals.proposeBalancedRemaining(state, materialIds, from, context(), allowLowerPriorityReduction);
+}
 export function restartProposalStaleReason(state: AppState) {
   return proposals.restartProposalStaleReason(state, context());
 }

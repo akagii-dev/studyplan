@@ -101,7 +101,7 @@ export function SettingsHub({
     const exception = state.settings.exceptions.find((item) => message.startsWith(`${item.name}：`));
     if (exception) return openAvailability('exception', exception.id);
     if (message.includes('食事')) return openAvailability('meals');
-    if (message.includes('授業前後')) return openAvailability('class');
+    if (message.includes('授業前後') || message.includes('休講')) return openAvailability('class');
     navigate(message.includes('通学') ? 'commute' : 'focus');
   };
 

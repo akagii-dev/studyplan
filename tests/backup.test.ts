@@ -184,3 +184,19 @@ it('試験・教材の追加下書きを保持し、壊れた追加下書きを�
     expect(() => parseBackup(JSON.stringify(file))).toThrow();
   }
 });
+
+it('入力途中の設定変更下書きと案の基準は教材参照が未整合でも保持し、休講条件だけは検証する', () => {
+  const file = packet();
+  const unfinished: typeof file.data.settings = { ...initialState().settings, materials: [{ id: 'm', examId: 'removed', name: '教材', order: 1, total: 7, rounds: [{ completed: 0, minutes: 3 }] }] };
+  file.data.draft.revision = { id: 'revision', base: structuredClone(unfinished), settings: structuredClone(unfinished), stage: 'item', topic: 'material', itemId: 'm', index: 0 };
+  file.data.proposal = { plan: { id: 'p', createdAt: '2026-09-20T00:00:00Z', from: '2026-09-20', sessions: [], capacities: [], shortfalls: [], conflicts: [] }, basedOn: null, reason: '入力途中', unreported: [], settingsBase: structuredClone(unfinished) };
+  expect(parseBackup(JSON.stringify(file)).data).toEqual(file.data);
+  const revision = file.data.draft.revision as { base: typeof unfinished; settings: typeof unfinished };
+  for (const settings of [revision.base, revision.settings, file.data.proposal.settingsBase!]) {
+    const invalid = structuredClone(file);
+    settings.classCancellations = [{ id: 'off', from: '2026-10-03', to: '2026-10-02' }];
+    expect(() => parseBackup(JSON.stringify(file))).toThrow('休講');
+    delete settings.classCancellations;
+    expect(parseBackup(JSON.stringify(invalid))).toEqual(invalid);
+  }
+});

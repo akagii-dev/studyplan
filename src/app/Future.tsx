@@ -3,10 +3,10 @@ import { ProgressValue } from '../components/ProgressValue';
 import { calendarDisplayQuantity, materialUnit } from '../domain/calendarQuantity';
 import { Props, duration } from '../components/common';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { upcomingSunday, shortDayLabel, weekRangeLabel } from '../domain/calendar';
-import { Session, today, addDays } from '../domain/model';
+import { shortDayLabel, weekRangeLabel } from '../domain/calendar';
+import { Session, addDays } from '../domain/model';
 import { ShortfallDetails } from '../components/ShortfallDetails';
-import { progressReceipts } from '../domain/progressReceipt';
+import { visibleProgressReceipts } from '../domain/progressReceiptDisplay';
 import { ProgressReceiptView, receiptLabel } from '../components/ProgressReceiptView';
 import { remainingWork } from '../domain/remainingWork';
 import { currentPlanningStatus } from '../domain/progressAdjustment';
@@ -15,24 +15,38 @@ import { WorkPlacements } from '../components/WorkPlacements';
 import { usePlanningClock } from '../hooks/usePlanningClock';
 import { pastRemainingWork } from '../domain/remainingAllocation';
 
+export interface FutureSelection { from: string; selectedOn: string }
+const priorityName = (priority: number) => ['', '低い', 'ふつう', '高い'][priority] ?? String(priority);
+
 export function Future({
   state,
   onCalendar,
   onProposal,
   onRestart,
   onAdjustRemaining,
-  initialWeek = upcomingSunday(today()),
+  onBalanceFuture,
+  selection,
+  initialWeek,
   onWeekChange,
 }: Props & {
   onCalendar: (date?: string, revealDay?: boolean) => void;
   onProposal: () => void;
   onRestart?: (from: string) => Promise<void>;
   onAdjustRemaining?: (from: string) => Promise<boolean>;
+  onBalanceFuture?: (materialIds: string[], from: string, allowReduction: boolean) => Promise<boolean>;
+  selection?: FutureSelection | null;
   initialWeek?: string;
   onWeekChange?: (date: string) => void;
 }) {
-  const [week, setWeek] = useState(initialWeek);
   const { date: reference, minute } = usePlanningClock();
+  const [localSelection, setLocalSelection] = useState<FutureSelection | null>(() => initialWeek ? { from: initialWeek, selectedOn: reference } : null);
+  const chosen = selection === undefined ? localSelection : selection;
+  const week = chosen?.selectedOn === reference ? chosen.from : reference;
+  const [balanceMaterials, setBalanceMaterials] = useState<string[]>([]);
+  const [balanceFrom, setBalanceFrom] = useState(addDays(reference, 1));
+  const [balanceError, setBalanceError] = useState('');
+  const [balancing, setBalancing] = useState(false);
+  const balanceSending = useRef(false);
   const [restartOpen, setRestartOpen] = useState(false);
   const [restartDate, setRestartDate] = useState(reference);
   const [restartError, setRestartError] = useState('');
@@ -96,7 +110,7 @@ export function Future({
   const reviewReason = planningStatus?.status === 'blocked' ? planningStatus.detail :
     work.flatMap((row) => [...row.reasons, ...row.unavailable.filter((item) => !item.clockOnly).map((item) => item.reason)])[0];
   const moveWeek = (date: string) => {
-    setWeek(date);
+    setLocalSelection({ from: date, selectedOn: reference });
     onWeekChange?.(date);
   };
   const groups = new Map<string, Session[]>();
@@ -119,7 +133,7 @@ export function Future({
       groups.set(date, []);
   }
   const shortfalls = state.plan?.shortfalls ?? [];
-  const receipts = progressReceipts(state);
+  const receipts = visibleProgressReceipts(state);
   return (
     <div className="future-page">
       <section className="future-restart" aria-label="計画を仕切り直す">
@@ -151,6 +165,35 @@ export function Future({
           </form>
         )}
       </section>
+      {onBalanceFuture && state.plan && !state.proposal && <details className="future-balance">
+        <summary>対象の未来配分を均す</summary>
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          if (balanceSending.current) return;
+          balanceSending.current = true; setBalancing(true); setBalanceError('');
+          void onBalanceFuture(balanceMaterials, balanceFrom, false).then((created) => {
+            if (created) onProposal();
+            else setBalanceError('変更できる未来の予定がありません。');
+          }).catch((error) => setBalanceError(error instanceof Error ? error.message : String(error)))
+            .finally(() => { balanceSending.current = false; setBalancing(false); });
+        }}>
+          <fieldset disabled={balancing}>
+            <legend>配分を均す教材</legend>
+            {state.settings.materials.map((material) => {
+              const exam = state.settings.exams.find((item) => item.id === material.examId);
+              return <label className="block" key={material.id}>
+                <input type="checkbox" checked={balanceMaterials.includes(material.id)} onChange={(event) =>
+                  setBalanceMaterials((current) => event.target.checked ? [...current, material.id] : current.filter((id) => id !== material.id))} />
+                {material.name}{exam ? ` · ${exam.name} · 優先度：${priorityName(exam.priority)}` : ''}
+              </label>;
+            })}
+            <label className="field">配分を始める日<input type="date" required min={addDays(reference, 1)} value={balanceFrom} onChange={(event) => setBalanceFrom(event.target.value)} /></label>
+            <p>今日の予定・実績と固定予定を残し、選んだ教材を期限まで配分し直します。</p>
+            <button type="submit" className="primary" disabled={!balanceMaterials.length}>配分案を確認</button>
+          </fieldset>
+          {balanceError && <p className="error" role="alert">{balanceError}</p>}
+        </form>
+      </details>}
       {onAdjustRemaining && state.plan && !state.proposal && <section className="remaining-adjustment" aria-label="経過済みの未消化分をまとめて調整">
         {!placementOpen ? <>
           <button ref={placementTrigger} disabled={!past.sessions.length && !past.issue} onClick={openPlacement}>
@@ -180,7 +223,7 @@ export function Future({
       </button>
       {needsReview ? (
         <p className="future-reconciliation" role="status">
-          調整未反映・要確認{reviewReason ? `：${reviewReason}` : ''}
+          調整未反映・要確認。現在の計画を保持しています。{reviewReason ? ` ${reviewReason}` : ''}
         </p>
       ) : planningStatus?.status === 'applied' ? (
         <p className="future-reconciliation" role="status">未消化分を調整しました</p>
@@ -198,6 +241,9 @@ export function Future({
           </ul>
         </details>
       )}
+      {state.settings.exams.length > 0 && <ul className="future-priorities" aria-label="試験の優先度">
+        {state.settings.exams.map((exam) => <li key={exam.id}>{exam.name} · 優先度：{priorityName(exam.priority)}</li>)}
+      </ul>}
       <div className="future-week row" role="group" aria-label="週間予定の表示範囲">
         <button aria-label="前の週" onClick={() => moveWeek(addDays(week, -7))}>
           ‹
@@ -208,6 +254,7 @@ export function Future({
         <button aria-label="次の週" onClick={() => moveWeek(addDays(week, 7))}>
           ›
         </button>
+        {week !== reference && <button onClick={() => moveWeek(reference)}>今日から</button>}
       </div>
       {groups.size ? (
         [...groups]

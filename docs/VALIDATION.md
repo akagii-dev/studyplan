@@ -1,5 +1,30 @@
 # 動作確認記録
 
+## v0.6.10公開前の最終検証（2026-10-03）
+
+最新ユーザーのpush・公開依頼に基づき、指定復元先codex/studyplan-resumeから公開を準備。未コミット実装を08f19c2へ保存し、fetchで確認した別PCのorigin/main da2650a（文書のみ）を通常merge c30a77cで保持した。SPEC/ARCHITECTUREの計算版は実コードと同じ13。既公開v0.6.9のタグ・配布物を変更せず、package.json/tauri.conf/Cargo.toml/Cargo.lockを0.6.10へ揃えた。本番データ、通常の製品EXE、別checkoutには変更していない。
+
+公開前のWeb全件検査は初回45成功・1失敗。Futureの過去分調整フォームが50ms後に開始日へ再focusし、Tabで移動した「やめる」からフォーカスを奪う原因を実画面で特定した。初期focusと取消時の復帰を保ち、遅延処理は入力欄にfocusが残る場合のscrollのみへ変更。既存Tab検査に51ms後のfocus保持を追加して、全46件を再実行した。better-accessibilityのfocus-and-keyboard観点で自己確認（MEDIUMのフォーカス順序問題を解消）。今回の小修正について独立した新規レビューやスクリーンリーダー実聴は行っていない。
+
+| 最終コマンド | 結果 |
+| --- | --- |
+| pnpm verify | 成功：lint・型検査・単体557件/36ファイル・通常build |
+| PLAYWRIGHT_CHANNEL=msedge pnpm verify:ui | 成功：広幅/狭幅46件、修正後全件再実行 |
+| pnpm lan:assets | 成功：9ファイル、buildId 8e9ed87bd5d6 |
+| cargo build --manifest-path src-tauri/Cargo.toml --features lan-cli --bins --locked | 成功：v0.6.10の最新debugバイナリ |
+| cargo test --manifest-path src-tauri/Cargo.toml --lib --locked | 成功：42件 |
+| pnpm test:ui | 成功：Desktop実機65件、通常/最大化/最小化終了、保存失敗・応答消失、承認保存・再起動、日付越え保留を含む |
+| pnpm test:lan | 成功：32件、幅非依存の重複14件skip、専用SQLiteのみ |
+| pnpm desktop:build | 成功：v0.6.10の配布EXE。LAN資材とDesktop資材を順にビルド |
+| scripts/package-update.ps1 | 成功：規定4ファイルのみの更新ZIP |
+| scripts/test-update.ps1（旧v0.6.9の隔離コピー） | 成功：ロック中の拒否・破損manifest拒否・置換・旧EXE退避・再実行・データマーカー保持 |
+
+配布EXEは18,948,096 bytes、FileVersion 0.6.10。SHA256は3D40DB80334A970C831914E852DDA8F9C9B994C7C5752452B967DBA5671BB271でupdate.jsonと一致。ZIPはStudyPlan.exe、Update-StudyPlan.ps1、update.json、README.txtの4ファイルのみ。ZIP SHA256はBBFDCDF5817222BF9EDD2BFBCF0E9A6763EDF725081DBF11F97E160806A6EC43。配布対象にソース・DB・実バックアップ・接続キー・テスト出力を含めていない。
+
+元の実データ検証結果と当日周回順競合の画面確認は以下の既存節を参照。今回の最終debug検証でも数量保存、記録再送、固定保持、承認と未承認案の分離を維持した。最終ゲートに未解決の失敗はない。依存注釈・バンドル容量警告は残る。
+
+未実施：iOS実機、別PCのLAN到達、スクリーンリーダー実聴、隔離Windowsアカウントでの配布EXE起動。本番への更新適用は行っていない。配布EXEは起動せず、更新テストもコピーだけを対象とした。公開完了・デモ配信確認の実行結果はローカルWORK-STATUS.mdへ保存する。
+
 ## 当日周回順競合の警告と仕切り直し導線（2026-10-03・仕上げ完了）
 
 前段の完了報告回収後、直接10/6へ進めた競合時の実画面を追加確認した。TodayはcurrentProgressAdjustmentだけを参照しており、起動時のplanReconciliation.blockedを表示しない欠陥があった。Dashboard.tsxで共通currentPlanReconciliationを参照し、Future.tsxとともに原Plan保持・原因・必要な操作を表示する。今回の製品変更はこの2画面だけで、計算・保存・自動承認の仕様は変更していない。SPEC/ARCHITECTUREの既存節へ契約を追記した。

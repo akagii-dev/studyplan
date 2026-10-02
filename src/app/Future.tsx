@@ -74,7 +74,7 @@ export function Future({
     let timer: ReturnType<typeof setTimeout> | undefined;
     if (placementOpen) {
       placementField.current?.focus();
-      timer = setTimeout(() => { placementField.current?.focus(); placementField.current?.scrollIntoView({ block: 'center' }); }, 50);
+      timer = setTimeout(() => { if (document.activeElement === placementField.current) placementField.current?.scrollIntoView({ block: 'center' }); }, 50);
     }
     else if (wasPlacementOpen.current) placementTrigger.current?.focus();
     wasPlacementOpen.current = placementOpen;

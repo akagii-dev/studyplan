@@ -76,6 +76,8 @@ test('過去の未消化5問だけを一括調整し、今日の開始済み予�
   await page.getByRole('button', { name: '配置案を確認', exact: true }).focus();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'やめる', exact: true })).toBeFocused();
+  await page.clock.runFor(51);
+  await expect(page.getByRole('button', { name: 'やめる', exact: true })).toBeFocused();
   await page.getByRole('button', { name: '配置案を確認', exact: true }).click();
   const proposal = page.getByRole('region', { name: '選択した残量の配置案' });
   await expect(proposal).toContainText('対象 5問');

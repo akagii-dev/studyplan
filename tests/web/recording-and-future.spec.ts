@@ -1,7 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { progressContractFixture, contractDay } from '../fixtures/progressContract';
-import { addDays, type AppState } from '../../src/domain/model';
+import { adjustmentFixture } from '../fixtures/adjustment';
+import { addDays, initialState, type AppState } from '../../src/domain/model';
 
 async function seed(page: Page, state = progressContractFixture()) {
   await page.clock.install({ time: new Date(`${contractDay}T12:00:00+09:00`) });
@@ -20,7 +21,9 @@ test('今日起点・同日の詳細往復・主画面再入場・日跨ぎと�
   await nav(page, '今後の予定');
   const range = page.locator('.future-week time');
   await expect(range).toHaveAttribute('datetime', contractDay);
+  await page.locator('.future-balance > summary').click();
   await expect(page.getByRole('list', { name: '試験の優先度' })).toContainText('検証用試験 · 優先度：ふつう');
+  await page.locator('.future-balance > summary').click();
   await nav(page, '次の週');
   await expect(range).toHaveAttribute('datetime', addDays(contractDay, 7));
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
@@ -196,4 +199,151 @@ for (const responseLost of [false, true]) {
   await page.screenshot({path:info.outputPath('class-cancellation-edit.png'),fullPage:true});
   await page.reload();
   expect((await read(page)).settings.classCancellations).toEqual(stored.settings.classCancellations!.slice(0,1));
+});
+
+// UI-only fixtures remain small, in memory, and share the current domain/store contract.
+for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名'] as const) {
+  test('今後の予定の密度・主要導線・警告とアクセシビリティ：' + scenario, async ({ page }, info) => {
+    const state = scenario === '空' ? initialState() : adjustmentFixture(contractDay);
+    if (scenario === '未配置') {
+      const session = state.plan!.sessions.find((item) => item.id === 'book-9')!;
+      session.count = 3; session.end = session.start + 9;
+      state.plan!.shortfalls = [{ materialId: 'book', round: 1, count: 3, minutes: 9, reason: '期限内の学習枠が足りません。' }];
+    }
+    if (scenario === '競合') {
+      const session = state.plan!.sessions[0];
+      session.fixed = true; session.start = 400; session.end = 418;
+    }
+    if (scenario === '長い教材名') {
+      state.settings.materials[0].name = '行政書士試験対策・民法の事例問題と判例を詳しく確認するための長い名前の問題集・改訂版';
+      state.settings.exams[0].name = '非常に長い名称の行政書士試験・総合対策';
+      state.plan!.settingsSnapshot = structuredClone(state.settings);
+    }
+    await page.clock.install({ time: new Date(contractDay + 'T08:00:00+09:00') });
+    await page.addInitScript((data) => {
+      if (!localStorage.getItem('studyplan-demo-state-v1')) localStorage.setItem('studyplan-demo-state-v1', JSON.stringify({ revision: 1, data }));
+    }, state);
+    await page.goto('./');
+    await nav(page, '今後の予定');
+    const committed = (data: AppState) => ({ plan: data.plan, settings: data.settings, records: data.records, history: data.history });
+    expect(committed(await read(page))).toEqual(committed(state));
+    const view = page.locator('.future-page');
+    for (const width of info.project.name === 'wide' ? [1280] : [320, 390]) {
+      await page.setViewportSize({ width, height: width === 1280 ? 800 : 844 });
+      await expect(page.getByText('残量の内訳', { exact: true })).toHaveCount(0);
+      await expect(view.locator('.future-work')).toHaveCount(0);
+      await expect(view.locator('.future-week time')).toHaveAttribute('datetime', contractDay);
+      const calendar = view.getByRole('button', { name: '詳細カレンダーを見る', exact: true });
+      const restart = view.getByRole('button', { name: '計画を仕切り直す', exact: true });
+      for (const button of [calendar, restart]) {
+        await expect(button).toBeVisible();
+        const box = (await button.boundingBox())!;
+        expect(box.y + box.height).toBeLessThan(600);
+        expect(box.height).toBeGreaterThanOrEqual(44);
+        expect(box.width).toBeGreaterThanOrEqual(44);
+      }
+      if (scenario === '空') {
+        await expect(view.getByText('この週の予定はありません。', { exact: true })).toBeVisible();
+        await expect(view.getByRole('region', { name: '未配置の学習' })).toHaveCount(0);
+      } else {
+        await expect(view.getByRole('button', { name: '経過済みの未消化分をまとめて調整', exact: true })).toBeDisabled();
+        await expect(view.getByText('昨日以前の未消化分なし', { exact: true })).toBeVisible();
+        await expect(view.locator('.future-balance')).not.toHaveAttribute('open');
+        await expect(view.getByRole('list', { name: '試験の優先度' })).toBeHidden();
+        if (scenario === '未配置') {
+          const warning = view.getByRole('region', { name: '未配置の学習' });
+          await expect(warning).toContainText('未配置 1件・9分');
+          await expect(warning).toContainText('3問');
+          expect((await warning.boundingBox())!.y).toBeLessThan((await view.locator('.future-week').boundingBox())!.y);
+          const reason = warning.locator('summary');
+          await reason.focus(); await page.keyboard.press('Enter');
+          await expect(warning.getByText('期限内の学習枠が足りません。', { exact: true })).toBeVisible();
+          await page.keyboard.press('Enter');
+        }
+        if (scenario === '競合') {
+          await expect(view.locator('.future-reconciliation')).toContainText('調整未反映・要確認。現在の計画を保持しています。');
+          await expect(view).toContainText('配置要確認');
+        }
+        if (scenario === '通常') expect((await view.locator('.future-day').first().boundingBox())!.y).toBeLessThan(500);
+        if (scenario === '長い教材名') {
+          await expect(view.locator('.future-day li').first()).toContainText(state.settings.materials[0].name);
+          expect(await view.locator('.future-day li > span:first-child').first().evaluate((element) => getComputedStyle(element).textOverflow)).not.toBe('ellipsis');
+        }
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      expect((await new AxeBuilder({ page }).include('.future-page').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
+      // Enter, Tab and focus restoration use native controls, without changing the plan.
+      await restart.focus(); await page.keyboard.press('Enter');
+      await expect(view.getByLabel('開始日', { exact: true })).toBeFocused();
+      const create = view.getByRole('button', { name: 'この日から案を作成', exact: true });
+      // Chromium's native date input has several keyboard-editable segments.
+      for (let step = 0; step < 5 && !(await create.evaluate((element) => element === document.activeElement)); step++) await page.keyboard.press('Tab');
+      await expect(create).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(view.getByRole('button', { name: 'やめる', exact: true })).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(restart).toBeFocused();
+      expect(await restart.evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe('none');
+      expect(committed(await read(page))).toEqual(committed(state));
+      if (scenario !== '空') {
+        const summary = view.locator('.future-balance > summary');
+        await summary.focus(); await page.keyboard.press('Enter');
+        await expect(view.getByRole('list', { name: '試験の優先度' })).toBeVisible();
+        const first = view.getByRole('checkbox').first();
+        await first.check();
+        await expect(view.getByRole('button', { name: '配分案を確認', exact: true })).toBeEnabled();
+        await summary.focus(); await page.keyboard.press('Enter');
+        await page.keyboard.press('Enter');
+        await expect(first).toBeChecked();
+        await page.keyboard.press('Enter');
+        expect(committed(await read(page))).toEqual(committed(state));
+      }
+      await view.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: info.outputPath('future-' + scenario + '-' + width + '.png'), fullPage: true });
+    }
+    await page.reload();
+    await nav(page, '今後の予定');
+    expect(committed(await read(page))).toEqual(committed(state));
+  });
+}
+
+test('今後の予定の全配色・拡大・文字間隔でもラベルと操作を保つ', async ({ page }, info) => {
+  const state = adjustmentFixture(contractDay);
+  await page.clock.install({ time: new Date(contractDay + 'T08:00:00+09:00') });
+  await page.addInitScript((data) => localStorage.setItem('studyplan-demo-state-v1', JSON.stringify({ revision: 1, data })), state);
+  await page.goto('./'); await nav(page, '今後の予定');
+  const view = page.locator('.future-page');
+  for (const theme of ['mint', 'sky', 'lime']) for (const appearance of ['light', 'dark']) {
+    await page.evaluate(({ theme, appearance }) => {
+      document.documentElement.dataset.theme = theme;
+      document.documentElement.dataset.appearance = appearance;
+    }, { theme, appearance });
+    // Measure the selected theme after the shared background transition has settled.
+    await expect.poll(async () => {
+      await page.clock.runFor(150);
+      return view.getByRole('button', { name: '詳細カレンダーを見る', exact: true }).evaluate((element) => {
+        const hex = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim();
+        const rgb = hex.slice(1).match(/../g)!.map((component) => parseInt(component, 16));
+        return getComputedStyle(element).backgroundColor === 'rgb(' + rgb.join(', ') + ')';
+      });
+    }).toBe(true);
+    expect((await new AxeBuilder({ page }).include('.future-page').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
+    const focus = view.getByRole('button', { name: '次の週', exact: true });
+    await focus.focus(); await page.keyboard.press('Shift+Tab'); await page.keyboard.press('Tab');
+    await expect(focus).toBeFocused();
+    expect(await focus.evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe('none');
+  }
+  // Browser zoom shrinks the CSS layout viewport. Also enlarge all text to 200%.
+  await page.setViewportSize({ width: info.project.name === 'wide' ? 640 : 320, height: 844 });
+  await page.addStyleTag({ content: ':root { font-size: 28px; } .future-page * { letter-spacing: .12em; word-spacing: .16em; line-height: 1.5; } .future-page p { margin-block-end: 2em; }' });
+  const calendar = view.getByRole('button', { name: '詳細カレンダーを見る', exact: true });
+  await expect(calendar).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await calendar.focus(); await page.keyboard.press('Enter');
+  await nav(page, '← 今後の予定へ戻る');
+  await expect(calendar).toBeFocused();
+  await view.locator('.future-balance > summary').click();
+  await expect(view.getByRole('checkbox').first()).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: info.outputPath('future-text-spacing.png'), fullPage: true });
 });

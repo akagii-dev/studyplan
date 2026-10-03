@@ -191,3 +191,20 @@ it('標準表示は今日から7日で、前日に選んだ手動範囲は復元
   expect(html).toContain(`dateTime="${selected}"`);
   expect(html).toContain('今日から');
 });
+
+it('残量の内訳表示を廃止しても未配置量・理由と要確認を保持し、表示で状態を変えない', () => {
+  const f = fixture(1);
+  f.state.plan!.shortfalls = [{ materialId: 'book', round: 0, count: 90, minutes: 270, reason: '期限内の学習枠が足りません。' }];
+  f.state.draft.planReconciliation = { status: 'blocked', asOf: today(), reason: 'fixed-conflict', detail: '固定予定と学習順序を確認してください。' };
+  const before = structuredClone(f.state);
+  const html = future(f);
+  expect(html).not.toContain('残量の内訳');
+  expect(html).not.toContain('future-work');
+  expect(html).toContain('未配置 1件');
+  expect(html).toContain('90問');
+  expect(html).toContain('期限内の学習枠が足りません。');
+  expect(html).toContain('調整未反映・要確認。現在の計画を保持しています。');
+  expect(html).toContain('固定予定と学習順序を確認してください。');
+  expect(html.indexOf('shortfall-summary')).toBeLessThan(html.indexOf('future-week'));
+  expect(f.state).toEqual(before);
+});

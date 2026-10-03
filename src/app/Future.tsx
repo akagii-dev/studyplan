@@ -11,7 +11,6 @@ import { ProgressReceiptView, receiptLabel } from '../components/ProgressReceipt
 import { remainingWork } from '../domain/remainingWork';
 import { currentPlanningStatus } from '../domain/progressAdjustment';
 import { displayPlanSessions } from '../domain/planDisplay';
-import { WorkPlacements } from '../components/WorkPlacements';
 import { usePlanningClock } from '../hooks/usePlanningClock';
 import { pastRemainingWork } from '../domain/remainingAllocation';
 
@@ -136,91 +135,62 @@ export function Future({
   const receipts = visibleProgressReceipts(state);
   return (
     <div className="future-page">
-      <section className="future-restart" aria-label="計画を仕切り直す">
-        {state.proposal ? (
-          <button className="primary" onClick={onProposal}>計画案を確認</button>
-        ) : !onRestart ? null : !restartOpen ? (
-          <button ref={restartTrigger} onClick={() => { setRestartDate(reference); setRestartError(''); setRestartOpen(true); }}>
-            計画を仕切り直す
-          </button>
-        ) : (
-          <form onSubmit={(event) => {
-            event.preventDefault();
-            if (restarting) return;
-            setRestarting(true);
-            setRestartError('');
-            void onRestart(restartDate).catch((error) => {
-              setRestartError(error instanceof Error ? error.message : String(error));
-            }).finally(() => setRestarting(false));
-          }}>
-            <p>実績・履歴と固定予定を残し、未配置も含めて組み直します。</p>
-            <label htmlFor="restart-date">開始日</label>
-            <div className="future-restart-controls">
-              <input ref={restartDateInput} id="restart-date" type="date" required min={reference} value={restartDate}
-                onChange={(event) => setRestartDate(event.target.value)} />
-              <button className="primary" type="submit" disabled={restarting}>この日から案を作成</button>
-              <button type="button" disabled={restarting} onClick={() => { setRestartOpen(false); setRestartError(''); }}>やめる</button>
+      <div className="future-actions">
+        <button data-return-focus="future:calendar" onClick={() => onCalendar(week, false)}>詳細カレンダーを見る</button>
+        <section className="future-restart" aria-label="計画を仕切り直す">
+          {state.proposal ? (
+            <button className="primary" onClick={onProposal}>計画案を確認</button>
+          ) : !onRestart ? null : !restartOpen ? (
+            <button ref={restartTrigger} onClick={() => { setRestartDate(reference); setRestartError(''); setRestartOpen(true); }}>
+              計画を仕切り直す
+            </button>
+          ) : (
+            <form onSubmit={(event) => {
+              event.preventDefault();
+              if (restarting) return;
+              setRestarting(true);
+              setRestartError('');
+              void onRestart(restartDate).catch((error) => {
+                setRestartError(error instanceof Error ? error.message : String(error));
+              }).finally(() => setRestarting(false));
+            }}>
+              <p>実績・履歴と固定予定を残し、未配置も含めて組み直します。</p>
+              <label htmlFor="restart-date">開始日</label>
+              <div className="future-restart-controls">
+                <input ref={restartDateInput} id="restart-date" type="date" required min={reference} value={restartDate}
+                  onChange={(event) => setRestartDate(event.target.value)} />
+                <button className="primary" type="submit" disabled={restarting}>この日から案を作成</button>
+                <button type="button" disabled={restarting} onClick={() => { setRestartOpen(false); setRestartError(''); }}>やめる</button>
+              </div>
+              {restartError && <p className="error" role="alert">{restartError}</p>}
+            </form>
+          )}
+        </section>
+        {onAdjustRemaining && state.plan && !state.proposal && <section className="remaining-adjustment" aria-label="経過済みの未消化分をまとめて調整">
+          {!placementOpen ? <>
+            <button ref={placementTrigger} aria-describedby={!past.sessions.length && !past.issue ? "past-adjustment-status" : undefined} disabled={!past.sessions.length && !past.issue} onClick={openPlacement}>
+              経過済みの未消化分をまとめて調整
+            </button>
+            {!past.sessions.length && !past.issue && <span id="past-adjustment-status" className="future-empty-adjustment">昨日以前の未消化分なし</span>}
+          </> : <form onSubmit={(event) => { event.preventDefault(); void adjustPlacement(); }}>
+            <h2>経過済みの未消化分をまとめて調整</h2>
+            <p>昨日以前の未消化分が対象です。今日と未来の予定・実績は維持します。</p>
+            <ul aria-label="調整する対象">{pastGroups.map(({ material, round, count }) => <li key={`${material.id}/${round}`}>
+              {material.name} · {round + 1}周目 · {count}{materialUnit(material.unit)}
+            </li>)}</ul>
+            {past.issue && <p className="error" role="alert">{past.issue}</p>}
+            <label htmlFor="remaining-from">配置する開始日</label>
+            <input id="remaining-from" ref={placementField} type="date" required min={lowerDate}
+              value={placementDate} onChange={(event) => setPlacementDate(event.target.value)} />
+            <div className="actions">
+              <button type="submit" className="primary" disabled={placing || !!past.issue || !past.sessions.length}>配置案を確認</button>
+              <button type="button" disabled={placing} onClick={() => setPlacementOpen(false)}>やめる</button>
             </div>
-            {restartError && <p className="error" role="alert">{restartError}</p>}
-          </form>
-        )}
-      </section>
-      {onBalanceFuture && state.plan && !state.proposal && <details className="future-balance">
-        <summary>対象の未来配分を均す</summary>
-        <form onSubmit={(event) => {
-          event.preventDefault();
-          if (balanceSending.current) return;
-          balanceSending.current = true; setBalancing(true); setBalanceError('');
-          void onBalanceFuture(balanceMaterials, balanceFrom, false).then((created) => {
-            if (created) onProposal();
-            else setBalanceError('変更できる未来の予定がありません。');
-          }).catch((error) => setBalanceError(error instanceof Error ? error.message : String(error)))
-            .finally(() => { balanceSending.current = false; setBalancing(false); });
-        }}>
-          <fieldset disabled={balancing}>
-            <legend>配分を均す教材</legend>
-            {state.settings.materials.map((material) => {
-              const exam = state.settings.exams.find((item) => item.id === material.examId);
-              return <label className="block" key={material.id}>
-                <input type="checkbox" checked={balanceMaterials.includes(material.id)} onChange={(event) =>
-                  setBalanceMaterials((current) => event.target.checked ? [...current, material.id] : current.filter((id) => id !== material.id))} />
-                {material.name}{exam ? ` · ${exam.name} · 優先度：${priorityName(exam.priority)}` : ''}
-              </label>;
-            })}
-            <label className="field">配分を始める日<input type="date" required min={addDays(reference, 1)} value={balanceFrom} onChange={(event) => setBalanceFrom(event.target.value)} /></label>
-            <p>今日の予定・実績と固定予定を残し、選んだ教材を期限まで配分し直します。</p>
-            <button type="submit" className="primary" disabled={!balanceMaterials.length}>配分案を確認</button>
-          </fieldset>
-          {balanceError && <p className="error" role="alert">{balanceError}</p>}
-        </form>
-      </details>}
-      {onAdjustRemaining && state.plan && !state.proposal && <section className="remaining-adjustment" aria-label="経過済みの未消化分をまとめて調整">
-        {!placementOpen ? <>
-          <button ref={placementTrigger} disabled={!past.sessions.length && !past.issue} onClick={openPlacement}>
-            経過済みの未消化分をまとめて調整
-          </button>
-          {!past.sessions.length && !past.issue && <p>昨日以前の未消化分は調整済み、またはありません。</p>}
-        </> : <form onSubmit={(event) => { event.preventDefault(); void adjustPlacement(); }}>
-          <h2>経過済みの未消化分をまとめて調整</h2>
-          <p>昨日以前の未消化分が対象です。今日と未来の予定・実績は維持します。</p>
-          <ul aria-label="調整する対象">{pastGroups.map(({ material, round, count }) => <li key={`${material.id}/${round}`}>
-            {material.name} · {round + 1}周目 · {count}{materialUnit(material.unit)}
-          </li>)}</ul>
-          {past.issue && <p className="error" role="alert">{past.issue}</p>}
-          <label htmlFor="remaining-from">配置する開始日</label>
-          <input id="remaining-from" ref={placementField} type="date" required min={lowerDate}
-            value={placementDate} onChange={(event) => setPlacementDate(event.target.value)} />
-          <div className="actions">
-            <button type="submit" className="primary" disabled={placing || !!past.issue || !past.sessions.length}>配置案を確認</button>
-            <button type="button" disabled={placing} onClick={() => setPlacementOpen(false)}>やめる</button>
-          </div>
-          {placementError && <p className="error" role="alert">{placementError}</p>}
-          {placementMessage && <p role="status">{placementMessage}</p>}
-        </form>}
-      </section>}
-      <button data-return-focus="future:calendar" onClick={() => onCalendar(week, false)}>
-        詳細カレンダーを見る
-      </button>
+            {placementError && <p className="error" role="alert">{placementError}</p>}
+            {placementMessage && <p role="status">{placementMessage}</p>}
+          </form>}
+        </section>}
+      </div>
       {needsReview ? (
         <p className="future-reconciliation" role="status">
           調整未反映・要確認。現在の計画を保持しています。{reviewReason ? ` ${reviewReason}` : ''}
@@ -228,22 +198,7 @@ export function Future({
       ) : planningStatus?.status === 'applied' ? (
         <p className="future-reconciliation" role="status">未消化分を調整しました</p>
       ) : null}
-      {work.length > 0 && (
-        <details className="future-work">
-          <summary>残量の内訳</summary>
-          <ul>
-            {work.map((row) => (
-              <li key={`${row.materialId}/${row.round}`} className="future-work-item">
-                <span>{row.name} · {row.round + 1}周目</span>
-                <WorkPlacements row={row} />
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-      {state.settings.exams.length > 0 && <ul className="future-priorities" aria-label="試験の優先度">
-        {state.settings.exams.map((exam) => <li key={exam.id}>{exam.name} · 優先度：{priorityName(exam.priority)}</li>)}
-      </ul>}
+      <ShortfallDetails state={state} />
       <div className="future-week row" role="group" aria-label="週間予定の表示範囲">
         <button aria-label="前の週" onClick={() => moveWeek(addDays(week, -7))}>
           ‹
@@ -328,7 +283,7 @@ export function Future({
                             ? `${state.settings.exams.find((exam) => exam.id === session.examId)?.name ?? '試験'} · 復習`
                             : `${state.settings.materials.find((material) => material.id === session.materialId)?.name ?? session.materialId} · ${session.round + 1}周目`}
                         </span>
-                        <strong>
+                        <span className="future-quantity"><strong>
                           {session.kind === 'review' ? duration(minutes) : progressView({
                             planned: count, actual: 0, reported: false,
                             unit: quantity.rows.find(row => row.materialId === session.materialId && row.round === session.round)?.unit ??
@@ -337,6 +292,7 @@ export function Future({
                         </strong>
                         {session.fixed && <span className="future-fixed">固定</span>}
                         {rowNeedsReview && <span>配置要確認</span>}
+                        </span>
                       </li>
                     ))}
                 </ul>
@@ -348,7 +304,39 @@ export function Future({
           {shortfalls.length ? 'この週に配置済み予定はありません。' : 'この週の予定はありません。'}
         </p>
       )}
-      <ShortfallDetails state={state} />
+      {onBalanceFuture && state.plan && !state.proposal && <details className="future-balance">
+        <summary>対象の未来配分を均す</summary>
+      {state.settings.exams.length > 0 && <ul className="future-priorities" aria-label="試験の優先度">
+        {state.settings.exams.map((exam) => <li key={exam.id}>{exam.name} · 優先度：{priorityName(exam.priority)}</li>)}
+      </ul>}
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          if (balanceSending.current) return;
+          balanceSending.current = true; setBalancing(true); setBalanceError('');
+          void onBalanceFuture(balanceMaterials, balanceFrom, false).then((created) => {
+            if (created) onProposal();
+            else setBalanceError('変更できる未来の予定がありません。');
+          }).catch((error) => setBalanceError(error instanceof Error ? error.message : String(error)))
+            .finally(() => { balanceSending.current = false; setBalancing(false); });
+        }}>
+          <fieldset disabled={balancing}>
+            <legend>配分を均す教材</legend>
+            {state.settings.materials.map((material) => {
+              const exam = state.settings.exams.find((item) => item.id === material.examId);
+              return <label className="block" key={material.id}>
+                <input type="checkbox" checked={balanceMaterials.includes(material.id)} onChange={(event) =>
+                  setBalanceMaterials((current) => event.target.checked ? [...current, material.id] : current.filter((id) => id !== material.id))} />
+                {material.name}{exam ? ` · ${exam.name}` : ''}
+              </label>;
+            })}
+            <label className="field">配分を始める日<input type="date" required min={addDays(reference, 1)} value={balanceFrom} onChange={(event) => setBalanceFrom(event.target.value)} /></label>
+            <p>今日の予定・実績と固定予定を残し、選んだ教材を期限まで配分し直します。</p>
+            <button type="submit" className="primary" disabled={!balanceMaterials.length}>配分案を確認</button>
+          </fieldset>
+          {balanceError && <p className="error" role="alert">{balanceError}</p>}
+        </form>
+      </details>}
+
       {receipts.length > 0 && (
         <details className="plan-change-history">
           <summary>実績による予定調整の履歴</summary>

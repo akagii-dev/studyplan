@@ -29,7 +29,7 @@ test('今日の開始前・開始時刻・進行中・終了後を再配置対�
   await page.getByRole('button', { name: '今後の予定', exact: true }).click();
   await expect(page.getByRole('button', { name: '残りの配置を調整', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '経過済みの未消化分をまとめて調整', exact: true })).toBeDisabled();
-  await expect(page.getByText('昨日以前の未消化分は調整済み、またはありません。', { exact: true })).toBeVisible();
+  await expect(page.getByText('昨日以前の未消化分なし', { exact: true })).toBeVisible();
 });
 
 test('過去の未消化5問だけを一括調整し、今日の開始済み予定・実績・履歴を保持する', async ({ page }, info) => {
@@ -100,7 +100,7 @@ test('過去の未消化5問だけを一括調整し、今日の開始済み予�
   expect(remainingWork(approved, adjustmentContext.date).find((r) => r.materialId === 'b')).toMatchObject({ remaining: 10, allocated: 10, unplaced: 0, balanced: true });
   await page.getByRole('button', { name: '今後の予定', exact: true }).click();
   await expect(open).toBeDisabled();
-  await expect(page.getByText('昨日以前の未消化分は調整済み、またはありません。', { exact: true })).toBeVisible();
+  await expect(page.getByText('昨日以前の未消化分なし', { exact: true })).toBeVisible();
   await page.reload();
   expect((await read()).plan).toEqual(approved.plan);
   expect((await read()).records).toEqual(source.records);
@@ -148,8 +148,8 @@ test('保存済みの対象5問の部分配置案も実績を作らず承認・�
   expect(approved.plan!.sessions.find((s) => s.id === 'b-keep')).toEqual(source.plan!.sessions.find((s) => s.id === 'b-keep'));
   expect(remainingWork(approved, adjustmentContext.date).find((r) => r.materialId === 'b')).toMatchObject({ remaining: 10, allocated: 8, unplaced: 2, balanced: true });
   await page.getByRole('button', { name: '今後の予定', exact: true }).click();
-  await page.getByText('残量の内訳', { exact: true }).click();
-  await expect(page.locator('.future-work')).toContainText(/残り\s*10問.*未配置\s*2問/);
+  await expect(page.getByText('残量の内訳', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: '未配置の学習' })).toContainText('2問');
   await page.screenshot({ path: info.outputPath('remaining-destinations.png'), fullPage: true });
   await page.reload();
   expect((await read()).records).toEqual(source.records);
@@ -245,8 +245,9 @@ test('未配置を含む残り26問を指定日から組み直し、破棄と承
   const read = () => page.evaluate(() => JSON.parse(localStorage.getItem('studyplan-demo-state-v1')!).data as AppState);
   const from = addDays(adjustmentContext.date, 3);
   await page.getByRole('button', { name: '今後の予定', exact: true }).click();
-  await page.getByText('残量の内訳').click();
-  await expect(page.locator('.future-work')).toContainText(/残り\s*26問.*未配置\s*6問/);
+  expect(remainingWork(await read(), adjustmentContext.date).find((row) => row.materialId === 'book' && row.round === 0)).toMatchObject({ remaining: 26, unplaced: 6, balanced: true });
+  await expect(page.getByText('残量の内訳', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: '未配置の学習' })).toContainText('6問');
   const open = page.getByRole('button', { name: '計画を仕切り直す' });
   await open.focus();
   await page.keyboard.press('Enter');
@@ -310,7 +311,8 @@ test('実績なしの読込と開き続けた翌日の調整を分けて表示�
   expect(book.filter((s) => s.date > '2030-10-08').reduce((sum, s) => sum + s.count, 0)).toBe(24);
   expect(adjusted.plan?.shortfalls.filter((s) => s.materialId === 'book' && s.round === 0)).toEqual([]);
   // Yesterday was reconciled; today's 09:00 slot remains today's work at 12:01.
-  await expect(page.locator('.future-work')).not.toContainText('再配置待ち');
+  expect(remainingWork(adjusted, '2030-10-08').find((row) => row.materialId === 'book' && row.round === 0)).toMatchObject({ remaining: 30, allocated: 30, pending: 0, balanced: true });
+  await expect(page.getByText('残量の内訳', { exact: true })).toHaveCount(0);
   await expect(page.getByText('配置先を確認', { exact: true })).toHaveCount(0);
   await expect(page.locator('.future-week time')).toHaveAttribute('datetime', '2030-10-08');
   await page.getByRole('button', { name: '前の週' }).click();

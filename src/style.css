@@ -2846,7 +2846,10 @@ textarea {
 .daily-reviews > div { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; }
 .daily-adjustment { padding: 10px 14px; background: var(--soft); border-radius: 8px; margin-bottom: 16px; }
 .daily-adjustment small { display: block; margin-top: 5px; }
-.future-day { padding: 0 0 14px; margin-bottom: 18px; border-bottom: 1px solid var(--border); }
+.future-day { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 8px 16px; padding-block: 8px; border-bottom: 1px solid var(--border); }
+.future-day > h2 { display: flex; flex-wrap: wrap; align-content: start; align-items: center; gap: 0 6px; }
+.future-day > ul { min-width: 0; }
+@media (max-width: 600px) { .future-day { grid-template-columns: minmax(0, 1fr); gap: 0; } }
 .future-day h2 { font-size: 17px; margin: 0 0 6px; }
 .future-day-date {
   min-height: 44px;
@@ -2860,9 +2863,9 @@ textarea {
   text-underline-offset: 3px;
 }
 .future-day ul { list-style: none; margin: 0; padding: 0; }
-.future-day li { display: flex; gap: 10px; align-items: baseline; padding: 7px 0; }
-.future-day li > span:first-child { flex: 1; overflow-wrap: anywhere; }
-.future-fixed { color: var(--muted); font-size: 12px; }
+.future-day li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: baseline; padding-block: 6px; font-size: 1rem; }
+.future-day li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.future-fixed { color: var(--muted); font-size: 1rem; }
 .settings-hub { max-width: 900px; }
 .settings-primary h2 { margin-bottom: 8px; }
 .settings-count { margin-left: 6px; font-size: 13px; font-weight: 500; color: var(--muted); }
@@ -2956,31 +2959,39 @@ textarea {
   .page-heading { gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
 }
 
-.future-week { margin-block: 16px; gap: 12px; }
-.future-today { margin-inline-start: 10px; font-size: 0.875rem; font-weight: 500; color: var(--accent); }
-.future-day li { flex-wrap: wrap; }
-.future-restart { margin-block-end: 12px; }
+.future-week { justify-content: start; margin-block: 12px 4px; gap: 8px; }
+.future-today { margin-inline-start: 0; font-size: 0.875rem; font-weight: 500; color: var(--accent); }
+
+.future-actions { display: flex; flex-wrap: wrap; align-items: start; gap: 8px; margin-block-end: 16px; }
+.future-actions > section { min-width: 0; }
+.future-actions > section:has(form) { flex-basis: 100%; }
+.future-page button, .future-page summary { min-height: 44px; }
+.future-page button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.future-page summary { padding-block: 8px; cursor: pointer; }
+.future-page form { scroll-margin-block: 12px; }
+.future-empty-adjustment { display: block; margin-block-start: 4px; color: var(--muted); }
+.future-reconciliation { margin-block: 12px; padding-inline-start: 12px; border-inline-start: 3px solid var(--warning-ink); overflow-wrap: anywhere; }
+.future-page > .shortfall-summary { margin-block: 12px 16px; padding-block: 8px; border-block: 1px solid var(--warning-border); }
+.future-page .shortfall-summary h2 { font-size: 1.125rem; }
+.future-page .shortfall-summary ul { margin-block-end: 0; }
+.future-page .shortfall-summary li { padding-block: 4px; }
+.future-page .shortfall-summary li > div > span { min-width: 0; }
+.future-page .shortfall-summary li summary { width: fit-content; min-width: 44px; }
+.future-page .plan-change-history > summary { margin-block-start: 16px; }
 .future-restart form { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
 .future-restart form p { margin: 0; }
 .future-restart form label { font-weight: 650; }
 .future-restart-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .future-restart-controls input { min-height: 44px; }
-.future-work { margin-block: 14px; }
-.future-work summary { width: fit-content; cursor: pointer; min-height: 44px; padding-block: 9px; }
-.future-work ul { list-style: none; margin: 0; padding: 0; border-block-start: 1px solid var(--border); }
-.future-work li { display: flex; flex-wrap: wrap; gap: 4px 12px; padding-block: 8px; border-block-end: 1px solid var(--border); }
-.future-work li span:first-child { flex: 1 1 170px; }
-.future-work li span:nth-child(2) { font-variant-numeric: tabular-nums; }
-.future-work li strong { color: var(--error-ink); }
 .work-placements { min-width: 0; width: 100%; overflow-wrap: anywhere; }
 .work-placements p { margin-block: 6px; }
 .work-summary { font-weight: 600; }
 .work-review { color: var(--error-ink); }
-.remaining-adjustment { margin-block: 12px; }
+.remaining-adjustment { min-width: 0; }
 .remaining-adjustment form { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 8px; }
 .remaining-adjustment input[type="date"] { width: fit-content; min-height: 44px; max-width: 100%; }
 .replan-placement ul { padding-inline-start: 20px; }
-.future-quantity { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.future-quantity { display: flex; flex-wrap: wrap; justify-content: end; align-items: baseline; gap: 4px 10px; max-width: 15rem; overflow-wrap: anywhere; }
 .future-quantity > strong { font-size: 1.125rem; font-variant-numeric: tabular-nums; }
 .quantity-warning { color: var(--error-ink); font-weight: 700; }
 .calendar-only-layout { display: grid; gap: 20px; min-width: 0; }
@@ -2988,11 +2999,12 @@ textarea {
 .future-week strong { font-variant-numeric: tabular-nums; }
 .future-week button { min-width: 44px; min-height: 44px; }
 .future-priorities { display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 0; list-style: none; }
-.future-balance { margin-block: 16px; }
+.future-balance { margin-block: 16px; border-block-end: 1px solid var(--border); }
 .future-balance summary { min-height: 44px; align-content: center; cursor: pointer; }
 .future-balance form { display: grid; gap: 12px; margin-top: 12px; }
 .future-balance fieldset { min-width: 0; }
-.future-balance label.block { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.future-balance label.block { display: flex; align-items: center; gap: 8px; min-height: 44px; overflow-wrap: anywhere; }
+.future-balance label.block input { flex: 0 0 auto; }
 .calendar-mode { width: fit-content; margin-block-end: 12px; }
 .calendar-quantity { text-align: start; color: var(--ink); }
 .calendar-amounts { margin: 6px 0; font-variant-numeric: tabular-nums; }

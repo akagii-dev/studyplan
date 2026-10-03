@@ -209,7 +209,7 @@ test('LAN画面で自動繰越済みを二重配分せず、保存済みの過�
   await expect(page.getByRole('button', { name: '残りの配置を調整', exact: true })).toHaveCount(0);
   const open = page.getByRole('button', { name: '経過済みの未消化分をまとめて調整', exact: true });
   await expect(open).toBeDisabled();
-  await expect(page.getByText('昨日以前の未消化分は調整済み、またはありません。', { exact: true })).toBeVisible();
+  await expect(page.getByText('昨日以前の未消化分なし', { exact: true })).toBeVisible();
   expect((await http<Envelope>(request, 'load_state')).data.plan).toEqual(automaticallyAdjusted.data.plan);
   expect(automaticallyAdjusted.data.records).toEqual(source.records);
 

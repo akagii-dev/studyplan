@@ -1,5 +1,18 @@
 # 動作確認記録
 
+## v0.6.11公開直前の検証（2026-10-03）
+
+ユーザーの統合・リリース依頼に基づき、origin/main 143d2f4を再取得して追加変更がないことを確認し、UI/回帰テスト/AGENTSのd1ecd1cをmainへfast-forward統合。保存・domain・計算版13は変更せず、package.json/tauri.conf/Cargo.toml/Cargo.lockの製品版を0.6.11へ一致させ、READMEとCHANGELOGを更新した。ローカルのHANDOFF/WORK-STATUS/調査メモは保護し公開ソースへ含めない。
+
+- pnpm verify成功：lint・型検査・単体558件/36ファイル・通常build。PLAYWRIGHT_CHANNEL=msedge pnpm verify:uiも全58件成功。1280/320/390pxの通常・空・未配置・競合・長い教材名、キーボード/フォーカス・案確認/承認・全配色/拡大を検証し、生成画像の広幅/狭幅も実ピクセルで再確認。
+- pnpm lan:assets、cargo build --features lan-cli --bins --locked成功。cargo test --lib --lockedは42件成功。pnpm test:uiは初回64件成功/1件失敗（実績や設定を操作する前の起動待ちでrootが空のまま30秒タイムアウト）。traceを確認し、コード・期待値・待ち時間を変えず該当1件の再実行が成功、その後の全65件一括再実行も成功。初回の起動待ち停止の原因は確定していない。
+- node --test tests/lanHost.test.mjsは2件成功。PLAYWRIGHT_CHANNEL=msedge pnpm test:lanは32件成功/14件skip（既存の幅非依存重複）。専用SQLiteで数量保存・未報告/0・訂正/取消・固定・日付越え・仕切り直し・revision競合・再送・バックアップ/復元を検証。
+- pnpm desktop:build成功。内蔵LAN資材はallowlistの9ファイル/buildId 386902c424c3。EXEのProductVersion/FileVersionは0.6.11。更新ZIPはStudyPlan.exe/Update-StudyPlan.ps1/update.json/README.txtの4ファイルだけで、manifestとEXEのSHA256一致。EXEはAE7C43DDFA529B4495526535670502F471BC873D6E56C7C89B3AE2C49E0BBC8F、ZIPは1B3E653443F35FD4155CE1A857A1668306D545F0FAF009BEB7C9D13690619DDD。
+- scripts/test-update.ps1で0.6.10の隔離コピーを更新。ロック中/不正hashの拒否、原子的交換、旧EXE退避、再実行の冪等性、専用データマーカー不変を確認。利用者のEXEやSQLiteへの適用・配布EXEの起動はしていない。
+- 検証/ビルド終了後、今回生成したテストDB・WebViewプロファイル・画像/trace/出力とtarget/dist/dist-lan/gen/.vite等のキャッシュ410項目/104,471ファイル/15,202,284,081bytesをWindowsごみ箱へ回収。初回の回収用COM宣言不備は操作実行前に停止し、Windows SDKと照合修正。移動後は同名の古いメタデータとの混同を除き、最新の復元メタデータ・実データ・記録容量の一致と元パス消失を確認。これは復元可能整理でありディスク空き容量解放ではない。回帰テスト/最小fixture/依存物の本体/元資料/本番は保持し、ごみ箱は消去しない。
+
+公開に必要なreleaseの配布EXE/ZIPは成果物として保持する。更新ZIPの展開ディレクトリと既存release-notes.mdは公開作業終了後に回収し、最終公開結果は既存WORK-STATUS.mdへ更新する。新しい診断コピー/報告は増やしていない。既存の依存注釈/バンドル容量警告は残る。iOS実機・スクリーンリーダー実聴・隔離Windowsアカウントでの配布EXE起動は未実施。参照Library画像も引き続き未取得/未閲覧。
+
 ## 今後の予定の表示再構成（2026-10-03）
 
 UI実装・既存回帰テスト・関連仕様と検証記録、およびリポジトリ全体へ適用するAGENTSの生成物回収方針をコミット・通常pushする依頼を受領。最新版のテスト成果物/キャッシュも原則保持しない方針へ更新。必要なテストのソース/最小fixture/本番データは保持する。以下の検証は同じUIソースについて直前に実行した成功結果であり、今回の文書更新だけを理由に同じ検証や整理を繰り返していない。WORK-STATUS/HANDOFF/調査メモはローカル資料として保護し、コミット対象に含めない。リリース・製品EXE交換は依頼範囲外。

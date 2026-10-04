@@ -1,9 +1,9 @@
+import { reflectProgressSafely } from '../src/domain/progressReflection';
 import { afterEach, expect, it, vi } from 'vitest';
 import { studentFixture } from './fixtures/student';
 import {
   generatePlan,
   proposeSettings,
-  proposalAfterRecord,
   approve,
   capacityForDate,
   capacityForWeek,
@@ -111,7 +111,7 @@ it('承認待ちの条件変更は、記録・訂正・取消で消さず新し�
   ]) {
     const before = s;
     const proposalId = before.proposal!.plan.id;
-    s = proposalAfterRecord(change(), '記録の変更', before.proposal);
+    s = reflectProgressSafely(change());
     expect(s.settings.buffer).toBe(0.2);
     expect(s.proposal?.plan.settingsSnapshot?.buffer).toBe(0.3);
     expect(s.proposal?.plan.settingsSnapshot?.materials[1].rounds[0].minutes).toBe(45);
@@ -203,7 +203,7 @@ it('記録で候補の総問題数を超えても、実績を保存して未承�
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-  const next = proposalAfterRecord(recordProgress(s, entry), '記録', s.proposal);
+  const next = reflectProgressSafely(recordProgress(s, entry));
   expect(next.records).toContainEqual(entry);
   expect(next.settings.materials[1].total).toBe(37);
   expect(next.proposal!.plan.settingsSnapshot!.materials[1].total).toBe(8);

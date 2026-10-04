@@ -2546,28 +2546,6 @@ textarea {
 .dashboard-today {
   max-width: 900px;
 }
-.today-study-list {
-  display: grid;
-  gap: 8px;
-}
-.today-study-row {
-  display: grid;
-  grid-template-columns: minmax(130px, 1fr) minmax(190px, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
-}
-.today-study-name,
-.today-study-values {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  align-items: baseline;
-}
-.today-study-name span {
-  color: var(--muted);
-}
 .dashboard-today-actions {
   margin-bottom: 16px;
 }
@@ -2602,19 +2580,6 @@ textarea {
 .shortfall-summary li details { margin-top: 3px; }
 .shortfall-summary li p {
   margin: 4px 0 0;
-}
-@container (max-width: 600px) {
-  .today-study-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-  .today-study-values {
-    grid-column: 1;
-    grid-row: 2;
-  }
-  .today-study-row button {
-    grid-column: 2;
-    grid-row: 1 / 3;
-  }
 }
 .card table {
   display: block;
@@ -2983,10 +2948,6 @@ textarea {
 .future-restart form label { font-weight: 650; }
 .future-restart-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .future-restart-controls input { min-height: 44px; }
-.work-placements { min-width: 0; width: 100%; overflow-wrap: anywhere; }
-.work-placements p { margin-block: 6px; }
-.work-summary { font-weight: 600; }
-.work-review { color: var(--error-ink); }
 .remaining-adjustment { min-width: 0; }
 .remaining-adjustment form { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 8px; }
 .remaining-adjustment input[type="date"] { width: fit-content; min-height: 44px; max-width: 100%; }

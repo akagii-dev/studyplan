@@ -69,13 +69,6 @@ export function reconcilePlanning(state: AppState) {
 export function proposeSettings(state: AppState, settings: Settings, from: string) {
   return proposals.proposeSettings(state, settings, from, context());
 }
-export function proposalAfterRecord(
-  state: AppState,
-  reason: string,
-  previousProposal = state.proposal,
-) {
-  return proposals.proposalAfterRecord(state, reason, previousProposal, context());
-}
 export function approve(state: AppState, acknowledge = false) {
   return proposals.approve(state, acknowledge, context());
 }

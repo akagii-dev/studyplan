@@ -79,15 +79,13 @@ WebView2の画面データも起動ごとに `.test-data/native-webview-*` へ�
 | `src/components/setup/`        | 試験・教材・時間枠・集中・余裕率の一覧編集           |
 | `src/domain/planner/`          | UIと保存から独立した純粋な計画計算・制約・提案       |
 | `src/components/`              | 一覧編集、カレンダー、進捗、履歴、再計画             |
-| `src/store.ts`                 | Tauriの保存コマンドとの境界                          |
+| `src/store.ts`                 | Tauri/LAN/デモの保存方式との境界                          |
 | `src-tauri/src/db.rs`          | SQLite、リビジョン制御、重複防止、検証、監査履歴     |
 | `tests/`                       | 計算・状態遷移の単体テストとWindows実機E2E           |
 
 責任の境界と依存関係は[アーキテクチャ](docs/ARCHITECTURE.md)を参照してください。
 
 詳細は[実装仕様](docs/SPEC.md)と[動作確認記録](docs/VALIDATION.md)を参照してください。
-
-[実利用フローの監査](docs/REAL_USE_AUDIT.md)には、架空の学生データ、見つかった不整合と修正、確認範囲と残る制約を記録しています。
 
 計画は制約を守る分散型のヒューリスティックです。数学的な最適解は保証しません。入らない課題は不足として表示し、連続学習の長さや余裕率を自動変更しません。
 
@@ -99,7 +97,7 @@ WebView2の画面データも起動ごとに `.test-data/native-webview-*` へ�
 
 ## 更新パッケージ
 
-`release/StudyPlan-update-0.6.5.zip` を展開し、`Update-StudyPlan.ps1` を右クリックして「PowerShellで実行」を選び、これまで使っていた StudyPlan の実行ファイルを選んでください。アプリを閉じてから行います。設定・計画・記録は同じ保存先を引き継ぎます。旧実行ファイルも控えとして残します。
+ダウンロードした更新ZIPを展開し、`Update-StudyPlan.ps1` を右クリックして「PowerShellで実行」を選び、これまで使っていた StudyPlan の実行ファイルを選んでください。アプリを閉じてから行います。設定・計画・記録は同じ保存先を引き継ぎます。旧実行ファイルも控えとして残します。
 
 実行ファイル全体を差し替える更新パッケージです。差分ダウンロードや自動更新は行いません。手動で同梱の `StudyPlan.exe` を差し替えても更新できます。
 

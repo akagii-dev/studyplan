@@ -25,7 +25,7 @@ export default defineConfig(
   {
     files: [
       'src/app/{Dashboard,Future}.tsx',
-      'src/components/{Calendar,CalendarDaySummary,CalendarQuantity,TodayRecorder,TodayStudyList,WeeklyReport}.tsx',
+      'src/components/{Calendar,CalendarDaySummary,CalendarQuantity,TodayRecorder,WeeklyReport}.tsx',
     ],
     rules: {
       'no-restricted-imports': [

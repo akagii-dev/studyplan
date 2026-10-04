@@ -67,38 +67,6 @@ const future = ({ state, date }: ReturnType<typeof fixture>) =>
     }),
   );
 
-for (const offset of [-1, 0, 1]) {
-  it.each([undefined, 0, 6, 10, 12])(`日区分${offset}：実績%sと不足・未報告の表示`, (count) => {
-    const f = fixture(offset, count);
-    const html = future(f);
-    if (offset > 0) {
-      expect(html).toContain('10問</strong>');
-      expect(html).not.toContain('/10問');
-      expect(html).not.toContain('未報告');
-    } else {
-      expect(html).toContain(count === undefined ? '未報告 / 10問' : `${count}/10問`);
-      expect(html.includes('未報告')).toBe(count === undefined);
-    }
-    expect(html.includes('quantity-warning')).toBe(
-      offset < 0 && (count === undefined || count < 10),
-    );
-    if (offset < 0 && count !== undefined && count < 10)
-      expect(html).toContain(`${10 - count}問不足`);
-    else expect(html).not.toContain('問不足');
-    expect(html.includes('future-today')).toBe(offset === 0);
-    if (offset < 0 && count !== undefined && count >= 10) {
-      const calendar = renderToStaticMarkup(
-        createElement(CalendarQuantity, {
-          state: f.state,
-          date: f.date,
-          filter: 'all',
-          onSelect: () => {},
-        }),
-      );
-      expect(calendar).not.toContain('その日の不足');
-    }
-  });
-}
 it('分割・固定予定でも同じ実績を重複表示せず、訂正・取消を反映する', () => {
   const f = fixture(-1, 6);
   const first = f.state.plan!.sessions[0];

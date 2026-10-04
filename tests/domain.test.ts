@@ -1,3 +1,4 @@
+import { reflectProgressSafely } from '../src/domain/progressReflection';
 import { describe, expect, it } from 'vitest';
 import {
   AppState,
@@ -17,7 +18,6 @@ import {
   propose,
   subtractIntervals,
   undoPlan,
-  proposalAfterRecord,
 } from '../src/domain/planning';
 import { correctProgress, recordProgress } from '../src/domain/progress';
 const from = '2026-09-21';
@@ -333,7 +333,7 @@ describe('承認・再計画・復元', () => {
   it('再計画できない設定でも確定した記録は失わない', () => {
     let s = approve(propose(fixture(), from, '初回'));
     s.settings.block = 0;
-    s = proposalAfterRecord(recordProgress(s, entry(3)), '記録');
+    s = reflectProgressSafely(recordProgress(s, entry(3)));
     expect(completed(s, 'm', 0)).toBe(3);
     expect(s.proposal).toBeNull();
     expect(s.draft.progressResult).toBeTruthy();

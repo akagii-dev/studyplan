@@ -9,7 +9,7 @@ import { requirePlanningInputs } from '../setupIssues';
 import { capacityForDate, capacityForWeek } from './capacity';
 import { PlanningContext } from './context';
 import { generatePlan } from './generate';
-import { proposalUsesCurrentProgress, reflectProgressSafely } from '../progressReflection';
+import { proposalUsesCurrentProgress } from '../progressReflection';
 import { retainStudyDayBaselines } from '../calendarQuantity';
 import { calculateRestart } from '../planRestart';
 import {
@@ -243,17 +243,6 @@ export function propose(
       unreported,
     },
   };
-}
-export function proposalAfterRecord(
-  state: AppState,
-  reason: string,
-  previousProposal = state.proposal,
-  context: PlanningContext,
-): AppState {
-  void reason;
-  void previousProposal;
-  void context;
-  return reflectProgressSafely(state);
 }
 export function proposeSettings(
   state: AppState,

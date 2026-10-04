@@ -25,7 +25,6 @@ import {
 } from '../src/domain/planner/proposal';
 import { activePlanWork } from '../src/domain/progressAllocation';
 import { remainingWork, remainingAdjustmentPreview } from '../src/domain/remainingWork';
-import { WorkPlacements } from '../src/components/WorkPlacements';
 import { createProgressBaseline } from '../src/domain/progressReflection';
 
 it.each([undefined, 0, 2])(
@@ -49,11 +48,6 @@ it.each([undefined, 0, 2])(
     expect(expired).toMatchObject({ executable: 5, pending: 5 - (report ?? 0), unplaced: 0, needsReview: false });
     expect(expired.pendingPlacements[0].count).toBe(5 - (report ?? 0));
     expect(expired.unavailable).toEqual([]);
-    const html = renderToStaticMarkup(createElement(WorkPlacements, { row: expired }));
-    expect(html).not.toContain('調整未反映・要確認');
-    expect(html).not.toContain('開始時刻を過ぎた枠');
-    expect(html).toContain(`残り${10 - (report ?? 0)}問 · 未配置0問`);
-    expect(html).not.toContain('配置先を確認');
     expect(state).toEqual(before);
     const failed = {
       ...state,
@@ -66,32 +60,24 @@ it.each([undefined, 0, 2])(
   },
 );
 
-it('配置先の確認を除いても160問を保持し、固定や数量不整合の判定を失わない', () => {
+it('160問の残量を保持し、固定や数量不整合を検出する', () => {
   const state = elapsedPlacementFixture();
   const before = structuredClone(state);
   const row = remainingWork(state, adjustmentContext.date, 720)[0];
   expect(row).toMatchObject({ remaining: 160, executable: 123, pending: 37, unplaced: 0, balanced: true, needsReview: false });
   expect(row.placements).toHaveLength(13);
   expect(row.pendingPlacements.map((s) => s.count)).toEqual([1, 12, 12, 12]);
-  const html = renderToStaticMarkup(createElement(WorkPlacements, { row }));
-  expect(html).toContain('残り160問 · 未配置0問');
-  expect(html).not.toContain('<button');
-  expect(html).not.toContain('<details');
-  expect(html).not.toContain('元の配置');
-  expect(html).not.toContain('2030-10-07');
   expect(state).toEqual(before);
   state.plan!.sessions[0].fixed = true;
   const fixed = remainingWork(state, adjustmentContext.date, 720)[0];
   expect(fixed).toMatchObject({ pending: 36, needsReview: true });
   expect(fixed.unavailable[0].session).toMatchObject({ fixed: true, count: 1 });
   expect(fixed.unavailable[0].clockOnly).toBe(true);
-  expect(renderToStaticMarkup(createElement(WorkPlacements, { row: fixed }))).not.toContain('調整未反映');
   state.plan!.sessions.at(-1)!.count += 1;
   const broken = remainingWork(state, adjustmentContext.date, 720)[0];
   expect(broken).toMatchObject({ balanced: false, needsReview: true, unplaced: 0 });
   expect(broken.reasons.join(' ')).toContain('一致していません');
   expect(broken.unavailable.every((item) => !item.clockOnly)).toBe(true);
-  expect(renderToStaticMarkup(createElement(WorkPlacements, { row: broken }))).toContain('調整未反映');
 });
 
 it('部分案の表示はB全体10問と対象5問を混同せず、非対象の5問を結果へ加算しない', () => {

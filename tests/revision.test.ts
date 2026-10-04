@@ -1,3 +1,4 @@
+import { reflectProgressSafely } from '../src/domain/progressReflection';
 import { describe, it, expect } from 'vitest';
 import { initialState, addDays, Settings, Session } from '../src/domain/model';
 import {
@@ -5,7 +6,6 @@ import {
   proposeSettings,
   approve,
   undoPlan,
-  proposalAfterRecord,
   freeIntervalsForDate,
 } from '../src/domain/planning';
 import {
@@ -155,7 +155,7 @@ describe('対話での再計画', () => {
   it('進捗反映時も承認待ちの変更条件を引き継ぐ', () => {
     const s = fixture();
     const n = proposeSettings(s, { ...s.settings, block: 240 }, date);
-    const updated = proposalAfterRecord(n, 'test');
+    const updated = reflectProgressSafely(n);
     expect(updated.settings.block).toBe(s.settings.block);
     expect(updated.proposal!.plan.settingsSnapshot!.block).toBe(240);
     expect(updated.records).toEqual(s.records);

@@ -417,7 +417,7 @@ for (const offset of [0, 1]) {
           createElement(Future, {
             state,
             update: async () => {},
-            initialWeek: addDays(context.date, -6),
+            initialWeek: context.date,
             onCalendar: () => {},
             onProposal: () => {},
           }),
@@ -862,8 +862,8 @@ describe('今日の記録と今後の予定', () => {
     ];
     const html = renderToStaticMarkup(
       createElement(Future, {
-        // Explicitly inspect the future; on Sundays the default week includes today.
-        initialWeek: addDays(today(), 1),
+        // Inspect the next week, which excludes today on every weekday.
+        initialWeek: addDays(today(), 7),
         state,
         update: async () => {},
         onCalendar: () => {},

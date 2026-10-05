@@ -204,12 +204,12 @@ test('LAN画面で自動繰越済みを二重配分せず、保存済みの過�
   await expect(page.locator('.daily-record-row').filter({ hasText: '教材B' }).getByRole('textbox')).toBeVisible();
   await expect(page.getByText('配置先を確認', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: '今後の予定', exact: true }).click();
-  for (const name of ['計画を仕切り直す', '経過済みの未消化分をまとめて調整', '詳細カレンダーを見る'])
+  for (const name of ['管理', 'カレンダー表示'])
     await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '残りの配置を調整', exact: true })).toHaveCount(0);
-  const open = page.getByRole('button', { name: '経過済みの未消化分をまとめて調整', exact: true });
-  await expect(open).toBeDisabled();
-  await expect(page.getByText('昨日以前の未消化分なし', { exact: true })).toBeVisible();
+  const open = page.getByRole('button', { name: /^未消化\d+件・調整する$/ });
+  await expect(open).toHaveCount(0);
+  await expect(page.getByText('昨日以前の未消化分なし', { exact: true })).toHaveCount(0);
   expect((await http<Envelope>(request, 'load_state')).data.plan).toEqual(automaticallyAdjusted.data.plan);
   expect(automaticallyAdjusted.data.records).toEqual(source.records);
 

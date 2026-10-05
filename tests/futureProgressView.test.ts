@@ -1,3 +1,4 @@
+import { startOfWeek } from '../src/domain/calendar';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, it } from 'vitest';
@@ -146,18 +147,18 @@ it('詳細カレンダーは日付選択前に常設の日一覧・可処分時�
   expect(todayHtml).toContain('today-schedule');
   expect(todayHtml).toContain('daily-time');
 });
-it('標準表示は今日から7日で、前日に選んだ手動範囲は復元しない', () => {
+it('標準表示は今日を含む週で、前日に選んだ手動範囲は復元しない', () => {
   const { state } = fixture(0);
   const props = { state, update: async () => {}, onCalendar: () => {}, onProposal: () => {} };
   for (const selection of [null, { from: addDays(today(), 7), selectedOn: addDays(today(), -1) }]) {
     const html = renderToStaticMarkup(createElement(Future, { ...props, selection }));
-    expect(html).toContain(`dateTime="${today()}"`);
+    expect(html).toContain(`dateTime="${startOfWeek(today())}"`);
     expect(html).toContain('future-today');
   }
   const selected = addDays(today(), 7);
   const html = renderToStaticMarkup(createElement(Future, { ...props, selection: { from: selected, selectedOn: today() } }));
-  expect(html).toContain(`dateTime="${selected}"`);
-  expect(html).toContain('今日から');
+  expect(html).toContain(`dateTime="${startOfWeek(selected)}"`);
+  expect(html).toContain('今日</button>');
 });
 
 it('残量の内訳表示を廃止しても未配置量・理由と要確認を保持し、表示で状態を変えない', () => {
@@ -173,6 +174,6 @@ it('残量の内訳表示を廃止しても未配置量・理由と要確認を�
   expect(html).toContain('期限内の学習枠が足りません。');
   expect(html).toContain('調整未反映・要確認。現在の計画を保持しています。');
   expect(html).toContain('固定予定と学習順序を確認してください。');
-  expect(html.indexOf('shortfall-summary')).toBeLessThan(html.indexOf('future-week'));
+  expect(html.indexOf('shortfall-summary')).toBeGreaterThan(html.indexOf('future-week'));
   expect(f.state).toEqual(before);
 });

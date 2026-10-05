@@ -18,7 +18,7 @@ import { WeeklyReport } from '../components/WeeklyReport';
 import { CalendarView, Session, addDays, today } from '../domain/model';
 import { dateTime, stalePlan } from '../domain/planAudit';
 import { propose, proposeRestart, proposePastRemainingAdjustment, proposeBalancedRemaining } from '../domain/planning';
-import { currentProgressAdjustment } from '../domain/progressAdjustment';
+import { currentPlanReconciliation, currentProgressAdjustment } from '../domain/progressAdjustment';
 import { requirePlanningInputs } from '../domain/setupIssues';
 import { usePersistentAppState } from '../hooks/usePersistentAppState';
 import { AppShell } from './AppShell';
@@ -47,6 +47,8 @@ export default function App() {
   const [origin, setOrigin] = useState<ReturnPoint | null>(null);
   const originStack = useRef<ReturnPoint[]>([]);
   const [futureSelection, setFutureSelection] = useState<FutureSelection | null>(null);
+  const [futureManagementOpen, setFutureManagementOpen] = useState(false);
+  const futureManagementTrigger = useRef<HTMLButtonElement>(null);
   const [calendarMode, setCalendarMode] = useState<'content' | 'quantity'>('content');
   const [calendarDate, setCalendarDate] = useState(today());
   const [calendarRevealDay, setCalendarRevealDay] = useState(false);
@@ -56,7 +58,7 @@ export default function App() {
   const [reportDayOpen, setReportDayOpen] = useState(false);
   const [availabilityTarget, setAvailabilityTarget] = useState<AvailabilityTarget | null>(null);
   const setPage = (destination: Page, keepAvailability = false) => {
-    if (destination === 'future') setFutureSelection(null);
+    if (destination === 'future') { setFutureSelection(null); setFutureManagementOpen(false); }
     if (destination === page) return;
     if (destination !== 'dashboard') setRecordTarget(null);
     if (page === 'report') setReportDayOpen(false);
@@ -135,6 +137,24 @@ export default function App() {
     checkConnection,
     reloadEpoch,
   } = usePersistentAppState();
+  const lastReconciliation = useRef<string | null>(null);
+  const [reconciliationNotice, setReconciliationNotice] = useState('');
+  const reconciliation = state ? currentPlanReconciliation(state) : undefined;
+  const reconciliationKey = JSON.stringify([state?.plan?.id, reconciliation]);
+  useEffect(() => {
+    if (!state) return;
+    if (lastReconciliation.current === null) { lastReconciliation.current = reconciliationKey; return; }
+    if (saving || !saved || error || recovery) return;
+    if (lastReconciliation.current !== reconciliationKey) {
+      lastReconciliation.current = reconciliationKey;
+      setReconciliationNotice(reconciliation?.status === 'applied' ? reconciliationKey : '');
+    }
+  }, [state, reconciliationKey, reconciliation?.status, saving, saved, error, recovery]);
+  useEffect(() => {
+    if (!reconciliationNotice) return;
+    const timer = setTimeout(() => setReconciliationNotice(''), 6000);
+    return () => clearTimeout(timer);
+  }, [reconciliationNotice]);
   useEffect(() => {
     recordMemory.current.confirmed = confirmSavedRecord;
   }, [confirmSavedRecord]);
@@ -283,6 +303,8 @@ export default function App() {
         <AppShell
           {...props}
           page={page}
+          headingActions={page === 'future' ? <button ref={futureManagementTrigger} aria-expanded={futureManagementOpen}
+            aria-controls="future-management" onClick={() => setFutureManagementOpen((open) => !open)}>管理</button> : undefined}
           setPage={setPage}
           onBack={!mainPages.has(page) && !(page === 'report' && reportDayOpen) ? goBack : undefined}
           backLabel={origin ? pageNames[origin.page] : pageNames[fallbackFor(page)]}
@@ -330,7 +352,7 @@ export default function App() {
               <Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} recordTarget={recordTarget} />
             )}{' '}
             {page === 'future' && (
-              <Future {...props} selection={futureSelection} onWeekChange={(from) => setFutureSelection({ from, selectedOn: today() })} onCalendar={(date, revealDay = !!date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} onRestart={restartPlan} onAdjustRemaining={adjustRemaining} onBalanceFuture={balanceFuture} />
+              <Future {...props} managementOpen={futureManagementOpen} onCloseManagement={() => { setFutureManagementOpen(false); futureManagementTrigger.current?.focus(); }} adjustmentNotice={!!reconciliationNotice && reconciliation?.status === 'applied' && !saving && !error && !recovery} selection={futureSelection} onWeekChange={(from) => setFutureSelection({ from, selectedOn: today() })} onCalendar={(date, revealDay = !!date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} onRestart={restartPlan} onAdjustRemaining={adjustRemaining} onBalanceFuture={balanceFuture} />
             )}
             {(page === 'settings' || originStack.current.some((entry) => entry.page === 'settings')) && (
               <div hidden={page !== 'settings'}>

@@ -1,5 +1,5 @@
 import { reflectProgressSafely } from '../src/domain/progressReflection';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { initialState, addDays, Settings, Session } from '../src/domain/model';
 import {
   generatePlan,
@@ -173,6 +173,8 @@ describe('対話での再計画', () => {
   });
 });
 describe('画像の時刻と授業の重複', () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date(date + 'T00:00:00+09:00')); });
+  afterEach(() => vi.useRealTimers());
   it('10:40の授業間移動と13:10の授業に重なる3件を検出し、再計画で解消する', () => {
     const s = fixture();
     classes(s.settings);

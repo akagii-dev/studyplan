@@ -1,3 +1,4 @@
+import { startOfWeek } from '../../src/domain/calendar';
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { progressContractFixture, contractDay } from '../fixtures/progressContract';
@@ -15,40 +16,66 @@ async function seed(page: Page, state = progressContractFixture()) {
 const read = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('studyplan-demo-state-v1')!).data as AppState);
 const nav = (page: Page, name: string) => page.getByRole('button', { name, exact: true }).click();
 
-test('今日起点・同日の詳細往復・主画面再入場・日跨ぎと復帰で表示範囲を切り替える', async ({ page }, info) => {
+test('今日を含む週・同日の詳細往復・主画面再入場・日跨ぎと復帰で表示範囲を切り替える', async ({ page }, info) => {
   await seed(page);
   const before = await read(page);
   await nav(page, '今後の予定');
   const range = page.locator('.future-week time');
-  await expect(range).toHaveAttribute('datetime', contractDay);
+  await expect(range).toHaveAttribute('datetime', startOfWeek(contractDay));
+  for (const name of ['前の週', '次の週']) {
+    const arrow = page.getByRole('button', { name, exact: true });
+    const box = (await arrow.boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    await arrow.focus(); await page.keyboard.press('Shift+Tab'); await page.keyboard.press('Tab');
+    await expect(arrow).toBeFocused();
+    expect(await arrow.evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe('none');
+  }
+  if (info.project.name === 'wide') {
+    const toggle = page.getByRole('button', { name: 'サイドバーを折りたたむ', exact: true });
+    await toggle.focus(); await page.keyboard.press('Enter');
+    const open = page.getByRole('button', { name: 'サイドバーを開く', exact: true });
+    await expect(open).toHaveAttribute('aria-expanded', 'false');
+    await expect(open).toBeFocused();
+    await expect(page.locator('#app-sidebar')).toBeHidden();
+    expect((await open.boundingBox())!.x).toBe(0);
+    await page.screenshot({ path: info.outputPath('future-sidebar-collapsed.png'), fullPage: true });
+    await page.keyboard.press('Space');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(toggle).toBeFocused();
+    await expect(page.locator('#app-sidebar')).toBeVisible();
+  } else {
+    await expect(page.locator('.sidebar-toggle')).toBeHidden();
+    await expect(page.locator('#app-sidebar')).toBeVisible();
+  }
   await page.locator('.future-balance > summary').click();
   await expect(page.getByRole('list', { name: '試験の優先度' })).toContainText('検証用試験 · 優先度：ふつう');
   await page.locator('.future-balance > summary').click();
   await nav(page, '次の週');
-  await expect(range).toHaveAttribute('datetime', addDays(contractDay, 7));
+  await expect(range).toHaveAttribute('datetime', startOfWeek(addDays(contractDay, 7)));
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await expect(range).toHaveAttribute('datetime', addDays(contractDay, 7));
-  await nav(page, '詳細カレンダーを見る');
+  await expect(range).toHaveAttribute('datetime', startOfWeek(addDays(contractDay, 7)));
+  await nav(page, 'カレンダー表示');
   await nav(page, '← 今後の予定へ戻る');
-  await expect(range).toHaveAttribute('datetime', addDays(contractDay, 7));
-  await nav(page, '今日から');
-  await expect(range).toHaveAttribute('datetime', contractDay);
+  await expect(range).toHaveAttribute('datetime', startOfWeek(addDays(contractDay, 7)));
+  await page.locator('.future-week').getByRole('button', { name: '今日', exact: true }).click();
+  await expect(range).toHaveAttribute('datetime', startOfWeek(contractDay));
   await nav(page, '前の週');
-  await expect(range).toHaveAttribute('datetime', addDays(contractDay, -7));
+  await expect(range).toHaveAttribute('datetime', startOfWeek(addDays(contractDay, -7)));
   await nav(page, '設定');
   await nav(page, '今後の予定');
-  await expect(range).toHaveAttribute('datetime', contractDay);
+  await expect(range).toHaveAttribute('datetime', startOfWeek(contractDay));
   expect((await read(page)).plan).toEqual(before.plan);
   expect((await read(page)).records).toEqual(before.records);
   await nav(page, '次の週');
   await page.clock.setFixedTime(new Date(`${addDays(contractDay, 1)}T00:01:00+09:00`));
   await page.evaluate(() => window.dispatchEvent(new Event('pageshow')));
-  await expect(range).toHaveAttribute('datetime', addDays(contractDay, 1));
+  await expect(range).toHaveAttribute('datetime', startOfWeek(addDays(contractDay, 1)));
   await nav(page, '前の週');
-  await nav(page, '詳細カレンダーを見る');
+  await nav(page, 'カレンダー表示');
   await page.clock.setFixedTime(new Date(`${addDays(contractDay, 2)}T00:01:00+09:00`));
   await nav(page, '← 今後の予定へ戻る');
-  await expect(range).toHaveAttribute('datetime', addDays(contractDay, 2));
+  await expect(range).toHaveAttribute('datetime', startOfWeek(addDays(contractDay, 2)));
   await page.screenshot({ path: info.outputPath('future-today-range.png'), fullPage: true });
 });
 
@@ -72,12 +99,29 @@ test('予定外と過去日を同じ自由入力で記録し、単位・0・保�
   state.settings.materials[0].unit = 'ページ';
   await seed(page, state);
   const before = await read(page);
+  const checkDateWidth = async (form: ReturnType<Page['locator']>, screenshot: string) => {
+    const date = form.getByLabel('記録対象日');
+    for (const fontSize of ['', '28px']) {
+      await date.evaluate((element, size) => { element.style.fontSize = size; }, fontSize);
+      const bounds = await date.boundingBox();
+      const field = await date.locator('..').boundingBox();
+      expect(bounds!.x).toBeGreaterThanOrEqual(field!.x - 1);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(field!.x + field!.width + 1);
+      expect(bounds!.height).toBeGreaterThanOrEqual(44);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    }
+    await date.focus();
+    await expect(date).toBeFocused();
+    await page.screenshot({ path: info.outputPath(screenshot), fullPage: true });
+    await date.evaluate((element) => { element.style.fontSize = ''; });
+  };
   await page.locator('.outside-record > summary').click();
   const form = page.locator('.outside-record .study-record-form');
   const input = form.getByRole('textbox', { name: '追加量（1ページ単位）' });
   const submit = form.getByRole('button', { name: '記録する', exact: true });
   await expect(form.getByLabel('記録対象日')).toHaveValue(contractDay);
   await expect(form.getByLabel('記録対象日')).toHaveAttribute('readonly', '');
+  await checkDateWidth(form, 'outside-record-date.png');
   for (const invalid of ['', '-1', '1.5', '101']) {
     await input.fill(invalid);
     await expect(submit).toBeDisabled();
@@ -93,6 +137,7 @@ test('予定外と過去日を同じ自由入力で記録し、単位・0・保�
   await nav(page, '記録履歴');
   await nav(page, '過去日の学習を記録');
   const past = page.locator('.study-record-form');
+  await checkDateWidth(past, 'past-record-date.png');
   await past.getByLabel('記録対象日').fill(addDays(contractDay, -1));
   await expect(past.getByRole('textbox', { name: '追加量（1ページ単位）' })).toHaveValue('');
   await past.getByRole('textbox', { name: '追加量（1ページ単位）' }).fill('3');
@@ -232,10 +277,12 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
       await page.setViewportSize({ width, height: width === 1280 ? 800 : 844 });
       await expect(page.getByText('残量の内訳', { exact: true })).toHaveCount(0);
       await expect(view.locator('.future-work')).toHaveCount(0);
-      await expect(view.locator('.future-week time')).toHaveAttribute('datetime', contractDay);
-      const calendar = view.getByRole('button', { name: '詳細カレンダーを見る', exact: true });
+      await expect(view.locator('.future-week time')).toHaveAttribute('datetime', startOfWeek(contractDay));
+      const calendar = view.getByRole('button', { name: 'カレンダー表示', exact: true });
       const restart = view.getByRole('button', { name: '計画を仕切り直す', exact: true });
-      for (const button of [calendar, restart]) {
+      const management = page.getByRole('button', { name: '管理', exact: true });
+      await expect(restart).toBeHidden();
+      for (const button of [calendar, management]) {
         await expect(button).toBeVisible();
         const box = (await button.boundingBox())!;
         expect(box.y + box.height).toBeLessThan(600);
@@ -246,15 +293,15 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
         await expect(view.getByText('この週の予定はありません。', { exact: true })).toBeVisible();
         await expect(view.getByRole('region', { name: '未配置の学習' })).toHaveCount(0);
       } else {
-        await expect(view.getByRole('button', { name: '経過済みの未消化分をまとめて調整', exact: true })).toBeDisabled();
-        await expect(view.getByText('昨日以前の未消化分なし', { exact: true })).toBeVisible();
+        await expect(view.getByRole('button', { name: /^未消化\d+件・調整する$/ })).toHaveCount(0);
+        await expect(view.getByText('昨日以前の未消化分なし', { exact: true })).toHaveCount(0);
         await expect(view.locator('.future-balance')).not.toHaveAttribute('open');
         await expect(view.getByRole('list', { name: '試験の優先度' })).toBeHidden();
         if (scenario === '未配置') {
           const warning = view.getByRole('region', { name: '未配置の学習' });
           await expect(warning).toContainText('未配置 1件・9分');
           await expect(warning).toContainText('3問');
-          expect((await warning.boundingBox())!.y).toBeLessThan((await view.locator('.future-week').boundingBox())!.y);
+          expect((await warning.boundingBox())!.y).toBeGreaterThan((await view.locator('.future-week').boundingBox())!.y);
           const reason = warning.locator('summary');
           await reason.focus(); await page.keyboard.press('Enter');
           await expect(warning.getByText('期限内の学習枠が足りません。', { exact: true })).toBeVisible();
@@ -273,7 +320,9 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
       expect((await new AxeBuilder({ page }).include('.future-page').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
       // Enter, Tab and focus restoration use native controls, without changing the plan.
-      await restart.focus(); await page.keyboard.press('Enter');
+      await management.focus(); await page.keyboard.press('Enter');
+      await expect(restart).toBeFocused();
+      await page.keyboard.press('Enter');
       await expect(view.getByLabel('開始日', { exact: true })).toBeFocused();
       const create = view.getByRole('button', { name: 'この日から案を作成', exact: true });
       // Chromium's native date input has several keyboard-editable segments.
@@ -285,6 +334,9 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
       await expect(restart).toBeFocused();
       expect(await restart.evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe('none');
       expect(committed(await read(page))).toEqual(committed(state));
+      await page.keyboard.press('Escape');
+      await expect(management).toBeFocused();
+      await expect(page.getByRole('region', { name: '予定の管理' })).toBeHidden();
       if (scenario !== '空') {
         const summary = view.locator('.future-balance > summary');
         await summary.focus(); await page.keyboard.press('Enter');
@@ -321,7 +373,7 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
     // Measure the selected theme after the shared background transition has settled.
     await expect.poll(async () => {
       await page.clock.runFor(150);
-      return view.getByRole('button', { name: '詳細カレンダーを見る', exact: true }).evaluate((element) => {
+      return page.getByRole('button', { name: '管理', exact: true }).evaluate((element) => {
         const hex = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim();
         const rgb = hex.slice(1).match(/../g)!.map((component) => parseInt(component, 16));
         return getComputedStyle(element).backgroundColor === 'rgb(' + rgb.join(', ') + ')';
@@ -336,7 +388,7 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
   // Browser zoom shrinks the CSS layout viewport. Also enlarge all text to 200%.
   await page.setViewportSize({ width: info.project.name === 'wide' ? 640 : 320, height: 844 });
   await page.addStyleTag({ content: ':root { font-size: 28px; } .future-page * { letter-spacing: .12em; word-spacing: .16em; line-height: 1.5; } .future-page p { margin-block-end: 2em; }' });
-  const calendar = view.getByRole('button', { name: '詳細カレンダーを見る', exact: true });
+  const calendar = view.getByRole('button', { name: 'カレンダー表示', exact: true });
   await expect(calendar).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await calendar.focus(); await page.keyboard.press('Enter');

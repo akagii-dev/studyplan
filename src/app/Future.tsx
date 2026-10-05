@@ -1,9 +1,10 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { progressView } from '../domain/progressView';
 import { ProgressValue } from '../components/ProgressValue';
 import { calendarDisplayQuantity, materialUnit } from '../domain/calendarQuantity';
 import { Props, duration } from '../components/common';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { shortDayLabel, weekRangeLabel } from '../domain/calendar';
+import { shortDate, shortDayLabel, startOfWeek, weekRangeLabel } from '../domain/calendar';
 import { Session, addDays } from '../domain/model';
 import { ShortfallDetails } from '../components/ShortfallDetails';
 import { visibleProgressReceipts } from '../domain/progressReceiptDisplay';
@@ -27,12 +28,18 @@ export function Future({
   selection,
   initialWeek,
   onWeekChange,
+  managementOpen = false,
+  onCloseManagement,
+  adjustmentNotice = false,
 }: Props & {
   onCalendar: (date?: string, revealDay?: boolean) => void;
   onProposal: () => void;
   onRestart?: (from: string) => Promise<void>;
   onAdjustRemaining?: (from: string) => Promise<boolean>;
   onBalanceFuture?: (materialIds: string[], from: string, allowReduction: boolean) => Promise<boolean>;
+  managementOpen?: boolean;
+  onCloseManagement?: () => void;
+  adjustmentNotice?: boolean;
   selection?: FutureSelection | null;
   initialWeek?: string;
   onWeekChange?: (date: string) => void;
@@ -40,7 +47,9 @@ export function Future({
   const { date: reference, minute } = usePlanningClock();
   const [localSelection, setLocalSelection] = useState<FutureSelection | null>(() => initialWeek ? { from: initialWeek, selectedOn: reference } : null);
   const chosen = selection === undefined ? localSelection : selection;
-  const week = chosen?.selectedOn === reference ? chosen.from : reference;
+  const currentWeek = startOfWeek(reference);
+  const week = startOfWeek(chosen?.selectedOn === reference ? chosen.from : reference);
+  const weekEnd = addDays(week, 6);
   const [balanceMaterials, setBalanceMaterials] = useState<string[]>([]);
   const [balanceFrom, setBalanceFrom] = useState(addDays(reference, 1));
   const [balanceError, setBalanceError] = useState('');
@@ -54,10 +63,13 @@ export function Future({
   const restartDateInput = useRef<HTMLInputElement>(null);
   const wasRestartOpen = useRef(false);
   useLayoutEffect(() => {
-    if (restartOpen) restartDateInput.current?.focus();
-    else if (wasRestartOpen.current) restartTrigger.current?.focus();
+    if (managementOpen && restartOpen) restartDateInput.current?.focus();
+    else if (managementOpen && wasRestartOpen.current) restartTrigger.current?.focus();
     wasRestartOpen.current = restartOpen;
-  }, [restartOpen]);
+  }, [restartOpen, managementOpen]);
+  useLayoutEffect(() => {
+    if (managementOpen) (restartDateInput.current ?? restartTrigger.current)?.focus();
+  }, [managementOpen]);
   const work = useMemo(() => remainingWork(state, reference, minute), [state, reference, minute]);
   const unavailableIds = new Set(work.flatMap((row) => row.unavailable.filter((item) => !item.clockOnly).map(({ session }) => session.id)));
   const [placementOpen, setPlacementOpen] = useState(false);
@@ -135,12 +147,10 @@ export function Future({
   const receipts = visibleProgressReceipts(state);
   return (
     <div className="future-page">
-      <div className="future-actions">
-        <button data-return-focus="future:calendar" onClick={() => onCalendar(week, false)}>詳細カレンダーを見る</button>
+      <section id="future-management" className="future-management" aria-label="予定の管理" hidden={!managementOpen}
+        onKeyDown={(event) => { if (event.key === 'Escape' && !restarting) { event.preventDefault(); onCloseManagement?.(); } }}>
         <section className="future-restart" aria-label="計画を仕切り直す">
-          {state.proposal ? (
-            <button className="primary" onClick={onProposal}>計画案を確認</button>
-          ) : !onRestart ? null : !restartOpen ? (
+          {state.proposal || !onRestart ? null : !restartOpen ? (
             <button ref={restartTrigger} onClick={() => { setRestartDate(reference); setRestartError(''); setRestartOpen(true); }}>
               計画を仕切り直す
             </button>
@@ -166,12 +176,24 @@ export function Future({
             </form>
           )}
         </section>
-        {onAdjustRemaining && state.plan && !state.proposal && <section className="remaining-adjustment" aria-label="経過済みの未消化分をまとめて調整">
+        <button type="button" disabled={restarting} onClick={onCloseManagement}>管理を閉じる</button>
+      </section>
+      <div className="future-week" role="group" aria-label="週間予定の表示範囲">
+        <div className="future-week-range">
+          <button className="navigation-arrow" aria-label="前の週" onClick={() => moveWeek(addDays(week, -7))}><ChevronLeft size={20} strokeWidth={2.5} aria-hidden="true" /></button>
+          <time dateTime={week} aria-live="polite" aria-label={weekRangeLabel(week)}>
+            <span className="future-week-year">{week.slice(0, 4)}</span>{' '}
+            <strong>{shortDate(week)}–{week.slice(0, 4) !== weekEnd.slice(0, 4) && <><span className="future-week-year">{weekEnd.slice(0, 4)}</span>{' '}</>}{shortDate(weekEnd)}</strong>
+          </time>
+          <button className="navigation-arrow" aria-label="次の週" onClick={() => moveWeek(addDays(week, 7))}><ChevronRight size={20} strokeWidth={2.5} aria-hidden="true" /></button>
+        </div>
+        <button onClick={() => moveWeek(currentWeek)}>今日</button>
+        <button className="future-calendar" data-return-focus="future:calendar" onClick={() => onCalendar(week, false)}>カレンダー表示</button>
+      </div>
+      {state.proposal && <button className="primary" onClick={onProposal}>計画案を確認</button>}
+        {onAdjustRemaining && state.plan && !state.proposal && (past.sessions.length > 0 || placementOpen) && <section className="remaining-adjustment" aria-label="経過済みの未消化分をまとめて調整">
           {!placementOpen ? <>
-            <button ref={placementTrigger} aria-describedby={!past.sessions.length && !past.issue ? "past-adjustment-status" : undefined} disabled={!past.sessions.length && !past.issue} onClick={openPlacement}>
-              経過済みの未消化分をまとめて調整
-            </button>
-            {!past.sessions.length && !past.issue && <span id="past-adjustment-status" className="future-empty-adjustment">昨日以前の未消化分なし</span>}
+            <button ref={placementTrigger} onClick={openPlacement}>未消化{past.sessions.length}件・調整する</button>
           </> : <form onSubmit={(event) => { event.preventDefault(); void adjustPlacement(); }}>
             <h2>経過済みの未消化分をまとめて調整</h2>
             <p>昨日以前の未消化分が対象です。今日と未来の予定・実績は維持します。</p>
@@ -190,27 +212,12 @@ export function Future({
             {placementMessage && <p role="status">{placementMessage}</p>}
           </form>}
         </section>}
-      </div>
-      {needsReview ? (
-        <p className="future-reconciliation" role="status">
-          調整未反映・要確認。現在の計画を保持しています。{reviewReason ? ` ${reviewReason}` : ''}
-        </p>
-      ) : planningStatus?.status === 'applied' ? (
-        <p className="future-reconciliation" role="status">未消化分を調整しました</p>
-      ) : null}
+      <div role="status" aria-live="polite" aria-atomic="true" className="future-notice">{adjustmentNotice && !needsReview ? '未消化分を調整しました' : ''}</div>
+      {needsReview && <p className="future-reconciliation" role="status">
+        調整未反映・要確認。現在の計画を保持しています。{reviewReason ? ` ${reviewReason}` : ''}
+      </p>}
+      {past.issue && past.issue !== reviewReason && !placementOpen && <p className="error" role="alert">{past.issue}</p>}
       <ShortfallDetails state={state} />
-      <div className="future-week row" role="group" aria-label="週間予定の表示範囲">
-        <button aria-label="前の週" onClick={() => moveWeek(addDays(week, -7))}>
-          ‹
-        </button>
-        <strong aria-live="polite">
-          <time dateTime={week}>{weekRangeLabel(week)}</time>
-        </strong>
-        <button aria-label="次の週" onClick={() => moveWeek(addDays(week, 7))}>
-          ›
-        </button>
-        {week !== reference && <button onClick={() => moveWeek(reference)}>今日から</button>}
-      </div>
       {groups.size ? (
         [...groups]
           .sort(([a], [b]) => a.localeCompare(b))

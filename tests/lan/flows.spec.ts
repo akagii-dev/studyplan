@@ -131,7 +131,7 @@ test('直接カレンダーと戻る導線を狭幅・広幅・キーボード�
   await back.focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: '今後の予定', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '詳細カレンダーを見る' }).click();
+  await page.getByRole('button', { name: 'カレンダー表示' }).click();
   await expect(back).toBeVisible();
   await back.click();
   expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
@@ -149,6 +149,7 @@ test('LAN画面の仕切り直し承認で旧未配置を重複させずSQLite�
   await open(page);
   const from = addDays(adjustmentContext.date, 3);
   await page.getByRole('button', { name: '今後の予定', exact: true }).click();
+  if (await page.getByRole('button', { name: '管理', exact: true }).getAttribute('aria-expanded') !== 'true') await page.getByRole('button', { name: '管理', exact: true }).click();
   await page.getByRole('button', { name: '計画を仕切り直す' }).click();
   await page.getByLabel('開始日').fill(from);
   await page.getByRole('button', { name: 'この日から案を作成' }).click();
@@ -259,7 +260,7 @@ test('LAN過去日記録の応答待ちに別日の対象へ移っても旧完�
     await page.getByRole('button', { name: '記録する', exact: true }).click();
     await hold.ready;
     await page.getByRole('button', { name: '今後の予定', exact: true }).click();
-    await page.getByRole('button', { name: '詳細カレンダーを見る' }).click();
+    await page.getByRole('button', { name: 'カレンダー表示' }).click();
     await page.getByRole('button', { name: `${nextDay}を表示`, exact: true }).click();
     await page.locator('.day-panel .session-detail').filter({ hasText: '別問題集' }).getByRole('button', { name: '進捗を記録', exact: true }).click();
     hold.release();

@@ -24,6 +24,7 @@ export function AppShell({
   reloadExternal,
   connectionError,
   checkConnection,
+  headingActions,
   children,
 }: Props & {
   page: Page;
@@ -42,6 +43,7 @@ export function AppShell({
   connectionError: string;
   checkConnection: () => void;
   children: ReactNode;
+  headingActions?: ReactNode;
 }) {
   const pageHeading = useRef<HTMLHeadingElement>(null);
   const active = { name: pageNames[page] };
@@ -90,7 +92,7 @@ export function AppShell({
       inert={blocked || undefined}
     >
       <button
-        className="sidebar-toggle"
+        className="sidebar-toggle navigation-arrow"
         aria-label={state.sidebarCollapsed ? 'サイドバーを開く' : 'サイドバーを折りたたむ'}
         title={state.sidebarCollapsed ? 'サイドバーを開く' : 'サイドバーを折りたたむ'}
         aria-controls="app-sidebar"
@@ -158,13 +160,14 @@ export function AppShell({
               公開デモです。入力内容はこのブラウザー内だけに保存され、デスクトップ版とは共有されません。
             </p>
           )}
-          <div className="page-heading">
+          <div className={`page-heading${page === 'future' ? ' future-heading' : ''}`}>
             <div>
               {onBack && <button className="detail-back" onClick={onBack}>← {backLabel}へ戻る</button>}
               <h1 ref={pageHeading} tabIndex={-1}>
                 {active.name}
               </h1>
             </div>
+            {headingActions}
             {['dashboard', 'today'].includes(page) && (
               <span className="today-label">
                 {today().replaceAll('-', ' / ')}（

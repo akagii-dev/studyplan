@@ -484,3 +484,66 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await page.screenshot({ path: info.outputPath('future-text-spacing.png'), fullPage: true });
 });
+
+test('カレンダーは週単位の7列/2列と月末の罫線を保ち、拡大・往復でも配置を揃える', async ({ page }, info) => {
+  const state = progressContractFixture();
+  state.settings.exams.push({ ...state.settings.exams[0], id: 'review-other', name: '別の試験' });
+  state.plan!.settingsSnapshot = structuredClone(state.settings);
+  state.plan!.sessions.push(...Array.from({ length: 16 }, (_, i) => ({
+    id: `review-${i}`, date: '2026-10-25', examId: i < 8 ? 'exam' : 'review-other',
+    materialId: '', round: 0, kind: 'review' as const, count: 0, fixed: false,
+    start: 480 + i * 40, end: 480 + (i + 1) * 40 + (i === 15 ? 55 : 0),
+  })));
+  await seed(page, state);
+  const before = await read(page);
+  await nav(page, '今後の予定');
+  await nav(page, 'カレンダー表示');
+  await nav(page, '次の期間');
+  const period = page.getByRole('group', { name: 'カレンダー内の期間表示' });
+  const cell = (date: string) => page.locator('.day').filter({ has: page.getByRole('button', { name: new RegExp(`^${date}を表示`) }) });
+  const review = cell('2026-10-25');
+  await expect(review).toContainText('復習 5時間 20分');
+  await expect(review).toContainText('復習 6時間 15分');
+  const positions = () => page.locator('.date-number').evaluateAll(elements => elements.map(e => e.getBoundingClientRect().x));
+  const contentPositions = await positions();
+  await nav(page, '学習量');
+  expect(await positions()).toEqual(contentPositions);
+  await expect(cell('2026-10-18').locator('.calendar-quantity > span')).toHaveCSS('font-weight', '400');
+  await expect(cell('2026-10-18')).toContainText('予定なし');
+  for (const date of ['2026-10-18', '2026-10-19', '2026-10-31', '2026-11-08']) {
+    expect(await cell(date).evaluate(element => ({ outline: getComputedStyle(element).outlineWidth, border: getComputedStyle(element).borderRightWidth })))
+      .toEqual({ outline: '1px', border: '0px' });
+  }
+  const expectedColumns = info.project.name === 'wide' ? 7 : 2;
+  const columns = () => page.locator('.calendar-week-days').first().evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length);
+  expect(await columns()).toBe(expectedColumns);
+  await page.screenshot({ path: info.outputPath('calendar-grid-month.png'), fullPage: true });
+  await review.locator('.date-number').press('Enter');
+  const panel = page.getByRole('complementary', { name: '選択した日の学習詳細' });
+  await expect(panel).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(review.locator('.date-number')).toBeFocused();
+  await period.getByRole('button', { name: '週', exact: true }).click();
+  await expect(page.locator('.day')).toHaveCount(7);
+  expect(await columns()).toBe(expectedColumns);
+  await period.getByRole('button', { name: '一覧', exact: true }).click();
+  const listDay = page.locator('.calendar-list > section');
+  await expect(listDay).toHaveCount(1);
+  await expect(listDay).toContainText('2026-10-25');
+
+  await nav(page, '週間予定');
+  await nav(page, 'カレンダー表示');
+  await expect(period.getByRole('button', { name: '一覧', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await period.getByRole('button', { name: '月', exact: true }).click();
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  expect(await page.locator('.schedule-transition').evaluate(element => getComputedStyle(element).animationName)).toBe('none');
+  await page.addStyleTag({ content: ':root { font-size: 28px; } .calendar-grid * { letter-spacing: .12em; word-spacing: .16em; line-height: 1.5; }' });
+  await expect(page.locator('html')).toHaveCSS('font-size', '28px');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await review.locator('.date-number').press('Enter');
+  await page.screenshot({ path: info.outputPath('calendar-grid-enlarged.png'), fullPage: true });
+  expect((await new AxeBuilder({ page }).include('.calendar-grid').include('.day-panel').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations).toEqual([]);
+  const after = await read(page);
+  expect(after.plan).toEqual(before.plan);
+  expect(after.records).toEqual(before.records);
+});

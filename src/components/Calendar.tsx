@@ -531,39 +531,46 @@ export function Calendar({
               ))}
             </div>
             <div className="calendar-body">
-              {days.map((d) => (
-                <div
-                  key={d}
-                  className={`day ${d === today() ? 'today' : ''} ${d === selected ? 'chosen' : ''} ${view === 'month' && d.slice(0, 7) !== anchor.slice(0, 7) ? 'muted-day' : ''}`}
-                  onClick={() => selectDay(d)}
-                >
-                  <button
-                    className="date-number"
-                    aria-label={
-                      mode === 'quantity' ? `${d}を表示 ${shortDayLabel(d)}` : `${d}を表示`
-                    }
-                    aria-pressed={d === selected}
-                  >
-                    {mode === 'quantity' ? shortDayLabel(d) : Number(d.slice(8))}
-                  </button>
-                  {mode === 'quantity' ? (
-                    <CalendarQuantity
-                      state={state}
-                      date={d}
-                      filter={filter}
-                      onSelect={() => selectDay(d)}
-                    />
-                  ) : (
-                    <CalendarDaySummary
-                      state={state}
-                      date={d}
-                      filter={filter}
-                      density={density}
-                      onSelect={() => selectDay(d)}
-                    />
-                  )}
+              {days.filter((_, index) => index % 7 === 0).map((week) => (
+                <section className="calendar-week" key={week} aria-label={`${shortDayLabel(week)}からの週`}>
+                  <h3 className="calendar-week-title">{shortDayLabel(week)}–{shortDayLabel(addDays(week, 6))}</h3>
+                  <div className="calendar-week-days">
+                    {days.filter(d => d >= week && d <= addDays(week, 6)).map((d) => (
+                      <div
+                        key={d}
+                        className={`day ${d === today() ? 'today' : ''} ${d === selected ? 'chosen' : ''} ${view === 'month' && d.slice(0, 7) !== anchor.slice(0, 7) ? 'muted-day' : ''}`}
+                        onClick={() => selectDay(d)}
+                      >
+                        <button
+                          className="date-number"
+                          aria-label={
+                            mode === 'quantity' ? `${d}を表示 ${shortDayLabel(d)}` : `${d}を表示`
+                          }
+                          aria-pressed={d === selected}
+                        >
+                          {shortDayLabel(d)}
+                        </button>
+                        {mode === 'quantity' ? (
+                          <CalendarQuantity
+                            state={state}
+                            date={d}
+                            filter={filter}
+                            onSelect={() => selectDay(d)}
+                          />
+                        ) : (
+                          <CalendarDaySummary
+                            state={state}
+                            date={d}
+                            filter={filter}
+                            density={density}
+                            onSelect={() => selectDay(d)}
+                          />
+                        )}
 
-                </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
               ))}
             </div>
           </div>

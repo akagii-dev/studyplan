@@ -358,6 +358,18 @@ export function Calendar({
         {onFuture && <ScheduleViewSwitch calendar onSwitch={onFuture} />}
       </div>
       <div className="calendar-options">
+          <select
+            aria-label="表示する試験"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          >
+            <option value="all">すべての試験</option>
+            {state.settings.exams.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name}
+              </option>
+            ))}
+          </select>
       <div className="segmented calendar-mode" role="group" aria-label="カレンダーの表示内容">
         <button
           aria-pressed={mode === 'content'}
@@ -374,18 +386,7 @@ export function Calendar({
           学習量
         </button>
       </div>
-          <select
-            aria-label="表示する試験"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          >
-            <option value="all">すべての試験</option>
-            {state.settings.exams.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </select>
+
           <div className="segmented" role="group" aria-label="カレンダー内の期間表示">
             {(['month', 'week', 'list'] as const).map((v, i) => (
               <button
@@ -400,7 +401,6 @@ export function Calendar({
           </div>
       {mode === 'content' && (
         <div className="calendar-density" role="group" aria-label="カレンダーの表示密度">
-          <span>表示密度</span>
           <div className="segmented">
             {(['compact', 'standard', 'detailed'] as const).map((value, i) => (
               <button

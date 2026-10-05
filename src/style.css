@@ -2928,8 +2928,6 @@ textarea {
 
 .future-heading { max-width: 900px; gap: 12px; flex-wrap: nowrap; margin-bottom: 8px; }
 .future-heading > div { min-width: 0; }
-.future-management-anchor { position: relative; flex: 0 1 auto; max-width: 100%; }
-.future-management-anchor > button { min-width: 44px; min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 .future-week { display: flex; flex-wrap: wrap; align-items: center; margin-block: 0 4px; gap: 4px 8px; }
 .future-week-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
 .future-week-range { display: flex; align-items: center; gap: 4px; min-width: 0; }
@@ -2942,16 +2940,14 @@ textarea {
 .navigation-arrow:focus-visible { outline: 3px solid var(--accent); }
 .future-week .navigation-arrow { border: 0; background: transparent; padding: 12px; flex-shrink: 0; }
 .future-week .navigation-arrow svg { flex-shrink: 0; }
-.future-week button { background: transparent; border: 0; color: var(--accent); }
-.future-week button:hover:not(:disabled) { background: var(--soft); }
-.future-week button:active:not(:disabled) { background: var(--accent); color: var(--surface); }
+.future-week-navigation button { background: transparent; border: 0; color: var(--accent); }
+.future-week-navigation button:hover:not(:disabled) { background: var(--soft); }
+.future-week-navigation button:active:not(:disabled) { background: var(--accent); color: var(--surface); }
 .future-calendar { margin-inline-start: auto; }
 .future-calendar svg { flex-shrink: 0; }
 @media (max-width: 600px) {
   .future-calendar { margin-inline-start: 0; }
 }
-.future-management { position: absolute; inset-block-start: calc(100% + 4px); inset-inline-end: 0; z-index: 5; width: max-content; max-width: min(22rem, calc(100vw - 32px)); max-height: 65dvh; overflow: auto; padding: 8px; border: 1px solid var(--control-border); border-radius: 10px; background: var(--surface); box-shadow: 0 6px 20px #0002; }
-.future-management button { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 .future-notice:not(:empty) { margin-block: 8px; }
 .future-today { margin-inline-start: 0; font-size: 0.875rem; font-weight: 500; color: var(--accent); }
 
@@ -2983,14 +2979,14 @@ textarea {
 .calendar-only-layout { display: grid; gap: 20px; min-width: 0; }
 .day-panel-close { float: inline-end; margin-inline-start: 12px; }
 .future-week strong { font-variant-numeric: tabular-nums; }
-.future-week button { min-width: 44px; min-height: 44px; }
+.future-week-navigation button { min-width: 44px; min-height: 44px; }
 .future-priorities { display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 0; list-style: none; }
-.future-balance { margin-block: 16px; border-block-end: 1px solid var(--border); }
-.future-balance summary { min-height: 44px; align-content: center; cursor: pointer; }
-.future-balance form { display: grid; gap: 12px; margin-top: 12px; }
-.future-balance fieldset { min-width: 0; }
-.future-balance label.block { display: flex; align-items: center; gap: 8px; min-height: 44px; overflow-wrap: anywhere; }
-.future-balance label.block input { flex: 0 0 auto; }
+.future-disclosure { margin-block: 16px; border-block-end: 1px solid var(--border); }
+.future-disclosure summary { min-height: 44px; align-content: center; cursor: pointer; }
+.future-disclosure form { display: grid; gap: 12px; margin-top: 12px; }
+.future-disclosure fieldset { min-width: 0; }
+.future-disclosure label.block { display: flex; align-items: center; gap: 8px; min-height: 44px; overflow-wrap: anywhere; }
+.future-disclosure label.block input { flex: 0 0 auto; }
 .calendar-mode { width: fit-content; margin-block-end: 12px; }
 .calendar-quantity { text-align: start; color: var(--ink); }
 .calendar-amounts { margin: 6px 0; font-variant-numeric: tabular-nums; }
@@ -3021,16 +3017,15 @@ textarea {
 }
 
 /* Period navigation shares the same controls in both schedule views. */
-.schedule-view-switch { display: flex; flex-wrap: wrap; gap: 4px; margin-inline-start: auto; }
-.schedule-view-switch button { min-height: 44px; border: 0; background: transparent; color: var(--accent); font-size: 1rem; }
-.schedule-view-switch button[aria-pressed="true"] { background: var(--soft); font-weight: 700; box-shadow: inset 0 -2px var(--accent); }
+.schedule-view-switch { flex-wrap: wrap; max-width: 100%; margin-inline-start: auto; }
+.schedule-view-switch button { font-size: 1rem; padding: 9px 14px; min-height: 44px; min-width: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 .schedule-toolbar.calendar-toolbar { max-width: 900px; gap: 4px 8px; margin: 0 0 4px; }
 .calendar-period { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .calendar-period h2 { margin: 0; font-size: 1.125rem; }
 .calendar-period button { min-height: 44px; min-width: 44px; border: 0; background: transparent; color: var(--accent); }
 .calendar-period .future-today { font-size: .875rem; font-weight: 500; }
-.calendar-period button:hover:not(:disabled), .schedule-view-switch button:hover { background: var(--soft); }
-.calendar-period button:active:not(:disabled), .schedule-view-switch button:active { background: var(--accent); color: var(--surface); }
+.calendar-period button:hover:not(:disabled) { background: var(--soft); }
+.calendar-period button:active:not(:disabled) { background: var(--accent); color: var(--surface); }
 .calendar-options { max-width: 900px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-bottom: 8px; }
 .calendar-options .calendar-mode, .calendar-options .calendar-density { margin: 0; }
 .calendar-options select { min-height: 44px; max-width: 12rem; }

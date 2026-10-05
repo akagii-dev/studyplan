@@ -23,7 +23,7 @@ import { requirePlanningInputs } from '../domain/setupIssues';
 import { usePersistentAppState } from '../hooks/usePersistentAppState';
 import { AppShell } from './AppShell';
 import { Dashboard } from './Dashboard';
-import { Future, FutureRestart, type FutureSelection } from './Future';
+import { Future, type FutureSelection } from './Future';
 import { AvailabilityTarget, SettingsHub } from './SettingsHub';
 import { Page, pageNames } from './navigation';
 const Backup = lazy(() =>
@@ -302,7 +302,6 @@ export default function App() {
         <AppShell
           {...props}
           page={page}
-          headingActions={page === 'future' && !state.proposal ? <FutureRestart onRestart={restartPlan} /> : undefined}
           setPage={setPage}
           onBack={page !== 'calendar' && !mainPages.has(page) && !(page === 'report' && reportDayOpen) ? goBack : undefined}
           backLabel={origin ? pageNames[origin.page] : pageNames[fallbackFor(page)]}
@@ -350,7 +349,7 @@ export default function App() {
               <Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} recordTarget={recordTarget} />
             )}{' '}
             {page === 'future' && (
-              <Future {...props} adjustmentNotice={!!reconciliationNotice && reconciliation?.status === 'applied' && !saving && !error && !recovery} selection={futureSelection} onWeekChange={(from) => setFutureSelection({ from, selectedOn: today() })} onCalendar={(date, revealDay = !!date) => { if (revealDay || !calendarVisited.current) setCalendarDate(date ?? today()); calendarVisited.current = true; if (revealDay) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} onAdjustRemaining={adjustRemaining} onBalanceFuture={balanceFuture} />
+              <Future {...props} onRestart={restartPlan} adjustmentNotice={!!reconciliationNotice && reconciliation?.status === 'applied' && !saving && !error && !recovery} selection={futureSelection} onWeekChange={(from) => setFutureSelection({ from, selectedOn: today() })} onCalendar={(date, revealDay = !!date) => { if (revealDay || !calendarVisited.current) setCalendarDate(date ?? today()); calendarVisited.current = true; if (revealDay) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} onAdjustRemaining={adjustRemaining} onBalanceFuture={balanceFuture} />
             )}
             {(page === 'settings' || originStack.current.some((entry) => entry.page === 'settings')) && (
               <div hidden={page !== 'settings'}>

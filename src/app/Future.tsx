@@ -3,7 +3,7 @@ import { progressView } from '../domain/progressView';
 import { ProgressValue } from '../components/ProgressValue';
 import { calendarDisplayQuantity, materialUnit } from '../domain/calendarQuantity';
 import { Props, duration } from '../components/common';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { shortDate, shortDayLabel, startOfWeek, weekRangeLabel } from '../domain/calendar';
 import { Session, addDays } from '../domain/model';
 import { ScheduleViewSwitch } from '../components/ScheduleViewSwitch';
@@ -19,7 +19,7 @@ import { pastRemainingWork } from '../domain/remainingAllocation';
 export interface FutureSelection { from: string; selectedOn: string }
 const priorityName = (priority: number) => ['', '低い', 'ふつう', '高い'][priority] ?? String(priority);
 
-export function FutureRestart({ onRestart }: {
+function FutureRestart({ onRestart }: {
   onRestart: (from: string) => Promise<void>;
 }) {
   const { date: reference } = usePlanningClock();
@@ -27,8 +27,7 @@ export function FutureRestart({ onRestart }: {
   const [date, setDate] = useState(reference);
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
-  const anchor = useRef<HTMLDivElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
+  const trigger = useRef<HTMLElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const close = () => {
     if (sending) return;
@@ -38,27 +37,12 @@ export function FutureRestart({ onRestart }: {
   useLayoutEffect(() => {
     if (open) input.current?.focus({ preventScroll: true });
   }, [open]);
-  useEffect(() => {
-    if (!open || sending) return;
-    const outside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !anchor.current?.contains(event.target)) {
-        setOpen(false); setError('');
-        trigger.current?.focus({ preventScroll: true });
-      }
-    };
-    document.addEventListener('pointerdown', outside);
-    return () => document.removeEventListener('pointerdown', outside);
-  }, [open, sending]);
-  return <div ref={anchor} className="future-management-anchor" onBlur={(event) => {
-    if (open && !sending && !event.currentTarget.contains(event.relatedTarget)) {
-      setOpen(false); setError('');
-    }
-  }} onKeyDown={(event) => {
+  return <details className="future-disclosure future-restart-panel" open={open} onKeyDown={(event) => {
     if (event.key === 'Escape' && !event.defaultPrevented && open) { event.preventDefault(); close(); }
   }}>
-    <button ref={trigger} aria-expanded={open} aria-controls={open ? 'future-management' : undefined} disabled={sending}
-      onClick={() => open ? close() : (setDate(reference), setOpen(true))}>計画を仕切り直す</button>
-    {open && <section id="future-management" className="future-management" aria-label="計画の仕切り直し">
+    <summary ref={trigger} aria-disabled={sending || undefined}
+      onClick={(event) => { event.preventDefault(); if (!sending) { if (open) close(); else { setDate(reference); setOpen(true); } } }}>計画を仕切り直す</summary>
+    {open && <section aria-label="計画の仕切り直し">
       <form className="future-restart" onSubmit={(event) => {
         event.preventDefault();
         if (sending) return;
@@ -77,7 +61,7 @@ export function FutureRestart({ onRestart }: {
         {error && <p className="error" role="alert">{error}</p>}
       </form>
     </section>}
-  </div>;
+  </details>;
 }
 
 export function Future({
@@ -86,6 +70,7 @@ export function Future({
   onProposal,
   onAdjustRemaining,
   onBalanceFuture,
+  onRestart,
   selection,
   initialWeek,
   onWeekChange,
@@ -95,6 +80,7 @@ export function Future({
   onProposal: () => void;
   onAdjustRemaining?: (from: string) => Promise<boolean>;
   onBalanceFuture?: (materialIds: string[], from: string, allowReduction: boolean) => Promise<boolean>;
+  onRestart?: (from: string) => Promise<void>;
   adjustmentNotice?: boolean;
   selection?: FutureSelection | null;
   initialWeek?: string;
@@ -323,7 +309,7 @@ export function Future({
           {shortfalls.length ? 'この週に配置済み予定はありません。' : 'この週の予定はありません。'}
         </p>
       )}
-      {onBalanceFuture && state.plan && !state.proposal && <details className="future-balance">
+      {onBalanceFuture && state.plan && !state.proposal && <details className="future-disclosure future-balance">
         <summary>対象の未来配分を均す</summary>
       {state.settings.exams.length > 0 && <ul className="future-priorities" aria-label="試験の優先度">
         {state.settings.exams.map((exam) => <li key={exam.id}>{exam.name} · 優先度：{priorityName(exam.priority)}</li>)}
@@ -355,6 +341,8 @@ export function Future({
           {balanceError && <p className="error" role="alert">{balanceError}</p>}
         </form>
       </details>}
+
+      {onRestart && !state.proposal && <FutureRestart onRestart={onRestart} />}
 
       {receipts.length > 0 && (
         <details className="plan-change-history">

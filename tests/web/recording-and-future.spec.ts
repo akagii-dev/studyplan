@@ -59,6 +59,11 @@ test('今日を含む週・同日の詳細往復・主画面再入場・日跨�
   await expect(range).toHaveAttribute('datetime', startOfWeek(addDays(contractDay, 7)));
   await nav(page, 'カレンダー表示');
   await expect(page.locator('nav').getByRole('button', { name: '今後の予定', exact: true })).toHaveAttribute('aria-current', 'page');
+  const options = page.locator('.calendar-options');
+  expect(await options.locator(':scope > *').evaluateAll(elements => elements.map(element => element.getAttribute('aria-label')))).toEqual([
+    '表示する試験', 'カレンダーの表示内容', 'カレンダー内の期間表示', 'カレンダーの表示密度',
+  ]);
+  await expect(options.getByText('表示密度', { exact: true })).toHaveCount(0);
   const toolbar = page.locator('.calendar-toolbar');
   const period = page.getByRole('group', { name: 'カレンダー内の期間表示' });
   for (const label of ['月', '週', '一覧']) {
@@ -311,15 +316,20 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
       await expect(view.locator('.future-week time')).toHaveAttribute('datetime', startOfWeek(contractDay));
       const calendar = view.getByRole('button', { name: 'カレンダー表示', exact: true });
       const menu = page.getByRole('region', { name: '計画の仕切り直し' });
-      const restart = page.getByRole('button', { name: '計画を仕切り直す', exact: true });
-      const management = page.getByRole('button', { name: '計画を仕切り直す', exact: true });
+      const restart = page.getByText('計画を仕切り直す', { exact: true });
+      const management = page.getByText('計画を仕切り直す', { exact: true });
       await expect(menu).toBeHidden();
-      for (const button of [calendar, management]) {
+      for (const button of [calendar]) {
         await expect(button).toBeVisible();
         const box = (await button.boundingBox())!;
         expect(box.y + box.height).toBeLessThan(600);
         expect(box.height).toBeGreaterThanOrEqual(44);
         expect(box.width).toBeGreaterThanOrEqual(44);
+      }
+      await expect(restart).toBeVisible();
+      const balanceToggle = view.locator('.future-balance > summary');
+      if (await balanceToggle.count()) {
+        expect((await restart.boundingBox())!.y).toBeGreaterThan((await balanceToggle.boundingBox())!.y);
       }
       if (scenario === '空') {
         await expect(view.getByText('この週の予定はありません。', { exact: true })).toBeVisible();
@@ -377,13 +387,10 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
       if (scenario === '通常') {
         await management.click(); await management.click();
         await expect(menu).toBeHidden();
-        await management.click();
-        await page.getByRole('heading', { name: '今後の予定', exact: true }).click();
+        await management.press('Enter');
+        await menu.getByRole('button', { name: 'やめる', exact: true }).press('Escape');
         await expect(menu).toBeHidden();
-        await expect(page.getByRole('heading', { name: '今後の予定', exact: true })).toBeFocused();
-        await management.press('Enter'); await menu.getByRole('button', { name: 'やめる', exact: true }).press('Tab');
-        await expect(menu).toBeHidden();
-        await expect(page.getByRole('button', { name: '前の週', exact: true })).toBeFocused();
+        await expect(management).toBeFocused();
         expect(await headerPositions(page)).toEqual(positions);
       }
       if (scenario !== '空') {
@@ -419,15 +426,12 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
       document.documentElement.dataset.theme = theme;
       document.documentElement.dataset.appearance = appearance;
     }, { theme, appearance });
-    // Measure the selected theme after the shared background transition has settled.
-    await expect.poll(async () => {
-      await page.clock.runFor(150);
-      return page.getByRole('button', { name: '計画を仕切り直す', exact: true }).evaluate((element) => {
-        const hex = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim();
-        const rgb = hex.slice(1).match(/../g)!.map((component) => parseInt(component, 16));
-        return getComputedStyle(element).backgroundColor === 'rgb(' + rgb.join(', ') + ')';
-      });
-    }).toBe(true);
+    // Use the same selected-state styling as the Calendar controls.
+    await page.clock.runFor(150);
+    const selected = view.getByRole('button', { name: '週間予定', exact: true });
+    await expect(selected).toHaveClass('active');
+    expect(await selected.evaluate((element) => getComputedStyle(element).color)).not.toBe(
+      await selected.evaluate((element) => getComputedStyle(element).backgroundColor));
     expect((await new AxeBuilder({ page }).include('.future-page').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
     const focus = view.getByRole('button', { name: '次の週', exact: true });
     await focus.focus(); await page.keyboard.press('Shift+Tab'); await page.keyboard.press('Tab');
@@ -438,7 +442,7 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
   await page.setViewportSize({ width: info.project.name === 'wide' ? 640 : 320, height: 844 });
   await page.addStyleTag({ content: ':root { font-size: 28px; } :is(.future-page, .future-heading) * { letter-spacing: .12em; word-spacing: .16em; line-height: 1.5; } .future-page p { margin-block-end: 2em; }' });
   const positions = await headerPositions(page);
-  const management = page.getByRole('button', { name: '計画を仕切り直す', exact: true });
+  const management = page.getByText('計画を仕切り直す', { exact: true });
   await management.press('Enter');
   const menu = page.getByRole('region', { name: '計画の仕切り直し' });
 
@@ -447,7 +451,7 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
   expect(panel.x).toBeGreaterThanOrEqual(0);
   expect(panel.x + panel.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-  expect((await new AxeBuilder({ page }).include('.future-heading').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
+  expect((await new AxeBuilder({ page }).include('.future-page').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
   await page.screenshot({ path: info.outputPath('future-management-enlarged.png'), fullPage: true });
   await menu.getByRole('button', { name: 'やめる', exact: true }).press('Escape');
   await expect(management).toBeFocused();
@@ -456,6 +460,12 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
   await expect(calendar).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await calendar.focus(); await page.keyboard.press('Enter');
+  const appearanceOf = (element: HTMLElement) => {
+    const style = getComputedStyle(element);
+    return [style.fontSize, style.padding, style.color, style.backgroundColor, style.borderRadius];
+  };
+  expect(await page.getByRole('button', { name: 'カレンダー表示', exact: true }).evaluate(appearanceOf)).toEqual(
+    await page.getByRole('button', { name: '内容', exact: true }).evaluate(appearanceOf));
   await page.addStyleTag({ content: '.calendar-toolbar *, .calendar-options *, .day-panel * { letter-spacing: .12em; word-spacing: .16em; line-height: 1.5; }' });
   const grid = page.locator('.calendar-grid');
   const beforeDetail = await grid.evaluate(e => e.getBoundingClientRect().top + scrollY);

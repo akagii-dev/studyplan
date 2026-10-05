@@ -24,7 +24,6 @@ export function AppShell({
   reloadExternal,
   connectionError,
   checkConnection,
-  headingActions,
   children,
 }: Props & {
   page: Page;
@@ -43,7 +42,6 @@ export function AppShell({
   connectionError: string;
   checkConnection: () => void;
   children: ReactNode;
-  headingActions?: ReactNode;
 }) {
   const pageHeading = useRef<HTMLHeadingElement>(null);
   const navigationPage = page === 'calendar' ? 'future' : page;
@@ -168,7 +166,6 @@ export function AppShell({
                 {active.name}
               </h1>
             </div>
-            {headingActions}
             {['dashboard', 'today'].includes(page) && (
               <span className="today-label">
                 {today().replaceAll('-', ' / ')}（

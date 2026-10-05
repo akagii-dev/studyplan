@@ -149,7 +149,7 @@ test('LAN画面の仕切り直し承認で旧未配置を重複させずSQLite�
   await open(page);
   const from = addDays(adjustmentContext.date, 3);
   await page.getByRole('button', { name: '今後の予定', exact: true }).click();
-  await page.getByRole('button', { name: '計画を仕切り直す' }).click();
+  await page.getByText('計画を仕切り直す', { exact: true }).click();
   await page.getByLabel('開始日').fill(from);
   await page.getByRole('button', { name: 'この日から案を作成' }).click();
   await expect(page.locator('.replan-totals')).toContainText('予定 26問 · 未配置 6問 → 0問');

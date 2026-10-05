@@ -653,7 +653,8 @@ test('実機：狭幅で過去5問だけを一括調整し、今日の開始済�
   await expect(row.getByRole('textbox')).toBeVisible();
   await expect(row).not.toContainText('配置先を確認');
   await nav('今後の予定');
-  for (const name of ['計画を仕切り直す', '未消化1件・調整する', 'カレンダー表示'])
+  await expect(page.getByText('計画を仕切り直す', { exact: true })).toBeVisible();
+  for (const name of ['未消化1件・調整する', 'カレンダー表示'])
     await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '残りの配置を調整', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: /^未消化\d+件・調整する$/ }).focus();
@@ -691,7 +692,7 @@ test('実機：旧未配置を含めて仕切り直し、承認・バックア�
   const start = addDays(date, 3);
   const createProposal = async () => {
     await nav('今後の予定');
-    await page.getByRole('button', { name: '計画を仕切り直す', exact: true }).click();
+    await page.getByText('計画を仕切り直す', { exact: true }).click();
     await page.getByLabel('開始日', { exact: true }).fill(start);
     await page.getByRole('button', { name: 'この日から案を作成', exact: true }).click();
     await saved();
@@ -772,7 +773,7 @@ test('実機：部分記録後に翌日から仕切り直すと、今日の残�
   const recorded = await storedState();
   expect(completed(recorded, 'book', 0)).toBe(8);
   await nav('今後の予定');
-  await page.getByRole('button', { name: '計画を仕切り直す', exact: true }).click();
+  await page.getByText('計画を仕切り直す', { exact: true }).click();
   await page.getByLabel('開始日', { exact: true }).fill(addDays(date, 1));
   await page.getByRole('button', { name: 'この日から案を作成', exact: true }).click();
   await page.getByRole('button', { name: 'この内容で更新', exact: true }).click();
@@ -811,7 +812,7 @@ test('実機：仕切り直した旧未報告教材は予定画面から消え�
   await seedState(source, 'restart-retired-rows');
   await saved();
   await nav('今後の予定');
-  await page.getByRole('button', { name: '計画を仕切り直す', exact: true }).click();
+  await page.getByText('計画を仕切り直す', { exact: true }).click();
   await page.getByLabel('開始日', { exact: true }).fill(addDays(date, 1));
   await page.getByRole('button', { name: 'この日から案を作成', exact: true }).click();
   await page.getByRole('button', { name: 'この内容で更新', exact: true }).click();
@@ -858,7 +859,7 @@ test('実機：旧形式の過去予定は仕切り直し後に消え、実績�
   await seedState(source,'restart-legacy-past');
   await saved();
   await nav('今後の予定');
-  await page.getByRole('button',{name:'計画を仕切り直す',exact:true}).click();
+  await page.getByText('計画を仕切り直す', { exact: true }).click();
   await page.getByLabel('開始日',{exact:true}).fill(addDays(date,1));
   await page.getByRole('button',{name:'この日から案を作成',exact:true}).click();
   await page.getByRole('button',{name:'この内容で更新',exact:true}).click();
@@ -5696,7 +5697,7 @@ test('実機：通常の日付越え停止を今日から確認し、仕切り�
   await expect(page.locator('.future-reconciliation')).toBeVisible();
   await expect(page.locator('.future-reconciliation')).toContainText('調整未反映・要確認');
   await expect(page.locator('.future-reconciliation')).toContainText(detail);
-  const open = page.getByRole('button', { name: '計画を仕切り直す', exact: true });
+  const open = page.getByText('計画を仕切り直す', { exact: true });
   await open.focus(); await page.keyboard.press('Enter');
   await expect(page.getByLabel('開始日', { exact: true })).toBeFocused();
   await page.getByRole('button', { name: 'やめる', exact: true }).click();
@@ -5704,7 +5705,7 @@ test('実機：通常の日付越え停止を今日から確認し、仕切り�
   await expect(page.locator('.future-reconciliation')).toBeVisible();
   expect(committed(await storedState())).toEqual(original());
   const create = async () => {
-    await page.getByRole('button', { name: '計画を仕切り直す', exact: true }).click();
+    await page.getByText('計画を仕切り直す', { exact: true }).click();
     await page.getByLabel('開始日', { exact: true }).fill(addDays(date, 1));
     await page.getByRole('button', { name: 'この日から案を作成', exact: true }).click();
     await expect(page.getByRole('heading', { name: '計画案', exact: true })).toBeVisible();

@@ -15,6 +15,8 @@ async function seed(page: Page, state = progressContractFixture()) {
 }
 const read = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('studyplan-demo-state-v1')!).data as AppState);
 const nav = (page: Page, name: string) => page.getByRole('button', { name, exact: true }).click();
+const headerPositions = (page: Page) => page.locator('.future-week, .future-day').evaluateAll((elements) =>
+  elements.map((element) => element.getBoundingClientRect().top + scrollY));
 
 test('今日を含む週・同日の詳細往復・主画面再入場・日跨ぎと復帰で表示範囲を切り替える', async ({ page }, info) => {
   await seed(page);
@@ -279,7 +281,8 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
       await expect(view.locator('.future-work')).toHaveCount(0);
       await expect(view.locator('.future-week time')).toHaveAttribute('datetime', startOfWeek(contractDay));
       const calendar = view.getByRole('button', { name: 'カレンダー表示', exact: true });
-      const restart = view.getByRole('button', { name: '計画を仕切り直す', exact: true });
+      const menu = page.getByRole('region', { name: '予定の管理' });
+      const restart = menu.getByRole('button', { name: '計画を仕切り直す', exact: true });
       const management = page.getByRole('button', { name: '管理', exact: true });
       await expect(restart).toBeHidden();
       for (const button of [calendar, management]) {
@@ -320,16 +323,22 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
       expect((await new AxeBuilder({ page }).include('.future-page').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
       // Enter, Tab and focus restoration use native controls, without changing the plan.
+      const positions = await headerPositions(page);
       await management.focus(); await page.keyboard.press('Enter');
       await expect(restart).toBeFocused();
+      expect(await headerPositions(page)).toEqual(positions);
+      await expect(page.getByRole('button', { name: '管理を閉じる', exact: true })).toHaveCount(0);
+      if (scenario === '通常') await page.screenshot({ path: info.outputPath('future-management-open-' + width + '.png'), fullPage: true });
       await page.keyboard.press('Enter');
-      await expect(view.getByLabel('開始日', { exact: true })).toBeFocused();
-      const create = view.getByRole('button', { name: 'この日から案を作成', exact: true });
+      await expect(menu.getByLabel('開始日', { exact: true })).toBeFocused();
+      expect(await headerPositions(page)).toEqual(positions);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      const create = menu.getByRole('button', { name: 'この日から案を作成', exact: true });
       // Chromium's native date input has several keyboard-editable segments.
       for (let step = 0; step < 5 && !(await create.evaluate((element) => element === document.activeElement)); step++) await page.keyboard.press('Tab');
       await expect(create).toBeFocused();
       await page.keyboard.press('Tab');
-      await expect(view.getByRole('button', { name: 'やめる', exact: true })).toBeFocused();
+      await expect(menu.getByRole('button', { name: 'やめる', exact: true })).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(restart).toBeFocused();
       expect(await restart.evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe('none');
@@ -337,6 +346,18 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
       await page.keyboard.press('Escape');
       await expect(management).toBeFocused();
       await expect(page.getByRole('region', { name: '予定の管理' })).toBeHidden();
+      if (scenario === '通常') {
+        await management.click(); await management.click();
+        await expect(menu).toBeHidden();
+        await management.click();
+        await page.getByRole('heading', { name: '今後の予定', exact: true }).click();
+        await expect(menu).toBeHidden();
+        await expect(page.getByRole('heading', { name: '今後の予定', exact: true })).toBeFocused();
+        await management.press('Enter'); await restart.press('Tab');
+        await expect(menu).toBeHidden();
+        await expect(page.getByRole('button', { name: '前の週', exact: true })).toBeFocused();
+        expect(await headerPositions(page)).toEqual(positions);
+      }
       if (scenario !== '空') {
         const summary = view.locator('.future-balance > summary');
         await summary.focus(); await page.keyboard.press('Enter');
@@ -387,7 +408,22 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
   }
   // Browser zoom shrinks the CSS layout viewport. Also enlarge all text to 200%.
   await page.setViewportSize({ width: info.project.name === 'wide' ? 640 : 320, height: 844 });
-  await page.addStyleTag({ content: ':root { font-size: 28px; } .future-page * { letter-spacing: .12em; word-spacing: .16em; line-height: 1.5; } .future-page p { margin-block-end: 2em; }' });
+  await page.addStyleTag({ content: ':root { font-size: 28px; } :is(.future-page, .future-heading) * { letter-spacing: .12em; word-spacing: .16em; line-height: 1.5; } .future-page p { margin-block-end: 2em; }' });
+  const positions = await headerPositions(page);
+  const management = page.getByRole('button', { name: '管理', exact: true });
+  await management.press('Enter');
+  const menu = page.getByRole('region', { name: '予定の管理' });
+  await menu.getByRole('button', { name: '計画を仕切り直す', exact: true }).press('Enter');
+  expect(await headerPositions(page)).toEqual(positions);
+  const panel = (await menu.boundingBox())!;
+  expect(panel.x).toBeGreaterThanOrEqual(0);
+  expect(panel.x + panel.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  expect((await new AxeBuilder({ page }).include('.future-heading').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
+  await page.screenshot({ path: info.outputPath('future-management-enlarged.png'), fullPage: true });
+  await menu.getByRole('button', { name: 'やめる', exact: true }).press('Escape');
+  await expect(management).toBeFocused();
+  expect(await headerPositions(page)).toEqual(positions);
   const calendar = view.getByRole('button', { name: 'カレンダー表示', exact: true });
   await expect(calendar).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);

@@ -23,7 +23,7 @@ import { requirePlanningInputs } from '../domain/setupIssues';
 import { usePersistentAppState } from '../hooks/usePersistentAppState';
 import { AppShell } from './AppShell';
 import { Dashboard } from './Dashboard';
-import { Future, type FutureSelection } from './Future';
+import { Future, FutureManagement, type FutureSelection } from './Future';
 import { AvailabilityTarget, SettingsHub } from './SettingsHub';
 import { Page, pageNames } from './navigation';
 const Backup = lazy(() =>
@@ -47,8 +47,6 @@ export default function App() {
   const [origin, setOrigin] = useState<ReturnPoint | null>(null);
   const originStack = useRef<ReturnPoint[]>([]);
   const [futureSelection, setFutureSelection] = useState<FutureSelection | null>(null);
-  const [futureManagementOpen, setFutureManagementOpen] = useState(false);
-  const futureManagementTrigger = useRef<HTMLButtonElement>(null);
   const [calendarMode, setCalendarMode] = useState<'content' | 'quantity'>('content');
   const [calendarDate, setCalendarDate] = useState(today());
   const [calendarRevealDay, setCalendarRevealDay] = useState(false);
@@ -58,7 +56,7 @@ export default function App() {
   const [reportDayOpen, setReportDayOpen] = useState(false);
   const [availabilityTarget, setAvailabilityTarget] = useState<AvailabilityTarget | null>(null);
   const setPage = (destination: Page, keepAvailability = false) => {
-    if (destination === 'future') { setFutureSelection(null); setFutureManagementOpen(false); }
+    if (destination === 'future') setFutureSelection(null);
     if (destination === page) return;
     if (destination !== 'dashboard') setRecordTarget(null);
     if (page === 'report') setReportDayOpen(false);
@@ -303,8 +301,7 @@ export default function App() {
         <AppShell
           {...props}
           page={page}
-          headingActions={page === 'future' ? <button ref={futureManagementTrigger} aria-expanded={futureManagementOpen}
-            aria-controls="future-management" onClick={() => setFutureManagementOpen((open) => !open)}>管理</button> : undefined}
+          headingActions={page === 'future' ? <FutureManagement hasProposal={!!state.proposal} onProposal={() => setPage('replan')} onRestart={restartPlan} /> : undefined}
           setPage={setPage}
           onBack={!mainPages.has(page) && !(page === 'report' && reportDayOpen) ? goBack : undefined}
           backLabel={origin ? pageNames[origin.page] : pageNames[fallbackFor(page)]}
@@ -352,7 +349,7 @@ export default function App() {
               <Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} recordTarget={recordTarget} />
             )}{' '}
             {page === 'future' && (
-              <Future {...props} managementOpen={futureManagementOpen} onCloseManagement={() => { setFutureManagementOpen(false); futureManagementTrigger.current?.focus(); }} adjustmentNotice={!!reconciliationNotice && reconciliation?.status === 'applied' && !saving && !error && !recovery} selection={futureSelection} onWeekChange={(from) => setFutureSelection({ from, selectedOn: today() })} onCalendar={(date, revealDay = !!date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} onRestart={restartPlan} onAdjustRemaining={adjustRemaining} onBalanceFuture={balanceFuture} />
+              <Future {...props} adjustmentNotice={!!reconciliationNotice && reconciliation?.status === 'applied' && !saving && !error && !recovery} selection={futureSelection} onWeekChange={(from) => setFutureSelection({ from, selectedOn: today() })} onCalendar={(date, revealDay = !!date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} onAdjustRemaining={adjustRemaining} onBalanceFuture={balanceFuture} />
             )}
             {(page === 'settings' || originStack.current.some((entry) => entry.page === 'settings')) && (
               <div hidden={page !== 'settings'}>

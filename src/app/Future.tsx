@@ -1,9 +1,9 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import { progressView } from '../domain/progressView';
 import { ProgressValue } from '../components/ProgressValue';
 import { calendarDisplayQuantity, materialUnit } from '../domain/calendarQuantity';
 import { Props, duration } from '../components/common';
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { shortDate, shortDayLabel, startOfWeek, weekRangeLabel } from '../domain/calendar';
 import { Session, addDays } from '../domain/model';
 import { ShortfallDetails } from '../components/ShortfallDetails';
@@ -18,27 +18,88 @@ import { pastRemainingWork } from '../domain/remainingAllocation';
 export interface FutureSelection { from: string; selectedOn: string }
 const priorityName = (priority: number) => ['', '低い', 'ふつう', '高い'][priority] ?? String(priority);
 
+export function FutureManagement({ hasProposal, onProposal, onRestart }: {
+  hasProposal: boolean;
+  onProposal: () => void;
+  onRestart: (from: string) => Promise<void>;
+}) {
+  const { date: reference } = usePlanningClock();
+  const [open, setOpen] = useState(false);
+  const [restartOpen, setRestartOpen] = useState(false);
+  const [date, setDate] = useState(reference);
+  const [error, setError] = useState('');
+  const [sending, setSending] = useState(false);
+  const anchor = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const action = useRef<HTMLButtonElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const close = () => {
+    if (sending) return;
+    setOpen(false); setRestartOpen(false); setError('');
+    trigger.current?.focus({ preventScroll: true });
+  };
+  useLayoutEffect(() => {
+    if (open) (input.current ?? action.current)?.focus({ preventScroll: true });
+  }, [open, restartOpen]);
+  useEffect(() => {
+    if (!open || sending) return;
+    const outside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !anchor.current?.contains(event.target)) {
+        setOpen(false); setRestartOpen(false); setError('');
+        trigger.current?.focus({ preventScroll: true });
+      }
+    };
+    document.addEventListener('pointerdown', outside);
+    return () => document.removeEventListener('pointerdown', outside);
+  }, [open, sending]);
+  return <div ref={anchor} className="future-management-anchor" onBlur={(event) => {
+    if (open && !sending && !event.currentTarget.contains(event.relatedTarget)) {
+      setOpen(false); setRestartOpen(false); setError('');
+    }
+  }} onKeyDown={(event) => {
+    if (event.key === 'Escape' && !event.defaultPrevented && open) { event.preventDefault(); close(); }
+  }}>
+    <button ref={trigger} aria-expanded={open} aria-controls={open ? 'future-management' : undefined} disabled={sending}
+      onClick={() => open ? close() : setOpen(true)}>管理</button>
+    {open && <section id="future-management" className="future-management" aria-label="予定の管理">
+      {hasProposal ? <button ref={action} onClick={onProposal}>計画案を確認</button> : !restartOpen ? (
+        <button ref={action} onClick={() => { setDate(reference); setRestartOpen(true); }}>計画を仕切り直す</button>
+      ) : <form className="future-restart" onSubmit={(event) => {
+        event.preventDefault();
+        if (sending) return;
+        setSending(true); setError('');
+        void onRestart(date).catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)))
+          .finally(() => setSending(false));
+      }}>
+        <p>実績・履歴と固定予定を残し、未配置も含めて組み直します。</p>
+        <label htmlFor="restart-date">開始日</label>
+        <input ref={input} id="restart-date" type="date" required min={reference} value={date}
+          onChange={(event) => setDate(event.target.value)} />
+        <div className="future-restart-controls">
+          <button className="primary" type="submit" disabled={sending}>この日から案を作成</button>
+          <button type="button" disabled={sending} onClick={() => { setRestartOpen(false); setError(''); }}>やめる</button>
+        </div>
+        {error && <p className="error" role="alert">{error}</p>}
+      </form>}
+    </section>}
+  </div>;
+}
+
 export function Future({
   state,
   onCalendar,
   onProposal,
-  onRestart,
   onAdjustRemaining,
   onBalanceFuture,
   selection,
   initialWeek,
   onWeekChange,
-  managementOpen = false,
-  onCloseManagement,
   adjustmentNotice = false,
 }: Props & {
   onCalendar: (date?: string, revealDay?: boolean) => void;
   onProposal: () => void;
-  onRestart?: (from: string) => Promise<void>;
   onAdjustRemaining?: (from: string) => Promise<boolean>;
   onBalanceFuture?: (materialIds: string[], from: string, allowReduction: boolean) => Promise<boolean>;
-  managementOpen?: boolean;
-  onCloseManagement?: () => void;
   adjustmentNotice?: boolean;
   selection?: FutureSelection | null;
   initialWeek?: string;
@@ -55,21 +116,6 @@ export function Future({
   const [balanceError, setBalanceError] = useState('');
   const [balancing, setBalancing] = useState(false);
   const balanceSending = useRef(false);
-  const [restartOpen, setRestartOpen] = useState(false);
-  const [restartDate, setRestartDate] = useState(reference);
-  const [restartError, setRestartError] = useState('');
-  const [restarting, setRestarting] = useState(false);
-  const restartTrigger = useRef<HTMLButtonElement>(null);
-  const restartDateInput = useRef<HTMLInputElement>(null);
-  const wasRestartOpen = useRef(false);
-  useLayoutEffect(() => {
-    if (managementOpen && restartOpen) restartDateInput.current?.focus();
-    else if (managementOpen && wasRestartOpen.current) restartTrigger.current?.focus();
-    wasRestartOpen.current = restartOpen;
-  }, [restartOpen, managementOpen]);
-  useLayoutEffect(() => {
-    if (managementOpen) (restartDateInput.current ?? restartTrigger.current)?.focus();
-  }, [managementOpen]);
   const work = useMemo(() => remainingWork(state, reference, minute), [state, reference, minute]);
   const unavailableIds = new Set(work.flatMap((row) => row.unavailable.filter((item) => !item.clockOnly).map(({ session }) => session.id)));
   const [placementOpen, setPlacementOpen] = useState(false);
@@ -147,38 +193,8 @@ export function Future({
   const receipts = visibleProgressReceipts(state);
   return (
     <div className="future-page">
-      <section id="future-management" className="future-management" aria-label="予定の管理" hidden={!managementOpen}
-        onKeyDown={(event) => { if (event.key === 'Escape' && !restarting) { event.preventDefault(); onCloseManagement?.(); } }}>
-        <section className="future-restart" aria-label="計画を仕切り直す">
-          {state.proposal || !onRestart ? null : !restartOpen ? (
-            <button ref={restartTrigger} onClick={() => { setRestartDate(reference); setRestartError(''); setRestartOpen(true); }}>
-              計画を仕切り直す
-            </button>
-          ) : (
-            <form onSubmit={(event) => {
-              event.preventDefault();
-              if (restarting) return;
-              setRestarting(true);
-              setRestartError('');
-              void onRestart(restartDate).catch((error) => {
-                setRestartError(error instanceof Error ? error.message : String(error));
-              }).finally(() => setRestarting(false));
-            }}>
-              <p>実績・履歴と固定予定を残し、未配置も含めて組み直します。</p>
-              <label htmlFor="restart-date">開始日</label>
-              <div className="future-restart-controls">
-                <input ref={restartDateInput} id="restart-date" type="date" required min={reference} value={restartDate}
-                  onChange={(event) => setRestartDate(event.target.value)} />
-                <button className="primary" type="submit" disabled={restarting}>この日から案を作成</button>
-                <button type="button" disabled={restarting} onClick={() => { setRestartOpen(false); setRestartError(''); }}>やめる</button>
-              </div>
-              {restartError && <p className="error" role="alert">{restartError}</p>}
-            </form>
-          )}
-        </section>
-        <button type="button" disabled={restarting} onClick={onCloseManagement}>管理を閉じる</button>
-      </section>
       <div className="future-week" role="group" aria-label="週間予定の表示範囲">
+        <div className="future-week-navigation">
         <div className="future-week-range">
           <button className="navigation-arrow" aria-label="前の週" onClick={() => moveWeek(addDays(week, -7))}><ChevronLeft size={20} strokeWidth={2.5} aria-hidden="true" /></button>
           <time dateTime={week} aria-live="polite" aria-label={weekRangeLabel(week)}>
@@ -188,7 +204,8 @@ export function Future({
           <button className="navigation-arrow" aria-label="次の週" onClick={() => moveWeek(addDays(week, 7))}><ChevronRight size={20} strokeWidth={2.5} aria-hidden="true" /></button>
         </div>
         <button onClick={() => moveWeek(currentWeek)}>今日</button>
-        <button className="future-calendar" data-return-focus="future:calendar" onClick={() => onCalendar(week, false)}>カレンダー表示</button>
+        </div>
+        <button className="future-calendar" data-return-focus="future:calendar" onClick={() => onCalendar(week, false)}><CalendarDays size={18} aria-hidden="true" />カレンダー表示</button>
       </div>
       {state.proposal && <button className="primary" onClick={onProposal}>計画案を確認</button>}
         {onAdjustRemaining && state.plan && !state.proposal && (past.sessions.length > 0 || placementOpen) && <section className="remaining-adjustment" aria-label="経過済みの未消化分をまとめて調整">

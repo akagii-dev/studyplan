@@ -2927,8 +2927,9 @@ textarea {
 }
 
 .future-heading { max-width: 900px; gap: 12px; flex-wrap: nowrap; margin-bottom: 8px; }
-.future-management-anchor { position: relative; flex-shrink: 0; }
-.future-management-anchor > button { min-width: 44px; min-height: 44px; }
+.future-heading > div { min-width: 0; }
+.future-management-anchor { position: relative; flex: 0 1 auto; max-width: 100%; }
+.future-management-anchor > button { min-width: 44px; min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 .future-week { display: flex; flex-wrap: wrap; align-items: center; margin-block: 0 4px; gap: 4px 8px; }
 .future-week-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
 .future-week-range { display: flex; align-items: center; gap: 4px; min-width: 0; }

@@ -19,7 +19,7 @@ async function futureWeek(page: Page) {
 const dayList = (page: Page, date: string) =>
   page
     .locator('.future-day')
-    .filter({ has: page.getByRole('button', { name: new RegExp(`^${date} `) }) });
+    .filter({ has: page.locator(`h2 time[datetime="${date}"]`) });
 async function progress(row: Locator, actual: number | null, deficit: number | null) {
   const value = row.locator('.progress-value');
   // Check rendered quantities as well as unknown-vs-zero; not just hidden test metadata.
@@ -119,7 +119,8 @@ test('同一fixtureを各画面で照合し、履歴の訂正・取消・再読�
   ).toEqual([]);
   await page.screenshot({ path: info.outputPath('weekly-report.png'), fullPage: true });
   await futureWeek(page);
-  await dayList(page, contractPast).getByRole('button').click();
+  await navigate(page, 'カレンダー表示');
+  await page.getByRole('button', { name: `${contractPast}を表示`, exact: true }).click();
   await page.screenshot({ path: info.outputPath('calendar.png'), fullPage: true });
   await navigate(page, '記録履歴');
   const history = page
@@ -156,7 +157,8 @@ test('同一fixtureを各画面で照合し、履歴の訂正・取消・再読�
 
 test('入力の中心へ誘導し、確認前に保存せず、キーボードで安全に追加する', async ({ page }, info) => {
   await futureWeek(page);
-  await dayList(page, contractDay).getByRole('button').click();
+  await navigate(page, 'カレンダー表示');
+  await page.getByRole('button', { name: `${contractDay}を表示`, exact: true }).click();
   const detail = page
     .locator('.session-detail')
     .filter({ has: page.getByRole('heading', { name: '一部の教材', exact: true }) });
@@ -248,7 +250,8 @@ test('再配分後も履歴の不足を残し、取得不能な旧データは�
       .filter({ hasText: '未報告の教材' })
       .locator('.progress-value'),
   ).toHaveText('未報告');
-  await dayList(page, contractPast).getByRole('button').click();
+  await navigate(page, 'カレンダー表示');
+  await page.getByRole('button', { name: `${contractPast}を表示`, exact: true }).click();
   await expect(
     page
       .locator('.session-detail, .quantity-breakdown section')

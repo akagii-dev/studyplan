@@ -5,13 +5,13 @@ import { progressContractFixture, contractDay } from '../fixtures/progressContra
 import { adjustmentFixture } from '../fixtures/adjustment';
 import { addDays, initialState, type AppState } from '../../src/domain/model';
 
-async function seed(page: Page, state = progressContractFixture()) {
+async function seed(page: Page, state = progressContractFixture(), expectedRows = 6) {
   await page.clock.install({ time: new Date(`${contractDay}T12:00:00+09:00`) });
   await page.addInitScript((data) => {
     if (!localStorage.getItem('studyplan-demo-state-v1')) localStorage.setItem('studyplan-demo-state-v1', JSON.stringify({ revision: 1, data }));
   }, state);
   await page.goto('./');
-  await expect(page.locator('.daily-record-row')).toHaveCount(6);
+  await expect(page.locator('.daily-record-row')).toHaveCount(expectedRows);
 }
 const read = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('studyplan-demo-state-v1')!).data as AppState);
 const nav = (page: Page, name: string) => page.getByRole('button', { name, exact: true }).click();
@@ -24,6 +24,12 @@ test('今日を含む週・同日の詳細往復・主画面再入場・日跨�
   await nav(page, '今後の予定');
   const range = page.locator('.future-week time');
   await expect(range).toHaveAttribute('datetime', startOfWeek(contractDay));
+  const dateHeading = page.locator('.future-day h2').filter({ has: page.locator(`time[datetime="${contractDay}"]`) });
+  await expect(dateHeading.getByRole('button')).toHaveCount(0);
+  await expect(dateHeading.locator('time')).not.toHaveAttribute('tabindex');
+  await dateHeading.locator('time').click();
+  await expect(page.locator('.future-week')).toBeVisible();
+  await expect(page.locator('.calendar-grid')).toHaveCount(0);
   for (const name of ['前の週', '次の週']) {
     const arrow = page.getByRole('button', { name, exact: true });
     const box = (await arrow.boundingBox())!;
@@ -59,6 +65,7 @@ test('今日を含む週・同日の詳細往復・主画面再入場・日跨�
   await expect(range).toHaveAttribute('datetime', startOfWeek(addDays(contractDay, 7)));
   await nav(page, 'カレンダー表示');
   await expect(page.locator('nav').getByRole('button', { name: '今後の予定', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('button', { name: '一覧', exact: true })).toHaveCount(0);
   const options = page.locator('.calendar-options');
   expect(await options.locator(':scope > *').evaluateAll(elements => elements.map(element => element.getAttribute('aria-label')))).toEqual([
     '表示する試験', 'カレンダー内の期間表示', 'カレンダーの表示密度',
@@ -66,7 +73,7 @@ test('今日を含む週・同日の詳細往復・主画面再入場・日跨�
   await expect(options.getByText('表示密度', { exact: true })).toHaveCount(0);
   const toolbar = page.locator('.calendar-toolbar');
   const period = page.getByRole('group', { name: 'カレンダー内の期間表示' });
-  for (const label of ['月', '週', '一覧']) {
+  for (const label of ['月', '週']) {
     await period.getByRole('button', { name: label, exact: true }).click();
     await toolbar.getByRole('button', { name: '次の期間' }).click();
     const todayButton = toolbar.getByRole('button', { name: '今日', exact: true });
@@ -74,7 +81,6 @@ test('今日を含む週・同日の詳細往復・主画面再入場・日跨�
     await expect(todayButton).toBeFocused();
     await expect(period.getByRole('button', { name: label, exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(toolbar.locator('h2')).toHaveText('2026年 9月');
-    await expect(page.locator('.calendar-individual[open]')).toHaveCount(0);
     await expect(page.getByRole('complementary', { name: '選択した日の学習詳細' })).toBeHidden();
   }
   await period.getByRole('button', { name: '月', exact: true }).click();
@@ -112,6 +118,7 @@ test('今日を含む週・同日の詳細往復・主画面再入場・日跨�
   await page.clock.setFixedTime(new Date(`${addDays(contractDay, 2)}T00:01:00+09:00`));
   await nav(page, '週間予定');
   await expect(range).toHaveAttribute('datetime', startOfWeek(addDays(contractDay, 2)));
+  await expect(page.locator('.page-transition:visible')).toHaveCSS('opacity', '1');
   await page.screenshot({ path: info.outputPath('future-today-range.png'), fullPage: true });
 });
 
@@ -200,6 +207,120 @@ test('予定外と過去日を同じ自由入力で記録し、単位・0・保�
   expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await page.screenshot({ path: info.outputPath('shared-free-record.png'), fullPage: true });
+});
+
+test('予定外記録は今日の予定行を増やさず、履歴と進捗だけに保存する', async ({ page }, info) => {
+  const state = progressContractFixture();
+  state.settings.materials.push({
+    id: 'outside', name: '予定外の教材', examId: 'exam', unit: 'ページ',
+    total: 10, order: 7, rounds: [{ completed: 0, minutes: 2 }],
+  });
+  state.plan!.settingsSnapshot = structuredClone(state.settings);
+  await seed(page, state);
+  const before = await read(page);
+  const todaySlots = before.plan!.sessions.filter((session) => session.date === contractDay);
+  await page.locator('.outside-record > summary').click();
+  const form = page.locator('.outside-record .study-record-form');
+  await form.getByLabel('教材', { exact: true }).selectOption('outside');
+  await form.getByRole('textbox', { name: '追加量（1ページ単位）' }).fill('3');
+  await form.getByRole('button', { name: '記録する', exact: true }).click();
+  await expect(page.locator('.daily-record-saved')).toContainText('3ページを記録しました');
+  const recorded = await read(page);
+  expect(recorded.plan!.sessions.filter((session) => session.date === contractDay)).toEqual(todaySlots);
+  expect(recorded.records).toHaveLength(before.records.length + 1);
+  expect(recorded.records.filter((record) => record.materialId === 'outside')).toMatchObject([
+    { date: contractDay, count: 3, round: 0, cancelled: false },
+  ]);
+  await expect(page.locator('.daily-record-row')).toHaveCount(6);
+  await expect(page.locator('.daily-record-row').filter({ hasText: '予定外の教材' })).toHaveCount(0);
+  await expect(form.locator('.progress-summary')).toContainText('完了 3ページ');
+  await expect(form.locator('.progress-summary')).toContainText('残り 7ページ');
+  const scheduled = page.locator('.daily-record-row').filter({ hasText: '未報告の教材' });
+  await scheduled.getByRole('textbox').fill('2');
+  await scheduled.getByRole('button', { name: '記録', exact: true }).click();
+  await expect(scheduled).toContainText('2/10問');
+  await expect(page.locator('.daily-record-saved')).toContainText('2問を記録しました');
+  await page.reload();
+  await expect(page.locator('.daily-record-row')).toHaveCount(6);
+  await expect(page.locator('.daily-record-row').filter({ hasText: '予定外の教材' })).toHaveCount(0);
+  const reloaded = await read(page);
+  expect(reloaded.records).toHaveLength(before.records.length + 2);
+  expect(reloaded.records.filter((record) => record.materialId === 'outside')).toEqual(
+    recorded.records.filter((record) => record.materialId === 'outside'));
+  expect(reloaded.plan!.sessions.filter((session) => session.date === contractDay)).toEqual(todaySlots);
+  await page.locator('.outside-record > summary').click();
+  await form.getByLabel('教材', { exact: true }).selectOption('outside');
+  await expect(form.locator('.progress-summary')).toContainText('完了 3ページ');
+  await expect(form.locator('.progress-summary')).toContainText('残り 7ページ');
+  await page.screenshot({ path: info.outputPath('outside-record-keeps-schedule.png'), fullPage: true });
+  await nav(page, '記録履歴');
+  const history = page.getByRole('row').filter({ hasText: '予定外の教材' });
+  await expect(history).toHaveCount(1);
+  await expect(history).toContainText('＋3ページ');
+  await page.screenshot({ path: info.outputPath('outside-record-history.png'), fullPage: true });
+});
+
+test('予定のある教材の別周回で13問記録しても、今日の予定へ混在させない', async ({ page }, info) => {
+  const state = progressContractFixture();
+  state.settings.materials[0].rounds.push({ completed: 0, minutes: 2 });
+  state.plan!.settingsSnapshot = structuredClone(state.settings);
+  await seed(page, state);
+  const todaySlots = state.plan!.sessions.filter(session => session.date === contractDay);
+  await page.locator('.outside-record > summary').click();
+  const form = page.locator('.outside-record .study-record-form');
+  await form.getByLabel('教材', { exact: true }).selectOption('missing');
+  await form.getByLabel('周回', { exact: true }).selectOption('1');
+  await form.getByRole('textbox', { name: '追加問題数（1問単位）' }).fill('13');
+  await form.getByRole('button', { name: '記録する', exact: true }).press('Enter');
+  await expect(page.locator('.daily-record-saved')).toContainText('13問を記録しました');
+  await expect(page.locator('.daily-record-row')).toHaveCount(6);
+  await expect(page.locator('.daily-record-row').filter({ hasText: '2周目' })).toHaveCount(0);
+  await expect(form.locator('.progress-summary')).toContainText('完了 13問');
+  await expect(form.locator('.progress-summary')).toContainText('残り 87問');
+  await expect(page.locator('.daily-record-row').filter({ hasText: '未報告の教材' })).toContainText('未報告 / 10問');
+  await page.reload();
+  const reloaded = await read(page);
+  expect(reloaded.plan!.sessions.filter(session => session.date === contractDay)).toEqual(todaySlots);
+  expect(reloaded.records.filter(r => r.materialId === 'missing' && r.round === 1)).toMatchObject([{ date: contractDay, count: 13, cancelled: false }]);
+  await expect(page.locator('.daily-record-row')).toHaveCount(6);
+  await expect(page.locator('.daily-record-row').filter({ hasText: '2周目' })).toHaveCount(0);
+  await expect(page.locator('.page-transition:visible')).toHaveCSS('opacity', '1');
+  await page.screenshot({ path: info.outputPath('outside-round-keeps-schedule.png'), fullPage: true });
+  await nav(page, '記録履歴');
+  await expect(page.getByRole('row').filter({ hasText: '未報告の教材' })).toContainText('＋13問');
+});
+
+test('予定のない今日の実績詳細から予定外の入力へ移動し、保存前に実績を増やさない', async ({ page }, info) => {
+  const state = progressContractFixture();
+  state.settings.materials.push({ id: 'outside', name: '予定外の教材', examId: 'exam', total: 10, order: 7, rounds: [{ completed: 0, minutes: 2 }] });
+  state.plan!.settingsSnapshot = structuredClone(state.settings);
+  state.plan!.sessions = state.plan!.sessions.filter(session => session.date !== contractDay);
+  state.records.push({ id: 'outside-record', date: contractDay, materialId: 'outside', round: 0, count: 3, cancelled: false, createdAt: contractDay, updatedAt: contractDay });
+  await seed(page, state, 0);
+  const before = await read(page);
+  await nav(page, '今後の予定');
+  await nav(page, 'カレンダー表示');
+  await page.getByRole('button', { name: contractDay + 'を表示', exact: true }).press('Enter');
+  const quantity = page.locator('.quantity-breakdown section').filter({ hasText: '予定外の教材' });
+  await expect(quantity.locator('.progress-value')).toHaveText('3問');
+  await quantity.getByRole('button', { name: '記録を確認・追加', exact: true }).press('Enter');
+  await expect(page.locator('.outside-record')).toHaveAttribute('open', '');
+  const form = page.locator('.outside-record .study-record-form');
+  await expect(form.getByLabel('教材', { exact: true })).toHaveValue('outside');
+  await expect(form.getByLabel('周回', { exact: true })).toHaveValue('0');
+  const input = form.getByRole('textbox', { name: '追加問題数（1問単位）' });
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue('');
+  expect((await read(page)).records).toEqual(before.records);
+  expect((await read(page)).plan).toEqual(before.plan);
+  await input.fill('2');
+  await input.press('Enter');
+  await expect(page.locator('.daily-record-saved')).toContainText('2問を記録しました');
+  await expect(page.locator('.daily-record-row')).toHaveCount(0);
+  await expect(form.locator('.progress-summary')).toContainText('完了 5問');
+  await expect(form.locator('.progress-summary')).toContainText('残り 5問');
+  await expect(page.locator('.page-transition:visible')).toHaveCSS('opacity', '1');
+  await page.screenshot({ path: info.outputPath('outside-detail-target.png'), fullPage: true });
 });
 
 for (const responseLost of [false, true]) {
@@ -360,6 +481,7 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
         }
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      await expect(page.locator('.page-transition:visible')).toHaveCSS('opacity', '1');
       expect((await new AxeBuilder({ page }).include('.future-page').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
       // Enter, Tab and focus restoration use native controls, without changing the plan.
       const positions = await headerPositions(page);
@@ -426,10 +548,15 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
       document.documentElement.dataset.theme = theme;
       document.documentElement.dataset.appearance = appearance;
     }, { theme, appearance });
-    // Use the same selected-state styling as the Calendar controls.
+    // Check settled colors after the existing page fade; do not sample partial opacity.
     await page.clock.runFor(150);
+    await expect(page.locator('.page-transition')).toHaveCSS('opacity', '1');
     const selected = view.getByRole('button', { name: '週間予定', exact: true });
     await expect(selected).toHaveClass('active');
+    // Theme changes also transition button backgrounds for 120ms; wait for settled paint.
+    await expect.poll(() => selected.evaluate(element =>
+      element.getAnimations().filter(animation => animation instanceof CSSTransition &&
+        animation.playState === 'running').length)).toBe(0);
     expect(await selected.evaluate((element) => getComputedStyle(element).color)).not.toBe(
       await selected.evaluate((element) => getComputedStyle(element).backgroundColor));
     expect((await new AxeBuilder({ page }).include('.future-page').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
@@ -472,6 +599,7 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
   await page.locator('.date-number[aria-pressed="true"]').press('Enter');
   const detailPanel = page.getByRole('complementary', { name: '選択した日の学習詳細' });
   await expect(detailPanel).toBeVisible();
+  await expect(page.locator('.page-transition')).toHaveCSS('opacity', '1');
   expect(await grid.evaluate(e => e.getBoundingClientRect().top + scrollY)).toBe(beforeDetail);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   expect((await new AxeBuilder({ page }).include('.calendar-toolbar').include('.day-panel').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations).toEqual([]);
@@ -531,14 +659,11 @@ test('カレンダーは週単位の7列/2列と月末の罫線を保ち、拡�
   await period.getByRole('button', { name: '週', exact: true }).click();
   await expect(page.locator('.day')).toHaveCount(7);
   expect(await columns()).toBe(expectedColumns);
-  await period.getByRole('button', { name: '一覧', exact: true }).click();
-  const listDay = page.locator('.calendar-list > section');
-  await expect(listDay).toHaveCount(1);
-  await expect(listDay).toContainText('2026-10-25');
+  await expect(period.getByRole('button', { name: '一覧', exact: true })).toHaveCount(0);
 
   await nav(page, '週間予定');
   await nav(page, 'カレンダー表示');
-  await expect(period.getByRole('button', { name: '一覧', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(period.getByRole('button', { name: '週', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await period.getByRole('button', { name: '月', exact: true }).click();
   for (const destination of ['今日', '記録履歴', '設定']) {
     await page.locator('nav').getByRole('button', { name: destination, exact: true }).press('Enter');

@@ -1,6 +1,6 @@
 {
   "name": "studyplan",
-  "version": "0.6.13",
+  "version": "0.6.14",
   "private": true,
   "type": "module",
   "scripts": {
@@ -18,7 +18,8 @@
     "desktop:build": "tauri build --no-bundle",
     "test:contracts": "playwright test --config playwright.web.config.ts",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "verify:ui": "pnpm demo:build && pnpm test:contracts",
+    "test:calendar-ui": "playwright test --config tests/calendar-ui/playwright.config.ts",
+    "verify:ui": "pnpm demo:build && pnpm test:contracts && pnpm test:calendar-ui",
     "lan:assets": "tsc -b && vite build --mode lan && node scripts/build-lan.mjs",
     "lan:build": "pnpm lan:assets && cargo build --manifest-path src-tauri/Cargo.toml --release --features lan-cli --bin studyplan_lan_bridge --locked",
     "lan:start": "node scripts/lan-host.mjs start",

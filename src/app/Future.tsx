@@ -241,14 +241,7 @@ export function Future({
             return (
               <section className="future-day" key={date}>
                 <h2>
-                  <button
-                    className="future-day-date"
-                    aria-label={`${date} ${shortDayLabel(date)}`}
-                    data-return-focus={`future:${date}`}
-                    onClick={() => onCalendar(date)}
-                  >
-                    {shortDayLabel(date)}
-                  </button>
+                  <time dateTime={date}>{shortDayLabel(date)}</time>
                   {date === reference && <span className="future-today">今日</span>}
                 </h2>
                 <ul>

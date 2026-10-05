@@ -19,6 +19,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
   usePlanningClock();
   const inputRefs = useRef(new Map<string, HTMLInputElement>());
   const handled = useRef<number | null>(null);
+  const outsideRef = useRef<HTMLDetailsElement>(null);
   const date = today();
   const [drafts, setDrafts] = useRecordInput<Record<string, string>>(`today/${date}/inputs`, {});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -31,16 +32,23 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
   useEffect(() => {
     if (!target || handled.current === target.token) return;
     const row = rows.find((r) => r.materialId === target.materialId && r.round === target.round);
-    if (!row) return;
-    const id = key(row.materialId, row.round);
-    setDrafts((current) => ({
-      ...current,
-      [id]: current[id] || String(Math.min(row.progress.prefill, remaining(state, row.materialId, row.round))),
-    }));
+    const id = key(target.materialId, target.round);
+    if (row) {
+      setDrafts((current) => ({
+        ...current,
+        [id]: current[id] || String(Math.min(row.progress.prefill, remaining(state, row.materialId, row.round))),
+      }));
+    } else {
+      if (!state.settings.materials.some(material => material.id === target.materialId && material.rounds[target.round])) return;
+      setOutsideMaterial(target.materialId);
+      setOutsideRound(target.round);
+      if (outsideRef.current) outsideRef.current.open = true;
+    }
     // AppShell restores its heading in a frame; the explicit recording target wins afterwards.
     const timer = window.setTimeout(() => {
       handled.current = target.token;
-      const input = inputRefs.current.get(id);
+      const input = row ? inputRefs.current.get(id) :
+        outsideRef.current?.querySelector<HTMLInputElement>('input[inputmode="numeric"]');
       input?.focus();
       input?.scrollIntoView({ block: 'center' });
       input?.select();
@@ -134,7 +142,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
       ) : (
         <p>今日の学習予定はありません。</p>
       )}
-      <details className="outside-record">
+      <details className="outside-record" ref={outsideRef}>
         <summary>予定外の学習を記録</summary>
         {state.settings.materials.length ? (
           <StudyRecordForm state={state} reference={date} fixedDate busy={busy}

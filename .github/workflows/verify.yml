@@ -24,4 +24,6 @@ jobs:
         if: failure()
         with:
           name: contract-failures
-          path: test-results/contracts
+          path: |
+            test-results/contracts
+            test-results/calendar-ui

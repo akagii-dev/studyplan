@@ -39,7 +39,7 @@
   padding: 32px;
 }
 .calendar-export {
-  margin: 0 0 18px;
+  margin: 18px 0 0;
 }
 .approval-target {
   scroll-margin-top: 24px;
@@ -1094,13 +1094,6 @@ main {
 }
 .calendar-grid.density-detailed .calendar-event small + small {
   margin-top: 3px;
-}
-.calendar-list .session-detail.density-compact {
-  margin: 8px 0;
-  padding: 6px 10px;
-}
-.calendar-list .session-detail.density-compact .actions {
-  margin-top: 6px;
 }
 .segmented {
   display: flex;
@@ -2765,10 +2758,6 @@ textarea {
 .calendar-day-summary small {
   display: block;
 }
-.calendar-individual > summary {
-  padding: 0.65rem 0.25rem;
-  min-height: 44px;
-}
 
 .compact-topbar { justify-content: flex-end; }
 .daily-page, .future-page { max-width: 900px; }
@@ -2813,17 +2802,6 @@ textarea {
 .future-day > ul { min-width: 0; }
 @media (max-width: 600px) { .future-day { grid-template-columns: minmax(0, 1fr); gap: 0; } }
 .future-day h2 { font-size: 17px; margin: 0 0 6px; }
-.future-day-date {
-  min-height: 44px;
-  border: 0;
-  padding: 0 4px;
-  background: transparent;
-  color: var(--accent);
-  font-size: inherit;
-  font-weight: inherit;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
 .future-day ul { list-style: none; margin: 0; padding: 0; }
 .future-day li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: baseline; padding-block: 6px; font-size: 1rem; }
 .future-day li > span:first-child { min-width: 0; overflow-wrap: anywhere; }

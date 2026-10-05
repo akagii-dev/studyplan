@@ -538,8 +538,8 @@ describe('今日の教材・周回別進捗', () => {
         actual: 0,
         reported: false,
       },
-      { materialId: 'c', materialName: '問題集C', round: 0, planned: 0, actual: 3, reported: true },
     ]);
+    expect(calendarQuantity(s, date, date).rows.find(row => row.materialId === 'c')).toMatchObject({ planned: 0, actual: 3, reported: true });
     s.records.push(record(0, { id: 'zero', materialId: 'b' }));
     expect(todayStudyRows(s, date)[1]).toMatchObject({ actual: 0, reported: true });
     s.records[2].cancelled = true;
@@ -805,7 +805,7 @@ describe('今日の記録と今後の予定', () => {
     return state;
   }
 
-  it('今日の教材ごとに予定・実績・追加分入力を分け、0問と予定外も示す', () => {
+  it('今日の予定行と予定外の入口を分け、0問の報告も示す', () => {
     const state = fixture();
     state.records.push({
       id: 'outside',
@@ -825,7 +825,7 @@ describe('今日の記録と今後の予定', () => {
     expect(html).toContain('150%');
     expect(html).toContain('0/10問');
     expect(html).toContain('問題集C');
-    expect(html).toContain('3/0問');
+    expect(html).not.toContain('3/0問');
     expect(html).not.toContain('Infinity');
     expect(html).toContain('予定外の学習を記録');
     expect(html).toContain('問題集A 1周目の追加分（問）');

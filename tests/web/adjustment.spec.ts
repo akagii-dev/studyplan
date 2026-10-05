@@ -355,7 +355,7 @@ test('実績なしの読込と開き続けた翌日の調整を分けて表示�
   await expect(page.getByText('残量の内訳', { exact: true })).toHaveCount(0);
   await expect(page.getByText('配置先を確認', { exact: true })).toHaveCount(0);
   await expect(page.locator('.future-week time')).toHaveAttribute('datetime', '2030-10-07');
-  await expect(page.locator('.future-day').filter({ has: page.getByRole('button', { name: /^2030-10-07 / }) })).toContainText('調整済み');
+  await expect(page.locator('.future-day').filter({ has: page.locator('h2 time[datetime="2030-10-07"]') })).toContainText('調整済み');
   await page.clock.runFor(60_001);
   const repeated = await read();
   expect(repeated.records).toEqual([]);
@@ -520,7 +520,7 @@ test('旧形式の過去予定は仕切り直し後に非表示となり、4問�
   await page.getByRole('button',{name:'今後の予定',exact:true}).click();
   for(let i=0;i<3 && (await page.locator('.future-week time').getAttribute('datetime'))! > past;i++)
     await page.getByRole('button',{name:'前の週',exact:true}).click();
-  await expect(page.locator('.future-day').filter({has:page.getByRole('button',{name:new RegExp(`^${past} `)})})).toHaveCount(0);
+  await expect(page.locator('.future-day').filter({has:page.locator(`h2 time[datetime="${past}"]`)})).toHaveCount(0);
   await page.screenshot({path:info.outputPath('restart-past-future.png'),fullPage:true});
   await page.getByRole('button',{name:'カレンダー表示',exact:true}).click();
   await page.getByRole('button',{name:`${past}を表示`,exact:true}).click();
@@ -537,9 +537,7 @@ test('旧形式の過去予定は仕切り直し後に非表示となり、4問�
   await expect(panel).not.toContainText('不足');
   await expect(panel).not.toContainText('/6問');
   await page.screenshot({path:info.outputPath('restart-past-records.png'),fullPage:true});
-  await page.getByRole('button',{name:'一覧',exact:true}).click();
-  await expect(page.locator('.calendar-list')).not.toContainText(past);
-  await expect(page.locator('.calendar-list')).toContainText(recorded);
+  await expect(page.getByRole('button',{name:'一覧',exact:true})).toHaveCount(0);
   expect((await new AxeBuilder({page}).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   await page.reload();

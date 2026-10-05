@@ -868,7 +868,7 @@ test('実機：旧形式の過去予定は仕切り直し後に消え、実績�
     await nav('今後の予定');
     for(let i=0;i<3 && (await page.locator('.future-week time').getAttribute('datetime'))! > past;i++)
       await page.getByRole('button',{name:'前の週',exact:true}).click();
-    await expect(page.locator('.future-day').filter({has:page.getByRole('button',{name:new RegExp(`^${past} `)})})).toHaveCount(0);
+    await expect(page.locator('.future-day').filter({has:page.locator(`h2 time[datetime="${past}"]`)})).toHaveCount(0);
     await nav('詳細カレンダー');
     await page.getByRole('button',{name:'内容',exact:true}).click();
     await page.locator('.calendar-toolbar').getByRole('button',{name:'今日',exact:true}).click();
@@ -1979,7 +1979,6 @@ test('実機：ホームの導線・表示別のカレンダー密度・再起�
   for (const [view, initial] of [
     ['月', 'コンパクト'],
     ['週', '標準'],
-    ['一覧', '標準'],
   ]) {
     await views.getByRole('button', { name: view, exact: true }).click();
     await expect(density.getByRole('button', { name: initial, exact: true })).toHaveAttribute(
@@ -1990,9 +1989,7 @@ test('実機：ホームの導線・表示別のカレンダー密度・再起�
       await density.getByRole('button', { name: level, exact: true }).click();
       await saved();
       const events = page.locator(
-        view === '一覧'
-          ? '.calendar-list .calendar-day-summary .calendar-event'
-          : '.calendar-grid .calendar-event',
+        '.calendar-grid .calendar-event',
       );
       await expect(events).toHaveCount(2);
       const first = events.first();
@@ -2008,9 +2005,7 @@ test('実機：ホームの導線・表示別のカレンダー密度・再起�
       await expect(events).toContainText('予備試験');
       await expect(
         page.locator(
-          view === '一覧'
-            ? '.calendar-list .calendar-day-summary .calendar-busy'
-            : '.calendar-grid .calendar-busy',
+          '.calendar-grid .calendar-busy',
         ),
       ).toHaveCount(1);
       await page.getByLabel('表示する試験').selectOption('all');
@@ -2036,7 +2031,7 @@ test('実機：ホームの導線・表示別のカレンダー密度・再起�
   await page.setViewportSize({ width: 1320, height: 900 });
   await page.screenshot({ path: 'test-results/calendar-density-month.png', fullPage: true });
   const stored = await storedState();
-  expect(stored.calendarDensity).toEqual({ month: 'compact', week: 'detailed', list: 'standard' });
+  expect(stored.calendarDensity).toEqual({ month: 'compact', week: 'standard' });
   expect(stored.plan).toEqual(seed.plan);
   expect(stored.records).toEqual(seed.records);
   await close();
@@ -2404,7 +2399,7 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
   await expect(
     page
       .locator('.future-day')
-      .filter({ has: page.getByRole('button', { name: new RegExp(`^${tomorrow} `) }) }),
+      .filter({ has: page.locator(`h2 time[datetime="${tomorrow}"]`) }),
   ).toContainText('10問');
   let persisted = await storedState();
   expect(persisted.records).toHaveLength(1);
@@ -2448,7 +2443,7 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
   await expect(
     page
       .locator('.future-day')
-      .filter({ has: page.getByRole('button', { name: new RegExp(`^${tomorrow} `) }) }),
+      .filter({ has: page.locator(`h2 time[datetime="${tomorrow}"]`) }),
   ).toContainText('10問');
   await expect(page.locator('.plan-change-history')).toHaveCount(0);
   const futureQuantity = async (materialId = 'book') =>
@@ -2489,7 +2484,7 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
     await expect(
       page
         .locator('.future-day')
-        .filter({ has: page.getByRole('button', { name: new RegExp(`^${tomorrow} `) }) }),
+        .filter({ has: page.locator(`h2 time[datetime="${tomorrow}"]`) }),
     ).toContainText(`${expected}問`);
   }
   const outsideSeed = structuredClone(seed);
@@ -2509,12 +2504,12 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
   await page.locator('.outside-record').getByLabel('追加問題数（1問単位）', { exact: true }).fill('2');
   await page.locator('.outside-record').getByRole('button', { name: '記録する', exact: true }).click();
   await saved();
-  await expect(page.getByRole('listitem').filter({ hasText: '予定外問題集' })).toContainText(
-    '2/0問',
-  );
-  await expect(page.getByRole('listitem').filter({ hasText: '予定外問題集' })).toContainText(
-    '2/0問',
-  );
+  await expect(page.locator('.daily-record-row').filter({ hasText: '予定外問題集' })).toHaveCount(0);
+  const outsideStored = await storedState();
+  expect(outsideStored.records.filter(r => !r.cancelled && r.materialId === 'outside').map(r => r.count)).toEqual([2]);
+  expect(outsideStored.plan!.sessions.filter(session => session.date === date)).toEqual([originalToday]);
+  await expect(page.locator('.progress-summary')).toContainText('完了 2問');
+  await expect(page.locator('.progress-summary')).toContainText('残り 2問');
   expect(await futureQuantity()).toBe(10);
   expect(await futureQuantity('outside')).toBe(2);
   const beforeRestart = await storedState();
@@ -3963,12 +3958,9 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   });
   await page.getByRole('button', { name: '週', exact: true }).click();
   await expect(page.locator('.calendar-grid.week')).toBeVisible();
-  await page.getByRole('button', { name: '一覧', exact: true }).click();
-  const firstDayDetails = page.locator('.calendar-list details.calendar-individual').first();
-  // The selected day is already expanded; clicking it again would close it.
-  if ((await firstDayDetails.getAttribute('open')) === null)
-    await firstDayDetails.locator('summary').click();
-  await expect(firstDayDetails.locator('.session-detail').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: '一覧', exact: true })).toHaveCount(0);
+  await page.locator('.day.today .date-number').click();
+  await expect(page.locator('.day-panel .session-detail').first()).toBeVisible();
   await page.getByRole('button', { name: '月', exact: true }).click();
   const afterView = await page.evaluate(async () => {
     return await (
@@ -4432,7 +4424,8 @@ test('実機：選択日と週内訳・月移動・授業だけの日・予定�
     page.getByRole('button', { name: `${nextSelected}を表示`, exact: true }),
   ).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('complementary', { name: '選択した日の学習詳細' })).toBeVisible();
-  await page.getByRole('button', { name: '一覧', exact: true }).click();
+  await page.getByRole('button', { name: '月', exact: true }).click();
+  await page.getByRole('button', { name: `${nextSelected}を表示`, exact: true }).click();
   await expect(page.locator('.busy-event').first()).toContainText('経済学');
   await expect(
     page.getByText('この期間に勉強・大学の予定と学習実績はありません。', { exact: true }),
@@ -4447,21 +4440,15 @@ test('実機：選択日と週内訳・月移動・授業だけの日・予定�
   await expect(page.getByText('教材a · 1周目：＋3問', { exact: true })).toHaveCount(0);
   await page.getByLabel('表示する試験').selectOption('a');
   await expect(page.getByText('教材b · 1周目：＋7問', { exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: `${date}の時間の内訳を表示`, exact: true }).click();
+  await page.getByRole('button', { name: `${date}を表示`, exact: true }).click();
   await expect(
-    page.getByRole('button', { name: `${date}の時間の内訳を表示`, exact: true }),
+    page.getByRole('button', { name: `${date}を表示`, exact: true }),
   ).toHaveAttribute('aria-pressed', 'true');
   if (addDays(today(), 1).slice(0, 7) !== month) {
     await page.locator('.calendar-toolbar').getByRole('button', { name: '次の期間', exact: true }).click();
   }
-  const futureSection = page.locator('.calendar-list > section').filter({
-    has: page.getByRole('button', {
-      name: `${addDays(today(), 1)}の時間の内訳を表示`,
-      exact: true,
-    }),
-  });
-  const futureDetails = futureSection.locator('.calendar-individual');
-  if (!(await futureDetails.getAttribute('open'))) await futureDetails.locator('summary').click();
+  await page.getByRole('button', { name: `${addDays(today(), 1)}を表示`, exact: true }).click();
+  const futureDetails = page.locator('.day-panel');
   await expect(futureDetails.locator('.session-detail')).toContainText('5問');
   await expect(futureDetails.getByRole('button', { name: '固定する', exact: true })).toHaveCount(0);
   await expect(futureDetails.getByRole('button', { name: '進捗を記録', exact: true })).toHaveCount(

@@ -61,7 +61,7 @@ export function Calendar({
     const id = setInterval(() => tick((n) => n + 1), 60000);
     return () => clearInterval(id);
   }, [todayOnly]);
-  const [view, setView] = useState<CalendarView>(initialView);
+  const [view, setView] = useState<'month' | 'week'>(initialView === 'week' ? 'week' : 'month');
   useEffect(() => {
     onViewChange?.(view);
   }, [view, onViewChange]);
@@ -101,10 +101,8 @@ export function Calendar({
   const from =
     view === 'month'
       ? addDays(monthStart, -((weekday(monthStart) + 6) % 7))
-      : view === 'week'
-        ? weekStart
-        : monthStart;
-  const to = view === 'month' ? addDays(from, 41) : view === 'week' ? addDays(from, 6) : monthEnd;
+      : weekStart;
+  const to = view === 'month' ? addDays(from, 41) : addDays(from, 6);
   const days = datesBetween(from, to);
   const all = displayPlanSessions(state).filter((s) => s.kind === 'review' || s.count > 0);
   const visible = all.filter((s) => filter === 'all' || s.examId === filter);
@@ -285,9 +283,9 @@ export function Calendar({
   }
   const closeDay = () => {
     setShowDay(false);
-    calendarRef.current?.querySelector<HTMLButtonElement>('.date-number[aria-pressed="true"], .text-button[aria-pressed="true"]')?.focus({ preventScroll: true });
+    calendarRef.current?.querySelector<HTMLButtonElement>('.date-number[aria-pressed="true"]')?.focus({ preventScroll: true });
   };
-  const selectedDayPanel = showDay && view !== 'list' && (
+  const selectedDayPanel = showDay && (
     <aside className="card day-panel" aria-label="選択した日の学習詳細" ref={detailRef} onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); closeDay(); } }}>
       <div className="day-panel-heading">
       <button
@@ -353,14 +351,14 @@ export function Calendar({
             ))}
           </select>
           <div className="segmented" role="group" aria-label="カレンダー内の期間表示">
-            {(['month', 'week', 'list'] as const).map((v, i) => (
+            {(['month', 'week'] as const).map((v, i) => (
               <button
                 key={v}
                 className={view === v ? 'active' : ''}
                 aria-pressed={view === v}
                 onClick={() => setView(v)}
               >
-                {['月', '週', '一覧'][i]}
+                {['月', '週'][i]}
               </button>
             ))}
           </div>
@@ -384,12 +382,6 @@ export function Calendar({
           </div>
         </div>
       </div>
-      <CalendarExport
-        state={state}
-        from={view === 'week' ? from : monthStart}
-        to={view === 'week' ? to : monthEnd}
-        examId={filter}
-      />
       {state.plan && (
         <StudyCoverageNotice
           settings={state.plan.settingsSnapshot ?? state.settings}
@@ -426,97 +418,54 @@ export function Calendar({
       )}
       <div className="calendar-only-layout" ref={calendarRef} onFocusCapture={(event) => { if (showDay && !detailRef.current?.contains(event.target)) setShowDay(false); }}>
         {selectedDayPanel}
-        {view === 'list' ? (
-          <div className={`card calendar-list density-${density}`}>
-            {days
-              .filter(
-                (d) =>
-                  timeline(d).length ||
-                  recordsOn(d).length ||
-                  hasQuantity(d),
-              )
-              .map((d) => (
-                <section key={d}>
-                  <h3>
-                    <button
-                      className="text-button"
-                      aria-label={`${d}の時間の内訳を表示`}
-                      aria-pressed={selected === d}
+        <div
+          className={`calendar-grid ${view} density-${density}`}
+        >
+          <div className="calendar-head">
+            {[1, 2, 3, 4, 5, 6, 0].map((d) => (
+              <span key={d}>{weekdays[d]}</span>
+            ))}
+          </div>
+          <div className="calendar-body">
+            {days.filter((_, index) => index % 7 === 0).map((week) => (
+              <section className="calendar-week" key={week} aria-label={`${shortDayLabel(week)}からの週`}>
+                <h3 className="calendar-week-title">{shortDayLabel(week)}–{shortDayLabel(addDays(week, 6))}</h3>
+                <div className="calendar-week-days">
+                  {days.filter(d => d >= week && d <= addDays(week, 6)).map((d) => (
+                    <div
+                      key={d}
+                      className={`day ${d === today() ? 'today' : ''} ${d === selected ? 'chosen' : ''} ${view === 'month' && d.slice(0, 7) !== anchor.slice(0, 7) ? 'muted-day' : ''}`}
                       onClick={() => selectDay(d)}
                     >
-                      {d}（{weekdays[weekday(d)]}）
-                    </button>
-                  </h3>
-                    <CalendarDaySummary
-                      state={state}
-                      date={d}
-                      filter={filter}
-                      density={density}
-                      onSelect={() => selectDay(d)}
-                    />
-                    <details className="calendar-individual" open={(showDay && selected === d) || undefined}>
-                      <summary>個別の予定を確認</summary>
-                      {daySchedule(d, density)}
-                    </details>
-                  {recordsOn(d).length > 0 && (
-                    <>
-                      <h4>この日の学習実績</h4>
-                      {dayRecords(d)}
-                    </>
-                  )}
-                </section>
-              ))}
-            {!days.some(
-              (d) =>
-                timeline(d).length ||
-                recordsOn(d).length ||
-                hasQuantity(d),
-            ) && <Empty>この期間に勉強・大学の予定と学習実績はありません。</Empty>}
-          </div>
-        ) : (
-          <div
-            className={`calendar-grid ${view} density-${density}`}
-          >
-            <div className="calendar-head">
-              {[1, 2, 3, 4, 5, 6, 0].map((d) => (
-                <span key={d}>{weekdays[d]}</span>
-              ))}
-            </div>
-            <div className="calendar-body">
-              {days.filter((_, index) => index % 7 === 0).map((week) => (
-                <section className="calendar-week" key={week} aria-label={`${shortDayLabel(week)}からの週`}>
-                  <h3 className="calendar-week-title">{shortDayLabel(week)}–{shortDayLabel(addDays(week, 6))}</h3>
-                  <div className="calendar-week-days">
-                    {days.filter(d => d >= week && d <= addDays(week, 6)).map((d) => (
-                      <div
-                        key={d}
-                        className={`day ${d === today() ? 'today' : ''} ${d === selected ? 'chosen' : ''} ${view === 'month' && d.slice(0, 7) !== anchor.slice(0, 7) ? 'muted-day' : ''}`}
-                        onClick={() => selectDay(d)}
+                      <button
+                        className="date-number"
+                        aria-label={`${d}を表示`}
+                        aria-pressed={d === selected}
                       >
-                        <button
-                          className="date-number"
-                          aria-label={`${d}を表示`}
-                          aria-pressed={d === selected}
-                        >
-                          {d === today() ? <span className="today-date-badge">{Number(d.slice(8))}</span> : shortDayLabel(d)}
-                        </button>
-                          <CalendarDaySummary
-                            state={state}
-                            date={d}
-                            filter={filter}
-                            density={density}
-                            onSelect={() => selectDay(d)}
-                          />
+                        {d === today() ? <span className="today-date-badge">{Number(d.slice(8))}</span> : shortDayLabel(d)}
+                      </button>
+                        <CalendarDaySummary
+                          state={state}
+                          date={d}
+                          filter={filter}
+                          density={density}
+                          onSelect={() => selectDay(d)}
+                        />
 
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
           </div>
-        )}
+        </div>
       </div>
+      <CalendarExport
+        state={state}
+        from={view === 'week' ? from : monthStart}
+        to={view === 'week' ? to : monthEnd}
+        examId={filter}
+      />
     </>
   );
 }

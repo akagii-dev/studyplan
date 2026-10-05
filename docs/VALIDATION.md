@@ -1,5 +1,13 @@
 # 動作確認記録
 
+## v0.6.12 リリース検証（2026-10-06）
+
+7e79e86までのUI変更をWindows配布版へ収録。package/Tauri/Cargo/lockのアプリ版とREADME・CHANGELOGを0.6.12へ統一。最終pnpm verifyはlint/型/単体543件・36ファイル/通常build成功、verify:uiはEdge60件成功。pnpm desktop:buildも成功し、Desktop/LAN資材を内蔵したEXEのFileVersion/ProductVersionを0.6.12と確認。
+
+既公開v0.6.11 EXEをGitHubから取得して公開ハッシュと照合し、専用コピーでtest-update.ps1を実行。ロック・破損時の拒否、原子的更新、旧EXE退避、再送の冪等性、ダミーDBマーカー保持はすべて成功。ZIPはStudyPlan.exe/Update-StudyPlan.ps1/update.json/README.txtの4ファイルのみ。EXE SHA256は4c3c1badf3dc4097ac2777abe8cc470a12e5913cce073a51186e4ec6cbfdeb62、ZIPはccc317e6704a8cb4d6eebf3bb9fd090ea42050a2f309c4074ab9b452d8451bf3。
+
+配布EXEの起動・Desktop/LAN実機E2E・iOS/Safari実機・読み上げ実聴は未実施。通常保存先を使う配布版は起動せず、本番DB・利用中EXEを保持。Rustロジック変更なし、Cargo単体は未実施。既存の依存/注釈/bundle警告あり。公開対象はEXEと更新ZIPだけ。タグ・公開結果と生成物整理はWORK-STATUS.mdへ記録する。
+
 ## 表示切替と仕切り直しの展開欄（2026-10-06）
 
 main/bdae20aからUIのみ変更。週間予定／カレンダー表示は内容／学習量と同じsegmentedを共有し、カレンダーツールバーの旧11px指定も上書きして文字・余白・選択色を統一。仕切り直しは見出しから撤去し、未来配分の直下へ同じdetails/summaryの外観で配置。開始日・説明・案作成・破棄・承認は維持し、取消/Escでsummaryへ戻る。不要になったポップオーバー・外側監視・headingActionsを削除。計算/保存/Rust変更なし。

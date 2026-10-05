@@ -548,7 +548,7 @@ export function Calendar({
                           }
                           aria-pressed={d === selected}
                         >
-                          {shortDayLabel(d)}
+                          {d === today() ? <span className="today-date-badge">{Number(d.slice(8))}</span> : shortDayLabel(d)}
                         </button>
                         {mode === 'quantity' ? (
                           <CalendarQuantity

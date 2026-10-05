@@ -68,6 +68,7 @@ async function inspectScreens(page: Page, actual: number | null, pastActual: num
     actual,
     null,
   );
+  await page.getByRole('button', { name: '詳細を閉じる', exact: true }).click();
   await page.getByRole('button', { name: new RegExp(`^${contractPast}を表示`) }).click();
   for (const c of contractCases)
     await progress(
@@ -76,7 +77,7 @@ async function inspectScreens(page: Page, actual: number | null, pastActual: num
       c.id === 'partial' ? (pastActual === null ? null : 10 - pastActual) : c.deficit,
     );
   await expect(page.locator('main')).not.toContainText(/基準なし|実績あり/);
-  await navigate(page, '← 今後の予定へ戻る');
+  await navigate(page, '週間予定');
   await expect(page.locator('.future-week time')).toHaveAttribute('datetime', startOfWeek(contractDay));
   expect(Math.abs((await page.evaluate(() => window.scrollY)) - scroll)).toBeLessThan(3);
   await navigate(page, '設定');

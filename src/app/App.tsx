@@ -23,7 +23,7 @@ import { requirePlanningInputs } from '../domain/setupIssues';
 import { usePersistentAppState } from '../hooks/usePersistentAppState';
 import { AppShell } from './AppShell';
 import { Dashboard } from './Dashboard';
-import { Future, FutureManagement, type FutureSelection } from './Future';
+import { Future, FutureRestart, type FutureSelection } from './Future';
 import { AvailabilityTarget, SettingsHub } from './SettingsHub';
 import { Page, pageNames } from './navigation';
 const Backup = lazy(() =>
@@ -47,6 +47,7 @@ export default function App() {
   const [origin, setOrigin] = useState<ReturnPoint | null>(null);
   const originStack = useRef<ReturnPoint[]>([]);
   const [futureSelection, setFutureSelection] = useState<FutureSelection | null>(null);
+  const calendarVisited = useRef(page === 'calendar');
   const [calendarMode, setCalendarMode] = useState<'content' | 'quantity'>('content');
   const [calendarDate, setCalendarDate] = useState(today());
   const [calendarRevealDay, setCalendarRevealDay] = useState(false);
@@ -301,9 +302,9 @@ export default function App() {
         <AppShell
           {...props}
           page={page}
-          headingActions={page === 'future' ? <FutureManagement hasProposal={!!state.proposal} onProposal={() => setPage('replan')} onRestart={restartPlan} /> : undefined}
+          headingActions={page === 'future' && !state.proposal ? <FutureRestart onRestart={restartPlan} /> : undefined}
           setPage={setPage}
-          onBack={!mainPages.has(page) && !(page === 'report' && reportDayOpen) ? goBack : undefined}
+          onBack={page !== 'calendar' && !mainPages.has(page) && !(page === 'report' && reportDayOpen) ? goBack : undefined}
           backLabel={origin ? pageNames[origin.page] : pageNames[fallbackFor(page)]}
           restorePosition={restorePosition?.page === page ? restorePosition : null}
           blocked={closing || restoring || !!recovery}
@@ -349,7 +350,7 @@ export default function App() {
               <Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} recordTarget={recordTarget} />
             )}{' '}
             {page === 'future' && (
-              <Future {...props} adjustmentNotice={!!reconciliationNotice && reconciliation?.status === 'applied' && !saving && !error && !recovery} selection={futureSelection} onWeekChange={(from) => setFutureSelection({ from, selectedOn: today() })} onCalendar={(date, revealDay = !!date) => { setCalendarDate(date ?? today()); if (date) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} onAdjustRemaining={adjustRemaining} onBalanceFuture={balanceFuture} />
+              <Future {...props} adjustmentNotice={!!reconciliationNotice && reconciliation?.status === 'applied' && !saving && !error && !recovery} selection={futureSelection} onWeekChange={(from) => setFutureSelection({ from, selectedOn: today() })} onCalendar={(date, revealDay = !!date) => { if (revealDay || !calendarVisited.current) setCalendarDate(date ?? today()); calendarVisited.current = true; if (revealDay) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} onAdjustRemaining={adjustRemaining} onBalanceFuture={balanceFuture} />
             )}
             {(page === 'settings' || originStack.current.some((entry) => entry.page === 'settings')) && (
               <div hidden={page !== 'settings'}>
@@ -433,7 +434,7 @@ export default function App() {
               />
             )}
             {page === 'calendar' && (
-              <Calendar {...props} initialMode={calendarMode} onModeChange={setCalendarMode} initialDate={calendarDate} initialView={calendarView} onViewChange={setCalendarView} initialFilter={calendarFilter} onFilterChange={setCalendarFilter} revealDay={calendarRevealDay} onDetailChange={setCalendarRevealDay} onDateChange={setCalendarDate} onRecord={onRecord} onReplan={() => setPage('replan')} />
+              <Calendar {...props} onFuture={() => originStack.current.at(-1)?.page === 'future' ? goBack() : setPage('future')} initialMode={calendarMode} onModeChange={setCalendarMode} initialDate={calendarDate} initialView={calendarView} onViewChange={setCalendarView} initialFilter={calendarFilter} onFilterChange={setCalendarFilter} revealDay={calendarRevealDay} onDetailChange={setCalendarRevealDay} onDateChange={setCalendarDate} onRecord={onRecord} onReplan={() => setPage('replan')} />
             )}{' '}
             {page === 'commute' && (
               <CommuteSettings {...props} onReview={() => setPage('replan')} />

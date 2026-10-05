@@ -653,7 +653,7 @@ test('実機：狭幅で過去5問だけを一括調整し、今日の開始済�
   await expect(row.getByRole('textbox')).toBeVisible();
   await expect(row).not.toContainText('配置先を確認');
   await nav('今後の予定');
-  for (const name of ['管理', '未消化1件・調整する', 'カレンダー表示'])
+  for (const name of ['計画を仕切り直す', '未消化1件・調整する', 'カレンダー表示'])
     await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '残りの配置を調整', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: /^未消化\d+件・調整する$/ }).focus();
@@ -691,7 +691,6 @@ test('実機：旧未配置を含めて仕切り直し、承認・バックア�
   const start = addDays(date, 3);
   const createProposal = async () => {
     await nav('今後の予定');
-    if (await page.getByRole('button', { name: '管理', exact: true }).getAttribute('aria-expanded') !== 'true') await page.getByRole('button', { name: '管理', exact: true }).click();
     await page.getByRole('button', { name: '計画を仕切り直す', exact: true }).click();
     await page.getByLabel('開始日', { exact: true }).fill(start);
     await page.getByRole('button', { name: 'この日から案を作成', exact: true }).click();
@@ -773,7 +772,6 @@ test('実機：部分記録後に翌日から仕切り直すと、今日の残�
   const recorded = await storedState();
   expect(completed(recorded, 'book', 0)).toBe(8);
   await nav('今後の予定');
-  if (await page.getByRole('button', { name: '管理', exact: true }).getAttribute('aria-expanded') !== 'true') await page.getByRole('button', { name: '管理', exact: true }).click();
   await page.getByRole('button', { name: '計画を仕切り直す', exact: true }).click();
   await page.getByLabel('開始日', { exact: true }).fill(addDays(date, 1));
   await page.getByRole('button', { name: 'この日から案を作成', exact: true }).click();
@@ -793,6 +791,7 @@ test('実機：部分記録後に翌日から仕切り直すと、今日の残�
   await expect(row).toContainText(/実績\s*4問/);
   await nav('詳細カレンダー');
   await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
+  await page.locator('.day.today .date-number').click();
   await page.getByRole('button', { name: '学習量', exact: true }).click();
   await page.locator('.quantity-breakdown').getByRole('button', { name: '記録を確認・追加' }).click();
   await expect(row.getByRole('textbox')).toHaveValue('0');
@@ -812,7 +811,6 @@ test('実機：仕切り直した旧未報告教材は予定画面から消え�
   await seedState(source, 'restart-retired-rows');
   await saved();
   await nav('今後の予定');
-  if (await page.getByRole('button', { name: '管理', exact: true }).getAttribute('aria-expanded') !== 'true') await page.getByRole('button', { name: '管理', exact: true }).click();
   await page.getByRole('button', { name: '計画を仕切り直す', exact: true }).click();
   await page.getByLabel('開始日', { exact: true }).fill(addDays(date, 1));
   await page.getByRole('button', { name: 'この日から案を作成', exact: true }).click();
@@ -832,6 +830,7 @@ test('実機：仕切り直した旧未報告教材は予定画面から消え�
     await expect(page.locator('.future-day').filter({ hasText: '今日' })).toHaveCount(0);
     await page.getByRole('button', { name: 'カレンダー表示', exact: true }).click();
     await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
+  await page.locator('.day.today .date-number').click();
     const panel = page.getByRole('complementary', { name: '選択した日の学習詳細' });
     await expect(page.locator('.day.today .calendar-event')).toHaveCount(0);
     await expect(panel.locator('.quantity-breakdown section')).toHaveCount(0);
@@ -859,7 +858,6 @@ test('実機：旧形式の過去予定は仕切り直し後に消え、実績�
   await seedState(source,'restart-legacy-past');
   await saved();
   await nav('今後の予定');
-  if (await page.getByRole('button', { name: '管理', exact: true }).getAttribute('aria-expanded') !== 'true') await page.getByRole('button', { name: '管理', exact: true }).click();
   await page.getByRole('button',{name:'計画を仕切り直す',exact:true}).click();
   await page.getByLabel('開始日',{exact:true}).fill(addDays(date,1));
   await page.getByRole('button',{name:'この日から案を作成',exact:true}).click();
@@ -1979,8 +1977,9 @@ test('実機：ホームの導線・表示別のカレンダー密度・再起�
   await nav('学習カレンダー');
   // Future may open next month's week; this fixture exercises today's sessions.
   await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
+  await page.locator('.day.today .date-number').click();
   let density = page.getByRole('group', { name: 'カレンダーの表示密度' });
-  let views = page.locator('.calendar-toolbar');
+  let views = page.getByRole('group', { name: 'カレンダー内の期間表示' });
   for (const [view, initial] of [
     ['月', 'コンパクト'],
     ['週', '標準'],
@@ -2048,7 +2047,7 @@ test('実機：ホームの導線・表示別のカレンダー密度・再起�
   await launch();
   await nav('学習カレンダー');
   density = page.getByRole('group', { name: 'カレンダーの表示密度' });
-  views = page.locator('.calendar-toolbar');
+  views = page.getByRole('group', { name: 'カレンダー内の期間表示' });
   for (const [view, selected] of [
     ['月', 'コンパクト'],
     ['週', '詳細'],
@@ -2441,6 +2440,7 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
     .locator('.calendar-toolbar')
     .getByRole('button', { name: '今日', exact: true })
     .click();
+  await page.locator('.day.today .date-number').click();
   expect(persisted.plan!.sessions.filter((session) => session.date === date)).toEqual([
     originalToday,
   ]);
@@ -4423,6 +4423,7 @@ test('実機：選択日と週内訳・月移動・授業だけの日・予定�
   await seedState(seed, 'calendar-seed');
   await nav('学習カレンダー');
   await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
+  await page.locator('.day.today .date-number').click();
   const selected = `${month}-27`;
   await page.getByRole('button', { name: `${selected}を表示`, exact: true }).click();
   await expect(page.getByRole('complementary', { name: '選択した日の学習詳細' })).toBeVisible();
@@ -4445,6 +4446,7 @@ test('実機：選択日と週内訳・月移動・授業だけの日・予定�
     .locator('.calendar-toolbar')
     .getByRole('button', { name: '今日', exact: true })
     .click();
+  await page.locator('.day.today .date-number').click();
   await expect(page.getByText('教材a · 1周目：＋0問', { exact: true })).toBeVisible();
   await expect(page.getByText('教材b · 1周目：＋7問', { exact: true })).toBeVisible();
   await expect(page.getByText('教材a · 1周目：＋3問', { exact: true })).toHaveCount(0);
@@ -5559,6 +5561,7 @@ test('実機：共通進捗と今日への安全な入力引継ぎ', async () =>
     .locator('.calendar-toolbar')
     .getByRole('button', { name: '今日', exact: true })
     .click();
+  await page.locator('.day.today .date-number').click();
   await expect(page.getByRole('button', { name: /固定する|固定を解除/ })).toHaveCount(0);
   await page.locator('.session-detail').getByRole('button', { name: '進捗を記録' }).click();
   await expect(row.getByRole('textbox')).toBeFocused();
@@ -5581,6 +5584,7 @@ test('実機：共通進捗と今日への安全な入力引継ぎ', async () =>
     .locator('.calendar-toolbar')
     .getByRole('button', { name: '今日', exact: true })
     .click();
+  await page.locator('.day.today .date-number').click();
   await expect(page.locator('.quantity-breakdown')).toContainText('10/10問');
 });
 
@@ -5692,7 +5696,6 @@ test('実機：通常の日付越え停止を今日から確認し、仕切り�
   await expect(page.locator('.future-reconciliation')).toBeVisible();
   await expect(page.locator('.future-reconciliation')).toContainText('調整未反映・要確認');
   await expect(page.locator('.future-reconciliation')).toContainText(detail);
-  await page.getByRole('button', { name: '管理', exact: true }).click();
   const open = page.getByRole('button', { name: '計画を仕切り直す', exact: true });
   await open.focus(); await page.keyboard.press('Enter');
   await expect(page.getByLabel('開始日', { exact: true })).toBeFocused();
@@ -5701,7 +5704,6 @@ test('実機：通常の日付越え停止を今日から確認し、仕切り�
   await expect(page.locator('.future-reconciliation')).toBeVisible();
   expect(committed(await storedState())).toEqual(original());
   const create = async () => {
-    if (await page.getByRole('button', { name: '管理', exact: true }).getAttribute('aria-expanded') !== 'true') await page.getByRole('button', { name: '管理', exact: true }).click();
     await page.getByRole('button', { name: '計画を仕切り直す', exact: true }).click();
     await page.getByLabel('開始日', { exact: true }).fill(addDays(date, 1));
     await page.getByRole('button', { name: 'この日から案を作成', exact: true }).click();

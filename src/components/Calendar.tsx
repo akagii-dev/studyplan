@@ -1,3 +1,4 @@
+import { ScheduleViewSwitch } from './ScheduleViewSwitch';
 import { progressView } from '../domain/progressView';
 import { ProgressValue } from './ProgressValue';
 import { Warning } from './Warnings';
@@ -30,6 +31,7 @@ export function Calendar({
   update,
   onRecord,
   onReplan,
+  onFuture,
   todayOnly = false,
   initialMode = 'content',
   onModeChange,
@@ -44,6 +46,7 @@ export function Calendar({
 }: Props & {
   onRecord: (session: Session) => void;
   onReplan: () => void;
+  onFuture?: () => void;
   todayOnly?: boolean;
   initialMode?: 'content' | 'quantity';
   onModeChange?: (mode: 'content' | 'quantity') => void;
@@ -92,7 +95,6 @@ export function Calendar({
     if (showDay) {
       if (detailMounted.current)
         detailRef.current?.querySelector<HTMLHeadingElement>('h3')?.focus({ preventScroll: true });
-      detailRef.current?.scrollIntoView({ block: 'nearest' });
     }
     detailMounted.current = true;
   }, [selected, showDay]);
@@ -119,6 +121,7 @@ export function Calendar({
     (s) => s.date >= today() && overlapsBusy(state.settings, s).length > 0,
   );
   const jump = (direction: number) => {
+    setShowDay(false);
     setSelected((date) => moveCalendarDate(date, view, direction));
   };
   const sessionsOn = (date: string) => visible.filter((s) => s.date === date);
@@ -289,14 +292,16 @@ export function Calendar({
       </>
     );
   }
+  const closeDay = () => {
+    setShowDay(false);
+    calendarRef.current?.querySelector<HTMLButtonElement>('.date-number[aria-pressed="true"], .text-button[aria-pressed="true"]')?.focus({ preventScroll: true });
+  };
   const selectedDayPanel = showDay && (view !== 'list' || mode === 'quantity') && (
-    <aside className="card day-panel" aria-label="選択した日の学習詳細" ref={detailRef}>
+    <aside className="card day-panel" aria-label="選択した日の学習詳細" ref={detailRef} onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); closeDay(); } }}>
+      <div className="day-panel-heading">
       <button
         className="day-panel-close"
-        onClick={() => {
-          setShowDay(false);
-          calendarRef.current?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus();
-        }}
+        onClick={closeDay}
       >
         詳細を閉じる
       </button>
@@ -304,6 +309,7 @@ export function Calendar({
         {Number(selected.slice(5, 7))}月{Number(selected.slice(8))}日（
         {weekdays[weekday(selected)]}）
       </h3>
+      </div>
       {mode === 'quantity' ? (
         <CalendarQuantityDetails
           state={state}
@@ -330,6 +336,28 @@ export function Calendar({
   );
   return (
     <>
+      <div className="calendar-toolbar schedule-toolbar">
+        <div className="calendar-period">
+          <button aria-label="前の期間" className="navigation-arrow" onClick={() => jump(-1)}>
+            <ChevronLeft size={20} aria-hidden />
+          </button>
+          <h2>
+            {Number(anchor.slice(0, 4))}年 {Number(anchor.slice(5, 7))}月
+          </h2>
+          <button aria-label="次の期間" className="navigation-arrow" onClick={() => jump(1)}>
+            <ChevronRight size={20} aria-hidden />
+          </button>
+          <button className="future-today"
+            onClick={() => {
+              setShowDay(false); setSelected(today());
+            }}
+          >
+            今日
+          </button>
+        </div>
+        {onFuture && <ScheduleViewSwitch calendar onSwitch={onFuture} />}
+      </div>
+      <div className="calendar-options">
       <div className="segmented calendar-mode" role="group" aria-label="カレンダーの表示内容">
         <button
           aria-pressed={mode === 'content'}
@@ -346,26 +374,6 @@ export function Calendar({
           学習量
         </button>
       </div>
-      <div className="calendar-toolbar">
-        <div className="row">
-          <button aria-label="前の期間" className="icon" onClick={() => jump(-1)}>
-            <ChevronLeft size={18} />
-          </button>
-          <h2>
-            {Number(anchor.slice(0, 4))}年 {Number(anchor.slice(5, 7))}月
-          </h2>
-          <button aria-label="次の期間" className="icon" onClick={() => jump(1)}>
-            <ChevronRight size={18} />
-          </button>
-          <button
-            onClick={() => {
-              selectDay(today());
-            }}
-          >
-            今日
-          </button>
-        </div>
-        <div className="row">
           <select
             aria-label="表示する試験"
             value={filter}
@@ -378,7 +386,7 @@ export function Calendar({
               </option>
             ))}
           </select>
-          <div className="segmented">
+          <div className="segmented" role="group" aria-label="カレンダー内の期間表示">
             {(['month', 'week', 'list'] as const).map((v, i) => (
               <button
                 key={v}
@@ -390,8 +398,6 @@ export function Calendar({
               </button>
             ))}
           </div>
-        </div>
-      </div>
       {mode === 'content' && (
         <div className="calendar-density" role="group" aria-label="カレンダーの表示密度">
           <span>表示密度</span>
@@ -414,6 +420,7 @@ export function Calendar({
           </div>
         </div>
       )}
+      </div>
       <CalendarExport
         state={state}
         from={view === 'week' ? from : monthStart}
@@ -454,7 +461,7 @@ export function Calendar({
           <p>初期設定を終えたら、最初の計画を作成しましょう。</p>
         </Empty>
       )}
-      <div className="calendar-only-layout" ref={calendarRef}>
+      <div className="calendar-only-layout" ref={calendarRef} onFocusCapture={(event) => { if (showDay && !detailRef.current?.contains(event.target)) setShowDay(false); }}>
         {selectedDayPanel}
         {view === 'list' ? (
           <div className={`card calendar-list density-${density}`}>
@@ -494,7 +501,7 @@ export function Calendar({
                     />
                   )}
                   {mode === 'content' && (
-                    <details className="calendar-individual" open={selected === d || undefined}>
+                    <details className="calendar-individual" open={(showDay && selected === d) || undefined}>
                       <summary>個別の予定を確認</summary>
                       {daySchedule(d, density)}
                     </details>

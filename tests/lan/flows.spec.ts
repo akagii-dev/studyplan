@@ -127,7 +127,7 @@ test('直接カレンダーと戻る導線を狭幅・広幅・キーボード�
   await open(page);
   await page.goto('./#calendar');
   await expect(page.getByRole('heading', { name: '詳細カレンダー', exact: true })).toBeVisible();
-  const back = page.getByRole('button', { name: /今後の予定へ戻る/ });
+  const back = page.getByRole('button', { name: /^週間予定$/ });
   await back.focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: '今後の予定', exact: true })).toBeVisible();
@@ -149,7 +149,6 @@ test('LAN画面の仕切り直し承認で旧未配置を重複させずSQLite�
   await open(page);
   const from = addDays(adjustmentContext.date, 3);
   await page.getByRole('button', { name: '今後の予定', exact: true }).click();
-  if (await page.getByRole('button', { name: '管理', exact: true }).getAttribute('aria-expanded') !== 'true') await page.getByRole('button', { name: '管理', exact: true }).click();
   await page.getByRole('button', { name: '計画を仕切り直す' }).click();
   await page.getByLabel('開始日').fill(from);
   await page.getByRole('button', { name: 'この日から案を作成' }).click();

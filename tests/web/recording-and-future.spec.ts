@@ -58,7 +58,36 @@ test('今日を含む週・同日の詳細往復・主画面再入場・日跨�
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect(range).toHaveAttribute('datetime', startOfWeek(addDays(contractDay, 7)));
   await nav(page, 'カレンダー表示');
-  await nav(page, '← 今後の予定へ戻る');
+  await expect(page.locator('nav').getByRole('button', { name: '今後の予定', exact: true })).toHaveAttribute('aria-current', 'page');
+  const toolbar = page.locator('.calendar-toolbar');
+  const period = page.getByRole('group', { name: 'カレンダー内の期間表示' });
+  for (const label of ['月', '週', '一覧']) {
+    await period.getByRole('button', { name: label, exact: true }).click();
+    await toolbar.getByRole('button', { name: '次の期間' }).click();
+    const todayButton = toolbar.getByRole('button', { name: '今日', exact: true });
+    await todayButton.press('Enter');
+    await expect(todayButton).toBeFocused();
+    await expect(period.getByRole('button', { name: label, exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(toolbar.locator('h2')).toHaveText('2026年 9月');
+    await expect(page.locator('.calendar-individual[open]')).toHaveCount(0);
+    await expect(page.getByRole('complementary', { name: '選択した日の学習詳細' })).toBeHidden();
+  }
+  await period.getByRole('button', { name: '月', exact: true }).click();
+  const grid = page.locator('.calendar-grid');
+  const gridTop = await grid.evaluate(e => e.getBoundingClientRect().top + scrollY);
+  const day = page.getByRole('button', { name: contractDay + 'を表示', exact: true });
+  await day.press('Enter');
+  await expect(page.getByRole('complementary', { name: '選択した日の学習詳細' })).toBeVisible();
+  expect(await grid.evaluate(e => e.getBoundingClientRect().top + scrollY)).toBe(gridTop);
+  await page.screenshot({ path: info.outputPath('calendar-detail-overlay.png'), fullPage: true });
+  await page.keyboard.press('Escape');
+  await expect(day).toBeFocused();
+  await toolbar.getByRole('button', { name: '次の期間' }).click();
+  const heldPeriod = await toolbar.locator('h2').innerText();
+  await nav(page, '週間予定');
+  await nav(page, 'カレンダー表示');
+  await expect(toolbar.locator('h2')).toHaveText(heldPeriod);
+  await nav(page, '週間予定');
   await expect(range).toHaveAttribute('datetime', startOfWeek(addDays(contractDay, 7)));
   await page.locator('.future-week').getByRole('button', { name: '今日', exact: true }).click();
   await expect(range).toHaveAttribute('datetime', startOfWeek(contractDay));
@@ -76,7 +105,7 @@ test('今日を含む週・同日の詳細往復・主画面再入場・日跨�
   await nav(page, '前の週');
   await nav(page, 'カレンダー表示');
   await page.clock.setFixedTime(new Date(`${addDays(contractDay, 2)}T00:01:00+09:00`));
-  await nav(page, '← 今後の予定へ戻る');
+  await nav(page, '週間予定');
   await expect(range).toHaveAttribute('datetime', startOfWeek(addDays(contractDay, 2)));
   await page.screenshot({ path: info.outputPath('future-today-range.png'), fullPage: true });
 });
@@ -281,10 +310,10 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
       await expect(view.locator('.future-work')).toHaveCount(0);
       await expect(view.locator('.future-week time')).toHaveAttribute('datetime', startOfWeek(contractDay));
       const calendar = view.getByRole('button', { name: 'カレンダー表示', exact: true });
-      const menu = page.getByRole('region', { name: '予定の管理' });
-      const restart = menu.getByRole('button', { name: '計画を仕切り直す', exact: true });
-      const management = page.getByRole('button', { name: '管理', exact: true });
-      await expect(restart).toBeHidden();
+      const menu = page.getByRole('region', { name: '計画の仕切り直し' });
+      const restart = page.getByRole('button', { name: '計画を仕切り直す', exact: true });
+      const management = page.getByRole('button', { name: '計画を仕切り直す', exact: true });
+      await expect(menu).toBeHidden();
       for (const button of [calendar, management]) {
         await expect(button).toBeVisible();
         const box = (await button.boundingBox())!;
@@ -325,11 +354,10 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
       // Enter, Tab and focus restoration use native controls, without changing the plan.
       const positions = await headerPositions(page);
       await management.focus(); await page.keyboard.press('Enter');
-      await expect(restart).toBeFocused();
+      await expect(menu.getByLabel('開始日', { exact: true })).toBeFocused();
       expect(await headerPositions(page)).toEqual(positions);
       await expect(page.getByRole('button', { name: '管理を閉じる', exact: true })).toHaveCount(0);
       if (scenario === '通常') await page.screenshot({ path: info.outputPath('future-management-open-' + width + '.png'), fullPage: true });
-      await page.keyboard.press('Enter');
       await expect(menu.getByLabel('開始日', { exact: true })).toBeFocused();
       expect(await headerPositions(page)).toEqual(positions);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -345,7 +373,7 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
       expect(committed(await read(page))).toEqual(committed(state));
       await page.keyboard.press('Escape');
       await expect(management).toBeFocused();
-      await expect(page.getByRole('region', { name: '予定の管理' })).toBeHidden();
+      await expect(page.getByRole('region', { name: '計画の仕切り直し' })).toBeHidden();
       if (scenario === '通常') {
         await management.click(); await management.click();
         await expect(menu).toBeHidden();
@@ -353,7 +381,7 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
         await page.getByRole('heading', { name: '今後の予定', exact: true }).click();
         await expect(menu).toBeHidden();
         await expect(page.getByRole('heading', { name: '今後の予定', exact: true })).toBeFocused();
-        await management.press('Enter'); await restart.press('Tab');
+        await management.press('Enter'); await menu.getByRole('button', { name: 'やめる', exact: true }).press('Tab');
         await expect(menu).toBeHidden();
         await expect(page.getByRole('button', { name: '前の週', exact: true })).toBeFocused();
         expect(await headerPositions(page)).toEqual(positions);
@@ -394,7 +422,7 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
     // Measure the selected theme after the shared background transition has settled.
     await expect.poll(async () => {
       await page.clock.runFor(150);
-      return page.getByRole('button', { name: '管理', exact: true }).evaluate((element) => {
+      return page.getByRole('button', { name: '計画を仕切り直す', exact: true }).evaluate((element) => {
         const hex = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim();
         const rgb = hex.slice(1).match(/../g)!.map((component) => parseInt(component, 16));
         return getComputedStyle(element).backgroundColor === 'rgb(' + rgb.join(', ') + ')';
@@ -410,10 +438,10 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
   await page.setViewportSize({ width: info.project.name === 'wide' ? 640 : 320, height: 844 });
   await page.addStyleTag({ content: ':root { font-size: 28px; } :is(.future-page, .future-heading) * { letter-spacing: .12em; word-spacing: .16em; line-height: 1.5; } .future-page p { margin-block-end: 2em; }' });
   const positions = await headerPositions(page);
-  const management = page.getByRole('button', { name: '管理', exact: true });
+  const management = page.getByRole('button', { name: '計画を仕切り直す', exact: true });
   await management.press('Enter');
-  const menu = page.getByRole('region', { name: '予定の管理' });
-  await menu.getByRole('button', { name: '計画を仕切り直す', exact: true }).press('Enter');
+  const menu = page.getByRole('region', { name: '計画の仕切り直し' });
+
   expect(await headerPositions(page)).toEqual(positions);
   const panel = (await menu.boundingBox())!;
   expect(panel.x).toBeGreaterThanOrEqual(0);
@@ -428,7 +456,18 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
   await expect(calendar).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await calendar.focus(); await page.keyboard.press('Enter');
-  await nav(page, '← 今後の予定へ戻る');
+  await page.addStyleTag({ content: '.calendar-toolbar *, .calendar-options *, .day-panel * { letter-spacing: .12em; word-spacing: .16em; line-height: 1.5; }' });
+  const grid = page.locator('.calendar-grid');
+  const beforeDetail = await grid.evaluate(e => e.getBoundingClientRect().top + scrollY);
+  await page.locator('.date-number[aria-pressed="true"]').press('Enter');
+  const detailPanel = page.getByRole('complementary', { name: '選択した日の学習詳細' });
+  await expect(detailPanel).toBeVisible();
+  expect(await grid.evaluate(e => e.getBoundingClientRect().top + scrollY)).toBe(beforeDetail);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  expect((await new AxeBuilder({ page }).include('.calendar-toolbar').include('.day-panel').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations).toEqual([]);
+  await page.screenshot({ path: info.outputPath('calendar-text-spacing-detail.png'), fullPage: true });
+  await detailPanel.getByRole('button', { name: '詳細を閉じる' }).press('Escape');
+  await nav(page, '週間予定');
   await expect(calendar).toBeFocused();
   await view.locator('.future-balance > summary').click();
   await expect(view.getByRole('checkbox').first()).toBeVisible();

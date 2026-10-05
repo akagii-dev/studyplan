@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { progressView } from '../domain/progressView';
 import { ProgressValue } from '../components/ProgressValue';
 import { calendarDisplayQuantity, materialUnit } from '../domain/calendarQuantity';
@@ -6,6 +6,7 @@ import { Props, duration } from '../components/common';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { shortDate, shortDayLabel, startOfWeek, weekRangeLabel } from '../domain/calendar';
 import { Session, addDays } from '../domain/model';
+import { ScheduleViewSwitch } from '../components/ScheduleViewSwitch';
 import { ShortfallDetails } from '../components/ShortfallDetails';
 import { visibleProgressReceipts } from '../domain/progressReceiptDisplay';
 import { ProgressReceiptView, receiptLabel } from '../components/ProgressReceiptView';
@@ -18,34 +19,30 @@ import { pastRemainingWork } from '../domain/remainingAllocation';
 export interface FutureSelection { from: string; selectedOn: string }
 const priorityName = (priority: number) => ['', '低い', 'ふつう', '高い'][priority] ?? String(priority);
 
-export function FutureManagement({ hasProposal, onProposal, onRestart }: {
-  hasProposal: boolean;
-  onProposal: () => void;
+export function FutureRestart({ onRestart }: {
   onRestart: (from: string) => Promise<void>;
 }) {
   const { date: reference } = usePlanningClock();
   const [open, setOpen] = useState(false);
-  const [restartOpen, setRestartOpen] = useState(false);
   const [date, setDate] = useState(reference);
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
   const anchor = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  const action = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const close = () => {
     if (sending) return;
-    setOpen(false); setRestartOpen(false); setError('');
+    setOpen(false); setError('');
     trigger.current?.focus({ preventScroll: true });
   };
   useLayoutEffect(() => {
-    if (open) (input.current ?? action.current)?.focus({ preventScroll: true });
-  }, [open, restartOpen]);
+    if (open) input.current?.focus({ preventScroll: true });
+  }, [open]);
   useEffect(() => {
     if (!open || sending) return;
     const outside = (event: PointerEvent) => {
       if (event.target instanceof Node && !anchor.current?.contains(event.target)) {
-        setOpen(false); setRestartOpen(false); setError('');
+        setOpen(false); setError('');
         trigger.current?.focus({ preventScroll: true });
       }
     };
@@ -54,17 +51,15 @@ export function FutureManagement({ hasProposal, onProposal, onRestart }: {
   }, [open, sending]);
   return <div ref={anchor} className="future-management-anchor" onBlur={(event) => {
     if (open && !sending && !event.currentTarget.contains(event.relatedTarget)) {
-      setOpen(false); setRestartOpen(false); setError('');
+      setOpen(false); setError('');
     }
   }} onKeyDown={(event) => {
     if (event.key === 'Escape' && !event.defaultPrevented && open) { event.preventDefault(); close(); }
   }}>
     <button ref={trigger} aria-expanded={open} aria-controls={open ? 'future-management' : undefined} disabled={sending}
-      onClick={() => open ? close() : setOpen(true)}>管理</button>
-    {open && <section id="future-management" className="future-management" aria-label="予定の管理">
-      {hasProposal ? <button ref={action} onClick={onProposal}>計画案を確認</button> : !restartOpen ? (
-        <button ref={action} onClick={() => { setDate(reference); setRestartOpen(true); }}>計画を仕切り直す</button>
-      ) : <form className="future-restart" onSubmit={(event) => {
+      onClick={() => open ? close() : (setDate(reference), setOpen(true))}>計画を仕切り直す</button>
+    {open && <section id="future-management" className="future-management" aria-label="計画の仕切り直し">
+      <form className="future-restart" onSubmit={(event) => {
         event.preventDefault();
         if (sending) return;
         setSending(true); setError('');
@@ -77,10 +72,10 @@ export function FutureManagement({ hasProposal, onProposal, onRestart }: {
           onChange={(event) => setDate(event.target.value)} />
         <div className="future-restart-controls">
           <button className="primary" type="submit" disabled={sending}>この日から案を作成</button>
-          <button type="button" disabled={sending} onClick={() => { setRestartOpen(false); setError(''); }}>やめる</button>
+          <button type="button" disabled={sending} onClick={close}>やめる</button>
         </div>
         {error && <p className="error" role="alert">{error}</p>}
-      </form>}
+      </form>
     </section>}
   </div>;
 }
@@ -205,7 +200,7 @@ export function Future({
         </div>
         <button onClick={() => moveWeek(currentWeek)}>今日</button>
         </div>
-        <button className="future-calendar" data-return-focus="future:calendar" onClick={() => onCalendar(week, false)}><CalendarDays size={18} aria-hidden="true" />カレンダー表示</button>
+        <ScheduleViewSwitch calendar={false} onSwitch={() => onCalendar(week, false)} />
       </div>
       {state.proposal && <button className="primary" onClick={onProposal}>計画案を確認</button>}
         {onAdjustRemaining && state.plan && !state.proposal && (past.sessions.length > 0 || placementOpen) && <section className="remaining-adjustment" aria-label="経過済みの未消化分をまとめて調整">

@@ -46,6 +46,7 @@ export function AppShell({
   headingActions?: ReactNode;
 }) {
   const pageHeading = useRef<HTMLHeadingElement>(null);
+  const navigationPage = page === 'calendar' ? 'future' : page;
   const active = { name: pageNames[page] };
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = state?.theme ?? 'mint';
@@ -123,8 +124,8 @@ export function AppShell({
                 key={n.id}
                 aria-label={n.name}
                 title={n.name}
-                className={page === n.id ? 'active' : ''}
-                aria-current={page === n.id ? 'page' : undefined}
+                className={navigationPage === n.id ? 'active' : ''}
+                aria-current={navigationPage === n.id ? 'page' : undefined}
                 onClick={() => setPage(n.id)}
               >
                 <n.icon size={18} />
@@ -160,7 +161,7 @@ export function AppShell({
               公開デモです。入力内容はこのブラウザー内だけに保存され、デスクトップ版とは共有されません。
             </p>
           )}
-          <div className={`page-heading${page === 'future' ? ' future-heading' : ''}`}>
+          <div className={`page-heading${(page === 'future' || page === 'calendar') ? ' future-heading' : ''}`}>
             <div>
               {onBack && <button className="detail-back" onClick={onBack}>← {backLabel}へ戻る</button>}
               <h1 ref={pageHeading} tabIndex={-1}>

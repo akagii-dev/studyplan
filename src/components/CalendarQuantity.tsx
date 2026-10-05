@@ -3,33 +3,6 @@ import { ProgressValue } from './ProgressValue';
 import { AppState, Session, today } from '../domain/model';
 import { calendarDisplayQuantity, recordedShortage } from '../domain/calendarQuantity';
 
-export function CalendarQuantity({
-  state,
-  date,
-  filter,
-  onSelect,
-}: {
-  state: AppState;
-  date: string;
-  filter: string;
-  onSelect: () => void;
-}) {
-  const quantity = calendarDisplayQuantity(state, date, today(), filter);
-  return (
-    <div className="calendar-quantity">
-      {quantity.totals.map((total) => (
-        <ProgressValue key={total.unit} value={progressView(total, date, today())} />
-      ))}
-      {!quantity.totals.length && <span>予定なし</span>}
-      {quantity.rows.length > 0 && (
-        <button className="text-button" aria-label={`${date}の学習量の内訳`} onClick={onSelect}>
-          内訳
-        </button>
-      )}
-    </div>
-  );
-}
-
 export function CalendarQuantityDetails({
   state,
   date,

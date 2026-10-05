@@ -17,7 +17,7 @@ import { datesBetween } from '../domain/planner/intervals';
 import { blockingEvents, overlapsBusy } from '../domain/planAudit';
 import { moveCalendarDate, startOfWeek, shortDayLabel } from '../domain/calendar';
 import { DailyTime } from './DailyTime';
-import { CalendarQuantity, CalendarQuantityDetails } from './CalendarQuantity';
+import { CalendarQuantityDetails } from './CalendarQuantity';
 import { calendarDisplayQuantity, materialUnit } from '../domain/calendarQuantity';
 import { CalendarDaySummary } from './CalendarDaySummary';
 import { renameOutsideRange } from '../domain/dailyTimeDisplay';
@@ -33,8 +33,6 @@ export function Calendar({
   onReplan,
   onFuture,
   todayOnly = false,
-  initialMode = 'content',
-  onModeChange,
   initialDate = today(),
   onDateChange,
   revealDay = false,
@@ -48,8 +46,6 @@ export function Calendar({
   onReplan: () => void;
   onFuture?: () => void;
   todayOnly?: boolean;
-  initialMode?: 'content' | 'quantity';
-  onModeChange?: (mode: 'content' | 'quantity') => void;
   initialDate?: string;
   onDateChange?: (date: string) => void;
   revealDay?: boolean;
@@ -59,11 +55,6 @@ export function Calendar({
   initialFilter?: string;
   onFilterChange?: (filter: string) => void;
 }) {
-  const [mode, setMode] = useState<'content' | 'quantity'>(initialMode);
-  const changeMode = (value: 'content' | 'quantity') => {
-    setMode(value);
-    onModeChange?.(value);
-  };
   const [, tick] = useState(0);
   useEffect(() => {
     if (!todayOnly) return;
@@ -296,7 +287,7 @@ export function Calendar({
     setShowDay(false);
     calendarRef.current?.querySelector<HTMLButtonElement>('.date-number[aria-pressed="true"], .text-button[aria-pressed="true"]')?.focus({ preventScroll: true });
   };
-  const selectedDayPanel = showDay && (view !== 'list' || mode === 'quantity') && (
+  const selectedDayPanel = showDay && view !== 'list' && (
     <aside className="card day-panel" aria-label="選択した日の学習詳細" ref={detailRef} onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); closeDay(); } }}>
       <div className="day-panel-heading">
       <button
@@ -310,28 +301,19 @@ export function Calendar({
         {weekdays[weekday(selected)]}）
       </h3>
       </div>
-      {mode === 'quantity' ? (
-        <CalendarQuantityDetails
-          state={state}
-          date={selected}
-          filter={filter}
-          onRecord={onRecord}
-        />
-      ) : timeline(selected).length ? (
+      {timeline(selected).length ? (
         daySchedule(selected)
       ) : (
         <p className="hint">学習予定はありません。</p>
       )}
-      {mode === 'content' && !sessionsOn(selected).some(s => s.kind === 'study') && hasQuantity(selected) && (
+      {!sessionsOn(selected).some(s => s.kind === 'study') && hasQuantity(selected) && (
         <CalendarQuantityDetails state={state} date={selected} filter={filter} onRecord={onRecord} />
       )}
-      {mode === 'content' && (
         <>
           <h4>この日の学習実績</h4>
           {dayRecords(selected)}
           {!recordsOn(selected).length && <p className="hint">まだ報告はありません。</p>}
         </>
-      )}
     </aside>
   );
   return (
@@ -370,23 +352,6 @@ export function Calendar({
               </option>
             ))}
           </select>
-      <div className="segmented calendar-mode" role="group" aria-label="カレンダーの表示内容">
-        <button
-          aria-pressed={mode === 'content'}
-          className={mode === 'content' ? 'active' : ''}
-          onClick={() => changeMode('content')}
-        >
-          内容
-        </button>
-        <button
-          aria-pressed={mode === 'quantity'}
-          className={mode === 'quantity' ? 'active' : ''}
-          onClick={() => changeMode('quantity')}
-        >
-          学習量
-        </button>
-      </div>
-
           <div className="segmented" role="group" aria-label="カレンダー内の期間表示">
             {(['month', 'week', 'list'] as const).map((v, i) => (
               <button
@@ -399,7 +364,6 @@ export function Calendar({
               </button>
             ))}
           </div>
-      {mode === 'content' && (
         <div className="calendar-density" role="group" aria-label="カレンダーの表示密度">
           <div className="segmented">
             {(['compact', 'standard', 'detailed'] as const).map((value, i) => (
@@ -419,7 +383,6 @@ export function Calendar({
             ))}
           </div>
         </div>
-      )}
       </div>
       <CalendarExport
         state={state}
@@ -470,7 +433,7 @@ export function Calendar({
                 (d) =>
                   timeline(d).length ||
                   recordsOn(d).length ||
-                  (mode === 'quantity' && hasQuantity(d)),
+                  hasQuantity(d),
               )
               .map((d) => (
                 <section key={d}>
@@ -484,14 +447,6 @@ export function Calendar({
                       {d}（{weekdays[weekday(d)]}）
                     </button>
                   </h3>
-                  {mode === 'quantity' ? (
-                    <CalendarQuantity
-                      state={state}
-                      date={d}
-                      filter={filter}
-                      onSelect={() => selectDay(d)}
-                    />
-                  ) : (
                     <CalendarDaySummary
                       state={state}
                       date={d}
@@ -499,14 +454,11 @@ export function Calendar({
                       density={density}
                       onSelect={() => selectDay(d)}
                     />
-                  )}
-                  {mode === 'content' && (
                     <details className="calendar-individual" open={(showDay && selected === d) || undefined}>
                       <summary>個別の予定を確認</summary>
                       {daySchedule(d, density)}
                     </details>
-                  )}
-                  {mode === 'content' && recordsOn(d).length > 0 && (
+                  {recordsOn(d).length > 0 && (
                     <>
                       <h4>この日の学習実績</h4>
                       {dayRecords(d)}
@@ -518,12 +470,12 @@ export function Calendar({
               (d) =>
                 timeline(d).length ||
                 recordsOn(d).length ||
-                (mode === 'quantity' && hasQuantity(d)),
+                hasQuantity(d),
             ) && <Empty>この期間に勉強・大学の予定と学習実績はありません。</Empty>}
           </div>
         ) : (
           <div
-            className={`calendar-grid ${view} density-${density} ${mode === 'quantity' ? 'quantity-grid' : ''}`}
+            className={`calendar-grid ${view} density-${density}`}
           >
             <div className="calendar-head">
               {[1, 2, 3, 4, 5, 6, 0].map((d) => (
@@ -543,21 +495,11 @@ export function Calendar({
                       >
                         <button
                           className="date-number"
-                          aria-label={
-                            mode === 'quantity' ? `${d}を表示 ${shortDayLabel(d)}` : `${d}を表示`
-                          }
+                          aria-label={`${d}を表示`}
                           aria-pressed={d === selected}
                         >
                           {d === today() ? <span className="today-date-badge">{Number(d.slice(8))}</span> : shortDayLabel(d)}
                         </button>
-                        {mode === 'quantity' ? (
-                          <CalendarQuantity
-                            state={state}
-                            date={d}
-                            filter={filter}
-                            onSelect={() => selectDay(d)}
-                          />
-                        ) : (
                           <CalendarDaySummary
                             state={state}
                             date={d}
@@ -565,7 +507,6 @@ export function Calendar({
                             density={density}
                             onSelect={() => selectDay(d)}
                           />
-                        )}
 
                       </div>
                     ))}

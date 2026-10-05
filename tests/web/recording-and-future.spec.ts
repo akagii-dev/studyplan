@@ -61,7 +61,7 @@ test('今日を含む週・同日の詳細往復・主画面再入場・日跨�
   await expect(page.locator('nav').getByRole('button', { name: '今後の予定', exact: true })).toHaveAttribute('aria-current', 'page');
   const options = page.locator('.calendar-options');
   expect(await options.locator(':scope > *').evaluateAll(elements => elements.map(element => element.getAttribute('aria-label')))).toEqual([
-    '表示する試験', 'カレンダーの表示内容', 'カレンダー内の期間表示', 'カレンダーの表示密度',
+    '表示する試験', 'カレンダー内の期間表示', 'カレンダーの表示密度',
   ]);
   await expect(options.getByText('表示密度', { exact: true })).toHaveCount(0);
   const toolbar = page.locator('.calendar-toolbar');
@@ -465,7 +465,7 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
     return [style.fontSize, style.padding, style.color, style.backgroundColor, style.borderRadius];
   };
   expect(await page.getByRole('button', { name: 'カレンダー表示', exact: true }).evaluate(appearanceOf)).toEqual(
-    await page.getByRole('button', { name: '内容', exact: true }).evaluate(appearanceOf));
+    await page.getByRole('group', { name: 'カレンダー内の期間表示' }).getByRole('button', { name: '月', exact: true }).evaluate(appearanceOf));
   await page.addStyleTag({ content: '.calendar-toolbar *, .calendar-options *, .day-panel * { letter-spacing: .12em; word-spacing: .16em; line-height: 1.5; }' });
   const grid = page.locator('.calendar-grid');
   const beforeDetail = await grid.evaluate(e => e.getBoundingClientRect().top + scrollY);
@@ -498,31 +498,23 @@ test('カレンダーは週単位の7列/2列と月末の罫線を保ち、拡�
   const before = await read(page);
   await nav(page, '今後の予定');
   await nav(page, 'カレンダー表示');
-  await expect(page.locator('.schedule-transition')).toHaveCSS('animation-duration', '0.28s');
+  await expect(page.locator('.page-transition')).toHaveCSS('animation-duration', '0.28s');
   const todayDate = page.locator('.day.today .date-number');
   await expect(todayDate).toHaveText('24');
   expect((await todayDate.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  await nav(page, '学習量');
-  const breakdown = page.locator('.day.today .calendar-quantity .text-button');
-  await expect(breakdown).toHaveCSS('text-decoration-line', 'underline');
-  await breakdown.press('Enter');
+  await expect(page.getByRole('button', { name: /^(内容|学習量)$/ })).toHaveCount(0);
+  await todayDate.press('Enter');
   await expect(page.locator('.day-panel')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(todayDate).toBeFocused();
   await page.screenshot({ path: info.outputPath('calendar-restored-controls.png'), fullPage: true });
-  await nav(page, '内容');
   await nav(page, '次の期間');
   const period = page.getByRole('group', { name: 'カレンダー内の期間表示' });
   const cell = (date: string) => page.locator('.day').filter({ has: page.getByRole('button', { name: new RegExp(`^${date}を表示`) }) });
   const review = cell('2026-10-25');
   await expect(review).toContainText('復習 5時間 20分');
   await expect(review).toContainText('復習 6時間 15分');
-  const positions = () => page.locator('.date-number').evaluateAll(elements => elements.map(e => e.getBoundingClientRect().x));
-  const contentPositions = await positions();
-  await nav(page, '学習量');
-  expect(await positions()).toEqual(contentPositions);
-  await expect(cell('2026-10-18').locator('.calendar-quantity > span')).toHaveCSS('font-weight', '400');
-  await expect(cell('2026-10-18')).toContainText('予定なし');
+  await expect(cell('2026-10-18').locator('.calendar-event')).toHaveCount(0);
   for (const date of ['2026-10-18', '2026-10-19', '2026-10-31', '2026-11-08']) {
     expect(await cell(date).evaluate(element => ({ outline: getComputedStyle(element).outlineWidth, border: getComputedStyle(element).borderRightWidth })))
       .toEqual({ outline: '1px', border: '0px' });
@@ -548,8 +540,14 @@ test('カレンダーは週単位の7列/2列と月末の罫線を保ち、拡�
   await nav(page, 'カレンダー表示');
   await expect(period.getByRole('button', { name: '一覧', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await period.getByRole('button', { name: '月', exact: true }).click();
+  for (const destination of ['今日', '記録履歴', '設定']) {
+    await page.locator('nav').getByRole('button', { name: destination, exact: true }).press('Enter');
+    await expect(page.locator('.page-transition:visible')).toHaveCSS('animation-duration', '0.28s');
+  }
+  await nav(page, '今後の予定');
+  await nav(page, 'カレンダー表示');
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  expect(await page.locator('.schedule-transition').evaluate(element => getComputedStyle(element).animationName)).toBe('none');
+  expect(await page.locator('.page-transition').evaluate(element => getComputedStyle(element).animationName)).toBe('none');
   await page.addStyleTag({ content: ':root { font-size: 28px; } .calendar-grid * { letter-spacing: .12em; word-spacing: .16em; line-height: 1.5; }' });
   await expect(page.locator('html')).toHaveCSS('font-size', '28px');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);

@@ -7,7 +7,7 @@ import { progressView } from '../src/domain/progressView';
 import { todayStudyRows } from '../src/domain/todayProgress';
 import { Dashboard } from '../src/app/Dashboard';
 import { Future } from '../src/app/Future';
-import { CalendarQuantity, CalendarQuantityDetails } from '../src/components/CalendarQuantity';
+import { CalendarQuantityDetails } from '../src/components/CalendarQuantity';
 import { CalendarDaySummary } from '../src/components/CalendarDaySummary';
 import { TodayRecorder } from '../src/components/TodayRecorder';
 import {
@@ -229,7 +229,7 @@ for (const offset of [-1, 0, 1]) {
         onCalendar: () => {},
         onProposal: () => {},
       }),
-      createElement(CalendarQuantity, { state, date, filter: 'all', onSelect: () => {} }),
+      createElement(CalendarQuantityDetails, { state, date, filter: 'all', onRecord: () => {} }),
       createElement(CalendarDaySummary, {
         state,
         date,
@@ -327,11 +327,11 @@ it.each([
       expect(filtered.currentRemaining).toBe(expected);
       expect(
         renderToStaticMarkup(
-          createElement(CalendarQuantity, {
+          createElement(CalendarQuantityDetails, {
             state,
             date: context.date,
             filter: 'a',
-            onSelect: () => {},
+            onRecord: () => {},
           }),
         ),
       ).toContain(view.text);
@@ -420,12 +420,6 @@ for (const offset of [0, 1]) {
             initialWeek: context.date,
             onCalendar: () => {},
             onProposal: () => {},
-          }),
-          createElement(CalendarQuantity, {
-            state,
-            date: context.date,
-            filter: 'all',
-            onSelect: () => {},
           }),
           createElement(CalendarQuantityDetails, {
             state,
@@ -634,7 +628,7 @@ describe('カレンダーの予定なし・未報告表示', () => {
     const state = initialState();
     const before = structuredClone(state);
     const html = renderToStaticMarkup(
-      createElement(CalendarQuantity, { state, date: today(), filter: 'all', onSelect: () => {} }),
+      createElement(CalendarQuantityDetails, { state, date: today(), filter: 'all', onRecord: () => {} }),
     );
     expect(html).toContain('予定なし');
     expect(html).not.toContain('未記録');
@@ -667,7 +661,7 @@ describe('カレンダーの予定なし・未報告表示', () => {
       shortfalls: [],
     };
     const html = renderToStaticMarkup(
-      createElement(CalendarQuantity, { state, date: today(), filter: 'all', onSelect: () => {} }),
+      createElement(CalendarQuantityDetails, { state, date: today(), filter: 'all', onRecord: () => {} }),
     );
     expect(html).toContain('未報告');
     expect(html).toContain('未報告 / 20問');
@@ -913,7 +907,6 @@ describe('過去分の調整済み表示', () => {
     vi.setSystemTime(new Date(reference + 'T12:00:00'));
     try {
       for (const element of [
-        createElement(CalendarQuantity, { state, date, filter: 'all', onSelect: () => {} }),
         createElement(CalendarQuantityDetails, { state, date, filter: 'all', onRecord: () => {} }),
         createElement(CalendarDaySummary, { state, date, filter: 'all', density: 'compact', onSelect: () => {} }),
       ]) {

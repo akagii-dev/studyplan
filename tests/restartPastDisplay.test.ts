@@ -40,10 +40,10 @@ it('旧形式から仕切り直すと過去予定は通常表示から外れ、�
   try {
     const future = renderToStaticMarkup(createElement(Future, { state, update: async()=>{}, initialWeek: addDays(unreported,-6), onCalendar:()=>{}, onProposal:()=>{} }));
     expect(future).not.toContain('class="future-day"');
-    for (const initialMode of ['content','quantity'] as const) {
+    {
       const html = renderToStaticMarkup(createElement(Calendar, {
         state, update: async()=>{}, onRecord:()=>{}, onReplan:()=>{},
-        initialDate: unreported, initialMode, revealDay: true,
+        initialDate: unreported, revealDay: true,
       }));
       expect(html).not.toContain('未報告 / 6問');
       expect(html).not.toContain('未報告 / 9問');

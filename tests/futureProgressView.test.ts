@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, it } from 'vitest';
 import { Future } from '../src/app/Future';
 import { Calendar } from '../src/components/Calendar';
-import { CalendarQuantity } from '../src/components/CalendarQuantity';
+import { CalendarQuantityDetails } from '../src/components/CalendarQuantity';
 import { addDays, initialState, today } from '../src/domain/model';
 import { calendarQuantity } from '../src/domain/calendarQuantity';
 
@@ -100,11 +100,11 @@ it('基準なしの過去予定は不明と表示し、過去の未報告を確�
   expect(future(f)).toContain('未報告');
   expect(future(f)).not.toContain('/10問');
   const html = renderToStaticMarkup(
-    createElement(CalendarQuantity, {
+    createElement(CalendarQuantityDetails, {
       state: f.state,
       date: f.date,
       filter: 'all',
-      onSelect: () => {},
+      onRecord: () => {},
     }),
   );
   expect(html).toContain('未報告');

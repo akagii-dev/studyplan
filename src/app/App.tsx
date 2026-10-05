@@ -48,7 +48,6 @@ export default function App() {
   const originStack = useRef<ReturnPoint[]>([]);
   const [futureSelection, setFutureSelection] = useState<FutureSelection | null>(null);
   const calendarVisited = useRef(page === 'calendar');
-  const [calendarMode, setCalendarMode] = useState<'content' | 'quantity'>('content');
   const [calendarDate, setCalendarDate] = useState(today());
   const [calendarRevealDay, setCalendarRevealDay] = useState(false);
   const [calendarView, setCalendarView] = useState<CalendarView>('month');
@@ -346,15 +345,15 @@ export default function App() {
           <StudyRecordMemory.Provider value={recordMemory.current}>
           <NumericDraftProvider key={reloadEpoch} state={state} update={update} scope={numericScope}>
             {page === 'dashboard' && (
-              <Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} recordTarget={recordTarget} />
+              <div className="page-transition"><Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} recordTarget={recordTarget} /></div>
             )}{' '}
             {page === 'future' && (
-              <div className="schedule-transition">
+              <div className="page-transition">
               <Future {...props} onRestart={restartPlan} adjustmentNotice={!!reconciliationNotice && reconciliation?.status === 'applied' && !saving && !error && !recovery} selection={futureSelection} onWeekChange={(from) => setFutureSelection({ from, selectedOn: today() })} onCalendar={(date, revealDay = !!date) => { if (revealDay || !calendarVisited.current) setCalendarDate(date ?? today()); calendarVisited.current = true; if (revealDay) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} onAdjustRemaining={adjustRemaining} onBalanceFuture={balanceFuture} />
               </div>
             )}
             {(page === 'settings' || originStack.current.some((entry) => entry.page === 'settings')) && (
-              <div hidden={page !== 'settings'}>
+              <div hidden={page !== 'settings'} className={page === 'settings' ? 'page-transition' : undefined}>
                 <SettingsHub
                 {...props}
                 navigate={(destination) =>
@@ -426,17 +425,17 @@ export default function App() {
               </>
             )}{' '}
             {page === 'today' && (
-              <Calendar
+              <div className="page-transition"><Calendar
                 {...props}
                 todayOnly
                 initialDate={today()}
                 onRecord={onRecord}
                 onReplan={() => setPage('replan')}
-              />
+              /></div>
             )}
             {page === 'calendar' && (
-              <div className="schedule-transition">
-              <Calendar {...props} onFuture={() => originStack.current.at(-1)?.page === 'future' ? goBack() : setPage('future')} initialMode={calendarMode} onModeChange={setCalendarMode} initialDate={calendarDate} initialView={calendarView} onViewChange={setCalendarView} initialFilter={calendarFilter} onFilterChange={setCalendarFilter} revealDay={calendarRevealDay} onDetailChange={setCalendarRevealDay} onDateChange={setCalendarDate} onRecord={onRecord} onReplan={() => setPage('replan')} />
+              <div className="page-transition">
+              <Calendar {...props} onFuture={() => originStack.current.at(-1)?.page === 'future' ? goBack() : setPage('future')} initialDate={calendarDate} initialView={calendarView} onViewChange={setCalendarView} initialFilter={calendarFilter} onFilterChange={setCalendarFilter} revealDay={calendarRevealDay} onDetailChange={setCalendarRevealDay} onDateChange={setCalendarDate} onRecord={onRecord} onReplan={() => setPage('replan')} />
               </div>
             )}{' '}
             {page === 'commute' && (
@@ -451,11 +450,11 @@ export default function App() {
               />
             )}{' '}
             {page === 'history' && (
-              <History
+              <div className="page-transition"><History
                 {...props}
                 onReplan={() => (currentProgressAdjustment(state)?.status === 'failed' ? setPage('future') : state.proposal ? setPage('replan') : generate())}
                 onRecordPast={() => setPage('progress')}
-              />
+              /></div>
             )}{' '}
             {page === 'report' && (
               <WeeklyReport state={state} saving={saving > 0} readSaved={readSaved} onDetailChange={setReportDayOpen} />

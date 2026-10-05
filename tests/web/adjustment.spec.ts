@@ -419,10 +419,9 @@ for (const { offset, expected } of [{ offset: 0, expected: 6 }, { offset: 1, exp
     await page.getByRole('button', { name: 'カレンダー表示', exact: true }).click();
     await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
   await page.locator('.day.today .date-number').click();
-    await page.getByRole('button', { name: '学習量', exact: true }).click();
-    const detail = page.locator('.quantity-breakdown section').filter({ hasText: '対象問題集 · 1周目' });
+    const detail = page.locator('.session-detail, .quantity-breakdown section').filter({ hasText: '対象問題集' });
     await expect(detail).toContainText(`今日の残り ${expected}問`);
-    await detail.getByRole('button', { name: '記録を確認・追加' }).click();
+    await detail.getByRole('button', { name: /記録を確認・追加|進捗を記録/ }).click();
     await expect(row.getByRole('textbox')).toBeFocused();
     await expect(row.getByRole('textbox')).toHaveValue(String(expected));
     expect((await read()).records).toEqual(approved.records);
@@ -469,14 +468,11 @@ test('仕切り直し後の旧未報告教材が今後の予定とカレンダ�
   await page.screenshot({ path: info.outputPath('restart-calendar-content.png'), fullPage: true });
   const oldContentRows = await panel.locator('.quantity-breakdown section').count();
   const oldSummary = await page.locator('.day.today .calendar-event').count();
-  await page.getByRole('button', { name: '学習量', exact: true }).focus();
-  await page.keyboard.press('Enter');
-  await page.screenshot({ path: info.outputPath('restart-calendar-quantity.png'), fullPage: true });
   expect.soft(oldFutureRows).toBe(0);
   expect.soft(oldContentRows).toBe(0);
   expect.soft(oldSummary).toBe(0);
   await expect.soft(panel.locator('.quantity-breakdown section')).toHaveCount(0);
-  await expect.soft(page.locator('.day.today .calendar-quantity')).toHaveText('予定なし');
+  await expect.soft(page.locator('.day.today .calendar-event')).toHaveCount(0);
   // Future work remains actionable; only the retired comparison row disappears.
   const nextDay = page.locator('.day').filter({ has: page.getByRole('button', { name: `${addDays(date, 1)}を表示`, exact: false }) });
   await expect(nextDay).not.toContainText('予定なし');
@@ -493,8 +489,7 @@ test('仕切り直し後の旧未報告教材が今後の予定とカレンダ�
   await page.getByRole('button', { name: 'カレンダー表示', exact: true }).click();
   await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
   await page.locator('.day.today .date-number').click();
-  await page.getByRole('button', { name: '学習量', exact: true }).click();
-  await expect(page.locator('.day.today .calendar-quantity')).toHaveText('予定なし');
+  await expect(page.locator('.day.today .calendar-event')).toHaveCount(0);
   expect((await read()).plan).toEqual(approved.plan);
 });
 
@@ -534,9 +529,7 @@ test('旧形式の過去予定は仕切り直し後に非表示となり、4問�
   await expect(panel.locator('.quantity-breakdown section')).toHaveCount(0);
   await expect(panel).toContainText('学習予定はありません');
   await page.screenshot({path:info.outputPath('restart-past-content.png'),fullPage:true});
-  await page.getByRole('button',{name:'学習量',exact:true}).focus();
-  await page.keyboard.press('Enter');
-  await expect(panel).toContainText('予定なし');
+  await expect(panel).toContainText('学習予定はありません');
   await page.getByRole('button',{name:new RegExp(`^${recorded}を表示`)}).click();
   await expect(panel.locator('.quantity-breakdown section')).toHaveCount(2);
   await expect(panel.locator('.quantity-breakdown section').filter({hasText:'対象問題集'})).toContainText('4問');
@@ -559,7 +552,6 @@ test('旧形式の過去予定は仕切り直し後に非表示となり、4問�
   await page.getByRole('button',{name:'カレンダー表示',exact:true}).click();
   await page.locator('.calendar-toolbar').getByRole('button',{name:'今日',exact:true}).click();
   await page.locator('.day.today .date-number').click();
-  await page.getByRole('button',{name:'学習量',exact:true}).click();
   await page.getByRole('button',{name:new RegExp(`^${past}を表示`)}).click();
   await expect(panel.locator('.quantity-breakdown section')).toHaveCount(0);
   // The restart's first day also becomes historical; it must not revive the old baseline.
@@ -569,7 +561,6 @@ test('旧形式の過去予定は仕切り直し後に非表示となり、4問�
   await page.getByRole('button',{name:'カレンダー表示',exact:true}).click();
   await page.locator('.calendar-toolbar').getByRole('button',{name:'今日',exact:true}).click();
   await page.locator('.day.today .date-number').click();
-  await page.getByRole('button',{name:'学習量',exact:true}).click();
   await page.getByRole('button',{name:new RegExp(`^${date}を表示`)}).click();
   await expect(panel.locator('.quantity-breakdown section')).toHaveCount(0);
   expect((await read()).records).toEqual(source.records);

@@ -793,7 +793,6 @@ test('実機：部分記録後に翌日から仕切り直すと、今日の残�
   await nav('詳細カレンダー');
   await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
   await page.locator('.day.today .date-number').click();
-  await page.getByRole('button', { name: '学習量', exact: true }).click();
   await page.locator('.quantity-breakdown').getByRole('button', { name: '記録を確認・追加' }).click();
   await expect(row.getByRole('textbox')).toHaveValue('0');
   expect((await storedState()).records).toEqual(recorded.records);
@@ -835,9 +834,6 @@ test('実機：仕切り直した旧未報告教材は予定画面から消え�
     const panel = page.getByRole('complementary', { name: '選択した日の学習詳細' });
     await expect(page.locator('.day.today .calendar-event')).toHaveCount(0);
     await expect(panel.locator('.quantity-breakdown section')).toHaveCount(0);
-    await page.getByRole('button', { name: '学習量', exact: true }).click();
-    await expect(panel.locator('.quantity-breakdown section')).toHaveCount(0);
-    await expect(page.locator('.day.today .calendar-quantity')).toHaveText('予定なし');
   };
   await check();
   expect((await storedState()).plan).toEqual(approved.plan);
@@ -881,8 +877,7 @@ test('実機：旧形式の過去予定は仕切り直し後に消え、実績�
     const panel=page.getByRole('complementary',{name:'選択した日の学習詳細'});
     await expect(panel.locator('.session-detail')).toHaveCount(0);
     await expect(panel.locator('.quantity-breakdown section')).toHaveCount(0);
-    await page.getByRole('button',{name:'学習量',exact:true}).click();
-    await expect(panel).toContainText('予定なし');
+    await expect(panel).toContainText('学習予定はありません');
     await page.getByRole('button',{name:new RegExp(`^${recorded}を表示`)}).click();
     await expect(panel.locator('.quantity-breakdown section')).toHaveCount(2);
     await expect(panel).toContainText('4問');
@@ -2436,7 +2431,6 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
   expect(persisted.records[0].count).toBe(5);
   expect(persisted.studyDayBaselines?.[date].rows[0].count).toBe(10);
   await nav('詳細カレンダー');
-  await page.getByRole('button', { name: '学習量', exact: true }).click();
   await page
     .locator('.calendar-toolbar')
     .getByRole('button', { name: '今日', exact: true })
@@ -5580,13 +5574,12 @@ test('実機：共通進捗と今日への安全な入力引継ぎ', async () =>
   await launch();
   await expect(page.locator('.daily-record-row')).toContainText('10/10問');
   await nav('詳細カレンダー');
-  await page.getByRole('button', { name: '学習量', exact: true }).click();
   await page
     .locator('.calendar-toolbar')
     .getByRole('button', { name: '今日', exact: true })
     .click();
   await page.locator('.day.today .date-number').click();
-  await expect(page.locator('.quantity-breakdown')).toContainText('10/10問');
+  await expect(page.locator('.day-panel')).toContainText('10/10問');
 });
 
  test('実機：最小削減の影響確認後に承認保存し、再起動で総量と未配置を保持する', async () => {

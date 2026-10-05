@@ -49,7 +49,6 @@ async function inspectScreens(page: Page, actual: number | null, pastActual: num
   await page.getByRole('button', { name: 'カレンダー表示' }).focus();
   const scroll = await page.evaluate(() => window.scrollY);
   await navigate(page, 'カレンダー表示');
-  await navigate(page, '内容');
   await expect(page.locator('.daily-record-form')).toHaveCount(0);
   await page.getByRole('button', { name: `${contractDay}を表示`, exact: true }).click();
   await progress(
@@ -59,20 +58,11 @@ async function inspectScreens(page: Page, actual: number | null, pastActual: num
     actual,
     null,
   );
-  const todayCell = page.locator('.day.today');
-  const contentNumbers = await todayCell.locator('.progress-value').allTextContents();
-  await navigate(page, '学習量');
-  expect(await todayCell.locator('.progress-value').allTextContents()).toEqual(contentNumbers);
-  await progress(
-    page.locator('.quantity-breakdown section').filter({ hasText: '一部の教材' }),
-    actual,
-    null,
-  );
   await page.getByRole('button', { name: '詳細を閉じる', exact: true }).click();
   await page.getByRole('button', { name: new RegExp(`^${contractPast}を表示`) }).click();
   for (const c of contractCases)
     await progress(
-      page.locator('.quantity-breakdown section').filter({ hasText: c.name }),
+      page.locator('.session-detail, .quantity-breakdown section').filter({ hasText: c.name }),
       c.id === 'partial' ? pastActual : c.actual,
       c.id === 'partial' ? (pastActual === null ? null : 10 - pastActual) : c.deficit,
     );
@@ -130,7 +120,6 @@ test('同一fixtureを各画面で照合し、履歴の訂正・取消・再読�
   await page.screenshot({ path: info.outputPath('weekly-report.png'), fullPage: true });
   await futureWeek(page);
   await dayList(page, contractPast).getByRole('button').click();
-  await navigate(page, '学習量');
   await page.screenshot({ path: info.outputPath('calendar.png'), fullPage: true });
   await navigate(page, '記録履歴');
   const history = page
@@ -260,15 +249,14 @@ test('再配分後も履歴の不足を残し、取得不能な旧データは�
       .locator('.progress-value'),
   ).toHaveText('未報告');
   await dayList(page, contractPast).getByRole('button').click();
-  await navigate(page, '学習量');
   await expect(
     page
-      .locator('.quantity-breakdown section')
+      .locator('.session-detail, .quantity-breakdown section')
       .filter({ hasText: '一部の教材' })
       .locator('.progress-value'),
   ).toHaveText('6問');
   await expect(
-    page.locator('.quantity-breakdown .progress-value').filter({ hasText: '不足' }),
+    page.locator('.day-panel .progress-value').filter({ hasText: '不足' }),
   ).toHaveCount(0);
   await page.screenshot({ path: info.outputPath('legacy-calendar.png'), fullPage: true });
 });

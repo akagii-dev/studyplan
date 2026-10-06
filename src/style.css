@@ -2998,19 +2998,11 @@ textarea {
 .app-shell[data-input-mode='pointer'] .calendar-display-settings :focus-visible { outline: none; }
 
 .today-study-progress > summary { min-height: 44px; display: list-item; cursor: pointer; font-weight: 700; padding-block: 10px; }
-.today-study-progress .segmented { margin-top: 12px; flex-wrap: wrap; }
 .today-study-progress-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px; padding: 0; margin: 16px 0 0; list-style: none; }
-.today-study-progress-item { min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.today-study-progress-item.line { display: grid; align-content: start; gap: 8px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; }
-.today-study-progress .animated-progress { width: 100%; height: 16px; }
-.today-study-progress .animated-progress-fill, .today-study-progress .progress-donut-value { transition: none; }
-.today-study-circle { display: grid; margin-inline: auto; width: min(100%, 320px); min-height: 240px; }
-.today-study-circle svg, .today-study-circle-center { grid-area: 1 / 1; }
-.today-study-circle .progress-donut { width: 100%; height: 100%; max-width: none; min-height: 240px; }
-.today-study-circle-center { display: grid; align-content: center; justify-self: center; gap: 4px; width: 60%; padding-block: 32px; text-align: center; }
+.today-study-progress-item { display: grid; align-content: start; gap: 6px; padding-block: 12px; min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.today-study-progress .animated-progress { width: 100%; height: 8px; margin-block: 4px; }
+.today-study-progress .animated-progress-fill { transition: none; }
 
-.today-study-circle-center strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; width: 80%; justify-self: center; }
-.today-study-full-name { display: block; padding: 8px 16px; text-align: center; }
 
 /* Completion is scoped to its material/round, using the existing theme surfaces. */
 .daily-record-row.is-complete { background: color-mix(in srgb, var(--soft) 55%, var(--surface)); border-radius: 8px; padding-inline: 8px; }
@@ -3019,3 +3011,8 @@ textarea {
 .daily-record-input > summary { min-height: 44px; align-content: center; font-size: .875rem; color: var(--ink); overflow-wrap: anywhere; }
 .daily-record-input > summary[hidden] { display: none; }
 .daily-record-input > summary:focus:not(:focus-visible) { outline: none; }
+
+.today-study-title { display: flex; align-items: start; justify-content: space-between; gap: 12px; min-width: 0; }
+.today-study-title > div { display: grid; gap: 4px; min-width: 0; }
+.today-study-title > div > span { color: var(--muted); font-size: .875rem; }
+.today-study-percent { font-size: 1.375rem; line-height: 1.2; color: var(--ink); flex-shrink: 0; }

@@ -25,7 +25,7 @@ UI変更時の入口。画面の文言ではなく、以下の意味を維持す
 | 過去の不足 | その日の予定との差であり、現在の残量ではない。再配分しても履歴を消さず、現在の残量へ再加算しない |
 
 共通経路は `calendarQuantity.ts → progressState()/progressView()`。
-今日の教材行と週間予定の今日の行は `studyProgressView()` を共有し、あとN単位／✅完了／✅追加N単位へ変換する。日別比較・レポートは従来のprogressViewを維持。仕切り直し後は有効残量と現在の配分基準以降の記録で判定し、予定の移動・基準不明・予定0を完了としない。新しい保存項目は持たない。`TodayStudyProgress`はtodayStudyRowsの同じ表示用目標・記録量を既存のProgressRing/AnimatedProgressへ渡す。折畳みとデモ専用形状切替は表示だけで、復習・予定外だけの行は対象外。完了行の背景とdetails入力は共通のcompleteを使い、記録直後のフォーカスを保持する。記録後の成功通知は記録量のみ。未配置・要確認・失敗は維持し、実変更の詳細は展開して確認できる。
+今日の教材行と週間予定の今日の行は `studyProgressView()` を共有し、あとN単位／✅完了／✅追加N単位へ変換する。日別比較・レポートは従来のprogressViewを維持。仕切り直し後は有効残量と現在の配分基準以降の記録で判定し、予定の移動・基準不明・予定0を完了としない。新しい保存項目は持たない。`TodayStudyProgress`はtodayStudyRowsの同じ表示用目標・記録量を既存AnimatedProgressへ渡す。円型と比較切替は廃止し、今日の教材別直線だけにする。割合は未完了99%まで／完了100%とし、表示の丸めが完了判定を変えない。折畳みは表示だけで、復習・予定外だけの行は対象外。完了行の背景とdetails入力は共通のcompleteを使い、記録直後のフォーカスを保持する。記録後の成功通知は記録量のみ。未配置・要確認・失敗は維持し、実変更の詳細は展開して確認できる。
 日別予定量は保存済み `studyDayBaselines`、当日を対象とした確定計画・履歴、再計画が保持した過去セッションから取得する。
 今日を対象にしていない計画を「予定0」の根拠にしない。前倒し前の数量を使い、表示切替では保存も再計算も行わない。
 `calendarQuantity` が教材・周回・単位別の予定、有効実績、報告有無を照合し、`progressState` が planned / actual / hasReport / deficit / progressRatio / comparisonAvailable / period / reportStatus を決める。

@@ -832,12 +832,13 @@ test('今日の完了行・追加入力と復元した進捗を追加・訂正�
   const input = row.getByRole('textbox', { name: /今回解いた問題数/ });
   const panel = page.locator('.today-study-progress');
   await expect(panel).toBeVisible();
-  await expect(panel.locator('.today-study-circle-center strong').first()).toHaveText(state.settings.materials[0].name);
+  await expect(panel.locator('.today-study-title strong').first()).toHaveText(state.settings.materials[0].name);
   const beforeDisplay = await read(page);
   await panel.locator('summary').focus(); await page.keyboard.press('Enter');
   await expect(panel.locator('ul')).toBeHidden();
   await page.keyboard.press('Enter'); await expect(panel.locator('ul')).toBeVisible();
-  await panel.getByRole('button', { name: '直線型', exact: true }).focus(); await page.keyboard.press('Enter');
+  await expect(panel.getByRole('button')).toHaveCount(0);
+  await expect(panel.locator('svg')).toHaveCount(0);
   await expect(panel.locator('li strong').first()).toHaveText(state.settings.materials[0].name);
   expect(await read(page)).toEqual(beforeDisplay);
   await expect(row.locator('.progress-value')).toHaveText('あと15問');
@@ -865,15 +866,12 @@ test('今日の完了行・追加入力と復元した進捗を追加・訂正�
   for (const appearance of ['light', 'dark']) {
     await page.evaluate(mode => document.documentElement.dataset.appearance = mode, appearance);
     await page.clock.runFor(250);
-    for (const shape of ['円型', '直線型']) {
-      const control = panel.getByRole('button', { name: shape, exact: true });
-      await control.click();
-      await control.evaluate(e => Promise.all(e.getAnimations().map(a => a.finished)));
-      await expect(panel.locator('li').first()).toContainText('15/15問 · ✅完了');
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-      expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
-      await page.screenshot({ path: info.outputPath('today-complete-' + appearance + '-' + shape + '.png'), fullPage: true });
-    }
+    await expect(panel.locator('li').first()).toContainText('15/15問 · ✅完了');
+    await expect(panel.getByRole('progressbar').first()).toHaveAttribute('aria-valuenow', '100');
+    await expect(panel.locator('.animated-progress').first()).toHaveCSS('height', '8px');
+    await page.screenshot({ path: info.outputPath('today-linear-' + appearance + '.png'), fullPage: true, animations: 'disabled' });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
   }
   await page.evaluate(() => document.documentElement.dataset.appearance = 'light');
   await nav(page, '今後の予定');

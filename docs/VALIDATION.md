@@ -1,3 +1,12 @@
+## 今日の進捗を控えめな直線バーへ一本化（2026-10-06 UTC）
+
+- ed67e58b64286c7aad262ebbba2eaab9414d07b4はCI 37498898265のverify/verify:ui/build/deploy成功、配信済み。その後の「円型は廃止」「スマホだと見づらい」に従い、追加差分で今日の進捗を直線だけへ統一。円型・デモ比較切替・専用CSSを撤去。別画面の汎用ProgressRingは維持。
+- 既存AnimatedProgressを静的に再利用。上部の教材名・周回は省略せず折返し、割合22px／バー8px／小さな余白。進捗セクションの完了時に太い左線・全面色替えを追加しない。今日の教材別集計、復習除外、折りたたみと表示操作でstate不変を維持。
+- 正の目標がある場合のみ割合を出す。未完了は切捨て0〜99%、完了100%。予定0・比較不能で割合なし。棒も0〜100%に制限し、超過数値は✅追加N単位で伝える。追加アニメーションなし、既存reduced-motion対応を維持。
+- pnpm verify成功：lint/型/単体552件・36ファイル/通常build。予定199への記録0/198/199/200で割合0/99/100/100%、追加1、予定0で割合なし・NaN/Infinityなしを追加検証。verify:ui成功：Edge74＋ICS2＝76件。1280px／320pxのlight/dark画像自己レビュー、8pxバー、折畳み、円・切替なし、長い教材名、axe、横幅、完了行と追加記録・再読込・訂正取消・週間一致・通知簡潔化を確認。
+- 完了行の薄い背景＋小さいバッジ、追加入力details、フォーカス保持、毎回加算、重要通知を保持。保存／計画計算／DB／Rust／復習に変更なし。未実施：Desktop/SQLite・LAN実行E2E、Cargo、iOS/WebKit実機、読み上げ実聴。既存annotation/bundle/NO_COLOR警告あり。
+- 直前の公開確認はPC両形式を確認した後、タッチ側のCSS遷移finished PromiseがcancelでAbortErrorとなった。製品pageerrorではない。最新直線版では静止画像で遷移を完了し、公開先のPC／タップ／light/dark／追加／週間を確認してWORK-STATUS/HANDOFFへ記録する。一時的なexec-server transport disconnectedでcommit操作が開始されなかったためGit状態を確認、接続復帰後に続行。
+
 ### 公開CIでのスクロール復帰検証の修正
 
 最初の公開CI 37498174463（c5fb255）はverify成功、完了行・復元グラフのwide/narrowテスト成功、既存progress.specの狭幅スクロール復帰確認だけ失敗（期待差3px未満に対し289px）。AppShellはrequestAnimationFrameでスクロール位置を戻すため、DOM表示直後の即時測定をexpect.pollによる復帰待ちに変更した。3px未満の基準、往復導線、データ・数量・アクセシビリティ検証を維持し、画面側の復帰処理は変更していない。全UIを再実行し、Edge74件＋ICS2件＝76件成功。修正後のcommitをデモ配信し、最終CIと公開先の結果はWORK-STATUS/HANDOFFへ記録する。

@@ -1,5 +1,13 @@
 # 動作確認記録
 
+## v0.7.0 リリース検証（2026-10-06）
+
+カレンダー表示設定とタップ時フォーカス修正（02b1720まで）をWindows配布版へ収録。package/Tauri/Cargo/lockとREADME・CHANGELOGを0.7.0へ統一。版番号のpatch/minor方針と0.10時の見直しをRELEASINGへ記録。
+
+pnpm verifyはlint/型/単体543件・36ファイル/通常build成功。verify:uiはEdgeの画面横断70＋ICS2＝72件成功。pnpm desktop:build成功、LANのallowlist/manifest/ハッシュ検証を通して資材をEXEへ内蔵。FileVersion/ProductVersionは0.7.0。更新ZIPはStudyPlan.exe/Update-StudyPlan.ps1/update.json/README.txtの4件のみで、payloadとmanifestのSHA-256を照合。公開済みv0.6.14 EXEを既知ハッシュと照合し、隔離コピーでロック拒否・破損拒否・原子的置換・旧EXE保全・同版再適用・ダミーデータマーカー不変が成功。
+
+未実施：隔離Windowsアカウントでの配布EXE起動、Desktop/SQLite・LAN統合E2E、OS保存ダイアログ、iOS/Safari実機、読み上げ実聴。Rustはアプリ版番号だけの差分でロジック変更なし、Cargo単体は未実施。既存のZod注釈/bundle容量/NO_COLOR警告あり。配布EXEを起動せず、個人JSON・本番DB・利用中EXE・Eドライブは操作しない。公開結果と生成物回収はローカルWORK-STATUS/HANDOFFに記録する。
+
 ## タップ時の不要なフォーカスと候補表示（2026-10-06）
 
 表示設定のuseLayoutEffectから最初のselectへの自動focusを削除。初回のtop/left=0でOS候補を起動する経路をなくし、Tab操作時だけ既存の閉じるボタンから選択欄へ入れる。タップの閉じる/外側はfocusを強制移動せず、Escape/キーボードの閉じるだけ歯車へ戻す。AppShellは初回/ポインター遷移で大見出しへ自動focusせず、キーボード遷移/復帰では維持。大見出しとカレンダー操作欄に限定してポインター時の強い枠を抑える。native select、Tab到達、キーボード時の目印、画面スクロール復帰、保存/計算は維持。全体のoutline無効化・blur・新しいショートカットは加えない。

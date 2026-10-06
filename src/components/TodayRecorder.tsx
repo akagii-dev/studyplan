@@ -29,8 +29,8 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
   const [outsideRound, setOutsideRound] = useRecordInput('today/round', 0);
   const { busy, save: record } = useStudyRecord(update, `today/${date}`);
   const key = (materialId: string, round: number) => JSON.stringify([materialId, round]);
-  const savedEntry = state.records.find(record => record.id === savedRecord?.id);
-  const savedProgress = rows.find(row => row.materialId === savedEntry?.materialId && row.round === savedEntry?.round)?.progress;
+  const savedReceipt = savedRecord ? latestReceipt(state, savedRecord.id) : undefined;
+  const needsAttention = savedReceipt && ['unplaced', 'review', 'failed'].includes(savedReceipt.status);
 
   useEffect(() => {
     if (!target || handled.current === target.token) return;
@@ -149,14 +149,12 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
         <div className="daily-record-saved" role="status">
           <p>
             {savedRecord.count}{savedRecord.unit}を記録しました。
-            {savedProgress?.text}
-            {latestReceipt(state, savedRecord.id) &&
-              receiptOutcome(latestReceipt(state, savedRecord.id)!)}
           </p>
-          {latestReceipt(state, savedRecord.id) && (
+          {needsAttention && <p>{receiptOutcome(savedReceipt)}</p>}
+          {savedReceipt && (needsAttention || savedReceipt.changes.length > 0) && (
             <details>
-              <summary>{receiptDetailLabel(latestReceipt(state, savedRecord.id)!)}</summary>
-              <ProgressReceiptView state={state} receipt={latestReceipt(state, savedRecord.id)!} />
+              <summary>{receiptDetailLabel(savedReceipt)}</summary>
+              <ProgressReceiptView state={state} receipt={savedReceipt} />
             </details>
           )}
         </div>

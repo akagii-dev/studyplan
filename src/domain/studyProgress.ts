@@ -25,7 +25,7 @@ export function studyProgressView(state: AppState, value: Parameters<typeof prog
   const known = progress.restartPlanned === undefined && target !== null && target > 0;
   const complete = date <= reference && known && value.reported && recorded >= target!;
   const left = progress.currentRemaining ?? (known ? Math.max(0, target! - recorded) : null);
-  const text = complete ? '✅完了' : left !== null && left > 0 ? `あと${left}${value.unit}` :
+  const text = complete ? (recorded > target! ? `✅追加${recorded - target!}${value.unit}` : '✅完了') : left !== null && left > 0 ? `あと${left}${value.unit}` :
     progress.restartPlanned !== undefined ? `予定 ${progress.restartPlanned}${value.unit}` :
     !known ? (value.reported ? `${value.actual}${value.unit}を記録` : target === null ? '未報告' : '予定なし') : '予定の残りなし';
   const plotTarget = known && (progress.currentRemaining === undefined || complete || recorded + (left ?? 0) === target) ? target : null;

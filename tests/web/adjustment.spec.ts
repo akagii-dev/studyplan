@@ -216,8 +216,10 @@ test('部分実績から追加・超過・訂正・取消まで、数量と変�
   ]) {
     await row.getByRole('textbox').fill(String(additional));
     await row.getByRole('textbox').press('Enter');
-    await expect(row).toContainText(total >= 6 ? '✅完了' : `あと${6-total}問`);
-    await expect(result).toContainText(total <= 6 ? '予定の変更なし' : '数量 1件');
+    await expect(row).toContainText(total > 6 ? `✅追加${total-6}問` : total === 6 ? '✅完了' : `あと${6-total}問`);
+    await expect(result.locator(':scope > p').first()).toHaveText(additional + '問を記録しました。');
+    if (total <= 6) await expect(result.locator('details')).toHaveCount(0);
+    else await expect(result.locator('summary')).toHaveText('予定の変更を見る');
     const stored = await read();
     const active = activePlanWork(stored, adjustmentContext.date).filter(
       (s) => s.materialId === 'book' && s.round === 0,

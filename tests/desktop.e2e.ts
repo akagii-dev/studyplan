@@ -464,7 +464,7 @@ for (const previousReported of [false, true]) {
       await row.getByRole('textbox').fill(String(add));
       await row.getByRole('button', { name: '記録', exact: true }).click();
       await saved();
-      await expect(row).toContainText(actual >= 6 ? '✅完了' : `あと${6-actual}問`);
+      await expect(row).toContainText(actual > 6 ? `✅追加${actual-6}問` : actual === 6 ? '✅完了' : `あと${6-actual}問`);
       const state = await storedState();
       const work = activePlanWork(state, today()).filter(
         (s) => s.materialId === 'book' && s.round === 0,
@@ -1645,7 +1645,7 @@ test('実機：予定6への追加4・2・2で数量と変更詳細を保存し�
     await row.getByRole('textbox').fill(String(add));
     await row.getByRole('button', { name: '記録', exact: true }).click();
     await saved();
-    await expect(row).toContainText(actual >= 6 ? '✅完了' : `あと${6-actual}問`);
+    await expect(row).toContainText(actual > 6 ? `✅追加${actual-6}問` : actual === 6 ? '✅完了' : `あと${6-actual}問`);
     const stored = await storedState();
     expect(
       activePlanWork(stored, date)
@@ -1653,9 +1653,7 @@ test('実機：予定6への追加4・2・2で数量と変更詳細を保存し�
         .reduce((n, x) => n + x.count, 0),
     ).toBe(left);
     expect(stored.plan!.shortfalls).toEqual([]);
-    await expect(page.locator('.daily-record-saved')).toContainText(
-      actual <= 6 ? '予定の変更なし' : '数量 1件',
-    );
+    await expect(page.locator('.daily-record-saved > p').first()).toHaveText(add + '問を記録しました。');
   }
   const details = page.locator('.daily-record-saved details');
   await details.locator('summary').focus();
@@ -2362,17 +2360,13 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
   const row = page.locator('.daily-record-row').filter({ hasText: '問題集A' });
   await expect(row).toContainText('あと10問');
   await expect(row).toContainText('あと10問');
-  await row.getByRole('textbox', { name: '問題集A 1周目の実績（問）' }).fill('5');
+  await row.getByRole('textbox', { name: '問題集A 1周目の今回解いた問題数（問）' }).fill('5');
   await row.getByRole('button', { name: '記録', exact: true }).click();
   await saved();
   await expect(row).toContainText('あと5問');
   const recordResult = page.locator('.daily-record-saved');
-  await expect(recordResult).toContainText('5問を記録しました。予定の変更なし');
-  const changeDetail = recordResult.locator('details');
-  await expect(changeDetail).not.toHaveAttribute('open', '');
-  await expect(changeDetail.locator('summary')).toHaveText('結果を見る');
-  await changeDetail.locator('summary').click();
-  await expect(changeDetail).toContainText('予定の変更なし');
+  await expect(recordResult).toHaveText('5問を記録しました。');
+  await expect(recordResult.locator('details')).toHaveCount(0);
   await nav('今後の予定');
   await expect(
     page
@@ -2453,7 +2447,7 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
     await activeRow.getByRole('textbox').fill(String(actual));
     await activeRow.getByRole('button', { name: '記録', exact: true }).click();
     await saved();
-    await expect(activeRow).toContainText(actual >= 10 ? '✅完了' : `あと${10-actual}問`);
+    await expect(activeRow).toContainText(actual > 10 ? `✅追加${actual-10}問` : actual === 10 ? '✅完了' : `あと${10-actual}問`);
     expect(await futureQuantity()).toBe(expected);
     expect((await storedState()).plan!.sessions.filter((session) => session.date === date)).toEqual(
       [originalToday],

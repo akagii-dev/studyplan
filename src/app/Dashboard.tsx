@@ -2,7 +2,6 @@ import { ChevronRight } from 'lucide-react';
 import { Props, duration } from '../components/common';
 import { ShortfallDetails } from '../components/ShortfallDetails';
 import { TodayRecorder, RecordTarget } from '../components/TodayRecorder';
-import { TodayStudyProgress } from '../components/TodayStudyProgress';
 import { today } from '../domain/model';
 import { currentPlanReconciliation, currentProgressAdjustment } from '../domain/progressAdjustment';
 import { Page } from './navigation';
@@ -66,7 +65,6 @@ export function Dashboard({
         )}
       </section>
       <ShortfallDetails state={state} onReview={onReview} />
-      <TodayStudyProgress state={state} />
     </div>
   );
 }

@@ -45,7 +45,7 @@ test('LAN画面から部分・追加・超過・訂正・取消とバックア�
   await open(page);
   for (const [n, actual, today, future] of [[4, 4, 2, 24], [2, 6, 0, 24], [2, 8, 0, 22]]) {
     await record(page, n);
-    await expect(book(page)).toContainText(actual >= 6 ? '✅完了' : `あと${6-actual}問`);
+    await expect(book(page)).toContainText(actual > 6 ? `✅追加${actual-6}問` : actual === 6 ? '✅完了' : `あと${6-actual}問`);
     await counts(request, actual, today, future);
   }
   await page.getByRole('button', { name: '記録履歴', exact: true }).click();

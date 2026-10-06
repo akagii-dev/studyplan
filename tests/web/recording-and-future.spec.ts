@@ -21,7 +21,7 @@ async function calendarSetting(page: Page, label: string, value: string) {
   await page.keyboard.press('Escape');
 }
 const read = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('studyplan-demo-state-v1')!).data as AppState);
-const nav = (page: Page, name: string) => page.getByRole('button', { name, exact: true }).click();
+const nav = (page: Page, name: string) => (name === '今日' ? page.locator('nav') : page).getByRole('button', { name, exact: true }).click();
 const headerPositions = (page: Page) => page.locator('.future-week, .future-day').evaluateAll((elements) =>
   elements.map((element) => element.getBoundingClientRect().top + scrollY));
 
@@ -817,7 +817,7 @@ test('表示設定は歯車のそばで3選択を縦に並べ、旧詳細密度�
   await expect(page.getByRole('heading', { name: '今後の予定', level: 1, exact: true })).toBeFocused();
 });
 
-test('今日の残りと折りたたみ進捗を円・直線で共有し、追加・訂正・取消と週間へ反映する', async ({ page }, info) => {
+test('今日の簡潔な記録通知と残り・完了を保ち、グラフを表示しない', async ({ page }, info) => {
   const state = adjustmentFixture(contractDay);
   state.settings.materials[0].name = '長い教材名の基礎問題集と確認演習'.repeat(4);
   state.settings.materials[1].unit = 'ページ';
@@ -830,53 +830,59 @@ test('今日の残りと折りたたみ進捗を円・直線で共有し、追�
   await seed(page, state, 2);
   const row = page.locator('.daily-record-row').filter({ hasText: state.settings.materials[0].name });
   const input = row.getByRole('textbox', { name: /今回解いた問題数/ });
-  const panel = page.locator('.today-study-progress');
-  const item = panel.locator('li').filter({ hasText: state.settings.materials[0].name });
-  const baseline = await read(page);
+  await expect(page.locator('.today-study-progress')).toHaveCount(0);
+  await expect(page.getByRole('group', { name: '進捗の表示形式' })).toHaveCount(0);
   await expect(row.locator('.progress-value')).toHaveText('あと15問');
-  await expect(item).toContainText('0/15問 · あと15問');
-  await expect(item.locator('.today-study-circle-center strong')).toHaveText(state.settings.materials[0].name);
-  await expect(panel.locator('li').filter({ hasText: '別問題集' })).toContainText('あと9ページ');
-  const summary = panel.locator('summary');
-  await summary.focus(); await page.keyboard.press('Enter');
-  await expect(item).toBeHidden();
-  await page.keyboard.press('Enter'); await expect(item).toBeVisible();
-  await panel.getByRole('button', { name: '直線型', exact: true }).focus(); await page.keyboard.press('Enter');
-  await expect(item.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
-  expect(await read(page)).toEqual(baseline);
-  for (const [count, expected, total] of [[6, 'あと9問', 6], [4, 'あと5問', 10], [5, '✅完了', 15]] as const) {
+  await expect(page.locator('.daily-record-row').filter({ hasText: '別問題集' })).toContainText('あと9ページ');
+  for (const [count, expected] of [[6, 'あと9問'], [4, 'あと5問'], [5, '✅完了']] as const) {
     await input.fill(String(count)); await input.press('Enter');
     await expect(row.locator('.progress-value')).toHaveText(expected);
-    await expect(item).toContainText(`${total}/15問 · ${expected}`);
-    await expect(page.locator('.daily-record-saved')).toContainText(expected);
+    await expect(page.locator('.daily-record-saved > p').first()).toHaveText(count + '問を記録しました。');
+    await expect(page.locator('.daily-record-saved')).not.toContainText(/あと\d+問|✅完了|予定の変更なし/);
+    await expect(page.locator('.daily-record-saved details')).toHaveCount(0);
     await expect(row.getByRole('textbox', { name: /今回解いた問題数/ })).toHaveValue('');
   }
-  await expect(item.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100');
   await expect(row.getByRole('checkbox')).toHaveCount(0);
   await page.reload(); await expect(row.locator('.progress-value')).toHaveText('✅完了');
-  for (const shape of ['円型', '直線型']) {
-    const shapeButton = panel.getByRole('button', { name: shape, exact: true });
-    await shapeButton.click();
-    await expect(page.locator('.page-transition')).toHaveCSS('opacity', '1');
-    await shapeButton.evaluate(element => Promise.all(element.getAnimations().map(animation => animation.finished)));
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-    expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
-    await page.screenshot({ path: info.outputPath(`today-progress-${shape === '円型' ? 'circle' : 'line'}.png`), fullPage: true });
-  }
+  await expect(page.locator('.page-transition')).toHaveCSS('opacity', '1');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
+  await page.screenshot({ path: info.outputPath('today-simple-record.png'), fullPage: true });
   await nav(page, '今後の予定');
   const day = page.locator('.future-day').filter({ has: page.locator(`time[datetime="${contractDay}"]`) });
   await expect(day.locator('li').filter({ hasText: state.settings.materials[0].name })).toContainText('✅完了');
+  await nav(page, '今日');
+  await input.fill('1'); await input.press('Enter');
+  await expect(row.locator('.progress-value')).toHaveText('✅追加1問');
+  await expect(page.locator('.daily-record-saved > p').first()).toHaveText('1問を記録しました。');
+  await page.reload(); await expect(row.locator('.progress-value')).toHaveText('✅追加1問');
+  await nav(page, '今後の予定');
+  await expect(day.locator('li').filter({ hasText: state.settings.materials[0].name })).toContainText('✅追加1問');
   await nav(page, '記録履歴');
+  await page.getByRole('row').filter({ hasText: state.settings.materials[0].name }).filter({ hasText: '＋1問' }).getByRole('button', { name: '取消', exact: true }).click();
+  await nav(page, '取消を確定');
   const last = page.getByRole('row').filter({ hasText: state.settings.materials[0].name }).filter({ hasText: '＋5問' });
   await last.getByRole('button', { name: '訂正', exact: true }).click();
   await page.getByRole('textbox', { name: '訂正後の問題数' }).fill('3'); await nav(page, '訂正を保存');
   await nav(page, '今日'); await expect(row.locator('.progress-value')).toHaveText('あと2問');
-  await expect(item).toContainText('13/15問 · あと2問');
   await nav(page, '記録履歴');
   const corrected = page.getByRole('row').filter({ hasText: state.settings.materials[0].name }).filter({ hasText: '＋3問' });
   await corrected.getByRole('button', { name: '取消', exact: true }).click(); await nav(page, '取消を確定');
   await nav(page, '今日'); await expect(row.locator('.progress-value')).toHaveText('あと5問');
-  await expect(item).toContainText('10/15問 · あと5問');
   await nav(page, '今後の予定');
   await expect(day.locator('li').filter({ hasText: state.settings.materials[0].name })).toContainText('あと5問');
+});
+
+
+test('記録成功を簡潔にしても計画の確認が必要な通知と理由を保持する', async ({ page }) => {
+  const state = adjustmentFixture(contractDay);
+  state.settings.buffer = 0.1;
+  await seed(page, state, 2);
+  const row = page.locator('.daily-record-row').filter({ hasText: '対象問題集' });
+  await row.getByRole('textbox').fill('2'); await row.getByRole('textbox').press('Enter');
+  const result = page.locator('.daily-record-saved');
+  await expect(result.locator(':scope > p').first()).toHaveText('2問を記録しました。');
+  await expect(result.locator(':scope > p').nth(1)).toHaveText('計画案の確認が必要');
+  await result.getByText('確認内容を見る', { exact: true }).click();
+  await expect(result).toContainText('計画と現在の設定が一致していません。');
 });

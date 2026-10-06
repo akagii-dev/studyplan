@@ -241,11 +241,11 @@ for (const offset of [-1, 0, 1]) {
     ];
     if (offset === 0) {
       renders.push(createElement(TodayRecorder, { state, update: async () => {} }));
-      expect(todayStudyRows(state)[0].progress).toMatchObject({ ...view, text: (count ?? 0) >= 10 ? '✅完了' : `あと${10-(count ?? 0)}問`, supplement: '' });
+      expect(todayStudyRows(state)[0].progress).toMatchObject({ ...view, text: (count ?? 0) > 10 ? `✅追加${(count ?? 0)-10}問` : count === 10 ? '✅完了' : `あと${10-(count ?? 0)}問`, supplement: '' });
     }
     for (const element of renders) {
       const html = renderToStaticMarkup(element);
-      expect(html).toContain(offset === 0 && (element.type === Future || element.type === TodayRecorder) ? ((count ?? 0) >= 10 ? '✅完了' : `あと${10-(count ?? 0)}問`) : expected);
+      expect(html).toContain(offset === 0 && (element.type === Future || element.type === TodayRecorder) ? ((count ?? 0) > 10 ? `✅追加${(count ?? 0)-10}問` : count === 10 ? '✅完了' : `あと${10-(count ?? 0)}問`) : expected);
       expect(html).not.toContain('基準なし');
       expect(html).not.toContain('実績あり');
       const shortage = offset < 0 && count !== undefined && count < 10;
@@ -822,7 +822,7 @@ describe('今日の記録と今後の予定', () => {
       createElement(TodayRecorder, { state, update: async () => {} }),
     );
     expect(html).toContain('問題集A');
-    expect(html).toContain('✅完了');
+    expect(html).toContain('✅追加5問');
     expect(html).not.toContain('daily-progress-ring');
     expect(html).toContain('あと10問');
     expect(html).toContain('問題集C');
@@ -1036,4 +1036,16 @@ it('未報告/明示0・異単位・予定なし・予定外・過去の比較�
   expect(studyProgressView(state, { ...row, planned: null, actual: 20, reported: true }, adjustmentContext.date, adjustmentContext.date).complete).toBe(false);
   const outside = { ...state, records: [adjustmentReport(3, 'outside')].map(record => ({ ...record, round: 1 })) };
   expect(todayStudyRows(outside, adjustmentContext.date).some(row => row.materialId === 'book' && row.round === 1)).toBe(false);
+});
+
+
+it('追加は予定を超えた累計量を単位別に示し、仕切り直し前の記録を追加扱いしない', () => {
+  const state = adjustmentFixture();
+  const row = { materialId: 'book', round: 0, unit: 'ページ', planned: 6, actual: 8, reported: true };
+  expect(studyProgressView(state, row, adjustmentContext.date, adjustmentContext.date).text).toBe('✅追加2ページ');
+  const context = { ...adjustmentContext, minute: 0 };
+  const source = recordAndAdjust(state, adjustmentReport(4), context);
+  let restarted = approve(proposeRestart(source, context.date, context), false, context);
+  restarted = recordAndAdjust(restarted, adjustmentReport(7, 'new'), context);
+  expect(todayStudyRows(restarted, context.date).find(row => row.materialId === 'book')!.progress.text).toBe('✅追加1問');
 });

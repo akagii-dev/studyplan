@@ -23,6 +23,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
   const outsideRef = useRef<HTMLDetailsElement>(null);
   const date = today();
   const [drafts, setDrafts] = useRecordInput<Record<string, string>>(`today/${date}/inputs`, {});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [savedRecord, setSavedRecord] = useState<{ id: string; count: number; unit: string } | null>(null);
   const [outsideMaterial, setOutsideMaterial] = useRecordInput('today/material', state.settings.materials[0]?.id ?? '');
@@ -37,6 +38,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
     const row = rows.find((r) => r.materialId === target.materialId && r.round === target.round);
     const id = key(target.materialId, target.round);
     if (row) {
+      setExpanded(current => ({ ...current, [id]: true }));
       setDrafts((current) => ({
         ...current,
         [id]: current[id] || String(Math.min(row.progress.prefill, remaining(state, row.materialId, row.round))),
@@ -64,6 +66,8 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
     const id = key(materialId, round);
     setErrors((current) => ({ ...current, [id]: '' }));
     setSavedRecord(null);
+    // Keep the engaged form mounted and open when this record completes today's target.
+    setExpanded(current => ({ ...current, [id]: true }));
     const text = drafts[id] ?? '';
     try {
       const result = await record({ date, materialId, round, text });
@@ -82,7 +86,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
           {rows.map((row) => {
             const id = key(row.materialId, row.round);
             return (
-              <div className="daily-record-row" role="listitem" key={id}>
+              <div className={`daily-record-row${row.progress.complete ? ' is-complete' : ''}`} role="listitem" key={id}>
                 <div className="daily-record-name">
                   <strong>{row.materialName}</strong>
                   <span>{row.round + 1}周目</span>
@@ -90,33 +94,46 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
                 <div className="daily-record-amounts">
                   <ProgressValue value={row.progress} />
                 </div>
-                <form
-                  className="daily-record-form"
-                  onSubmit={(event) => void save(event, row.materialId, row.round)}
-                >
-                  <label>
-                    {studyInputLabel(row.unit)}
-                    <StudyCountInput
-                      ref={(node) => {
-                        if (node) inputRefs.current.set(id, node);
-                        else inputRefs.current.delete(id);
-                      }}
-                      type="text"
-                      inputMode="numeric"
-                      value={drafts[id] ?? ''}
-                      disabled={busy}
-                      aria-label={`${row.materialName} ${row.round + 1}周目の${studyInputLabel(row.unit)}（${row.unit}）`}
-                      onChange={(event) => {
-                        setDrafts((current) => ({ ...current, [id]: event.target.value }));
-                        setErrors((current) => ({ ...current, [id]: '' }));
-                      }}
-                    />
-                  </label>
-                  <span>{row.unit}</span>
-                  <button data-submit className="primary" type="submit" disabled={busy}>
-                    記録
-                  </button>
-                </form>
+                <details className="daily-record-input"
+                  open={!row.progress.complete || (expanded[id] ?? !!drafts[id])}
+                  onToggle={event => {
+                    if (row.progress.complete) {
+                      const open = event.currentTarget.open;
+                      setExpanded(current => current[id] === open ? current : { ...current, [id]: open });
+                    }
+                  }}>
+                  <summary hidden={!row.progress.complete}>
+                    {row.unit === '問' ? '追加で解いた問題数を記録' : '追加で進めた量を記録'}
+                  </summary>
+                  <form
+                    className="daily-record-form"
+                    onSubmit={(event) => void save(event, row.materialId, row.round)}
+                  >
+                    <label>
+                      {studyInputLabel(row.unit)}
+                      <StudyCountInput
+                        ref={(node) => {
+                          if (node) inputRefs.current.set(id, node);
+                          else inputRefs.current.delete(id);
+                        }}
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        value={drafts[id] ?? ''}
+                        disabled={busy}
+                        aria-label={`${row.materialName} ${row.round + 1}周目の${studyInputLabel(row.unit)}（${row.unit}）`}
+                        onChange={(event) => {
+                          setDrafts((current) => ({ ...current, [id]: event.target.value }));
+                          setErrors((current) => ({ ...current, [id]: '' }));
+                        }}
+                      />
+                    </label>
+                    <span>{row.unit}</span>
+                    <button data-submit className="primary" type="submit" disabled={busy}>
+                      記録
+                    </button>
+                  </form>
+                </details>
                 {errors[id] && (
                   <p className="daily-record-error" role="alert">
                     {errors[id]}

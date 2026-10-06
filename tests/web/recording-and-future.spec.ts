@@ -817,7 +817,7 @@ test('表示設定は歯車のそばで3選択を縦に並べ、旧詳細密度�
   await expect(page.getByRole('heading', { name: '今後の予定', level: 1, exact: true })).toBeFocused();
 });
 
-test('今日の簡潔な記録通知と残り・完了を保ち、グラフを表示しない', async ({ page }, info) => {
+test('今日の完了行・追加入力と復元した進捗を追加・訂正・取消で維持する', async ({ page }, info) => {
   const state = adjustmentFixture(contractDay);
   state.settings.materials[0].name = '長い教材名の基礎問題集と確認演習'.repeat(4);
   state.settings.materials[1].unit = 'ページ';
@@ -830,8 +830,16 @@ test('今日の簡潔な記録通知と残り・完了を保ち、グラフを�
   await seed(page, state, 2);
   const row = page.locator('.daily-record-row').filter({ hasText: state.settings.materials[0].name });
   const input = row.getByRole('textbox', { name: /今回解いた問題数/ });
-  await expect(page.locator('.today-study-progress')).toHaveCount(0);
-  await expect(page.getByRole('group', { name: '進捗の表示形式' })).toHaveCount(0);
+  const panel = page.locator('.today-study-progress');
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('.today-study-circle-center strong').first()).toHaveText(state.settings.materials[0].name);
+  const beforeDisplay = await read(page);
+  await panel.locator('summary').focus(); await page.keyboard.press('Enter');
+  await expect(panel.locator('ul')).toBeHidden();
+  await page.keyboard.press('Enter'); await expect(panel.locator('ul')).toBeVisible();
+  await panel.getByRole('button', { name: '直線型', exact: true }).focus(); await page.keyboard.press('Enter');
+  await expect(panel.locator('li strong').first()).toHaveText(state.settings.materials[0].name);
+  expect(await read(page)).toEqual(beforeDisplay);
   await expect(row.locator('.progress-value')).toHaveText('あと15問');
   await expect(page.locator('.daily-record-row').filter({ hasText: '別問題集' })).toContainText('あと9ページ');
   for (const [count, expected] of [[6, 'あと9問'], [4, 'あと5問'], [5, '✅完了']] as const) {
@@ -843,19 +851,42 @@ test('今日の簡潔な記録通知と残り・完了を保ち、グラフを�
     await expect(row.getByRole('textbox', { name: /今回解いた問題数/ })).toHaveValue('');
   }
   await expect(row.getByRole('checkbox')).toHaveCount(0);
+  await expect(input).toBeFocused();
+  await expect(row).toHaveClass(/is-complete/);
+  await expect(row.locator('details')).toHaveAttribute('open', '');
   await page.reload(); await expect(row.locator('.progress-value')).toHaveText('✅完了');
-  await expect(page.locator('.page-transition')).toHaveCSS('opacity', '1');
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-  expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
-  await page.screenshot({ path: info.outputPath('today-simple-record.png'), fullPage: true });
+  await expect(input).toBeHidden();
+  await expect(row.locator('summary')).toHaveText('追加で解いた問題数を記録');
+  await row.locator('summary').focus(); await page.keyboard.press('Enter'); await expect(input).toBeVisible();
+  expect(await row.locator('summary').evaluate(e => getComputedStyle(e).outlineStyle)).not.toBe('none');
+  const otherRow = page.locator('.daily-record-row').filter({ hasText: '別問題集' });
+  await expect(otherRow).not.toHaveClass(/is-complete/);
+  expect(await row.evaluate(e => getComputedStyle(e).backgroundColor)).not.toBe(await otherRow.evaluate(e => getComputedStyle(e).backgroundColor));
+  for (const appearance of ['light', 'dark']) {
+    await page.evaluate(mode => document.documentElement.dataset.appearance = mode, appearance);
+    await page.clock.runFor(250);
+    for (const shape of ['円型', '直線型']) {
+      const control = panel.getByRole('button', { name: shape, exact: true });
+      await control.click();
+      await control.evaluate(e => Promise.all(e.getAnimations().map(a => a.finished)));
+      await expect(panel.locator('li').first()).toContainText('15/15問 · ✅完了');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
+      await page.screenshot({ path: info.outputPath('today-complete-' + appearance + '-' + shape + '.png'), fullPage: true });
+    }
+  }
+  await page.evaluate(() => document.documentElement.dataset.appearance = 'light');
   await nav(page, '今後の予定');
   const day = page.locator('.future-day').filter({ has: page.locator(`time[datetime="${contractDay}"]`) });
   await expect(day.locator('li').filter({ hasText: state.settings.materials[0].name })).toContainText('✅完了');
   await nav(page, '今日');
+  await row.locator('summary').click();
+  expect(await row.locator('summary').evaluate(e => getComputedStyle(e).outlineStyle)).toBe('none');
   await input.fill('1'); await input.press('Enter');
   await expect(row.locator('.progress-value')).toHaveText('✅追加1問');
   await expect(page.locator('.daily-record-saved > p').first()).toHaveText('1問を記録しました。');
   await page.reload(); await expect(row.locator('.progress-value')).toHaveText('✅追加1問');
+  await expect(input).toBeHidden();
   await nav(page, '今後の予定');
   await expect(day.locator('li').filter({ hasText: state.settings.materials[0].name })).toContainText('✅追加1問');
   await nav(page, '記録履歴');
@@ -865,10 +896,12 @@ test('今日の簡潔な記録通知と残り・完了を保ち、グラフを�
   await last.getByRole('button', { name: '訂正', exact: true }).click();
   await page.getByRole('textbox', { name: '訂正後の問題数' }).fill('3'); await nav(page, '訂正を保存');
   await nav(page, '今日'); await expect(row.locator('.progress-value')).toHaveText('あと2問');
+  await expect(row).not.toHaveClass(/is-complete/); await expect(input).toBeVisible();
   await nav(page, '記録履歴');
   const corrected = page.getByRole('row').filter({ hasText: state.settings.materials[0].name }).filter({ hasText: '＋3問' });
   await corrected.getByRole('button', { name: '取消', exact: true }).click(); await nav(page, '取消を確定');
   await nav(page, '今日'); await expect(row.locator('.progress-value')).toHaveText('あと5問');
+  await expect(input).toBeVisible();
   await nav(page, '今後の予定');
   await expect(day.locator('li').filter({ hasText: state.settings.materials[0].name })).toContainText('あと5問');
 });

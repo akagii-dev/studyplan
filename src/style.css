@@ -2859,7 +2859,7 @@ textarea {
   .lan-sharing-selection { display: block; }
   .daily-record-row { grid-template-columns: minmax(0, 1fr) auto; }
   .daily-record-amounts { grid-column: 1; }
-  .daily-record-form { grid-column: 2; grid-row: 1 / 3; }
+  .daily-record-input { grid-column: 2; grid-row: 1 / 3; }
 }
 @container (max-width: 430px) {
   .daily-record-row { display: block; }
@@ -3011,3 +3011,11 @@ textarea {
 
 .today-study-circle-center strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; width: 80%; justify-self: center; }
 .today-study-full-name { display: block; padding: 8px 16px; text-align: center; }
+
+/* Completion is scoped to its material/round, using the existing theme surfaces. */
+.daily-record-row.is-complete { background: color-mix(in srgb, var(--soft) 55%, var(--surface)); border-radius: 8px; padding-inline: 8px; }
+.daily-record-row.is-complete .daily-record-amounts .progress-value > strong { display: inline-block; font-size: .875rem; padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--ink); overflow-wrap: anywhere; }
+.daily-record-input { min-width: 0; }
+.daily-record-input > summary { min-height: 44px; align-content: center; font-size: .875rem; color: var(--ink); overflow-wrap: anywhere; }
+.daily-record-input > summary[hidden] { display: none; }
+.daily-record-input > summary:focus:not(:focus-visible) { outline: none; }

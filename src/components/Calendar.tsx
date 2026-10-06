@@ -84,9 +84,9 @@ export function Calendar({
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const settingsPanelRef = useRef<HTMLDivElement>(null);
   const settingsId = useId();
-  const closeSettings = () => {
+  const closeSettings = (restoreFocus = false) => {
     setSettingsOpen(false);
-    settingsButtonRef.current?.focus({ preventScroll: true });
+    if (restoreFocus) settingsButtonRef.current?.focus({ preventScroll: true });
   };
   useLayoutEffect(() => {
     if (!settingsOpen) return;
@@ -101,15 +101,21 @@ export function Calendar({
       });
     };
     place();
-    settingsPanelRef.current?.querySelector<HTMLSelectElement>('select')?.focus({ preventScroll: true });
     const outside = (event: MouseEvent) => {
       if (!settingsPanelRef.current?.contains(event.target as Node) &&
           !settingsButtonRef.current?.contains(event.target as Node)) closeSettings();
     };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented) {
+        event.preventDefault(); closeSettings(true);
+      }
+    };
+    document.addEventListener('keydown', escape);
     window.addEventListener('resize', place);
     window.addEventListener('scroll', place, true);
     document.addEventListener('click', outside);
     return () => {
+      document.removeEventListener('keydown', escape);
       window.removeEventListener('resize', place);
       window.removeEventListener('scroll', place, true);
       document.removeEventListener('click', outside);
@@ -372,7 +378,13 @@ export function Calendar({
             <button ref={settingsButtonRef} className="calendar-settings-toggle"
               aria-label="カレンダーの表示設定" aria-haspopup="dialog"
               aria-expanded={settingsOpen} aria-controls={settingsId}
-              onClick={() => setSettingsOpen(open => !open)}>
+              onClick={() => setSettingsOpen(open => !open)}
+              onKeyDown={event => {
+                if (settingsOpen && event.key === 'Tab' && !event.shiftKey) {
+                  event.preventDefault();
+                  settingsPanelRef.current?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+                }
+              }}>
               <Settings size={20} aria-hidden />
             </button>
           </div>
@@ -383,9 +395,6 @@ export function Calendar({
         <div ref={settingsPanelRef} id={settingsId} role="dialog" aria-labelledby={settingsId + '-title'}
           className="card compact calendar-display-settings" style={settingsPosition}
           onKeyDown={event => {
-            if (event.key === 'Escape') {
-              event.preventDefault(); event.stopPropagation(); closeSettings();
-            }
             if (event.key === 'Tab') {
               const controls = settingsPanelRef.current?.querySelectorAll<HTMLButtonElement | HTMLSelectElement>('button, select');
               if (!controls?.length) return;
@@ -398,7 +407,7 @@ export function Calendar({
             }
           }}>
           <div className="day-panel-heading">
-            <button className="day-panel-close" aria-label="表示設定を閉じる" onClick={closeSettings}>閉じる</button>
+            <button className="day-panel-close" aria-label="表示設定を閉じる" onClick={event => closeSettings(event.detail === 0)}>閉じる</button>
             <h3 id={settingsId + '-title'}>表示設定</h3>
           </div>
           <div className="calendar-settings-fields">

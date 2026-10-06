@@ -1,5 +1,5 @@
 import { Leaf } from 'lucide-react';
-import { ReactNode, useLayoutEffect, useRef } from 'react';
+import { ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import { version } from '../../package.json';
 import { Props } from '../components/common';
 import { today, weekday } from '../domain/model';
@@ -44,6 +44,8 @@ export function AppShell({
   children: ReactNode;
 }) {
   const pageHeading = useRef<HTMLHeadingElement>(null);
+  const keyboardInput = useRef(false);
+  const [keyboardNavigation, setKeyboardNavigation] = useState(false);
   const navigationPage = page === 'calendar' ? 'future' : page;
   const active = { name: pageNames[page] };
   useLayoutEffect(() => {
@@ -65,7 +67,8 @@ export function AppShell({
     return () => media.removeEventListener('change', apply);
   }, [state?.theme, state?.appearance]);
   useLayoutEffect(() => {
-    // Only navigation/loading moves focus; background saves must not interrupt typing.
+    // Pointer navigation keeps focus in place; keyboard navigation restores its destination.
+    const focusNavigation = keyboardInput.current;
     const frame = requestAnimationFrame(() => {
       const retained = restorePosition?.focus;
       const target = retained?.isConnected && retained.getClientRects().length
@@ -76,10 +79,10 @@ export function AppShell({
           : null;
       if (restorePosition && target) {
         window.scrollTo({ top: restorePosition.top, left: 0, behavior: 'instant' });
-        target.focus({ preventScroll: true });
+        if (focusNavigation) target.focus({ preventScroll: true });
       } else {
         window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-        pageHeading.current?.focus({ preventScroll: true });
+        if (focusNavigation) pageHeading.current?.focus({ preventScroll: true });
       }
     });
     return () => cancelAnimationFrame(frame);
@@ -88,6 +91,9 @@ export function AppShell({
   return (
     <div
       className={`app-shell ${state.sidebarCollapsed ? 'sidebar-collapsed' : ''}`}
+      data-input-mode={keyboardNavigation ? 'keyboard' : 'pointer'}
+      onPointerDownCapture={() => { keyboardInput.current = false; setKeyboardNavigation(false); }}
+      onKeyDownCapture={() => { keyboardInput.current = true; setKeyboardNavigation(true); }}
       inert={blocked || undefined}
     >
       <button

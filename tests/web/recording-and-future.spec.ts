@@ -605,6 +605,9 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
   await page.screenshot({ path: info.outputPath('calendar-text-spacing-detail.png'), fullPage: true });
   await detailPanel.getByRole('button', { name: '詳細を閉じる' }).press('Escape');
   await nav(page, '週間予定');
+  await expect(calendar).not.toBeFocused();
+  await calendar.press('Enter');
+  await page.getByRole('button', { name: '週間予定', exact: true }).press('Enter');
   await expect(calendar).toBeFocused();
   await view.locator('.future-balance > summary').click();
   await expect(view.getByRole('checkbox').first()).toBeVisible();
@@ -686,7 +689,17 @@ test('表示設定は歯車のそばで3選択を縦に並べ、旧詳細密度�
   const state = progressContractFixture();
   state.calendarDensity = { month: 'detailed', week: 'detailed', list: 'detailed' };
   state.settings.exams.push({ ...state.settings.exams[0], id: 'other', name: '別の試験' });
+  await page.addInitScript(() => {
+    const calls: string[] = [];
+    Object.assign(window, { calendarSelectFocus: calls });
+    const focus = HTMLElement.prototype.focus;
+    HTMLElement.prototype.focus = function(options?: FocusOptions) {
+      if (this.matches('.calendar-display-settings select')) calls.push(this.getAttribute('id') ?? 'select');
+      focus.call(this, options);
+    };
+  });
   await seed(page, state);
+  await expect(page.getByRole('heading', { name: '今日', level: 1, exact: true })).not.toBeFocused();
   const before = await read(page);
   await nav(page, '今後の予定'); await nav(page, 'カレンダー表示');
   await expect(page.locator('.page-transition')).toHaveCSS('opacity', '1');
@@ -703,9 +716,29 @@ test('表示設定は歯車のそばで3選択を縦に並べ、旧詳細密度�
   const selectedDate = await page.locator('.date-number[aria-pressed="true"]').getAttribute('aria-label');
   const scroll = await page.evaluate(() => scrollY);
   const gridTop = await grid.evaluate(e => e.getBoundingClientRect().top + scrollY);
+  for (let opening = 0; opening < 2; opening++) {
+    await gear.click();
+    await expect(popup).toBeVisible();
+    expect(await popup.getByRole('combobox').evaluateAll(elements => elements.some(e => e === document.activeElement))).toBe(false);
+    expect(await page.evaluate(() => (window as unknown as { calendarSelectFocus: string[] }).calendarSelectFocus)).toEqual([]);
+    expect(await gear.evaluate(e => getComputedStyle(e).outlineStyle)).toBe('none');
+    const pointerBox = (await popup.boundingBox())!;
+    expect(pointerBox.x).toBeGreaterThanOrEqual(12);
+    expect(pointerBox.y).toBeGreaterThanOrEqual(12);
+    expect(Math.min(Math.abs(pointerBox.y - gearBox.y - gearBox.height), Math.abs(pointerBox.y + pointerBox.height - gearBox.y))).toBeLessThanOrEqual(9);
+    if (opening === 0) await page.screenshot({ path: info.outputPath('calendar-settings-pointer.png'), fullPage: true });
+    await popup.getByRole('button', { name: '表示設定を閉じる' }).click();
+    await expect(popup).toHaveCount(0); await expect(gear).not.toBeFocused();
+  }
   await gear.focus(); await page.keyboard.press('Enter');
   await expect(gear).toHaveAttribute('aria-expanded', 'true');
+  await expect(gear).toBeFocused();
+  expect(await page.evaluate(() => (window as unknown as { calendarSelectFocus: string[] }).calendarSelectFocus)).toEqual([]);
+  await page.keyboard.press('Tab');
+  await expect(popup.getByRole('button', { name: '表示設定を閉じる' })).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(popup.getByLabel('対象の試験', { exact: true })).toBeFocused();
+  expect(await popup.getByLabel('対象の試験', { exact: true }).evaluate(e => getComputedStyle(e).outlineStyle)).not.toBe('none');
   const fields = popup.getByRole('combobox');
   await expect(fields).toHaveCount(3);
   expect(await popup.locator('label').allTextContents()).toEqual(['対象の試験', '表示期間', '表示密度']);
@@ -749,7 +782,7 @@ test('表示設定は歯車のそばで3選択を縦に並べ、旧詳細密度�
   await page.keyboard.press('Escape'); await expect(gear).toBeFocused();
   await gear.press('Enter');
   await page.locator('.calendar-period h2').click();
-  await expect(popup).toHaveCount(0); await expect(gear).toBeFocused();
+  await expect(popup).toHaveCount(0); await expect(gear).not.toBeFocused();
   await expect(gear).toHaveAttribute('aria-expanded', 'false');
   await page.getByRole('button', { name: addDays(contractDay, 1) + 'を表示', exact: true }).press('Enter');
   const detail = page.getByRole('complementary', { name: '選択した日の学習詳細' });
@@ -771,4 +804,13 @@ test('表示設定は歯車のそばで3選択を縦に並べ、旧詳細密度�
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await page.screenshot({ path: info.outputPath('calendar-display-settings-enlarged.png'), fullPage: true });
   await page.keyboard.press('Escape'); await expect(gear).toBeFocused();
+  await page.locator('nav').getByRole('button', { name: '今日', exact: true }).click();
+  const todayHeading = page.getByRole('heading', { name: '今日', level: 1, exact: true });
+  await expect(todayHeading).toBeVisible(); await expect(todayHeading).not.toBeFocused();
+  expect(await todayHeading.evaluate(e => getComputedStyle(e).outlineStyle)).toBe('none');
+  await expect(page.locator('.page-transition')).toHaveCSS('opacity', '1');
+  await page.screenshot({ path: info.outputPath('today-pointer-navigation.png'), fullPage: true });
+  const futureNav = page.locator('nav').getByRole('button', { name: '今後の予定', exact: true });
+  await futureNav.focus(); await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: '今後の予定', level: 1, exact: true })).toBeFocused();
 });

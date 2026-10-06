@@ -3000,3 +3000,8 @@ textarea {
 .calendar-settings-fields .field { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: 1rem; }
 .calendar-settings-fields .field > label { flex: 0 1 5.5em; }
 .calendar-settings-fields select { flex: 1 1 9em; min-height: 44px; font-size: max(1rem, 16px); padding: 8px 10px; }
+
+/* Keep pointer focus quiet in the calendar and page heading; keyboard marks remain. */
+.app-shell[data-input-mode='pointer'] h1:focus-visible,
+.app-shell[data-input-mode='pointer'] .calendar-period button:focus-visible,
+.app-shell[data-input-mode='pointer'] .calendar-display-settings :focus-visible { outline: none; }

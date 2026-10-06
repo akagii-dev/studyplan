@@ -4851,7 +4851,7 @@ test('実機：独立したチュートリアルと各画面への移動で、�
   await nav('今日のスケジュール');
   await page.screenshot({ path: 'test-results/navigation-arrival.png' });
   await expect(page.getByRole('heading', { name: '今日の詳細', level: 1 })).toBeInViewport();
-  await expect(page.getByRole('heading', { name: '今日の詳細', level: 1 })).toBeFocused();
+  await expect(page.getByRole('heading', { name: '今日の詳細', level: 1 })).not.toBeFocused();
   await page.locator('.sidebar nav').getByRole('button', { name: '設定', exact: true }).focus();
   await page.keyboard.press('Enter');
   await page.getByRole('button', { name: '使い方', exact: true }).focus();
@@ -4898,7 +4898,7 @@ test('実機：独立したチュートリアルと各画面への移動で、�
     await expect(
       page.getByRole('heading', { name: heading, exact: true, level: 1 }),
     ).toBeInViewport();
-    await expect(page.getByRole('heading', { name: heading, exact: true, level: 1 })).toBeFocused();
+    await expect(page.getByRole('heading', { name: heading, exact: true, level: 1 })).not.toBeFocused();
   }
   expect(await storedState()).toEqual(before);
   await nav('対話式の初期設定');

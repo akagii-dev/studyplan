@@ -186,6 +186,11 @@ async function closeWindowNormally() {
   browser = undefined!;
   child = undefined!;
 }
+async function calendarSetting(label: string, value: string | { label: string }) {
+  await page.getByRole('button', { name: 'カレンダーの表示設定', exact: true }).click();
+  await page.getByRole('dialog', { name: '表示設定', exact: true }).getByLabel(label, { exact: true }).selectOption(value);
+  await page.keyboard.press('Escape');
+}
 async function nav(name: string) {
   const aliases: Record<string, string> = {
     今日の詳細: '今日のスケジュール',
@@ -1974,51 +1979,31 @@ test('実機：ホームの導線・表示別のカレンダー密度・再起�
   // Future may open next month's week; this fixture exercises today's sessions.
   await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
   await page.locator('.day.today .date-number').click();
-  let density = page.getByRole('group', { name: 'カレンダーの表示密度' });
-  let views = page.getByRole('group', { name: 'カレンダー内の期間表示' });
-  for (const [view, initial] of [
-    ['月', 'コンパクト'],
-    ['週', '標準'],
-  ]) {
-    await views.getByRole('button', { name: view, exact: true }).click();
-    await expect(density.getByRole('button', { name: initial, exact: true })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    for (const level of ['コンパクト', '標準', '詳細']) {
-      await density.getByRole('button', { name: level, exact: true }).click();
-      await saved();
-      const events = page.locator(
-        '.calendar-grid .calendar-event',
-      );
+  for (const [view, initial] of [['month', 'compact'], ['week', 'standard']]) {
+    await calendarSetting('表示期間', view);
+    await page.getByRole('button', { name: 'カレンダーの表示設定' }).click();
+    const popup = page.getByRole('dialog', { name: '表示設定', exact: true });
+    const density = popup.getByLabel('表示密度', { exact: true });
+    await expect(density).toHaveValue(initial);
+    for (const level of ['compact', 'standard']) {
+      await density.selectOption(level); await saved();
+      const events = page.locator('.calendar-grid .calendar-event');
       await expect(events).toHaveCount(2);
       const first = events.first();
-      if (level !== 'コンパクト') await expect(first).toContainText('分野別の長い教材名');
-      await expect(first).toContainText('0/10問');
-      await expect(first).toContainText('行政書士');
+      if (level !== 'compact') await expect(first).toContainText('分野別の長い教材名');
+      await expect(first).toContainText('0/10問'); await expect(first).toContainText('行政書士');
       await expect(first).not.toContainText('1周目');
-      expect(await first.evaluate((e) => getComputedStyle(e).borderLeftColor)).toBe(
-        'rgb(40, 117, 105)',
-      );
-      await page.getByLabel('表示する試験').selectOption('e2');
-      await expect(events).toHaveCount(1);
-      await expect(events).toContainText('予備試験');
-      await expect(
-        page.locator(
-          '.calendar-grid .calendar-busy',
-        ),
-      ).toHaveCount(1);
-      await page.getByLabel('表示する試験').selectOption('all');
+      expect(await first.evaluate(e => getComputedStyle(e).borderLeftColor)).toBe('rgb(40, 117, 105)');
+      await popup.getByLabel('対象の試験', { exact: true }).selectOption('e2');
+      await expect(events).toHaveCount(1); await expect(events).toContainText('予備試験');
+      await expect(page.locator('.calendar-grid .calendar-busy')).toHaveCount(1);
+      await popup.getByLabel('対象の試験', { exact: true }).selectOption('all');
       await page.setViewportSize({ width: 480, height: 800 });
-      expect(
-        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
-      ).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     }
+    await density.selectOption(initial); await saved(); await page.keyboard.press('Escape');
   }
-  await density.getByRole('button', { name: '標準', exact: true }).click();
-  await views.getByRole('button', { name: '月', exact: true }).click();
-  await density.getByRole('button', { name: 'コンパクト', exact: true }).click();
-  await saved();
+  await calendarSetting('表示期間', 'month');
   for (const mode of ['light', 'dark']) {
     await displaySettings(mode);
     await saved();
@@ -2037,18 +2022,11 @@ test('実機：ホームの導線・表示別のカレンダー密度・再起�
   await close();
   await launch();
   await nav('学習カレンダー');
-  density = page.getByRole('group', { name: 'カレンダーの表示密度' });
-  views = page.getByRole('group', { name: 'カレンダー内の期間表示' });
-  for (const [view, selected] of [
-    ['月', 'コンパクト'],
-    ['週', '詳細'],
-    ['一覧', '標準'],
-  ]) {
-    await views.getByRole('button', { name: view, exact: true }).click();
-    await expect(density.getByRole('button', { name: selected, exact: true })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+  for (const [view, selected] of [['month', 'compact'], ['week', 'standard']]) {
+    await calendarSetting('表示期間', view);
+    await page.getByRole('button', { name: 'カレンダーの表示設定' }).click();
+    await expect(page.getByLabel('表示密度', { exact: true })).toHaveValue(selected);
+    await page.keyboard.press('Escape');
   }
 });
 test('実機：3テーマの読みやすさ・入力ラベル・小さい画面での操作', async () => {
@@ -3739,8 +3717,8 @@ test('実機：重複の表示 → 既存設定を対話で修正 → 破棄・�
   await page.getByRole('button', { name: `${date}を表示` }).click();
   await expect(page.locator('.calendar-event.has-conflict')).toHaveCount(0);
   await expect(page.locator('.day-panel .busy-event')).toHaveCount(3);
-  for (const view of ['月', '週', '一覧']) {
-    await page.getByRole('button', { name: view, exact: true }).click();
+  for (const view of ['month', 'week']) {
+    await calendarSetting('表示期間', view);
     await expect(
       page.locator('.calendar-busy, .busy-event').filter({ hasText: /朝食|昼食|夕食|移動・準備/ }),
     ).toHaveCount(0);
@@ -3748,7 +3726,7 @@ test('実機：重複の表示 → 既存設定を対話で修正 → 破棄・�
     expect(events.length).toBeGreaterThan(0);
     expect(events.every((text) => text.includes('授業'))).toBe(true);
   }
-  await page.getByRole('button', { name: '月', exact: true }).click();
+  await calendarSetting('表示期間', 'month');
   await page.screenshot({ path: 'test-results/calendar-resolved.png', fullPage: true });
   await close();
   browser = undefined!;
@@ -3956,12 +3934,12 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
       }
     ).__TAURI_INTERNALS__.invoke('load_state');
   });
-  await page.getByRole('button', { name: '週', exact: true }).click();
+  await calendarSetting('表示期間', 'week');
   await expect(page.locator('.calendar-grid.week')).toBeVisible();
   await expect(page.getByRole('button', { name: '一覧', exact: true })).toHaveCount(0);
   await page.locator('.day.today .date-number').click();
   await expect(page.locator('.day-panel .session-detail').first()).toBeVisible();
-  await page.getByRole('button', { name: '月', exact: true }).click();
+  await calendarSetting('表示期間', 'month');
   const afterView = await page.evaluate(async () => {
     return await (
       window as unknown as {
@@ -3973,11 +3951,11 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   });
   expect(afterView.data.plan.id).toBe(beforeView.data.plan.id);
   await expect(page.locator('.calendar-event').first()).toBeVisible();
-  await page.getByLabel('表示する試験').selectOption({ label: '基本情報技術者' });
+  await calendarSetting('対象の試験', { label: '基本情報技術者' });
   await expect(page.locator('.calendar-event').filter({ hasText: '簿記トレーニング' })).toHaveCount(
     0,
   );
-  await page.getByLabel('表示する試験').selectOption({ label: 'すべての試験' });
+  await calendarSetting('対象の試験', { label: 'すべての試験' });
   // Late in the day, the first available session may be tomorrow rather than the selected today.
   await page.locator('.calendar-event').first().click();
   await expect(page.getByRole('button', { name: '固定する', exact: true })).toHaveCount(0);
@@ -4414,7 +4392,7 @@ test('実機：選択日と週内訳・月移動・授業だけの日・予定�
   const selected = `${month}-27`;
   await page.getByRole('button', { name: `${selected}を表示`, exact: true }).click();
   await expect(page.getByRole('complementary', { name: '選択した日の学習詳細' })).toBeVisible();
-  await page.getByRole('button', { name: '週', exact: true }).click();
+  await calendarSetting('表示期間', 'week');
   await expect(
     page.getByRole('button', { name: `${selected}を表示`, exact: true }),
   ).toHaveAttribute('aria-pressed', 'true');
@@ -4424,7 +4402,7 @@ test('実機：選択日と週内訳・月移動・授業だけの日・予定�
     page.getByRole('button', { name: `${nextSelected}を表示`, exact: true }),
   ).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('complementary', { name: '選択した日の学習詳細' })).toBeVisible();
-  await page.getByRole('button', { name: '月', exact: true }).click();
+  await calendarSetting('表示期間', 'month');
   await page.getByRole('button', { name: `${nextSelected}を表示`, exact: true }).click();
   await expect(page.locator('.busy-event').first()).toContainText('経済学');
   await expect(
@@ -4438,7 +4416,7 @@ test('実機：選択日と週内訳・月移動・授業だけの日・予定�
   await expect(page.getByText('教材a · 1周目：＋0問', { exact: true })).toBeVisible();
   await expect(page.getByText('教材b · 1周目：＋7問', { exact: true })).toBeVisible();
   await expect(page.getByText('教材a · 1周目：＋3問', { exact: true })).toHaveCount(0);
-  await page.getByLabel('表示する試験').selectOption('a');
+  await calendarSetting('対象の試験', 'a');
   await expect(page.getByText('教材b · 1周目：＋7問', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: `${date}を表示`, exact: true }).click();
   await expect(

@@ -1,7 +1,7 @@
 import { calendarDisplayQuantity } from '../domain/calendarQuantity';
 import { progressView } from '../domain/progressView';
 import { ProgressValue } from './ProgressValue';
-import { AppState, CalendarDensity, clock, today } from '../domain/model';
+import { AppState, CalendarDensity, today } from '../domain/model';
 import { calendarDaySummary } from '../domain/calendarSummary';
 import { duration } from './common';
 
@@ -15,7 +15,7 @@ export function CalendarDaySummary({
   state: AppState;
   date: string;
   filter: string;
-  density: CalendarDensity;
+  density: Exclude<CalendarDensity, 'detailed'>;
   onSelect: () => void;
 }) {
   const day = calendarDaySummary(state, date, filter);
@@ -34,11 +34,6 @@ export function CalendarDaySummary({
           </small>
           {density !== 'compact' && (
             <small>{day.classes.map((x) => x.name.trim() || '大学の授業').join('・')}</small>
-          )}
-          {density === 'detailed' && (
-            <small>
-              {day.classes.map((x) => `${clock(x.start)}–${clock(x.end)}`).join(' ／ ')} · 学習不可
-            </small>
           )}
         </button>
       )}

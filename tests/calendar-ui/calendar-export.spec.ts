@@ -22,10 +22,12 @@ test('旧一覧設定を月へ戻し、月・週の下部からキーボード�
   await page.goto('/tests/calendar-ui/calendar.html');
   await expect(page.locator('.calendar-grid.month')).toBeVisible();
   await expect(page.getByRole('button', { name: '一覧', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'コンパクト', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.calendar-grid')).toHaveClass(/density-compact/);
   const before = await page.evaluate(() => (window as unknown as { calendarFixture: { state: AppState } }).calendarFixture.state);
   for (const [label, from, to] of [['月', '2026-09-01', '2026-09-30'], ['週', '2026-09-21', '2026-09-27']]) {
-    await page.getByRole('button', { name: label, exact: true }).press('Enter');
+    await page.getByRole('button', { name: 'カレンダーの表示設定' }).press('Enter');
+    await page.getByLabel('表示期間', { exact: true }).selectOption(label === '月' ? 'month' : 'week');
+    await page.keyboard.press('Escape');
     const entry = page.getByRole('button', { name: 'ICSを書き出す', exact: true });
     await expect(entry).toHaveCount(1);
     expect(await entry.evaluate(e => !!(document.querySelector('.calendar-only-layout')!.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);

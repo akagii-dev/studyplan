@@ -1066,34 +1066,17 @@ main {
   white-space: nowrap;
   font-size: 19px;
 }
-.calendar-density {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  margin-bottom: 17px;
-  font-size: 12px;
-}
-.calendar-density button {
-  padding: 7px 10px;
-  font-size: 12px;
-}
 .calendar-grid .calendar-event small,
 .calendar-grid .calendar-busy {
   overflow-wrap: anywhere;
 }
-.calendar-grid.density-standard .calendar-event span,
-.calendar-grid.density-detailed .calendar-event span {
+.calendar-grid.density-standard .calendar-event span {
   white-space: normal;
   overflow-wrap: anywhere;
 }
-.calendar-grid.density-standard .calendar-event,
-.calendar-grid.density-detailed .calendar-event {
+.calendar-grid.density-standard .calendar-event {
   padding-top: 6px;
   padding-bottom: 6px;
-}
-.calendar-grid.density-detailed .calendar-event small + small {
-  margin-top: 3px;
 }
 .segmented {
   display: flex;
@@ -3000,11 +2983,8 @@ textarea {
 .calendar-period .future-today { font-size: .875rem; font-weight: 500; }
 .calendar-period button:hover:not(:disabled) { background: var(--soft); }
 .calendar-period button:active:not(:disabled) { background: var(--accent); color: var(--surface); }
-.calendar-options { max-width: 900px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-bottom: 8px; }
-.calendar-options .calendar-density { margin: 0; }
-.calendar-options select { min-height: 44px; max-width: 12rem; }
-.calendar-options button { min-height: 44px; }
-.calendar-only-layout > .day-panel { position: fixed; inset: auto 16px 80px auto; z-index: 12; width: min(26rem, calc(100vw - 32px)); max-height: min(60dvh, calc(100dvh - 160px)); overflow: auto; margin: 0; box-shadow: 0 6px 24px #0003; }
+.calendar-only-layout > .day-panel, .card.calendar-display-settings { position: fixed; overflow: auto; margin: 0; box-shadow: 0 6px 24px #0003; }
+.calendar-only-layout > .day-panel { inset: auto 16px 80px auto; z-index: 12; width: min(26rem, calc(100vw - 32px)); max-height: min(60dvh, calc(100dvh - 160px)); }
 @media (max-width: 600px) { .schedule-view-switch { margin-inline-start: 0; } }
 
 .future-week .future-today, .calendar-period .future-today { padding: 10px 14px; min-width: 44px; min-height: 44px; font-size: .875rem; font-weight: 500; }
@@ -3012,3 +2992,11 @@ textarea {
 .day-panel-heading { display: flex; flex-direction: row-reverse; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .day-panel-heading h3 { margin: 0; min-width: 0; font-size: 1.125rem; }
 .day-panel-heading .day-panel-close { float: none; margin: 0; max-width: 100%; min-height: 44px; }
+
+/* Reuse the compact card, day-panel heading/close and Field/select controls. */
+.calendar-today-actions { display: flex; align-items: center; gap: 4px; }
+.card.calendar-display-settings { z-index: 13; width: min(23rem, calc(100vw - 24px)); max-height: calc(100dvh - 24px); }
+.calendar-settings-fields { display: grid; gap: 8px; }
+.calendar-settings-fields .field { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: 1rem; }
+.calendar-settings-fields .field > label { flex: 0 1 5.5em; }
+.calendar-settings-fields select { flex: 1 1 9em; min-height: 44px; font-size: max(1rem, 16px); padding: 8px 10px; }

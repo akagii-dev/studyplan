@@ -13,6 +13,12 @@ async function seed(page: Page, state = progressContractFixture(), expectedRows 
   await page.goto('./');
   await expect(page.locator('.daily-record-row')).toHaveCount(expectedRows);
 }
+
+async function calendarSetting(page: Page, label: string, value: string) {
+  await page.getByRole('button', { name: 'カレンダーの表示設定', exact: true }).click();
+  await page.getByRole('dialog', { name: '表示設定', exact: true }).getByLabel(label, { exact: true }).selectOption(value);
+  await page.keyboard.press('Escape');
+}
 const read = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('studyplan-demo-state-v1')!).data as AppState);
 const nav = (page: Page, name: string) => page.getByRole('button', { name, exact: true }).click();
 const headerPositions = (page: Page) => page.locator('.future-week, .future-day').evaluateAll((elements) =>
@@ -66,24 +72,20 @@ test('今日を含む週・同日の詳細往復・主画面再入場・日跨�
   await nav(page, 'カレンダー表示');
   await expect(page.locator('nav').getByRole('button', { name: '今後の予定', exact: true })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('button', { name: '一覧', exact: true })).toHaveCount(0);
-  const options = page.locator('.calendar-options');
-  expect(await options.locator(':scope > *').evaluateAll(elements => elements.map(element => element.getAttribute('aria-label')))).toEqual([
-    '表示する試験', 'カレンダー内の期間表示', 'カレンダーの表示密度',
-  ]);
-  await expect(options.getByText('表示密度', { exact: true })).toHaveCount(0);
+  await expect(page.locator('.calendar-toolbar').getByRole('combobox')).toHaveCount(0);
+  await expect(page.locator('.calendar-options')).toHaveCount(0);
   const toolbar = page.locator('.calendar-toolbar');
-  const period = page.getByRole('group', { name: 'カレンダー内の期間表示' });
   for (const label of ['月', '週']) {
-    await period.getByRole('button', { name: label, exact: true }).click();
+    await calendarSetting(page, '表示期間', label === '月' ? 'month' : 'week');
     await toolbar.getByRole('button', { name: '次の期間' }).click();
     const todayButton = toolbar.getByRole('button', { name: '今日', exact: true });
     await todayButton.press('Enter');
     await expect(todayButton).toBeFocused();
-    await expect(period.getByRole('button', { name: label, exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.calendar-grid')).toHaveClass(new RegExp(label === '月' ? 'month' : 'week'));
     await expect(toolbar.locator('h2')).toHaveText('2026年 9月');
     await expect(page.getByRole('complementary', { name: '選択した日の学習詳細' })).toBeHidden();
   }
-  await period.getByRole('button', { name: '月', exact: true }).click();
+  await calendarSetting(page, '表示期間', 'month');
   const grid = page.locator('.calendar-grid');
   const gridTop = await grid.evaluate(e => e.getBoundingClientRect().top + scrollY);
   const day = page.getByRole('button', { name: contractDay + 'を表示', exact: true });
@@ -587,16 +589,13 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
   await expect(calendar).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await calendar.focus(); await page.keyboard.press('Enter');
-  const appearanceOf = (element: HTMLElement) => {
-    const style = getComputedStyle(element);
-    return [style.fontSize, style.padding, style.color, style.backgroundColor, style.borderRadius];
-  };
-  expect(await page.getByRole('button', { name: 'カレンダー表示', exact: true }).evaluate(appearanceOf)).toEqual(
-    await page.getByRole('group', { name: 'カレンダー内の期間表示' }).getByRole('button', { name: '月', exact: true }).evaluate(appearanceOf));
-  await page.addStyleTag({ content: '.calendar-toolbar *, .calendar-options *, .day-panel * { letter-spacing: .12em; word-spacing: .16em; line-height: 1.5; }' });
+  const gear = page.getByRole('button', { name: 'カレンダーの表示設定', exact: true });
+  await expect(gear).toHaveAttribute('aria-expanded', 'false');
+  expect((await gear.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await page.addStyleTag({ content: '.calendar-toolbar *, .calendar-display-settings *, .day-panel * { letter-spacing: .12em; word-spacing: .16em; line-height: 1.5; }' });
   const grid = page.locator('.calendar-grid');
   const beforeDetail = await grid.evaluate(e => e.getBoundingClientRect().top + scrollY);
-  await page.locator('.date-number[aria-pressed="true"]').press('Enter');
+  await page.getByRole('button', { name: addDays(contractDay, 1) + 'を表示', exact: true }).press('Enter');
   const detailPanel = page.getByRole('complementary', { name: '選択した日の学習詳細' });
   await expect(detailPanel).toBeVisible();
   await expect(page.locator('.page-transition')).toHaveCSS('opacity', '1');
@@ -637,7 +636,6 @@ test('カレンダーは週単位の7列/2列と月末の罫線を保ち、拡�
   await expect(todayDate).toBeFocused();
   await page.screenshot({ path: info.outputPath('calendar-restored-controls.png'), fullPage: true });
   await nav(page, '次の期間');
-  const period = page.getByRole('group', { name: 'カレンダー内の期間表示' });
   const cell = (date: string) => page.locator('.day').filter({ has: page.getByRole('button', { name: new RegExp(`^${date}を表示`) }) });
   const review = cell('2026-10-25');
   await expect(review).toContainText('復習 5時間 20分');
@@ -656,15 +654,15 @@ test('カレンダーは週単位の7列/2列と月末の罫線を保ち、拡�
   await expect(panel).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(review.locator('.date-number')).toBeFocused();
-  await period.getByRole('button', { name: '週', exact: true }).click();
+  await calendarSetting(page, '表示期間', 'week');
   await expect(page.locator('.day')).toHaveCount(7);
   expect(await columns()).toBe(expectedColumns);
-  await expect(period.getByRole('button', { name: '一覧', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '一覧', exact: true })).toHaveCount(0);
 
   await nav(page, '週間予定');
   await nav(page, 'カレンダー表示');
-  await expect(period.getByRole('button', { name: '週', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await period.getByRole('button', { name: '月', exact: true }).click();
+  await expect(page.locator('.calendar-grid.week')).toBeVisible();
+  await calendarSetting(page, '表示期間', 'month');
   for (const destination of ['今日', '記録履歴', '設定']) {
     await page.locator('nav').getByRole('button', { name: destination, exact: true }).press('Enter');
     await expect(page.locator('.page-transition:visible')).toHaveCSS('animation-duration', '0.28s');
@@ -682,4 +680,95 @@ test('カレンダーは週単位の7列/2列と月末の罫線を保ち、拡�
   const after = await read(page);
   expect(after.plan).toEqual(before.plan);
   expect(after.records).toEqual(before.records);
+});
+
+test('表示設定は歯車のそばで3選択を縦に並べ、旧詳細密度を安全に表示し保持・開閉を行う', async ({ page }, info) => {
+  const state = progressContractFixture();
+  state.calendarDensity = { month: 'detailed', week: 'detailed', list: 'detailed' };
+  state.settings.exams.push({ ...state.settings.exams[0], id: 'other', name: '別の試験' });
+  await seed(page, state);
+  const before = await read(page);
+  await nav(page, '今後の予定'); await nav(page, 'カレンダー表示');
+  await expect(page.locator('.page-transition')).toHaveCSS('opacity', '1');
+  const gear = page.getByRole('button', { name: 'カレンダーの表示設定', exact: true });
+  const popup = page.getByRole('dialog', { name: '表示設定', exact: true });
+  const grid = page.locator('.calendar-grid');
+  await expect(grid).toHaveClass(/density-standard/);
+  await expect(page.getByRole('combobox')).toHaveCount(0);
+  await expect(gear).toHaveAttribute('aria-haspopup', 'dialog');
+  const todayBox = (await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).boundingBox())!;
+  const gearBox = (await gear.boundingBox())!;
+  expect(gearBox.x).toBeGreaterThanOrEqual(todayBox.x + todayBox.width);
+  expect(gearBox.y).toBe(todayBox.y);
+  const selectedDate = await page.locator('.date-number[aria-pressed="true"]').getAttribute('aria-label');
+  const scroll = await page.evaluate(() => scrollY);
+  const gridTop = await grid.evaluate(e => e.getBoundingClientRect().top + scrollY);
+  await gear.focus(); await page.keyboard.press('Enter');
+  await expect(gear).toHaveAttribute('aria-expanded', 'true');
+  await expect(popup.getByLabel('対象の試験', { exact: true })).toBeFocused();
+  const fields = popup.getByRole('combobox');
+  await expect(fields).toHaveCount(3);
+  expect(await popup.locator('label').allTextContents()).toEqual(['対象の試験', '表示期間', '表示密度']);
+  expect(await popup.getByLabel('表示密度', { exact: true }).locator('option').allTextContents()).toEqual(['コンパクト', '標準']);
+  await expect(popup.getByLabel('表示密度', { exact: true })).toHaveValue('standard');
+  const positions = await fields.evaluateAll(elements => elements.map(e => e.getBoundingClientRect().top));
+  expect(positions[0]).toBeLessThan(positions[1]); expect(positions[1]).toBeLessThan(positions[2]);
+  const box = (await popup.boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(12); expect(box.y).toBeGreaterThanOrEqual(12);
+  expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width - 11);
+  expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize()!.height - 11);
+  expect(box.width).toBeLessThanOrEqual(330); expect(box.height).toBeLessThan(300);
+  expect(Math.min(Math.abs(box.y - gearBox.y - gearBox.height), Math.abs(box.y + box.height - gearBox.y))).toBeLessThanOrEqual(9);
+  await page.keyboard.press('Shift+Tab');
+  await expect(popup.getByRole('button', { name: '表示設定を閉じる' })).toBeFocused();
+  await page.keyboard.press('Shift+Tab'); await expect(popup.getByLabel('表示密度', { exact: true })).toBeFocused();
+  await page.keyboard.press('Tab'); await expect(popup.getByRole('button', { name: '表示設定を閉じる' })).toBeFocused();
+  await popup.getByLabel('表示密度', { exact: true }).selectOption('compact');
+  await expect(grid).toHaveClass(/density-compact/);
+  expect((await new AxeBuilder({ page }).include('.calendar-display-settings').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
+  await page.screenshot({ path: info.outputPath('calendar-display-settings.png'), fullPage: true });
+  await popup.getByLabel('表示密度', { exact: true }).selectOption('standard');
+  await expect(grid).toHaveClass(/density-standard/);
+  await popup.getByLabel('表示密度', { exact: true }).selectOption('compact');
+  await popup.getByRole('button', { name: '表示設定を閉じる' }).press('Enter');
+  await expect(popup).toHaveCount(0); await expect(gear).toBeFocused();
+  expect(await page.evaluate(() => scrollY)).toBe(scroll);
+  expect(await grid.evaluate(e => e.getBoundingClientRect().top + scrollY)).toBe(gridTop);
+  expect(await page.locator('.date-number[aria-pressed="true"]').getAttribute('aria-label')).toBe(selectedDate);
+  await gear.press('Enter');
+  await popup.getByLabel('対象の試験', { exact: true }).selectOption('other');
+  await expect(page.locator('.calendar-event')).toHaveCount(0);
+  await popup.getByLabel('対象の試験', { exact: true }).selectOption('all');
+  await expect(page.locator('.calendar-event').first()).toBeVisible();
+  await popup.getByLabel('表示期間', { exact: true }).selectOption('week');
+  await expect(grid).toHaveClass(/week.*density-standard/);
+  await expect(popup.getByLabel('表示密度', { exact: true })).toHaveValue('standard');
+  await popup.getByLabel('表示密度', { exact: true }).selectOption('compact');
+  await expect(grid).toHaveClass(/density-compact/);
+  await popup.getByLabel('表示密度', { exact: true }).selectOption('standard');
+  await page.keyboard.press('Escape'); await expect(gear).toBeFocused();
+  await gear.press('Enter');
+  await page.locator('.calendar-period h2').click();
+  await expect(popup).toHaveCount(0); await expect(gear).toBeFocused();
+  await expect(gear).toHaveAttribute('aria-expanded', 'false');
+  await page.getByRole('button', { name: addDays(contractDay, 1) + 'を表示', exact: true }).press('Enter');
+  const detail = page.getByRole('complementary', { name: '選択した日の学習詳細' });
+  await expect(detail).toBeVisible(); await expect(detail.locator('.planned-time').first()).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.reload(); await nav(page, '今後の予定'); await nav(page, 'カレンダー表示');
+  await expect(grid).toHaveClass(/month.*density-compact/);
+  await calendarSetting(page, '表示期間', 'week'); await expect(grid).toHaveClass(/week.*density-standard/);
+  const after = await read(page);
+  expect(after.calendarDensity).toEqual({ month: 'compact', week: 'standard', list: 'detailed' });
+  expect(after.plan).toEqual(before.plan); expect(after.records).toEqual(before.records); expect(after.settings).toEqual(before.settings);
+  await expect(page.locator('.page-transition')).toHaveCSS('opacity', '1');
+  await gear.press('Enter');
+  await page.addStyleTag({ content: ':root { font-size: 28px; } .calendar-display-settings * { letter-spacing: .12em; word-spacing: .16em; line-height: 1.5; }' });
+  await page.setViewportSize({ width: info.project.name === 'wide' ? 640 : 320, height: 844 });
+  await expect.poll(() => popup.evaluate(e => { const r = e.getBoundingClientRect(); return r.x >= 0 && r.right <= innerWidth; })).toBe(true);
+  const enlarged = (await popup.boundingBox())!;
+  expect(enlarged.x).toBeGreaterThanOrEqual(0); expect(enlarged.x + enlarged.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: info.outputPath('calendar-display-settings-enlarged.png'), fullPage: true });
+  await page.keyboard.press('Escape'); await expect(gear).toBeFocused();
 });

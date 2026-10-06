@@ -2,8 +2,8 @@ import { ScheduleViewSwitch } from './ScheduleViewSwitch';
 import { progressView } from '../domain/progressView';
 import { ProgressValue } from './ProgressValue';
 import { Warning } from './Warnings';
-import { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
+import { useState, useEffect, useLayoutEffect, useRef, useId } from 'react';
+import { ChevronLeft, ChevronRight, CalendarDays, Settings } from 'lucide-react';
 import {
   CalendarDensity,
   CalendarView,
@@ -21,7 +21,7 @@ import { CalendarQuantityDetails } from './CalendarQuantity';
 import { calendarDisplayQuantity, materialUnit } from '../domain/calendarQuantity';
 import { CalendarDaySummary } from './CalendarDaySummary';
 import { renameOutsideRange } from '../domain/dailyTimeDisplay';
-import { Empty, Props, duration, weekdays } from './common';
+import { Empty, Field, Props, duration, weekdays } from './common';
 import { CalendarExport } from './CalendarExport';
 import { sessionPolicy } from '../domain/sessionPolicy';
 import { StudyCoverageNotice } from './SetupImpact';
@@ -65,7 +65,8 @@ export function Calendar({
   useEffect(() => {
     onViewChange?.(view);
   }, [view, onViewChange]);
-  const density = state.calendarDensity?.[view] ?? (view === 'month' ? 'compact' : 'standard');
+  const savedDensity = state.calendarDensity?.[view];
+  const density = savedDensity === 'detailed' ? 'standard' : savedDensity ?? (view === 'month' ? 'compact' : 'standard');
   const [filter, setFilter] = useState(initialFilter);
   useEffect(() => {
     onFilterChange?.(filter);
@@ -78,6 +79,42 @@ export function Calendar({
   const calendarRef = useRef<HTMLDivElement>(null);
   const detailRef = useRef<HTMLElement>(null);
   const detailMounted = useRef(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsPosition, setSettingsPosition] = useState({ top: 0, left: 0 });
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const settingsPanelRef = useRef<HTMLDivElement>(null);
+  const settingsId = useId();
+  const closeSettings = () => {
+    setSettingsOpen(false);
+    settingsButtonRef.current?.focus({ preventScroll: true });
+  };
+  useLayoutEffect(() => {
+    if (!settingsOpen) return;
+    const place = () => {
+      const button = settingsButtonRef.current?.getBoundingClientRect();
+      const panel = settingsPanelRef.current?.getBoundingClientRect();
+      if (!button || !panel) return;
+      const below = button.bottom + 8;
+      setSettingsPosition({
+        top: Math.max(12, below + panel.height <= innerHeight - 12 ? below : button.top - panel.height - 8),
+        left: Math.max(12, Math.min(button.right - panel.width, innerWidth - panel.width - 12)),
+      });
+    };
+    place();
+    settingsPanelRef.current?.querySelector<HTMLSelectElement>('select')?.focus({ preventScroll: true });
+    const outside = (event: MouseEvent) => {
+      if (!settingsPanelRef.current?.contains(event.target as Node) &&
+          !settingsButtonRef.current?.contains(event.target as Node)) closeSettings();
+    };
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    document.addEventListener('click', outside);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+      document.removeEventListener('click', outside);
+    };
+  }, [settingsOpen]);
   const selectDay = (date: string) => {
     setSelected(date);
     setShowDay(true);
@@ -327,61 +364,66 @@ export function Calendar({
           <button aria-label="次の期間" className="navigation-arrow" onClick={() => jump(1)}>
             <ChevronRight size={20} aria-hidden />
           </button>
-          <button className="future-today"
-            onClick={() => {
-              setShowDay(false); setSelected(today());
-            }}
-          >
-            今日
-          </button>
+          <div className="calendar-today-actions">
+            <button className="future-today"
+              onClick={() => { setShowDay(false); setSelected(today()); }}>
+              今日
+            </button>
+            <button ref={settingsButtonRef} className="calendar-settings-toggle"
+              aria-label="カレンダーの表示設定" aria-haspopup="dialog"
+              aria-expanded={settingsOpen} aria-controls={settingsId}
+              onClick={() => setSettingsOpen(open => !open)}>
+              <Settings size={20} aria-hidden />
+            </button>
+          </div>
         </div>
         {onFuture && <ScheduleViewSwitch calendar onSwitch={onFuture} />}
       </div>
-      <div className="calendar-options">
-          <select
-            aria-label="表示する試験"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          >
-            <option value="all">すべての試験</option>
-            {state.settings.exams.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </select>
-          <div className="segmented" role="group" aria-label="カレンダー内の期間表示">
-            {(['month', 'week'] as const).map((v, i) => (
-              <button
-                key={v}
-                className={view === v ? 'active' : ''}
-                aria-pressed={view === v}
-                onClick={() => setView(v)}
-              >
-                {['月', '週'][i]}
-              </button>
-            ))}
+      {settingsOpen && (
+        <div ref={settingsPanelRef} id={settingsId} role="dialog" aria-labelledby={settingsId + '-title'}
+          className="card compact calendar-display-settings" style={settingsPosition}
+          onKeyDown={event => {
+            if (event.key === 'Escape') {
+              event.preventDefault(); event.stopPropagation(); closeSettings();
+            }
+            if (event.key === 'Tab') {
+              const controls = settingsPanelRef.current?.querySelectorAll<HTMLButtonElement | HTMLSelectElement>('button, select');
+              if (!controls?.length) return;
+              const first = controls[0], last = controls[controls.length - 1];
+              if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault(); last.focus({ preventScroll: true });
+              } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault(); first.focus({ preventScroll: true });
+              }
+            }
+          }}>
+          <div className="day-panel-heading">
+            <button className="day-panel-close" aria-label="表示設定を閉じる" onClick={closeSettings}>閉じる</button>
+            <h3 id={settingsId + '-title'}>表示設定</h3>
           </div>
-        <div className="calendar-density" role="group" aria-label="カレンダーの表示密度">
-          <div className="segmented">
-            {(['compact', 'standard', 'detailed'] as const).map((value, i) => (
-              <button
-                key={value}
-                aria-pressed={density === value}
-                className={density === value ? 'active' : ''}
-                onClick={() =>
-                  void update((s) => ({
-                    ...s,
-                    calendarDensity: { ...s.calendarDensity, [view]: value },
-                  })).catch(() => {})
-                }
-              >
-                {['コンパクト', '標準', '詳細'][i]}
-              </button>
-            ))}
+          <div className="calendar-settings-fields">
+            <Field label="対象の試験">
+              <select value={filter} onChange={event => setFilter(event.target.value)}>
+                <option value="all">すべての試験</option>
+                {state.settings.exams.map(exam => <option key={exam.id} value={exam.id}>{exam.name}</option>)}
+              </select>
+            </Field>
+            <Field label="表示期間">
+              <select value={view} onChange={event => setView(event.target.value as 'month' | 'week')}>
+                <option value="month">月</option><option value="week">週</option>
+              </select>
+            </Field>
+            <Field label="表示密度">
+              <select value={density} onChange={event => {
+                const value = event.target.value as Exclude<CalendarDensity, 'detailed'>;
+                void update(s => ({ ...s, calendarDensity: { ...s.calendarDensity, [view]: value } })).catch(() => {});
+              }}>
+                <option value="compact">コンパクト</option><option value="standard">標準</option>
+              </select>
+            </Field>
           </div>
         </div>
-      </div>
+      )}
       {state.plan && (
         <StudyCoverageNotice
           settings={state.plan.settingsSnapshot ?? state.settings}

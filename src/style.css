@@ -3015,4 +3015,4 @@ textarea {
 .today-study-title { display: flex; align-items: start; justify-content: space-between; gap: 12px; min-width: 0; }
 .today-study-title > div { display: grid; gap: 4px; min-width: 0; }
 .today-study-title > div > span { color: var(--muted); font-size: .875rem; }
-.today-study-percent { font-size: 1.375rem; line-height: 1.2; color: var(--ink); flex-shrink: 0; }
+.today-study-percent { font-size: max(20px, 1.375rem); line-height: 1.2; color: var(--ink); flex-shrink: 0; }

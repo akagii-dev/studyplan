@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { ProgressValue } from './ProgressValue';
+import { studyInputLabel } from '../domain/studyProgress';
 import { Props } from './common';
 import { remaining, today } from '../domain/model';
 import { StudyRecordForm, StudyCountInput } from './StudyRecordForm';
@@ -28,6 +29,8 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
   const [outsideRound, setOutsideRound] = useRecordInput('today/round', 0);
   const { busy, save: record } = useStudyRecord(update, `today/${date}`);
   const key = (materialId: string, round: number) => JSON.stringify([materialId, round]);
+  const savedEntry = state.records.find(record => record.id === savedRecord?.id);
+  const savedProgress = rows.find(row => row.materialId === savedEntry?.materialId && row.round === savedEntry?.round)?.progress;
 
   useEffect(() => {
     if (!target || handled.current === target.token) return;
@@ -92,7 +95,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
                   onSubmit={(event) => void save(event, row.materialId, row.round)}
                 >
                   <label>
-                    {row.reported ? '追加分' : '実績'}
+                    {studyInputLabel(row.unit)}
                     <StudyCountInput
                       ref={(node) => {
                         if (node) inputRefs.current.set(id, node);
@@ -102,7 +105,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
                       inputMode="numeric"
                       value={drafts[id] ?? ''}
                       disabled={busy}
-                      aria-label={`${row.materialName} ${row.round + 1}周目の${row.reported ? '追加分' : '実績'}（${row.unit}）`}
+                      aria-label={`${row.materialName} ${row.round + 1}周目の${studyInputLabel(row.unit)}（${row.unit}）`}
                       onChange={(event) => {
                         setDrafts((current) => ({ ...current, [id]: event.target.value }));
                         setErrors((current) => ({ ...current, [id]: '' }));
@@ -114,22 +117,6 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
                     記録
                   </button>
                 </form>
-                {row.progress.progressRatio !== null && (
-                  <span className="daily-progress-ring">
-                    <svg viewBox="0 0 40 40" aria-hidden="true">
-                      <circle cx="20" cy="20" r="16" className="ring-track" />
-                      <circle
-                        cx="20"
-                        cy="20"
-                        r="16"
-                        pathLength="100"
-                        className="ring-value"
-                        strokeDasharray={`${Math.min(1, row.progress.progressRatio) * 100} 100`}
-                      />
-                    </svg>
-                    <span>{Math.round(row.progress.progressRatio * 100)}%</span>
-                  </span>
-                )}
                 {errors[id] && (
                   <p className="daily-record-error" role="alert">
                     {errors[id]}
@@ -162,6 +149,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
         <div className="daily-record-saved" role="status">
           <p>
             {savedRecord.count}{savedRecord.unit}を記録しました。
+            {savedProgress?.text}
             {latestReceipt(state, savedRecord.id) &&
               receiptOutcome(latestReceipt(state, savedRecord.id)!)}
           </p>

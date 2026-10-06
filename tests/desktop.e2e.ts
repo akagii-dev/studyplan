@@ -306,7 +306,7 @@ test('実機：LANと同じSQLiteを共有し外部更新で未入力実績を�
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
     await expect(page.getByRole('button', { name: '最新を読み込む', exact: true })).toBeVisible();
     await expect(desktopRow.getByRole('textbox')).toHaveValue('2');
-    await expect(desktopRow).toContainText('未報告');
+    await expect(desktopRow).toContainText('あと6問');
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: '最新を読み込む', exact: true }).click();
     await expect(desktopRow).toContainText('4/6問');
@@ -317,7 +317,7 @@ test('実機：LANと同じSQLiteを共有し外部更新で未入力実績を�
     await expect(phone.getByRole('button', { name: '最新を読み込む', exact: true })).toBeVisible();
     phone.once('dialog', (dialog) => dialog.accept());
     await phone.getByRole('button', { name: '最新を読み込む', exact: true }).click();
-    await expect(phoneRow).toContainText('6/6問');
+    await expect(phoneRow).toContainText('✅完了');
     const state = await storedState();
     const work = activePlanWork(state, today()).filter((s) => s.materialId === 'book' && s.round === 0);
     expect(work.reduce((n, s) => n + s.count, 0)).toBe(24);
@@ -325,7 +325,7 @@ test('実機：LANと同じSQLiteを共有し外部更新で未入力実績を�
   } finally { await client.close(); await server.close(); }
   await close();
   await launch();
-  await expect(page.locator('.daily-record-row').filter({ hasText: '対象問題集' })).toContainText('6/6問');
+  await expect(page.locator('.daily-record-row').filter({ hasText: '対象問題集' })).toContainText('✅完了');
 });
 
 for (const protection of ['initial', 'record', 'started', 'fixed', 'unused']) {
@@ -464,7 +464,7 @@ for (const previousReported of [false, true]) {
       await row.getByRole('textbox').fill(String(add));
       await row.getByRole('button', { name: '記録', exact: true }).click();
       await saved();
-      await expect(row).toContainText(`${actual}/6問`);
+      await expect(row).toContainText(actual >= 6 ? '✅完了' : `あと${6-actual}問`);
       const state = await storedState();
       const work = activePlanWork(state, today()).filter(
         (s) => s.materialId === 'book' && s.round === 0,
@@ -774,7 +774,7 @@ test('実機：部分記録後に翌日から仕切り直すと、今日の残�
   await row.getByRole('textbox').fill('4');
   await row.getByRole('button', { name: '記録', exact: true }).click();
   await saved();
-  await expect(row).toContainText('4/6問');
+  await expect(row).toContainText('あと2問');
   const recorded = await storedState();
   expect(completed(recorded, 'book', 0)).toBe(8);
   await nav('今後の予定');
@@ -793,7 +793,7 @@ test('実機：部分記録後に翌日から仕切り直すと、今日の残�
     activePlanWork(approved, date).reduce((n, s) => n + s.count, 0) +
     approved.plan!.shortfalls.reduce((n, s) => n + s.count, 0)).toBe(30);
   await nav('今日');
-  await expect(row).toContainText(/今日の残り\s*0問/);
+  await expect(row).toContainText('4問を記録');
   await expect(row).toContainText(/実績\s*4問/);
   await nav('詳細カレンダー');
   await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
@@ -804,7 +804,7 @@ test('実機：部分記録後に翌日から仕切り直すと、今日の残�
   await closeWindowNormally();
   await launch();
   await expect(page.locator('.daily-record-row').filter({ hasText: '対象問題集' }))
-    .toContainText(/今日の残り\s*0問/);
+    .toContainText('4問を記録');
   expect((await storedState()).records).toEqual(recorded.records);
 });
 
@@ -1580,7 +1580,7 @@ test('実機：学生の代表データで条件変更案を維持して記録�
   await expect(page.getByRole('region', { name: '今日の予定一覧' })).toContainText('勉強');
   await nav('進捗を記録');
   await page.getByLabel('教材', { exact: true }).selectOption('long');
-  await page.getByLabel('追加問題数（1問単位）').fill('2');
+  await page.getByLabel('今回解いた問題数').fill('2');
   await page.getByRole('button', { name: '記録する', exact: true }).click();
   await saved();
   const recorded = await storedState();
@@ -1645,7 +1645,7 @@ test('実機：予定6への追加4・2・2で数量と変更詳細を保存し�
     await row.getByRole('textbox').fill(String(add));
     await row.getByRole('button', { name: '記録', exact: true }).click();
     await saved();
-    await expect(row).toContainText(actual + '/6問');
+    await expect(row).toContainText(actual >= 6 ? '✅完了' : `あと${6-actual}問`);
     const stored = await storedState();
     expect(
       activePlanWork(stored, date)
@@ -1964,7 +1964,7 @@ test('実機：ホームの導線・表示別のカレンダー密度・再起�
   await page.setViewportSize({ width: 1320, height: 900 });
   const dailyRows = page.locator('.daily-record-row');
   await expect(dailyRows).toHaveCount(2);
-  await expect(dailyRows.first()).toContainText('0/10問');
+  await expect(dailyRows.first()).toContainText('あと10問');
   await expect(dailyRows.first().getByRole('textbox')).toBeVisible();
   await page.getByRole('button', { name: '今日のスケジュール・時間内訳' }).click();
   await expect(page.getByRole('heading', { name: '1日の可処分時間' })).toBeVisible();
@@ -2360,12 +2360,12 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
   seed.plan.progressBaseline = createProgressBaseline(seed.plan, seed.records);
   await seedState(seed, 'native-daily-seed');
   const row = page.locator('.daily-record-row').filter({ hasText: '問題集A' });
-  await expect(row).toContainText('未報告 / 10問');
-  await expect(row).toContainText('未報告 / 10問');
+  await expect(row).toContainText('あと10問');
+  await expect(row).toContainText('あと10問');
   await row.getByRole('textbox', { name: '問題集A 1周目の実績（問）' }).fill('5');
   await row.getByRole('button', { name: '記録', exact: true }).click();
   await saved();
-  await expect(row).toContainText('5/10問');
+  await expect(row).toContainText('あと5問');
   const recordResult = page.locator('.daily-record-saved');
   await expect(recordResult).toContainText('5問を記録しました。予定の変更なし');
   const changeDetail = recordResult.locator('details');
@@ -2442,7 +2442,7 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
   expect(await futureQuantity()).toBe(10);
   expect((await storedState()).records[0].cancelled).toBe(true);
   await nav('ホーム');
-  await expect(page.locator('.daily-record-row')).toContainText('未報告 / 10問');
+  await expect(page.locator('.daily-record-row')).toContainText('あと10問');
   for (const [actual, expected] of [
     [0, 10],
     [10, 10],
@@ -2453,7 +2453,7 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
     await activeRow.getByRole('textbox').fill(String(actual));
     await activeRow.getByRole('button', { name: '記録', exact: true }).click();
     await saved();
-    await expect(activeRow).toContainText(`${actual}/10問`);
+    await expect(activeRow).toContainText(actual >= 10 ? '✅完了' : `あと${10-actual}問`);
     expect(await futureQuantity()).toBe(expected);
     expect((await storedState()).plan!.sessions.filter((session) => session.date === date)).toEqual(
       [originalToday],
@@ -2479,7 +2479,7 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
   await seedState(outsideSeed, 'native-outside');
   await page.locator('.outside-record > summary').click();
   await page.locator('.outside-record').getByLabel('教材', { exact: true }).selectOption('outside');
-  await page.locator('.outside-record').getByLabel('追加問題数（1問単位）', { exact: true }).fill('2');
+  await page.locator('.outside-record').getByLabel('今回解いた問題数', { exact: true }).fill('2');
   await page.locator('.outside-record').getByRole('button', { name: '記録する', exact: true }).click();
   await saved();
   await expect(page.locator('.daily-record-row').filter({ hasText: '予定外問題集' })).toHaveCount(0);
@@ -2610,8 +2610,8 @@ test('実機：教材別の今日・周回・記録・訂正・取消・空表�
   await nav('ホーム');
   const shortRow = page.getByRole('listitem').filter({ hasText: '短答' });
   const essayRow = page.getByRole('listitem').filter({ hasText: '論文' });
-  await expect(shortRow).toContainText('未報告 / 10問');
-  await expect(essayRow).toContainText('未報告 / 8問');
+  await expect(shortRow).toContainText('あと10問');
+  await expect(essayRow).toContainText('あと8問');
   // Initial completion belongs to the round; it must never become today's actual work.
   await nav('進捗を記録');
   await expect(page.locator('.progress-summary')).toContainText('完了 3問');
@@ -2622,14 +2622,14 @@ test('実機：教材別の今日・周回・記録・訂正・取消・空表�
   await page.getByLabel('教材', { exact: true }).selectOption('essay');
   await expect(page.locator('.progress-summary')).toContainText('完了 2問');
   await expect(page.locator('.progress-summary')).toContainText('残り 8問');
-  await page.getByLabel('追加問題数（1問単位）').fill('3');
-  await page.getByLabel('追加問題数（1問単位）').press('Enter');
+  await page.getByLabel('今回解いた問題数').fill('3');
+  await page.getByLabel('今回解いた問題数').press('Enter');
   await saved();
   await expect(page.locator('.progress-summary')).toContainText('完了 5問');
   await expect(page.locator('.progress-summary')).toContainText('残り 5問');
   await nav('ホーム');
   await expect(essayRow).toContainText('3/8問');
-  await expect(shortRow).toContainText('未報告 / 10問');
+  await expect(shortRow).toContainText('あと10問');
   await nav('記録履歴');
   await page.getByRole('button', { name: '訂正', exact: true }).click();
   await page.getByLabel('訂正後の問題数').fill('7');
@@ -2637,13 +2637,13 @@ test('実機：教材別の今日・周回・記録・訂正・取消・空表�
   await saved();
   await nav('ホーム');
   await expect(essayRow).toContainText('7/8問');
-  await expect(shortRow).toContainText('未報告 / 10問');
+  await expect(shortRow).toContainText('あと10問');
   await nav('記録履歴');
   await page.getByRole('button', { name: '取消', exact: true }).click();
   await page.getByRole('button', { name: '取消を確定' }).click();
   await saved();
   await nav('ホーム');
-  await expect(essayRow).toContainText('未報告 / 8問');
+  await expect(essayRow).toContainText('あと8問');
   for (const theme of ['mint', 'sky', 'lime']) {
     await displaySettings(undefined, theme);
     expect(
@@ -2655,19 +2655,19 @@ test('実機：教材別の今日・周回・記録・訂正・取消・空表�
     });
   }
   await nav('進捗を記録');
-  await page.getByLabel('追加問題数（1問単位）').fill('8');
+  await page.getByLabel('今回解いた問題数').fill('8');
   await page.getByRole('button', { name: '記録する', exact: true }).click();
   await saved();
   await expect(page.locator('.progress-summary')).toContainText('完了 10問');
   await expect(page.locator('.progress-summary')).toContainText('残り 0問');
-  await page.getByLabel('追加問題数（1問単位）').fill('0');
+  await page.getByLabel('今回解いた問題数').fill('0');
   await page.getByRole('button', { name: '記録する', exact: true }).click();
   await saved();
   await expect(page.locator('.progress-summary')).toContainText('完了 10問');
   await expect(page.locator('.progress-summary')).toContainText('残り 0問');
   await nav('ホーム');
   await expect(essayRow).toContainText('8/8問');
-  await expect(shortRow).toContainText('未報告 / 10問');
+  await expect(shortRow).toContainText('あと10問');
   await page.setViewportSize({ width: 900, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/progress-chart-900.png', fullPage: true });
@@ -3962,14 +3962,14 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   await page.screenshot({ path: 'test-results/calendar.png', fullPage: true });
   await nav('進捗を記録');
   for (const invalid of ['', '-1', '1.5', '38']) {
-    await page.getByLabel('追加問題数（1問単位）').fill(invalid);
+    await page.getByLabel('今回解いた問題数').fill(invalid);
     await expect(page.getByRole('button', { name: '記録する', exact: true })).toBeDisabled();
   }
-  await page.getByLabel('追加問題数（1問単位）').fill('3');
+  await page.getByLabel('今回解いた問題数').fill('3');
   await page.getByRole('button', { name: '記録する', exact: true }).dblclick();
   await saved();
   await expect(page.getByText('＋3問を記録しました。', { exact: false })).toBeVisible();
-  await page.getByLabel('追加問題数（1問単位）').fill('0');
+  await page.getByLabel('今回解いた問題数').fill('0');
   await page.getByRole('button', { name: '記録する', exact: true }).click();
   await saved();
   await expect(page.locator('.progress-summary')).toContainText('完了 3問');
@@ -4038,10 +4038,10 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   await saved();
   await nav('進捗を記録');
   await expect(page.locator('.progress-summary')).toContainText('残り 37問');
-  await page.getByLabel('追加問題数（1問単位）').fill('37');
+  await page.getByLabel('今回解いた問題数').fill('37');
   await page.getByRole('button', { name: '記録する', exact: true }).click();
   await saved();
-  await page.getByLabel('追加問題数（1問単位）').fill('5');
+  await page.getByLabel('今回解いた問題数').fill('5');
   await expect(page.getByRole('button', { name: '記録する', exact: true })).toBeDisabled();
   await expect(page.locator('.progress-summary')).toContainText('残り 0問');
   await nav('今日のスケジュール');
@@ -4435,13 +4435,13 @@ test('実機：選択日と週内訳・月移動・授業だけの日・予定�
   expect((await storedState()).plan).toEqual(seed.plan);
   await page.screenshot({ path: 'test-results/calendar-consistency.png', fullPage: true });
   await nav('進捗を記録');
-  await expect(page.getByLabel('追加問題数（1問単位）')).toHaveValue('7');
+  await expect(page.getByLabel('今回解いた問題数')).toHaveValue('7');
   await page.getByRole('button', { name: '記録する', exact: true }).click();
   await saved();
   await expect(page.locator('.progress-summary')).toContainText('完了 7問');
-  await expect(page.getByLabel('追加問題数（1問単位）')).toHaveValue('');
-  await page.getByLabel('追加問題数（1問単位）').fill('3');
-  await page.getByLabel('追加問題数（1問単位）').press('Enter');
+  await expect(page.getByLabel('今回解いた問題数')).toHaveValue('');
+  await page.getByLabel('今回解いた問題数').fill('3');
+  await page.getByLabel('今回解いた問題数').press('Enter');
   await saved();
   await expect(page.locator('.progress-summary')).toContainText('完了 10問');
 });
@@ -4643,7 +4643,7 @@ test('実機：旧版の消化済み0問予定を起動・記録・バックア�
   await launch();
   await expect(page.getByRole('alert')).toHaveCount(0);
   const row = page.locator('.daily-record-row').filter({ hasText: '対象問題集' });
-  await expect(row).toContainText('12/6問');
+  await expect(row).toContainText('✅完了');
   const startState = await storedState();
   const backupPath = resolve(dataDir, '旧版の予定.studyplan.json');
   await nav('バックアップ');
@@ -4665,7 +4665,7 @@ test('実機：旧版の消化済み0問予定を起動・記録・バックア�
   await row.getByRole('textbox').fill('1');
   await row.getByRole('textbox').press('Enter');
   await saved();
-  await expect(row).toContainText('13/6問');
+  await expect(row).toContainText('✅完了');
   expect(
     (await storedState()).history.some((p) =>
       p.sessions.some((s) => s.count === 0 && s.start === s.end),
@@ -5515,7 +5515,7 @@ test('実機：共通進捗と今日への安全な入力引継ぎ', async () =>
   ];
   await seedState(seed, 'progress-view-seed');
   const row = page.locator('.daily-record-row');
-  await expect(row).toContainText('3/10問');
+  await expect(row).toContainText('あと7問');
   await nav('詳細カレンダー');
   await page
     .locator('.calendar-toolbar')
@@ -5529,7 +5529,7 @@ test('実機：共通進捗と今日への安全な入力引継ぎ', async () =>
   expect((await storedState()).records).toEqual(seed.records);
   await row.getByRole('button', { name: '記録', exact: true }).click();
   await saved();
-  await expect(row).toContainText('10/10問');
+  await expect(row).toContainText('✅完了');
   expect((await storedState()).records.reduce((n, r) => n + r.count, 0)).toBe(10);
   await page.screenshot({
     path: 'test-results/progress-consistency/native-today.png',
@@ -5537,7 +5537,7 @@ test('実機：共通進捗と今日への安全な入力引継ぎ', async () =>
   });
   await close();
   await launch();
-  await expect(page.locator('.daily-record-row')).toContainText('10/10問');
+  await expect(page.locator('.daily-record-row')).toContainText('✅完了');
   await nav('詳細カレンダー');
   await page
     .locator('.calendar-toolbar')

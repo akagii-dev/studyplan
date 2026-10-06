@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { initialState, today, addDays } from '../src/domain/model';
 import { calendarDisplayQuantity, calendarQuantity, quantityTotals } from '../src/domain/calendarQuantity';
 import { progressView } from '../src/domain/progressView';
+import { studyProgressView } from '../src/domain/studyProgress';
 import { todayStudyRows } from '../src/domain/todayProgress';
 import { Dashboard } from '../src/app/Dashboard';
 import { Future } from '../src/app/Future';
@@ -240,11 +241,11 @@ for (const offset of [-1, 0, 1]) {
     ];
     if (offset === 0) {
       renders.push(createElement(TodayRecorder, { state, update: async () => {} }));
-      expect(todayStudyRows(state)[0].progress).toEqual(view);
+      expect(todayStudyRows(state)[0].progress).toMatchObject({ ...view, text: (count ?? 0) >= 10 ? '✅完了' : `あと${10-(count ?? 0)}問`, supplement: '' });
     }
     for (const element of renders) {
       const html = renderToStaticMarkup(element);
-      expect(html).toContain(expected);
+      expect(html).toContain(offset === 0 && (element.type === Future || element.type === TodayRecorder) ? ((count ?? 0) >= 10 ? '✅完了' : `あと${10-(count ?? 0)}問`) : expected);
       expect(html).not.toContain('基準なし');
       expect(html).not.toContain('実績あり');
       const shortage = offset < 0 && count !== undefined && count < 10;
@@ -307,7 +308,7 @@ it.each([
     expect(
       todayStudyRows(state, context.date).find((r) => r.materialId === 'book' && r.round === 0)
         ?.progress,
-    ).toEqual(view);
+    ).toMatchObject({ ...view, text: expected > 0 ? `あと${expected}問` : '4問を記録', supplement: '' });
     if (offset === 1) expect(todayStudyRows(state, context.date)).toHaveLength(1);
     vi.useFakeTimers();
     vi.setSystemTime(new Date(context.timestamp));
@@ -322,7 +323,7 @@ it.each([
           onProposal: () => {},
         }),
       ])
-        expect(renderToStaticMarkup(element)).toContain(view.text);
+        expect(renderToStaticMarkup(element)).toContain(element.type === TodayRecorder || element.type === Future ? (expected > 0 ? `あと${expected}問` : '4問を記録') : view.text);
       const filtered = calendarQuantity(state, context.date, context.date, 'a').totals[0];
       expect(filtered.currentRemaining).toBe(expected);
       expect(
@@ -439,7 +440,7 @@ for (const offset of [0, 1]) {
           expect(html).not.toContain('未報告 · 今日の残り 0問');
           expect(html).not.toContain('未報告あり');
           expect(html).not.toContain('進捗を記録');
-          if (hasReport) expect(html).toContain(`実績 ${actual}問 · 今日の残り 0問`);
+          if (hasReport) expect(html).toContain(element.type === Future ? `${actual}問を記録` : `実績 ${actual}問 · 今日の残り 0問`);
         }
       } finally {
         vi.useRealTimers();
@@ -821,14 +822,14 @@ describe('今日の記録と今後の予定', () => {
       createElement(TodayRecorder, { state, update: async () => {} }),
     );
     expect(html).toContain('問題集A');
-    expect(html).toContain('15/10問');
-    expect(html).toContain('150%');
-    expect(html).toContain('0/10問');
+    expect(html).toContain('✅完了');
+    expect(html).not.toContain('daily-progress-ring');
+    expect(html).toContain('あと10問');
     expect(html).toContain('問題集C');
     expect(html).not.toContain('3/0問');
     expect(html).not.toContain('Infinity');
     expect(html).toContain('予定外の学習を記録');
-    expect(html).toContain('問題集A 1周目の追加分（問）');
+    expect(html).toContain('問題集A 1周目の今回解いた問題数（問）');
   });
 
   it('将来の同じ教材でも固定10問と可動5問を区別し、復習を残す', () => {
@@ -989,4 +990,50 @@ describe('過去分の調整済み表示', () => {
     expect(calendarQuantity(state, date, reference).rows.find((item) => item.materialId === 'book')!.planned).toBe(6);
     expect(state).toEqual(before);
   });
+});
+
+it('15問へ6→4→5を加算し、訂正・取消・再読込で今日と週間の残りを戻す', () => {
+  let state = adjustmentFixture();
+  for (const [index, count] of [15, 6, 3, 3, 3].entries()) {
+    state.plan!.sessions[index].count = count;
+    state.plan!.sessions[index].end = state.plan!.sessions[index].start + count * 3;
+  }
+  state.plan!.progressBaseline = createProgressBaseline(state.plan!, []);
+  const check = (expected: string) => {
+    const row = calendarDisplayQuantity(state, adjustmentContext.date, adjustmentContext.date).rows.find(row => row.materialId === 'book')!;
+    expect(studyProgressView(state, row, adjustmentContext.date, adjustmentContext.date).text).toBe(expected);
+    expect(todayStudyRows(state, adjustmentContext.date).find(row => row.materialId === 'book')!.progress.text).toBe(expected);
+    expect(todayStudyRows(state, adjustmentContext.date).find(row => row.materialId === 'other')!.progress.text).toBe('あと9問');
+  };
+  check('あと15問');
+  for (const [count, id, expected] of [[6, 'six', 'あと9問'], [4, 'four', 'あと5問'], [5, 'five', '✅完了']] as const) {
+    state = recordAndAdjust(state, adjustmentReport(count, id), adjustmentContext);
+    check(expected);
+  }
+  state = JSON.parse(JSON.stringify(state)); check('✅完了');
+  state = correctAndAdjust(state, 'five', 3, false, adjustmentContext); check('あと2問');
+  state = correctAndAdjust(state, 'five', 3, true, adjustmentContext); check('あと5問');
+});
+
+it('仕切り直しで翌日へ移動しただけを完了にせず、新しい当日目標の記録でのみ完了にする', () => {
+  const context = { ...adjustmentContext, minute: 0 };
+  const source = recordAndAdjust(adjustmentFixture(), adjustmentReport(4), context);
+  const moved = approve(proposeRestart(source, addDays(adjustmentContext.date, 1), adjustmentContext), false, adjustmentContext);
+  const row = calendarDisplayQuantity(moved, adjustmentContext.date, adjustmentContext.date).rows.find(row => row.materialId === 'book')!;
+  expect(studyProgressView(moved, row, adjustmentContext.date, adjustmentContext.date)).toMatchObject({ complete: false, target: null });
+  let restarted = approve(proposeRestart(source, adjustmentContext.date, context), false, context);
+  expect(todayStudyRows(restarted, adjustmentContext.date).find(row => row.materialId === 'book')!.progress.text).toBe('あと6問');
+  restarted = recordAndAdjust(restarted, adjustmentReport(6, 'after-restart'), context);
+  expect(todayStudyRows(restarted, adjustmentContext.date).find(row => row.materialId === 'book')!.progress.text).toBe('✅完了');
+});
+
+it('未報告/明示0・異単位・予定なし・予定外・過去の比較不能を完了と混同しない', () => {
+  const state = adjustmentFixture();
+  const row = { materialId: 'book', round: 0, unit: 'ページ', planned: 15, actual: 0, reported: false };
+  expect(studyProgressView(state, row, adjustmentContext.date, adjustmentContext.date)).toMatchObject({ text: 'あと15ページ', hasReport: false });
+  expect(studyProgressView(state, { ...row, reported: true }, adjustmentContext.date, adjustmentContext.date)).toMatchObject({ text: 'あと15ページ', hasReport: true, complete: false });
+  expect(studyProgressView(state, { ...row, planned: 0, reported: true }, adjustmentContext.date, adjustmentContext.date).complete).toBe(false);
+  expect(studyProgressView(state, { ...row, planned: null, actual: 20, reported: true }, adjustmentContext.date, adjustmentContext.date).complete).toBe(false);
+  const outside = { ...state, records: [adjustmentReport(3, 'outside')].map(record => ({ ...record, round: 1 })) };
+  expect(todayStudyRows(outside, adjustmentContext.date).some(row => row.materialId === 'book' && row.round === 1)).toBe(false);
 });

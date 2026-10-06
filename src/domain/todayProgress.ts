@@ -1,6 +1,6 @@
 import { calendarDisplayQuantity } from './calendarQuantity';
 import { displayPlanSessions } from './planDisplay';
-import { progressView } from './progressView';
+import { studyProgressView } from './studyProgress';
 import { AppState, today } from './model';
 
 /** Today input rows require planned work; actual-only rows remain in shared totals/history. */
@@ -14,6 +14,6 @@ export function todayStudyRows(state: AppState, date = today()) {
     .map((row) => ({
       ...row,
       materialName: row.name,
-      progress: progressView(row, date, date),
+      progress: studyProgressView(state, row, date, date),
     }));
 }

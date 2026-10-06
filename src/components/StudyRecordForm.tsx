@@ -2,6 +2,7 @@ import { useConfirmedRecordRetry } from '../hooks/useStudyRecord';
 import type { ComponentPropsWithRef } from 'react';
 import { completed, remaining, type AppState } from '../domain/model';
 import { materialUnit } from '../domain/calendarQuantity';
+import { studyInputLabel } from '../domain/studyProgress';
 import { parseNumberInput } from '../domain/numeric';
 import { Field } from './common';
 
@@ -62,7 +63,7 @@ export function StudyRecordForm({ state, value, onChange, onSubmit, reference, f
       <span>残り <b>{left}</b>{unit}</span>
     </div>}
     <label className="field">
-      {unit === '問' ? '追加問題数（1問単位）' : `追加量（1${unit}単位）`}
+      {studyInputLabel(unit)}
       <StudyCountInput value={value.text} disabled={busy} aria-invalid={!!error || undefined}
         onChange={(event) => onChange({ ...value, text: event.target.value })} />
     </label>

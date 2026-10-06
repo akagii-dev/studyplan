@@ -2758,9 +2758,9 @@ textarea {
 .daily-record-name strong, .daily-record-name span { overflow-wrap: anywhere; }
 .daily-record-name span, .daily-record-amounts span { color: var(--muted); }
 .daily-record-form { display: flex; gap: 6px; align-items: end; min-width: 0; }
-.daily-record-form label { font-size: 12px; min-width: 0; }
+.daily-record-form label { display: grid; gap: 3px; font-size: .875rem; min-width: 0; }
 .daily-record-form input { width: 72px; margin-top: 3px; }
-.daily-record-form > span { padding-bottom: 11px; }
+.daily-record-form > span { padding-bottom: 11px; white-space: nowrap; }
 .daily-record-form button { white-space: nowrap; }
 .daily-record-error { grid-column: 1 / -1; color: var(--error-ink); margin: 0; }
 .daily-record-saved { margin: 12px 0 0; color: var(--ink); }
@@ -2963,15 +2963,6 @@ textarea {
 .page-transition { animation: schedule-appear 280ms ease-out; }
 @keyframes schedule-appear { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .page-transition { animation: none; } }
-.daily-progress-ring { display: none; }
-@media (min-width: 1100px) {
-  .daily-record-row { grid-template-columns: minmax(130px, 1.3fr) minmax(130px, 1fr) minmax(185px, auto) 58px; }
-  .daily-progress-ring { display: grid; place-items: center; font-variant-numeric: tabular-nums; font-size: .875rem; }
-  .daily-progress-ring svg { width: 40px; height: 40px; transform: rotate(-90deg); }
-  .daily-progress-ring circle { fill: none; stroke-width: 4; }
-  .ring-track { stroke: var(--border); }
-  .ring-value { stroke: var(--accent); }
-}
 
 /* Period navigation shares the same controls in both schedule views. */
 .schedule-view-switch { flex-wrap: wrap; max-width: 100%; margin-inline-start: auto; }
@@ -3005,3 +2996,18 @@ textarea {
 .app-shell[data-input-mode='pointer'] h1:focus-visible,
 .app-shell[data-input-mode='pointer'] .calendar-period button:focus-visible,
 .app-shell[data-input-mode='pointer'] .calendar-display-settings :focus-visible { outline: none; }
+
+.today-study-progress > summary { min-height: 44px; display: list-item; cursor: pointer; font-weight: 700; padding-block: 10px; }
+.today-study-progress .segmented { margin-top: 12px; flex-wrap: wrap; }
+.today-study-progress-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px; padding: 0; margin: 16px 0 0; list-style: none; }
+.today-study-progress-item { min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.today-study-progress-item.line { display: grid; align-content: start; gap: 8px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; }
+.today-study-progress .animated-progress { width: 100%; height: 16px; }
+.today-study-progress .animated-progress-fill, .today-study-progress .progress-donut-value { transition: none; }
+.today-study-circle { display: grid; margin-inline: auto; width: min(100%, 320px); min-height: 240px; }
+.today-study-circle svg, .today-study-circle-center { grid-area: 1 / 1; }
+.today-study-circle .progress-donut { width: 100%; height: 100%; max-width: none; min-height: 240px; }
+.today-study-circle-center { display: grid; align-content: center; justify-self: center; gap: 4px; width: 60%; padding-block: 32px; text-align: center; }
+
+.today-study-circle-center strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; width: 80%; justify-self: center; }
+.today-study-full-name { display: block; padding: 8px 16px; text-align: center; }

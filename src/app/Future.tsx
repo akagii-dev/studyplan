@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { progressView } from '../domain/progressView';
+import { studyProgressView } from '../domain/studyProgress';
 import { ProgressValue } from '../components/ProgressValue';
 import { calendarDisplayQuantity, materialUnit } from '../domain/calendarQuantity';
 import { Props, duration } from '../components/common';
@@ -246,7 +247,7 @@ export function Future({
                 </h2>
                 <ul>
                   {date <= reference && quantity.rows.map((row) => {
-                      const progress = progressView(row, date, reference);
+                      const progress = date === reference ? studyProgressView(state, row, date, reference) : progressView(row, date, reference);
                       const matching = sessions.filter(
                         (s) =>
                           s.kind === 'study' &&

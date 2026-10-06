@@ -3,6 +3,7 @@ import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { progressContractFixture, contractDay } from '../fixtures/progressContract';
 import { adjustmentFixture } from '../fixtures/adjustment';
+import { createProgressBaseline } from '../../src/domain/progressReflection';
 import { addDays, initialState, type AppState } from '../../src/domain/model';
 
 async function seed(page: Page, state = progressContractFixture(), expectedRows = 6) {
@@ -133,7 +134,7 @@ for (const legacy of ['all', 'preset', 'numberEdit'] as const) {
     await seed(page, state);
     await nav(page, '記録履歴');
     await nav(page, '過去日の学習を記録');
-    await expect(page.getByLabel('追加問題数（1問単位）')).toHaveValue(legacy === 'all' ? '88' : legacy === 'preset' ? '5' : '7');
+    await expect(page.getByLabel('今回解いた問題数')).toHaveValue(legacy === 'all' ? '88' : legacy === 'preset' ? '5' : '7');
     await expect(page.getByRole('button', { name: /その他|残りすべて|^\d+\s*問$/ })).toHaveCount(0);
     expect((await read(page)).records).toEqual(state.records);
   });
@@ -162,7 +163,7 @@ test('予定外と過去日を同じ自由入力で記録し、単位・0・保�
   };
   await page.locator('.outside-record > summary').click();
   const form = page.locator('.outside-record .study-record-form');
-  const input = form.getByRole('textbox', { name: '追加量（1ページ単位）' });
+  const input = form.getByRole('textbox', { name: '今回進めた量（ページ）' });
   const submit = form.getByRole('button', { name: '記録する', exact: true });
   await expect(form.getByLabel('記録対象日')).toHaveValue(contractDay);
   await expect(form.getByLabel('記録対象日')).toHaveAttribute('readonly', '');
@@ -184,8 +185,8 @@ test('予定外と過去日を同じ自由入力で記録し、単位・0・保�
   const past = page.locator('.study-record-form');
   await checkDateWidth(past, 'past-record-date.png');
   await past.getByLabel('記録対象日').fill(addDays(contractDay, -1));
-  await expect(past.getByRole('textbox', { name: '追加量（1ページ単位）' })).toHaveValue('');
-  await past.getByRole('textbox', { name: '追加量（1ページ単位）' }).fill('3');
+  await expect(past.getByRole('textbox', { name: '今回進めた量（ページ）' })).toHaveValue('');
+  await past.getByRole('textbox', { name: '今回進めた量（ページ）' }).fill('3');
   await page.evaluate(() => {
     const save = Storage.prototype.setItem;
     let once = true;
@@ -199,13 +200,13 @@ test('予定外と過去日を同じ自由入力で記録し、単位・0・保�
   });
   await past.getByRole('button', { name: '記録する', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('専用試験');
-  await expect(past.getByRole('textbox', { name: '追加量（1ページ単位）' })).toHaveValue('3');
+  await expect(past.getByRole('textbox', { name: '今回進めた量（ページ）' })).toHaveValue('3');
   expect((await read(page)).records).toHaveLength(before.records.length + 1);
   await past.getByRole('button', { name: '記録する', exact: true }).dblclick();
   await expect(page.locator('.progress-result')).toContainText('＋3ページを記録しました');
   await expect(page.getByRole('alert').filter({ hasText: '専用試験' })).toHaveCount(0);
   expect((await read(page)).records).toHaveLength(before.records.length + 2);
-  await expect(past.getByRole('textbox', { name: '追加量（1ページ単位）' })).toHaveValue('');
+  await expect(past.getByRole('textbox', { name: '今回進めた量（ページ）' })).toHaveValue('');
   expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await page.screenshot({ path: info.outputPath('shared-free-record.png'), fullPage: true });
@@ -224,7 +225,7 @@ test('予定外記録は今日の予定行を増やさず、履歴と進捗だ�
   await page.locator('.outside-record > summary').click();
   const form = page.locator('.outside-record .study-record-form');
   await form.getByLabel('教材', { exact: true }).selectOption('outside');
-  await form.getByRole('textbox', { name: '追加量（1ページ単位）' }).fill('3');
+  await form.getByRole('textbox', { name: '今回進めた量（ページ）' }).fill('3');
   await form.getByRole('button', { name: '記録する', exact: true }).click();
   await expect(page.locator('.daily-record-saved')).toContainText('3ページを記録しました');
   const recorded = await read(page);
@@ -240,7 +241,7 @@ test('予定外記録は今日の予定行を増やさず、履歴と進捗だ�
   const scheduled = page.locator('.daily-record-row').filter({ hasText: '未報告の教材' });
   await scheduled.getByRole('textbox').fill('2');
   await scheduled.getByRole('button', { name: '記録', exact: true }).click();
-  await expect(scheduled).toContainText('2/10問');
+  await expect(scheduled).toContainText('あと8問');
   await expect(page.locator('.daily-record-saved')).toContainText('2問を記録しました');
   await page.reload();
   await expect(page.locator('.daily-record-row')).toHaveCount(6);
@@ -272,14 +273,14 @@ test('予定のある教材の別周回で13問記録しても、今日の予定
   const form = page.locator('.outside-record .study-record-form');
   await form.getByLabel('教材', { exact: true }).selectOption('missing');
   await form.getByLabel('周回', { exact: true }).selectOption('1');
-  await form.getByRole('textbox', { name: '追加問題数（1問単位）' }).fill('13');
+  await form.getByRole('textbox', { name: '今回解いた問題数' }).fill('13');
   await form.getByRole('button', { name: '記録する', exact: true }).press('Enter');
   await expect(page.locator('.daily-record-saved')).toContainText('13問を記録しました');
   await expect(page.locator('.daily-record-row')).toHaveCount(6);
   await expect(page.locator('.daily-record-row').filter({ hasText: '2周目' })).toHaveCount(0);
   await expect(form.locator('.progress-summary')).toContainText('完了 13問');
   await expect(form.locator('.progress-summary')).toContainText('残り 87問');
-  await expect(page.locator('.daily-record-row').filter({ hasText: '未報告の教材' })).toContainText('未報告 / 10問');
+  await expect(page.locator('.daily-record-row').filter({ hasText: '未報告の教材' })).toContainText('あと10問');
   await page.reload();
   const reloaded = await read(page);
   expect(reloaded.plan!.sessions.filter(session => session.date === contractDay)).toEqual(todaySlots);
@@ -310,7 +311,7 @@ test('予定のない今日の実績詳細から予定外の入力へ移動し�
   const form = page.locator('.outside-record .study-record-form');
   await expect(form.getByLabel('教材', { exact: true })).toHaveValue('outside');
   await expect(form.getByLabel('周回', { exact: true })).toHaveValue('0');
-  const input = form.getByRole('textbox', { name: '追加問題数（1問単位）' });
+  const input = form.getByRole('textbox', { name: '今回解いた問題数' });
   await expect(input).toBeFocused();
   await expect(input).toHaveValue('');
   expect((await read(page)).records).toEqual(before.records);
@@ -607,6 +608,7 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
   await nav(page, '週間予定');
   await expect(calendar).not.toBeFocused();
   await calendar.press('Enter');
+  await expect(page.getByRole('heading', { name: '詳細カレンダー', level: 1 })).toBeFocused();
   await page.getByRole('button', { name: '週間予定', exact: true }).press('Enter');
   await expect(calendar).toBeFocused();
   await view.locator('.future-balance > summary').click();
@@ -813,4 +815,68 @@ test('表示設定は歯車のそばで3選択を縦に並べ、旧詳細密度�
   const futureNav = page.locator('nav').getByRole('button', { name: '今後の予定', exact: true });
   await futureNav.focus(); await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: '今後の予定', level: 1, exact: true })).toBeFocused();
+});
+
+test('今日の残りと折りたたみ進捗を円・直線で共有し、追加・訂正・取消と週間へ反映する', async ({ page }, info) => {
+  const state = adjustmentFixture(contractDay);
+  state.settings.materials[0].name = '長い教材名の基礎問題集と確認演習'.repeat(4);
+  state.settings.materials[1].unit = 'ページ';
+  for (const [index, count] of [15, 6, 3, 3, 3].entries()) {
+    state.plan!.sessions[index].count = count;
+    state.plan!.sessions[index].end = state.plan!.sessions[index].start + count * 3;
+  }
+  state.plan!.settingsSnapshot = structuredClone(state.settings);
+  state.plan!.progressBaseline = createProgressBaseline(state.plan!, []);
+  await seed(page, state, 2);
+  const row = page.locator('.daily-record-row').filter({ hasText: state.settings.materials[0].name });
+  const input = row.getByRole('textbox', { name: /今回解いた問題数/ });
+  const panel = page.locator('.today-study-progress');
+  const item = panel.locator('li').filter({ hasText: state.settings.materials[0].name });
+  const baseline = await read(page);
+  await expect(row.locator('.progress-value')).toHaveText('あと15問');
+  await expect(item).toContainText('0/15問 · あと15問');
+  await expect(item.locator('.today-study-circle-center strong')).toHaveText(state.settings.materials[0].name);
+  await expect(panel.locator('li').filter({ hasText: '別問題集' })).toContainText('あと9ページ');
+  const summary = panel.locator('summary');
+  await summary.focus(); await page.keyboard.press('Enter');
+  await expect(item).toBeHidden();
+  await page.keyboard.press('Enter'); await expect(item).toBeVisible();
+  await panel.getByRole('button', { name: '直線型', exact: true }).focus(); await page.keyboard.press('Enter');
+  await expect(item.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
+  expect(await read(page)).toEqual(baseline);
+  for (const [count, expected, total] of [[6, 'あと9問', 6], [4, 'あと5問', 10], [5, '✅完了', 15]] as const) {
+    await input.fill(String(count)); await input.press('Enter');
+    await expect(row.locator('.progress-value')).toHaveText(expected);
+    await expect(item).toContainText(`${total}/15問 · ${expected}`);
+    await expect(page.locator('.daily-record-saved')).toContainText(expected);
+    await expect(row.getByRole('textbox', { name: /今回解いた問題数/ })).toHaveValue('');
+  }
+  await expect(item.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100');
+  await expect(row.getByRole('checkbox')).toHaveCount(0);
+  await page.reload(); await expect(row.locator('.progress-value')).toHaveText('✅完了');
+  for (const shape of ['円型', '直線型']) {
+    const shapeButton = panel.getByRole('button', { name: shape, exact: true });
+    await shapeButton.click();
+    await expect(page.locator('.page-transition')).toHaveCSS('opacity', '1');
+    await shapeButton.evaluate(element => Promise.all(element.getAnimations().map(animation => animation.finished)));
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
+    await page.screenshot({ path: info.outputPath(`today-progress-${shape === '円型' ? 'circle' : 'line'}.png`), fullPage: true });
+  }
+  await nav(page, '今後の予定');
+  const day = page.locator('.future-day').filter({ has: page.locator(`time[datetime="${contractDay}"]`) });
+  await expect(day.locator('li').filter({ hasText: state.settings.materials[0].name })).toContainText('✅完了');
+  await nav(page, '記録履歴');
+  const last = page.getByRole('row').filter({ hasText: state.settings.materials[0].name }).filter({ hasText: '＋5問' });
+  await last.getByRole('button', { name: '訂正', exact: true }).click();
+  await page.getByRole('textbox', { name: '訂正後の問題数' }).fill('3'); await nav(page, '訂正を保存');
+  await nav(page, '今日'); await expect(row.locator('.progress-value')).toHaveText('あと2問');
+  await expect(item).toContainText('13/15問 · あと2問');
+  await nav(page, '記録履歴');
+  const corrected = page.getByRole('row').filter({ hasText: state.settings.materials[0].name }).filter({ hasText: '＋3問' });
+  await corrected.getByRole('button', { name: '取消', exact: true }).click(); await nav(page, '取消を確定');
+  await nav(page, '今日'); await expect(row.locator('.progress-value')).toHaveText('あと5問');
+  await expect(item).toContainText('10/15問 · あと5問');
+  await nav(page, '今後の予定');
+  await expect(day.locator('li').filter({ hasText: state.settings.materials[0].name })).toContainText('あと5問');
 });

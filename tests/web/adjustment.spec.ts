@@ -168,7 +168,7 @@ test('保存済みの対象5問の部分配置案も実績を作らず承認・�
   await page.goto('./');
   const read = () => page.evaluate(() => JSON.parse(localStorage.getItem('studyplan-demo-state-v1')!).data as AppState);
   const b = page.locator('.daily-record-row').filter({ hasText: '教材B' });
-  await expect(b).toContainText('未報告');
+  await expect(b.locator('.progress-value')).toHaveText('あと5問');
   await expect(b).not.toContainText('配置先を確認');
   await page.getByRole('button', { name: '今後の予定', exact: true }).click();
   await page.getByRole('button', { name: '計画案を確認', exact: true }).click();
@@ -216,7 +216,7 @@ test('部分実績から追加・超過・訂正・取消まで、数量と変�
   ]) {
     await row.getByRole('textbox').fill(String(additional));
     await row.getByRole('textbox').press('Enter');
-    await expect(row).toContainText(`${total}/6問`);
+    await expect(row).toContainText(total >= 6 ? '✅完了' : `あと${6-total}問`);
     await expect(result).toContainText(total <= 6 ? '予定の変更なし' : '数量 1件');
     const stored = await read();
     const active = activePlanWork(stored, adjustmentContext.date).filter(
@@ -270,7 +270,7 @@ test('部分実績から追加・超過・訂正・取消まで、数量と変�
   await expect.poll(async () => (await read()).records.some((r) => r.cancelled)).toBe(true);
   expect(await quantity()).toBe(26);
   await page.getByRole('button', { name: '今日', exact: true }).click();
-  await expect(row).toContainText('4/6問');
+  await expect(row).toContainText('あと2問');
   await page.screenshot({ path: info.outputPath('adjustment-corrected.png'), fullPage: true });
 });
 
@@ -340,7 +340,7 @@ test('実績なしの読込と開き続けた翌日の調整を分けて表示�
   expect((await read()).records).toEqual([]);
   await page.getByRole('button', { name: '今後の予定', exact: true }).click();
   await expect(page.locator('.future-week time')).toHaveAttribute('datetime', '2030-10-07');
-  await expect(page.locator('.future-day').filter({ hasText: '対象問題集' }).first()).toContainText('未報告');
+  await expect(page.locator('.future-day').filter({ hasText: '対象問題集' }).first()).toContainText('あと6問');
   await page.clock.setFixedTime(new Date('2030-10-08T03:00:00.000Z'));
   await page.clock.runFor(60_001);
   await expect.poll(async () => (await read()).plan?.adjustmentBasis?.date).toBe('2030-10-08');
@@ -397,7 +397,7 @@ for (const { offset, expected } of [{ offset: 0, expected: 6 }, { offset: 1, exp
     const row = page.locator('.daily-record-row').filter({ hasText: '対象問題集' }).filter({ hasText: '1周目' });
     await row.getByRole('textbox').fill('4');
     await row.getByRole('button', { name: '記録', exact: true }).click();
-    await expect(row).toContainText('4/6問');
+    await expect(row).toContainText('あと2問');
     await page.getByRole('button', { name: '今後の予定', exact: true }).click();
     await page.getByText('計画を仕切り直す', { exact: true }).click();
     await page.getByLabel('開始日', { exact: true }).fill(addDays(date, offset));
@@ -413,7 +413,7 @@ for (const { offset, expected } of [{ offset: 0, expected: 6 }, { offset: 1, exp
     expect(approved.plan!.shortfalls.filter((s) => s.materialId === 'book' && s.round === 0)).toEqual([]);
     expect(approved.studyDayBaselines?.[date].rows.find((r) => r.materialId === 'book' && r.round === 0)?.count).toBe(6);
     await page.getByRole('button', { name: '今日', exact: true }).click();
-    await expect(row).toContainText(`実績 4問 · 今日の残り ${expected}問`);
+    await expect(row).toContainText(expected > 0 ? `あと${expected}問` : '4問を記録');
     await expect(row.locator('.daily-progress-ring')).toHaveCount(0);
     await page.getByRole('button', { name: '今後の予定', exact: true }).click();
     await page.getByRole('button', { name: 'カレンダー表示', exact: true }).click();
@@ -428,7 +428,7 @@ for (const { offset, expected } of [{ offset: 0, expected: 6 }, { offset: 1, exp
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await page.screenshot({ path: info.outputPath('restart-today.png'), fullPage: true });
     await page.reload();
-    await expect(row).toContainText(`実績 4問 · 今日の残り ${expected}問`);
+    await expect(row).toContainText(expected > 0 ? `あと${expected}問` : '4問を記録');
     expect((await read()).records).toEqual(approved.records);
   });
 }

@@ -45,7 +45,7 @@ test('LAN画面から部分・追加・超過・訂正・取消とバックア�
   await open(page);
   for (const [n, actual, today, future] of [[4, 4, 2, 24], [2, 6, 0, 24], [2, 8, 0, 22]]) {
     await record(page, n);
-    await expect(book(page)).toContainText(`${actual}/6問`);
+    await expect(book(page)).toContainText(actual >= 6 ? '✅完了' : `あと${6-actual}問`);
     await counts(request, actual, today, future);
   }
   await page.getByRole('button', { name: '記録履歴', exact: true }).click();
@@ -61,7 +61,7 @@ test('LAN画面から部分・追加・超過・訂正・取消とバックア�
   await expect(zero).toHaveCount(0);
   await counts(request, 4, 2, 24);
   await page.reload();
-  await expect(book(page)).toContainText('4/6問');
+  await expect(book(page)).toContainText('あと2問');
   await page.getByRole('button', { name: '設定', exact: true }).click();
   await page.getByRole('button', { name: 'バックアップ', exact: true }).click();
   const downloading = page.waitForEvent('download');
@@ -89,7 +89,7 @@ test('同revisionの保存競合で他端末の実績と入力途中の値を失
   await other.screenshot({ path: info.outputPath('lan-conflict.png'), fullPage: true });
   await recovery.getByRole('button', { name: '最新の保存内容を読み込む' }).click();
   await expect(recovery).not.toBeVisible();
-  await expect(book(other)).toContainText('4/6問');
+  await expect(book(other)).toContainText('あと2問');
   await expect(book(other).getByRole('textbox')).toHaveValue('3');
   await record(other, 2);
   await counts(request, 6, 0, 24);
@@ -97,10 +97,10 @@ test('同revisionの保存競合で他端末の実績と入力途中の値を失
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect(page.getByRole('button', { name: '最新を読み込む', exact: true })).toBeVisible();
   await expect(book(page).getByRole('textbox')).toHaveValue('1');
-  await expect(book(page)).toContainText('4/6問');
+  await expect(book(page)).toContainText('あと2問');
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: '最新を読み込む', exact: true }).click();
-  await expect(book(page)).toContainText('6/6問');
+  await expect(book(page)).toContainText('✅完了');
   await expect(book(page).getByRole('textbox')).toHaveValue('1');
   await other.close();
 });
@@ -120,7 +120,7 @@ test('通信断は保存済みにせず、入力とSQLiteを保持し復旧後�
   await record(page, 4);
   await counts(request, 4, 2, 24);
   await page.reload();
-  await expect(book(page)).toContainText('4/6問');
+  await expect(book(page)).toContainText('あと2問');
 });
 
 test('直接カレンダーと戻る導線を狭幅・広幅・キーボードで利用できる', async ({ page }, info) => {
@@ -227,7 +227,7 @@ test('LAN記録の応答待ちに画面を往復しても共有busyと入力の�
     expect((await stored(request)).data.records).toHaveLength(1);
     await page.getByRole('button', { name: '記録履歴', exact: true }).click();
     await page.getByRole('button', { name: '過去日の学習を記録' }).click();
-    await expect(page.getByLabel('追加問題数（1問単位）')).toBeDisabled();
+    await expect(page.getByLabel('今回解いた問題数')).toBeDisabled();
     await expect(page.getByRole('button', { name: '保存中…', exact: true })).toBeDisabled();
     await page.getByRole('button', { name: '今日', exact: true }).click();
     await expect(book(page).getByRole('textbox')).toHaveValue('4');
@@ -252,7 +252,7 @@ test('LAN過去日記録の応答待ちに別日の対象へ移っても旧完�
   await page.getByRole('button', { name: '記録履歴', exact: true }).click();
   await page.getByRole('button', { name: '過去日の学習を記録' }).click();
   await page.getByLabel('記録対象日').fill(firstDay);
-  await page.getByLabel('追加問題数（1問単位）').fill('3');
+  await page.getByLabel('今回解いた問題数').fill('3');
   await expect(page.locator('.save-status')).toContainText('Windowsに保存済み');
   const hold = await holdRecordResponse(page, 3);
   try {
@@ -266,8 +266,8 @@ test('LAN過去日記録の応答待ちに別日の対象へ移っても旧完�
     await expect(page.getByRole('heading', { name: '進捗の記録', exact: true })).toBeVisible();
     await expect(page.getByLabel('記録対象日')).toHaveValue(nextDay);
     await expect(page.getByLabel('教材', { exact: true })).toHaveValue('other');
-    await expect(page.getByLabel('追加問題数（1問単位）')).toHaveValue('');
-    await page.getByLabel('追加問題数（1問単位）').fill('2');
+    await expect(page.getByLabel('今回解いた問題数')).toHaveValue('');
+    await page.getByLabel('今回解いた問題数').fill('2');
     await page.getByRole('button', { name: '記録する', exact: true }).click();
     await expect(page.locator('.progress-result')).toContainText('＋2問を記録しました');
     const records = (await stored(request)).data.records;

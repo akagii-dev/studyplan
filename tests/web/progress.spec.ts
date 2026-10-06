@@ -22,6 +22,13 @@ const dayList = (page: Page, date: string) =>
     .filter({ has: page.locator(`h2 time[datetime="${date}"]`) });
 async function progress(row: Locator, actual: number | null, deficit: number | null) {
   const value = row.locator('.progress-value');
+  const schedule = await row.evaluate(element => element.matches('.daily-record-row') ||
+    !!element.closest('.future-day')?.querySelector('h2 .future-today'));
+  if (schedule) {
+    await expect(value).toHaveText((actual ?? 0) >= 10 ? '✅完了' : `あと${10 - (actual ?? 0)}問`);
+    await expect(value.getByRole('checkbox')).toHaveCount(0);
+    return;
+  }
   // Check rendered quantities as well as unknown-vs-zero; not just hidden test metadata.
   if (actual === null) await expect(value).toContainText(/未報告\s*\/\s*10問/);
   else await expect(value).toContainText(new RegExp(`(^|\\s)${actual}/10問`));

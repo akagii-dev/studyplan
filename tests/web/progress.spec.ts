@@ -76,7 +76,7 @@ async function inspectScreens(page: Page, actual: number | null, pastActual: num
   await expect(page.locator('main')).not.toContainText(/基準なし|実績あり/);
   await navigate(page, '週間予定');
   await expect(page.locator('.future-week time')).toHaveAttribute('datetime', startOfWeek(contractDay));
-  expect(Math.abs((await page.evaluate(() => window.scrollY)) - scroll)).toBeLessThan(3);
+  await expect.poll(async () => Math.abs((await page.evaluate(() => window.scrollY)) - scroll)).toBeLessThan(3);
   await navigate(page, '設定');
   await navigate(page, '週間レポート');
   await page.locator(`[data-report-date="${contractDay}"]`).click();

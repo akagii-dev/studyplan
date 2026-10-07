@@ -4,7 +4,7 @@ import { mkdirSync, readFileSync } from 'node:fs';
 const url = process.argv[2] ?? 'http://127.0.0.1:4173/studyplan/';
 async function checkRecording(page) {
   await expect(page.locator('.sidebar-bottom')).toContainText(`StudyPlan v${version}`);
-  const row = page.locator('.daily-record-row').filter({ hasText: 'サンプル問題集' });
+  const row = page.locator('.daily-record-row').filter({ hasText: '民法・問題集' });
   const amount = Number((await row.locator('.progress-value').innerText()).match(/あと(\d+)問/)[1]);
   const input = row.getByRole('textbox', { includeHidden: true });
   const summary = row.locator('.daily-record-input summary');
@@ -42,12 +42,15 @@ try {
     throw new Error(`Demo did not initialize: ${await page.locator('body').innerText()}`);
   await expect(page.getByRole('heading', { name: '今日', level: 1 })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: '公開デモです。' })).toBeVisible();
-  const example = page.locator('.daily-record-row').filter({ hasText: 'サンプル問題集' });
+  const example = page.locator('.daily-record-row').filter({ hasText: '民法・問題集' });
   await expect(example).toBeVisible();
   await expect(example.locator('.progress-value')).toHaveText(/^あと[1-9]\d*問$/);
-  await expect(example.getByRole('textbox', { name: 'サンプル問題集 1周目の今回解いた問題数（問）' })).toBeVisible();
+  await expect(example.getByRole('textbox', { name: '民法・問題集 1周目の今回解いた問題数（問）' })).toBeVisible();
   await expect(page.getByText('デモ・このブラウザーに保存', { exact: true })).toContainText('このブラウザーに保存');
   await expect(page.locator('nav').getByRole('button', { name: 'バックアップ' })).toHaveCount(0);
+  for (const subject of ['民法・問題集', '行政法・問題集', '憲法・問題集']) await expect(page.locator('.daily-record-row').filter({ hasText: subject })).toBeVisible();
+  await expect(page.getByLabel('次のターム：', { exact: true })).toHaveValue('民法：意思表示');
+  await expect(page.getByLabel('メモ', { exact: true })).toHaveValue('行政法：行政手続法\n憲法：基本的人権');
   await checkRecording(page);
   mkdirSync('test-results', { recursive: true });
   await page.screenshot({ path: 'test-results/public-demo-today.png', fullPage: true });
@@ -63,7 +66,9 @@ try {
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
   mobile.on('pageerror', (error) => errors.push(error.message));
   await mobile.goto(url, { waitUntil: 'networkidle' });
-  await expect(mobile.locator('.daily-record-row').filter({ hasText: 'サンプル問題集' })).toBeVisible();
+  await expect(mobile.locator('.daily-record-row').filter({ hasText: '民法・問題集' })).toBeVisible();
+  for (const subject of ['行政法・問題集', '憲法・問題集']) await expect(mobile.locator('.daily-record-row').filter({ hasText: subject })).toBeVisible();
+  await expect(mobile.getByLabel('次のターム：', { exact: true })).toHaveValue('民法：意思表示');
   await checkRecording(mobile);
   await mobile.screenshot({ path: 'test-results/public-demo-mobile.png' });
   if (errors.length) throw new Error(`Demo runtime errors: ${errors.join('; ')}`);

@@ -7,23 +7,20 @@ export const DEMO_STORAGE_KEY = 'studyplan-demo-state-v1';
 export function demoInitialState(date = today()): AppState {
   const state = initialState();
   const target = addDays(date, 21);
-  state.settings.exams = [{
-    id: 'demo-exam',
-    name: 'サンプル試験',
-    start: date,
-    target,
-    priority: 2,
-    color: '#287569',
-    reviewDays: 1,
-  }];
-  state.settings.materials = [{
-    id: 'demo-material',
-    examId: 'demo-exam',
-    name: 'サンプル問題集',
-    total: 80,
-    order: 1,
-    rounds: [{ completed: 0, minutes: 3 }],
-  }];
+  state.settings.exams = [
+    { id: 'demo-exam', name: '民法（サンプル）', start: date, target, priority: 2, color: '#287569', reviewDays: 1 },
+    { id: 'demo-administrative-exam', name: '行政法（サンプル）', start: date, target, priority: 2, color: '#356ca1', reviewDays: 1 },
+    { id: 'demo-constitution-exam', name: '憲法（サンプル）', start: date, target, priority: 2, color: '#8562a0', reviewDays: 1 },
+  ];
+  state.settings.materials = [
+    { id: 'demo-material', examId: 'demo-exam', name: '民法・問題集', total: 120, order: 1,
+      rounds: [{ completed: 0, minutes: 3 }] },
+    { id: 'demo-administrative', examId: 'demo-administrative-exam', name: '行政法・問題集', total: 100, order: 1,
+      rounds: [{ completed: 0, minutes: 3 }] },
+    { id: 'demo-constitution', examId: 'demo-constitution-exam', name: '憲法・問題集', total: 80, order: 1,
+      rounds: [{ completed: 0, minutes: 3 }] },
+  ];
+  state.studyNote = { nextTerm: '民法：意思表示', memo: '行政法：行政手続法\n憲法：基本的人権' };
   state.settings.windows = [{
     id: 'demo-study-window',
     name: '毎日の学習時間',

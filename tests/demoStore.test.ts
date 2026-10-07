@@ -18,8 +18,9 @@ describe('公開デモのブラウザー保存', () => {
     const storage = memoryStorage();
     const first = loadDemoState(storage);
     expect(first.revision).toBe(0);
-    expect(first.data.settings.exams[0]?.name).toBe('サンプル試験');
-    expect(first.data.settings.materials[0]?.name).toBe('サンプル問題集');
+    expect(first.data.settings.exams[0]?.name).toBe('民法（サンプル）');
+    expect(first.data.settings.materials.map(material => material.name)).toEqual(['民法・問題集', '行政法・問題集', '憲法・問題集']);
+    expect(first.data.studyNote).toEqual({ nextTerm: '民法：意思表示', memo: '行政法：行政手続法\n憲法：基本的人権' });
     expect(first.data.plan?.sessions.some((session) => session.date === first.data.plan?.from && session.count > 0)).toBe(true);
     const state = { ...initialState(), theme: 'sky' as const };
     expect(saveDemoState(storage, state, 0)).toEqual({ revision: 1, data: state });
@@ -31,6 +32,10 @@ describe('公開デモのブラウザー保存', () => {
     expect(validateSettings(first.settings)).toEqual([]);
     expect(demoInitialState('2030-10-07')).toEqual(first);
     expect(first.plan?.shortfalls).toEqual([]);
+    for (const material of first.settings.materials) {
+      expect(first.plan?.sessions.some(session => session.date === first.plan?.from && session.materialId === material.id && session.count > 0)).toBe(true);
+      expect(first.plan?.sessions.filter(session => session.materialId === material.id && session.kind === 'study').reduce((sum, session) => sum + session.count, 0)).toBe(material.total);
+    }
   });
 
   it('古い保存番号と壊れたブラウザーデータを拒否する', () => {

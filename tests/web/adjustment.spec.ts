@@ -214,6 +214,7 @@ test('部分実績から追加・超過・訂正・取消まで、数量と変�
     [2, 6, 0, 24],
     [2, 8, 0, 22],
   ]) {
+    if (await row.locator('summary').isVisible()) await row.locator('summary').click();
     await row.getByRole('textbox').fill(String(additional));
     await row.getByRole('textbox').press('Enter');
     await expect(row).toContainText(total > 6 ? `✅追加${total-6}問` : total === 6 ? '✅完了' : `あと${6-total}問`);

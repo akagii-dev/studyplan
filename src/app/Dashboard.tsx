@@ -1,7 +1,7 @@
 import { ChevronRight } from 'lucide-react';
 import { Props, duration } from '../components/common';
 import { ShortfallDetails } from '../components/ShortfallDetails';
-import { TodayStudyProgress } from '../components/TodayStudyProgress';
+import { StudyNote } from '../components/StudyNote';
 import { TodayRecorder, RecordTarget } from '../components/TodayRecorder';
 import { today } from '../domain/model';
 import { currentPlanReconciliation, currentProgressAdjustment } from '../domain/progressAdjustment';
@@ -16,12 +16,12 @@ export function Dashboard({
 }: Props & { navigate: (page: Page) => void; onReview: () => void; recordTarget?: RecordTarget | null }) {
   if (!state.plan)
     return (
-      <section className="card">
+      <div className="daily-page"><section className="card">
         <h2>学習計画をつくる</h2>
         <button className="primary" onClick={() => navigate('setup')}>
           設定を始める <ChevronRight size={17} />
         </button>
-      </section>
+      </section><StudyNote state={state} update={update} /></div>
     );
 
   const reconciliation = currentPlanReconciliation(state);
@@ -66,7 +66,7 @@ export function Dashboard({
         )}
       </section>
       <ShortfallDetails state={state} onReview={onReview} />
-      <TodayStudyProgress state={state} />
+      <StudyNote state={state} update={update} />
     </div>
   );
 }

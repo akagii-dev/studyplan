@@ -284,3 +284,28 @@ test('LAN過去日記録の応答待ちに別日の対象へ移っても旧完�
     ]);
   } finally { hold.release(); }
 });
+
+test('ターム・メモをLANとSQLiteで共有し、通信断・復元・日付跨ぎでも保持する', async ({ page, context, request }) => {
+  await open(page);
+  const before = (await stored(request)).data;
+  const form = page.getByRole('form', { name: 'ターム・メモ' });
+  const term = form.getByLabel('次のターム：', { exact: true }); const memo = form.getByLabel('メモ', { exact: true });
+  const note = { nextTerm: '民法・意思表示', memo: '判例を確認\n次は錯誤' };
+  await term.fill(note.nextTerm); await memo.fill(note.memo); await form.getByRole('button', { name: '保存', exact: true }).click();
+  await expect.poll(async () => (await stored(request)).data.studyNote).toEqual(note);
+  const saved = (await stored(request)).data; delete saved.studyNote; expect(saved).toEqual(before);
+  const packet = await call<{ data: Envelope['data'] }>(request, 'export_backup'); expect(packet.data.studyNote).toEqual(note);
+  const other = await context.newPage(); await open(other); await expect(other.getByLabel('次のターム：')).toHaveValue(note.nextTerm); await other.close();
+  await context.setOffline(true); await term.fill('通信断でも保持'); await form.getByRole('button', { name: '保存', exact: true }).click();
+  const recovery = page.getByRole('dialog', { name: '保存状態の確認' }); await expect(recovery).toBeVisible();
+  await expect(term).toHaveValue('通信断でも保持'); expect((await stored(request)).data.studyNote).toEqual(note);
+  await context.setOffline(false); await recovery.getByRole('button', { name: '最新の保存内容を読み込む' }).click();
+  await expect(recovery).toBeHidden(); await expect(term).toHaveValue('通信断でも保持');
+  await form.getByRole('button', { name: '保存', exact: true }).click(); await expect.poll(async () => (await stored(request)).data.studyNote?.nextTerm).toBe('通信断でも保持');
+  const current = await stored(request);
+  await call(request, 'restore_backup', { expected: current.revision, requestId: crypto.randomUUID(), text: JSON.stringify(packet) });
+  await page.reload(); await expect(term).toHaveValue(note.nextTerm); await expect(memo).toHaveValue(note.memo);
+  await page.clock.setSystemTime(new Date(`${addDays(adjustmentContext.date, 1)}T12:00:00+09:00`));
+  await page.reload(); await expect(term).toHaveValue(note.nextTerm); await expect(memo).toHaveValue(note.memo);
+  expect(await page.evaluate(() => Object.keys(localStorage))).toEqual(['studyplan-lan-access-key-v1']);
+});

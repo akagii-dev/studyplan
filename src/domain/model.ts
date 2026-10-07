@@ -222,6 +222,7 @@ export interface WindowSize {
   height: number;
 }
 export interface AppState {
+  studyNote?: { nextTerm: string; memo: string };
   studyDayBaselines?: Record<string, StudyDayBaseline>;
   outsideLabels?: Record<string, OutsideLabel[]>;
   outsideTime?: OutsideTime;

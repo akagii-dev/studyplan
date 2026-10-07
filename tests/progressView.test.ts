@@ -10,7 +10,6 @@ import { Dashboard } from '../src/app/Dashboard';
 import { Future } from '../src/app/Future';
 import { CalendarQuantityDetails } from '../src/components/CalendarQuantity';
 import { CalendarDaySummary } from '../src/components/CalendarDaySummary';
-import { TodayStudyProgress } from '../src/components/TodayStudyProgress';
 import { TodayRecorder } from '../src/components/TodayRecorder';
 import {
   adjustmentContext,
@@ -1049,35 +1048,4 @@ it('追加は予定を超えた累計量を単位別に示し、仕切り直し�
   let restarted = approve(proposeRestart(source, context.date, context), false, context);
   restarted = recordAndAdjust(restarted, adjustmentReport(7, 'new'), context);
   expect(todayStudyRows(restarted, context.date).find(row => row.materialId === 'book')!.progress.text).toBe('✅追加1問');
-});
-
-
-it.each([[0, 0], [198, 99], [199, 100], [200, 100]])('直線バーは予定199に記録%sの割合を%sに制限し、未完了100%を作らない', (count, percent) => {
-  vi.useFakeTimers(); vi.setSystemTime(new Date(adjustmentContext.timestamp));
-  try {
-    const state = adjustmentFixture();
-    state.settings.materials[0].total = 223;
-    state.plan!.sessions[0].count = 199;
-    state.plan!.settingsSnapshot = structuredClone(state.settings);
-    state.plan!.progressBaseline = createProgressBaseline(state.plan!, []);
-    state.records = [adjustmentReport(count)];
-    const html = renderToStaticMarkup(createElement(TodayStudyProgress, { state }));
-    const first = html.split('</li>')[0];
-    expect(first).toContain('aria-valuenow="' + percent + '"');
-    expect(first).toContain(percent + '%');
-    expect(html).not.toContain('円型'); expect(html).not.toContain('直線型'); expect(html).not.toContain('<svg');
-    if (count === 200) expect(first).toContain('✅追加1問');
-  } finally { vi.useRealTimers(); }
-});
-
-it('予定総数0では進捗バーや割合を生成しない', () => {
-  vi.useFakeTimers(); vi.setSystemTime(new Date(adjustmentContext.timestamp));
-  try {
-    const state = adjustmentFixture();
-    state.plan!.sessions.forEach(session => session.count = 0);
-    state.plan!.progressBaseline = createProgressBaseline(state.plan!, []);
-    const html = renderToStaticMarkup(createElement(TodayStudyProgress, { state }));
-    expect(html).not.toContain('role="progressbar"');
-    expect(html).not.toContain('%'); expect(html).not.toContain('NaN'); expect(html).not.toContain('Infinity');
-  } finally { vi.useRealTimers(); }
 });

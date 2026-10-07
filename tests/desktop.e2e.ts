@@ -5724,3 +5724,39 @@ test('実機：通常の日付越え停止を今日から確認し、仕切り�
   expect((await storedState()).plan).toEqual(approved.plan);
   expect((await storedState()).records).toEqual(source.records);
 });
+
+test('実機：ターム・メモのSQLite保存・失敗入力・バックアップ復元・再起動を維持する', async () => {
+  dataDir = mkdtempSync(resolve('.test-data/study-note-'));
+  await launch(); await seedState(adjustmentFixture(today()), 'study-note-source');
+  const before = await storedState();
+  const form = page.getByRole('form', { name: 'ターム・メモ' });
+  const term = form.getByLabel('次のターム：', { exact: true }); const memo = form.getByLabel('メモ', { exact: true });
+  const note = { nextTerm: '民法・意思表示', memo: '判例を確認\n次は錯誤' };
+  await term.fill(note.nextTerm); await memo.fill(note.memo); await form.getByRole('button', { name: '保存', exact: true }).click(); await saved();
+  const stored = await storedState(); expect(stored.studyNote).toEqual(note); delete stored.studyNote; expect(stored).toEqual(before);
+  const path = resolve(dataDir, 'note.studyplan.json');
+  await page.evaluate(async path => {
+    await (window as unknown as { __TAURI_INTERNALS__: { invoke: (name: string, args: unknown) => Promise<unknown> } }).__TAURI_INTERNALS__.invoke('export_backup', { path });
+  }, path);
+  expect(JSON.parse(readFileSync(path, 'utf8')).data.studyNote).toEqual(note);
+  await page.evaluate(() => {
+    const nativeFetch = window.fetch.bind(window); let once = true;
+    window.fetch = async (input, options) => {
+      if (String(input).includes('ipc.localhost/commit_state') && once) { once = false; return new Response(JSON.stringify('専用試験：メモ保存失敗'), { headers: { 'Content-Type': 'application/json', 'Tauri-Response': 'error' } }); }
+      return nativeFetch(input, options);
+    };
+  });
+  await term.fill('失敗時の下書き'); await form.getByRole('button', { name: '保存', exact: true }).click();
+  await expect(page.getByRole('alert').filter({ hasText: '専用試験：メモ保存失敗' })).toBeVisible();
+  await expect(term).toHaveValue('失敗時の下書き'); expect((await storedState()).studyNote).toEqual(note);
+  await nav('今後の予定'); await nav('今日'); await expect(term).toHaveValue('失敗時の下書き');
+  await form.getByRole('button', { name: '保存', exact: true }).click(); await saved(); expect((await storedState()).studyNote?.nextTerm).toBe('失敗時の下書き');
+  await nav('バックアップ'); await page.getByLabel('復元するバックアップ').setInputFiles(path);
+  await page.getByLabel('置き換える内容を確認しました').check(); await page.getByRole('button', { name: 'この内容で復元する', exact: true }).click();
+  await expect(page.getByText('復元しました。', { exact: true })).toBeVisible(); await nav('今日');
+  await expect(term).toHaveValue(note.nextTerm); await expect(memo).toHaveValue(note.memo);
+  await closeWindowNormally(); await launch();
+  expect((await storedState()).studyNote).toEqual(note);
+  await expect(page.getByLabel('次のターム：', { exact: true })).toHaveValue(note.nextTerm);
+  await expect(page.getByLabel('メモ', { exact: true })).toHaveValue(note.memo);
+});

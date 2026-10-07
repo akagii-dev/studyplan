@@ -1,3 +1,13 @@
+## 今日のターム・メモ（2026-10-08、B650、未公開）
+
+- 今日の専用プログレスバー/割合/重複進捗欄を廃止し、既存Field/input/テーマによる「次のターム：」1行＋2行のメモ＋保存を配置。自由記述は日付・教材・予習生成・学習量・完了判定から独立。バー専用コンポーネント/CSSとその割合描画5テストだけを撤去し、共通の数量・記録/訂正/取消のテストを維持。
+- `AppState.studyNote?: {nextTerm, memo}`を共有スキーマへ追加（200/4000文字、両方空欄で削除）。旧項目なしは空欄表示のみ。SQLiteの既存JSON・store・revision/requestId・LAN API・バックアップversion1を共用し、別DB/独立localStorage/移行処理を追加しない。保存前/失敗時の入力は既存セッション入力保持で保護し、成功時は変更が続いていない場合だけDB値へ戻す。明示復元では既存入力クリアを共用する。
+- 最終`pnpm verify`成功：lint/型/単体548件36ファイル/通常build。既存仕切り直しケースでメモ保持をassert。`pnpm verify:ui`成功：Edge1280×800/320×800の80件＋ICS2件。ターム「民法・意思表示」/メモ2行の保存→翌日→再読込、失敗入力保持→画面往復→再送、空欄削除、Tab/Enter、light/dark・同一配色・axe/WCAG・横溢れなしを確認。初回79成功/1失敗は既存画面フェード中のコントラスト測定で、表示完了を待って同じ基準で再実行成功。最初のメモ欄の標準描画を既存inputと同じCSSへ修正。最終画像を自己レビュー。
+- `pnpm test:ui`全66を実行：既存65成功/新1失敗。保存/失敗入力/復元は成功し再起動末尾だけが古いPage参照で失敗。専用SQLiteをreadOnlyで確認しrevision4にターム/メモ保持を確認、再起動後の新PageとSQLiteをassertして該当1件再実行成功。メモ編集によるplan/records/history/settings等の不変、バックアップ出力→復元→通常終了→起動の一致を確認。全66の単一最終再実行はしていない。最終スタイル変更後も新1件を再確認。
+- `pnpm test:lan`34成功/既存の幅非依存重複14skip。2ブラウザーで同じSQLiteの内容、APIバックアップ/復元、通信断でDB不変・入力保持・保存未確認、復旧後の読み直し/保存、日付跨ぎ/再読込を確認。最終LAN資材でも該当wide/narrow2件成功。ブラウザーの独立学習データ保存なし（localStorageは既存の接続キーだけ）。
+- debug Desktop/LAN build成功。`cargo test --manifest-path src-tauri/Cargo.toml --locked --lib`43成功：ターム/メモのSQLite commit・上限超過拒否・空欄削除・packet/restore/reopen・旧項目なしを追加。DBテーブル/本番保存先/旧データを自動変更しない。
+- 未確認：iOS Safari/ホーム画面実機、読み上げ実聴、配布EXE。本番DB/個人データ/Eドライブ/稼働製品EXEを使用せず、commit/push/公開/Release/版番号変更なし。並行教材数上限と未報告の調整済み判定は対象外。検証生成物・cacheは回収後の数量を既存WORK-STATUSへ記録。既存Zod注釈/bundle/NO_COLOR・Node SQLite警告あり。
+
 ## v0.8.0：完了・追加記録後の入力フェード（2026-10-07、B650）
 
 - 既存画面切替の280ms/ease-outをCSS変数で共有し、native detailsの内容だけをフェード。フォームDOMと下書きを保持し、閉じ始めにfocusをsummaryへ移しinertで操作対象から外す。reduced-motionと非対応環境では即時に閉じる。保存・domain・SQLite契約は変更なし。

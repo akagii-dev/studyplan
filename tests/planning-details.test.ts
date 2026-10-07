@@ -24,6 +24,7 @@ const restartContext = {
 describe('計画の仕切り直しと案の事前条件', () => {
   it('既存の未配置を重複計上せず、2+2実績後の26問を指定日から再配分する', () => {
     const source = restartFixture(restartDay);
+    source.studyNote = { nextTerm: '民法・意思表示', memo: '次の区分' };
     const from = addDays(restartDay, 3);
     const candidate = proposeRestartWithContext(source, from, restartContext);
     expect(candidate.records).toEqual(source.records);
@@ -34,6 +35,7 @@ describe('計画の仕切り直しと案の事前条件', () => {
     expect(candidate.proposal?.plan.shortfalls.reduce((n, s) => n + s.count, 0)).toBe(0);
     expect(candidate.proposal?.plan.sessions.some((s) => !s.fixed && s.date < from)).toBe(false);
     const approved = approveWithContext(candidate, false, restartContext);
+    expect(approved.studyNote).toEqual(source.studyNote);
     expect(approved.plan?.allocationStart).toBe(from);
     expect(approved.history).toEqual([source.plan]);
     const ordinary = proposeWithContext(approved, addDays(restartDay, 1), '再確認', restartContext);

@@ -109,6 +109,7 @@ const plan = z.looseObject({
   calculationVersion: count.optional(),
   notBefore: minute.optional(),
   settingsSnapshot: settings.optional(),
+  studyNote: z.object({ nextTerm: z.string().max(200), memo: z.string().max(4000) }).optional(),
   settingsUpdatedAt: text.optional(),
   sessions: z.array(session),
   capacities: z.array(
@@ -372,6 +373,7 @@ const state = z.looseObject({
     .record(id, z.object({ title: text, version: text, ignoredAt: z.iso.datetime() }))
     .optional(),
   warningExpanded: z.record(id, z.boolean()).optional(),
+  studyNote: z.object({ nextTerm: z.string().max(200), memo: z.string().max(4000) }).optional(),
   settingsUpdatedAt: text.optional(),
 });
 export const backupSchema = z.object({

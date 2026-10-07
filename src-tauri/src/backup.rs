@@ -266,6 +266,41 @@ mod tests {
         data
     }
     #[test]
+    fn study_note_keeps_sqlite_backup_restore_legacy_and_text_boundaries() {
+        let folder = tempfile::tempdir().unwrap();
+        let path = folder.path().join("notes.sqlite3");
+        let mut conn = db::open(&path).unwrap();
+        let old = state();
+        db::commit(&mut conn, 0, "old", old.clone()).unwrap();
+        assert!(db::load(&conn)
+            .unwrap()
+            .unwrap()
+            .data
+            .get("studyNote")
+            .is_none());
+        let mut data = old.clone();
+        data["studyNote"] = json!({"nextTerm":"民法・意思表示","memo":"判例を確認\n次は錯誤"});
+        db::commit(&mut conn, 1, "note", data.clone()).unwrap();
+        let file = parse(&packet(&conn).unwrap().to_string()).unwrap();
+        assert_eq!(file["data"], data);
+        let mut invalid = data.clone();
+        invalid["studyNote"]["nextTerm"] = json!("a".repeat(201));
+        assert!(db::commit(&mut conn, 2, "invalid", invalid).is_err());
+        let mut boundary = data.clone();
+        boundary["studyNote"] = json!({"nextTerm":"a".repeat(200),"memo":"あ".repeat(4000)});
+        assert!(check_data(&boundary).is_ok());
+        boundary["studyNote"]["memo"] = json!("あ".repeat(4001));
+        assert!(check_data(&boundary).is_err());
+        let mut cleared = data.clone();
+        cleared["studyNote"] = json!({"nextTerm":"","memo":""});
+        db::commit(&mut conn, 2, "clear", cleared).unwrap();
+        db::restore(&mut conn, 3, "restore-note", file["data"].clone()).unwrap();
+        drop(conn);
+        let reopened = db::open(&path).unwrap();
+        assert_eq!(db::load(&reopened).unwrap().unwrap().data, data);
+        assert!(check_data(&old).is_ok());
+    }
+    #[test]
     fn class_cancellations_and_balance_intent_survive_save_backup_restore_and_reopen() {
         let folder = tempfile::tempdir().unwrap();
         let path = folder.path().join("cancellations.sqlite3");
@@ -283,7 +318,8 @@ mod tests {
             "balanceMaterialIds":["m"],"allowLowerPriorityReduction":true,
             "targets":[{"kind":"shortfall","materialId":"m","round":0}],"summary":[],"affectedSessionIds":[]
         }});
-        data["draft"]["classCancellation"] = json!({"id":"","from":"","to":"","range":true,"scope":"selected","classIds":[]});
+        data["draft"]["classCancellation"] =
+            json!({"id":"","from":"","to":"","range":true,"scope":"selected","classIds":[]});
         db::commit(&mut conn, 0, "class-cancellation", data.clone()).unwrap();
         let exported = packet(&conn).unwrap();
         let restored = parse(&exported.to_string()).unwrap();
@@ -327,12 +363,17 @@ mod tests {
         data["draft"]["revision"] = json!({"id":"revision","base":unfinished,"settings":unfinished,"stage":"item","topic":"material","itemId":"m","index":0});
         data["proposal"] = json!({"plan":data["plan"].clone(),"basedOn":"p","reason":"draft","unreported":[],"settingsBase":unfinished});
         assert!(check_data(&data).is_ok());
-        for path in [["draft", "revision", "base"], ["draft", "revision", "settings"]] {
+        for path in [
+            ["draft", "revision", "base"],
+            ["draft", "revision", "settings"],
+        ] {
             let mut invalid = data.clone();
-            invalid[path[0]][path[1]][path[2]]["classCancellations"] = json!([{"id":"off","from":"2026-10-03","to":"2026-10-02"}]);
+            invalid[path[0]][path[1]][path[2]]["classCancellations"] =
+                json!([{"id":"off","from":"2026-10-03","to":"2026-10-02"}]);
             assert!(check_data(&invalid).is_err());
         }
-        data["proposal"]["settingsBase"]["classCancellations"] = json!([{"id":"off","from":"2026-10-03","to":"2026-10-02"}]);
+        data["proposal"]["settingsBase"]["classCancellations"] =
+            json!([{"id":"off","from":"2026-10-03","to":"2026-10-02"}]);
         assert!(check_data(&data).is_err());
     }
     #[test]

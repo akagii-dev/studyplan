@@ -200,3 +200,18 @@ it('入力途中の設定変更下書きと案の基準は教材参照が未整�
     expect(parseBackup(JSON.stringify(invalid))).toEqual(invalid);
   }
 });
+
+it('日付に依存しないタームとメモ・旧項目なし・削除をバックアップ往復できる', () => {
+  const file = packet();
+  expect(parseBackup(JSON.stringify(file)).data.studyNote).toBeUndefined();
+  file.data.studyNote = { nextTerm: '民法：意思表示', memo: '判例を確認\n次は錯誤' };
+  expect(parseBackup(JSON.stringify(file)).data).toEqual(file.data);
+  for (const note of [{ nextTerm: '', memo: '' }, { nextTerm: 'a'.repeat(200), memo: 'あ'.repeat(4000) }]) {
+    file.data.studyNote = note;
+    expect(parseBackup(JSON.stringify(file)).data.studyNote).toEqual(note);
+  }
+  for (const note of [{ nextTerm: 'a'.repeat(201), memo: '' }, { nextTerm: '', memo: 'あ'.repeat(4001) }]) {
+    file.data.studyNote = note;
+    expect(() => parseBackup(JSON.stringify(file))).toThrow(/studyNote/);
+  }
+});

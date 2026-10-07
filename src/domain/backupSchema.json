@@ -3701,6 +3701,24 @@
                   ],
                   "additionalProperties": {}
                 },
+                "studyNote": {
+                  "type": "object",
+                  "properties": {
+                    "nextTerm": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "memo": {
+                      "type": "string",
+                      "maxLength": 4000
+                    }
+                  },
+                  "required": [
+                    "nextTerm",
+                    "memo"
+                  ],
+                  "additionalProperties": false
+                },
                 "settingsUpdatedAt": {
                   "type": "string",
                   "maxLength": 10000
@@ -4629,6 +4647,24 @@
                 ],
                 "additionalProperties": {}
               },
+              "studyNote": {
+                "type": "object",
+                "properties": {
+                  "nextTerm": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "memo": {
+                    "type": "string",
+                    "maxLength": 4000
+                  }
+                },
+                "required": [
+                  "nextTerm",
+                  "memo"
+                ],
+                "additionalProperties": false
+              },
               "settingsUpdatedAt": {
                 "type": "string",
                 "maxLength": 10000
@@ -5555,6 +5591,24 @@
                         "periods"
                       ],
                       "additionalProperties": {}
+                    },
+                    "studyNote": {
+                      "type": "object",
+                      "properties": {
+                        "nextTerm": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "memo": {
+                          "type": "string",
+                          "maxLength": 4000
+                        }
+                      },
+                      "required": [
+                        "nextTerm",
+                        "memo"
+                      ],
+                      "additionalProperties": false
                     },
                     "settingsUpdatedAt": {
                       "type": "string",
@@ -6747,6 +6801,24 @@
           "additionalProperties": {
             "type": "boolean"
           }
+        },
+        "studyNote": {
+          "type": "object",
+          "properties": {
+            "nextTerm": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "memo": {
+              "type": "string",
+              "maxLength": 4000
+            }
+          },
+          "required": [
+            "nextTerm",
+            "memo"
+          ],
+          "additionalProperties": false
         },
         "settingsUpdatedAt": {
           "type": "string",
@@ -10434,6 +10506,24 @@
                       ],
                       "additionalProperties": {}
                     },
+                    "studyNote": {
+                      "type": "object",
+                      "properties": {
+                        "nextTerm": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "memo": {
+                          "type": "string",
+                          "maxLength": 4000
+                        }
+                      },
+                      "required": [
+                        "nextTerm",
+                        "memo"
+                      ],
+                      "additionalProperties": false
+                    },
                     "settingsUpdatedAt": {
                       "type": "string",
                       "maxLength": 10000
@@ -11362,6 +11452,24 @@
                     ],
                     "additionalProperties": {}
                   },
+                  "studyNote": {
+                    "type": "object",
+                    "properties": {
+                      "nextTerm": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "memo": {
+                        "type": "string",
+                        "maxLength": 4000
+                      }
+                    },
+                    "required": [
+                      "nextTerm",
+                      "memo"
+                    ],
+                    "additionalProperties": false
+                  },
                   "settingsUpdatedAt": {
                     "type": "string",
                     "maxLength": 10000
@@ -12288,6 +12396,24 @@
                             "periods"
                           ],
                           "additionalProperties": {}
+                        },
+                        "studyNote": {
+                          "type": "object",
+                          "properties": {
+                            "nextTerm": {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            "memo": {
+                              "type": "string",
+                              "maxLength": 4000
+                            }
+                          },
+                          "required": [
+                            "nextTerm",
+                            "memo"
+                          ],
+                          "additionalProperties": false
                         },
                         "settingsUpdatedAt": {
                           "type": "string",
@@ -13480,6 +13606,24 @@
               "additionalProperties": {
                 "type": "boolean"
               }
+            },
+            "studyNote": {
+              "type": "object",
+              "properties": {
+                "nextTerm": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "memo": {
+                  "type": "string",
+                  "maxLength": 4000
+                }
+              },
+              "required": [
+                "nextTerm",
+                "memo"
+              ],
+              "additionalProperties": false
             },
             "settingsUpdatedAt": {
               "type": "string",

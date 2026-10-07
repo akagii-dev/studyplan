@@ -920,6 +920,71 @@ test('今日の完了行・追加入力と復元した進捗を追加・訂正�
   await expect(day.locator('li').filter({ hasText: state.settings.materials[0].name })).toContainText('あと5問');
 });
 
+for (const motion of ['no-preference', 'reduce'] as const) {
+  test('完了・追加記録の入力を既存フェードで閉じ、入力と操作位置を保護する（' + motion + '）', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: motion });
+    const state = adjustmentFixture(contractDay);
+    await seed(page, state, 2);
+    const row = page.locator('.daily-record-row').filter({ hasText: '対象問題集' });
+    const details = row.locator('.daily-record-input');
+    const summary = details.locator('summary');
+    const input = row.getByRole('textbox', { includeHidden: true });
+    await details.evaluate(element => {
+      const observer = new MutationObserver(() => {
+        if (element.hasAttribute('open')) return;
+        element.removeAttribute('data-fade-duration');
+        const sample = () => {
+          const style = getComputedStyle(element, '::details-content');
+          const duration = parseFloat(style.transitionDuration) * 1000;
+          const opacity = Number(style.opacity);
+          if (duration > 0 && opacity === 1) { requestAnimationFrame(sample); return; }
+          element.setAttribute('data-fade-duration', String(duration));
+          element.setAttribute('data-fade-opacity', String(opacity));
+        };
+        requestAnimationFrame(sample);
+        element.setAttribute('data-closed-inert', String(element.querySelector('form')!.inert));
+        element.setAttribute('data-summary-focused', String(document.activeElement === element.querySelector('summary')));
+      });
+      observer.observe(element, { attributes: true, attributeFilter: ['open'] });
+    });
+    for (const [count, expected] of [[6, '✅完了'], [1, '✅追加1問']] as const) {
+      if (count === 1) await summary.press('Enter');
+      await input.fill(String(count));
+      await row.getByRole('button', { name: '記録', exact: true }).click();
+      await expect(row.locator('.progress-value')).toHaveText(expected);
+      await expect(summary).toBeFocused();
+      await expect(details).toHaveAttribute('data-closed-inert', 'true');
+      await expect(details).toHaveAttribute('data-summary-focused', 'true');
+      if (motion === 'no-preference') {
+        await expect(details).toHaveAttribute('data-fade-duration', '280');
+        const opacity = Number(await details.getAttribute('data-fade-opacity'));
+        expect(opacity).toBeGreaterThan(0);
+        expect(opacity).toBeLessThan(1);
+      } else {
+        await expect(details).toHaveAttribute('data-fade-duration', '0');
+      }
+      await expect(input).toBeHidden();
+    }
+    const saved = await read(page);
+    expect(saved.records.filter(r => !r.cancelled && r.materialId === 'book').reduce((sum,r) => sum+r.count,0)).toBe(7);
+    await summary.press('Enter'); await input.fill('2');
+    await summary.press('Enter');
+    await expect(details).not.toHaveAttribute('open', '');
+    // Reopening during a fade must cancel the old closing state, without losing the draft.
+    await summary.press('Enter');
+    await expect(input).toBeVisible(); await expect(input).toHaveValue('2');
+    expect(await row.locator('form').evaluate(form => (form as HTMLFormElement).inert)).toBe(false);
+    await summary.press('Enter');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(input).toBeHidden();
+    await nav(page, '今後の予定'); await nav(page, '今日');
+    await summary.press('Enter'); await expect(input).toHaveValue('2');
+    expect(await read(page)).toEqual(saved);
+    await page.reload(); await expect(row.locator('.progress-value')).toHaveText('✅追加1問');
+    await expect(input).toBeHidden();
+    expect(await read(page)).toEqual(saved);
+  });
+}
 
 test('記録成功を簡潔にしても計画の確認が必要な通知と理由を保持する', async ({ page }) => {
   const state = adjustmentFixture(contractDay);

@@ -26,6 +26,8 @@ async function open(page: Page) {
 }
 const book = (page: Page) => page.locator('.daily-record-row').filter({ hasText: '対象問題集' });
 async function record(page: Page, count: number) {
+  if (await book(page).locator('.daily-record-input').getAttribute('open') === null)
+    await book(page).locator('.daily-record-input summary').press('Enter');
   await book(page).getByRole('textbox').fill(String(count));
   await book(page).getByRole('button', { name: '記録', exact: true }).click();
   await expect(page.locator('.save-status')).toContainText('Windowsに保存済み');
@@ -101,6 +103,8 @@ test('同revisionの保存競合で他端末の実績と入力途中の値を失
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: '最新を読み込む', exact: true }).click();
   await expect(book(page)).toContainText('✅完了');
+  await expect(book(page).getByRole('textbox', { includeHidden: true })).toBeHidden();
+  await book(page).locator('.daily-record-input summary').press('Enter');
   await expect(book(page).getByRole('textbox')).toHaveValue('1');
   await other.close();
 });
@@ -134,6 +138,9 @@ test('直接カレンダーと戻る導線を狭幅・広幅・キーボード�
   await page.getByRole('button', { name: 'カレンダー表示' }).click();
   await expect(back).toBeVisible();
   await back.click();
+  await page.clock.runFor(350);
+  await page.locator('.page-transition').evaluateAll(elements =>
+    Promise.allSettled(elements.flatMap(element => element.getAnimations().map(animation => animation.finished))));
   expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await page.screenshot({ path: info.outputPath('lan-future.png'), fullPage: true });

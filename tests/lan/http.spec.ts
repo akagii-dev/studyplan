@@ -43,7 +43,7 @@ test('実LANのHTTPアドレスでも暗号乱数IDで記録でき、SWやIndexe
     expect(await page.evaluate(() => Object.keys(localStorage))).toEqual(['studyplan-lan-access-key-v1']);
     expect(await page.evaluate(async () => (await indexedDB.databases()).length)).toBe(0);
     await page.reload();
-    await expect(row).toContainText('4/6問');
+    await expect(row).toContainText('あと2問');
     await page.screenshot({ path: info.outputPath('http-lan-mobile.png'), fullPage: true });
   } finally { await server.close(); }
 });

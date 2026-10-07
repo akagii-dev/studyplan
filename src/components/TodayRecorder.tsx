@@ -24,6 +24,9 @@ function RecordInputDisclosure({ complete, expanded, onExpandedChange, unit, chi
     if (!open && detailsRef.current?.contains(document.activeElement)) {
       summaryRef.current?.focus({ preventScroll: true });
     }
+    // The native details content may remain painted during its fade, but is no longer interactive.
+    const form = detailsRef.current?.querySelector('form');
+    if (form) form.inert = !open;
   }, [open]);
   return <details className="daily-record-input" ref={detailsRef} open={open}>
     <summary ref={summaryRef} hidden={!complete} onClick={event => {

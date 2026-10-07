@@ -1,3 +1,13 @@
+## v0.8.0：完了・追加記録後の入力フェード（2026-10-07、B650）
+
+- 既存画面切替の280ms/ease-outをCSS変数で共有し、native detailsの内容だけをフェード。フォームDOMと下書きを保持し、閉じ始めにfocusをsummaryへ移しinertで操作対象から外す。reduced-motionと非対応環境では即時に閉じる。保存・domain・SQLite契約は変更なし。
+- `pnpm verify`成功：lint・型検査・単体552件/36ファイル・通常build。`pnpm verify:ui`成功：Edge1280px/320pxの78件＋ICS2件。追加4ケースで6問完了→追加1問、フェード中間の不透明度と280ms、reduce時0ms、下書き2問の手動開閉/画面往復/再読込、focus・inert・重複なしを確認。light/dark画像は自己レビュー。
+- Desktop全65ケースを実行：最終一括は62成功/3失敗、該当3ケースの修正・再実行は3成功（合計65の固有ケースを確認）。1件はWebView再起動時の一時的な起動待ち失敗で同じテストの再実行成功。残る2件は週末のみの設定で平日に今日の予定を期待したこと、実績のない今日の詳細で月初の記録を期待した旧テスト前提を修正。数量・保存・期限・取消・明示0・再起動の基準を維持。途中の42成功/23失敗、60成功/5失敗も旧4/6表示、常時開く追加入力、旧カレンダー導線、pointer終了とkeyboardのfocus復帰の混同を是正した。テストを削除せず現行の画面操作へ合わせた。
+- `pnpm test:lan`成功：32件、既存の幅非依存重複14件skip。`node --test tests/lanHost.test.mjs`2件成功。静的axeは既存ページフェード終了後に測定し、WCAG判定は維持。専用SQLiteの保存・競合・訂正取消・完了後の追加・再読込を確認。`cargo test --manifest-path src-tauri/Cargo.toml --locked --lib`42件成功、debug Desktop/LAN build成功。
+- `pnpm desktop:build`成功。EXEの製品/ファイル版0.8.0、更新ZIP4ファイル、manifestとEXE/ZIP内EXEのSHA-256一致を確認。v0.7.0の隔離複製で使用中EXE拒否・改ざん拒否・正常更新・退避・反復・模擬データ保持を確認。配布EXE自体は起動していない。
+- 最終lint/typecheck/diff --check成功。`pnpm demo:smoke`でローカルデモを1280×800/390×844の別コンテキストで操作し、予定完了→追加1→下書き2の開閉→reduceで追加2→再読込の状態一致、横溢れ/実行時エラーなしを確認。公開CI・公開先の結果は既存WORK-STATUSへ記録する。
+- 未確認：iOS Safari/WebKit実機、スクリーンリーダー実聴、隔離Windowsアカウントでの配布EXE起動。他PC/本番DB/ユーザーJSON/インストール済みEXEは変更なし。既存のZod注釈・bundle容量・NO_COLOR警告は残る。検証出力・一時DB/WebView・build cacheは終了後ごみ箱へ回収し、ソース/最小fixture/依存本体/配布EXEと更新ZIPを保持する。
+
 ## 完了入力の開閉状態を一貫させる差分（2026-10-06 UTC、未公開）
 
 - 原因は保存開始時のexpanded=trueと、完了行で下書きを自動展開に使うfallback。初期表示/保存成功直後/再入場で異なる表示になっていた。

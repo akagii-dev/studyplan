@@ -450,7 +450,7 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
     await expect(book(page).getByRole('textbox')).toHaveValue('2');
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: '最新を読み込む', exact: true }).click();
-    await expect(book(page)).toContainText('4/6問');
+    await expect(book(page)).toContainText('あと2問');
     await page.screenshot({ path: testInfo.outputPath('desktop-reload-notice.png') });
     await book(page).getByRole('textbox').fill('2');
     await book(page).getByRole('button', { name: '記録', exact: true }).click();
@@ -459,7 +459,7 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
     await expect(phone.getByRole('button', { name: '最新を読み込む', exact: true })).toBeVisible();
     phone.once('dialog', (dialog) => dialog.accept());
     await phone.getByRole('button', { name: '最新を読み込む', exact: true }).click();
-    await expect(book(phone)).toContainText('6/6問');
+    await expect(book(phone)).toContainText('✅完了');
     const shared = await api<Envelope>(request, key, 'load_state');
     expect(shared.data.records.reduce((n, record) => n + record.count, 0)).toBe(6);
     expect(
@@ -468,6 +468,8 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
         .reduce((n, session) => n + session.count, 0),
     ).toBe(24);
     await phone.screenshot({ path: testInfo.outputPath('phone-lan-recorded.png') });
+    await phone.locator('.page-transition').evaluateAll(elements =>
+      Promise.allSettled(elements.flatMap(element => element.getAnimations().map(animation => animation.finished))));
     expect((await new AxeBuilder({ page: phone }).analyze()).violations).toEqual([]);
     const dismissNotice = phone
       .locator('.error-banner')
@@ -475,7 +477,7 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
     await dismissNotice.focus();
     await phone.keyboard.press('Enter');
     await expect(phone.locator('.error-banner')).toHaveCount(0);
-    await expect(book(phone)).toContainText('6/6問');
+    await expect(book(phone)).toContainText('✅完了');
     expect(await api<Envelope>(request, key, 'load_state')).toEqual(shared);
 
     // Store CAS/replay are exercised through the embedded server, not the CLI host.

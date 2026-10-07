@@ -1,4 +1,6 @@
 :root {
+  --page-fade-duration: 280ms;
+  --page-fade-easing: ease-out;
   color-scheme: light;
   --on-accent: #fff;
   --on-ink: #fff;
@@ -2960,7 +2962,7 @@ textarea {
   .calendar-week-title { display: block; margin: 0; padding: 8px; font-size: .875rem; color: var(--muted); background: var(--soft); }
   .day { padding: 6px 8px; }
 }
-.page-transition { animation: schedule-appear 280ms ease-out; }
+.page-transition { animation: schedule-appear var(--page-fade-duration) var(--page-fade-easing); }
 @keyframes schedule-appear { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .page-transition { animation: none; } }
 
@@ -3011,6 +3013,16 @@ textarea {
 .daily-record-input > summary { min-height: 44px; align-content: center; font-size: .875rem; color: var(--ink); overflow-wrap: anywhere; }
 .daily-record-input > summary[hidden] { display: none; }
 .daily-record-input > summary:focus:not(:focus-visible) { outline: none; }
+@supports selector(::details-content) {
+  @media (prefers-reduced-motion: no-preference) {
+    .daily-record-input::details-content {
+      opacity: 0;
+      transition: opacity var(--page-fade-duration) var(--page-fade-easing),
+        content-visibility var(--page-fade-duration) var(--page-fade-easing) allow-discrete;
+    }
+    .daily-record-input[open]::details-content { opacity: 1; }
+  }
+}
 
 .today-study-title { display: flex; align-items: start; justify-content: space-between; gap: 12px; min-width: 0; }
 .today-study-title > div { display: grid; gap: 4px; min-width: 0; }

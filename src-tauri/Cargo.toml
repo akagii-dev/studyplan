@@ -1,6 +1,6 @@
 [package]
 name = "studyplan"
-version = "0.10.0"
+version = "0.11.0"
 description = "ローカル学習計画アプリ"
 edition = "2021"
 default-run = "studyplan"

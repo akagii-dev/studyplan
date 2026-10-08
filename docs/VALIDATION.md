@@ -2,6 +2,7 @@
 
 - 配布をTauriのNSISインストーラー1点へ変更（ユーザー単位・日本語・ダウングレード拒否）。更新ZIPと`package-update.ps1`/`test-update.ps1`/`Update-StudyPlan.ps1`/手順書を廃止し、版番号の一致確認・CHANGELOGからの公開文・ビルド・タグ/push/Release作成を`scripts/release.ps1`（`pnpm release [-Publish]`）へ集約。版を0.9.0へ更新。保存先・データ形式・計算版は変更なし。
 - pnpm verify成功（lint/型/単体552件/通常build）。`PLAYWRIGHT_CHANNEL=msedge pnpm verify:ui`成功（82＋ICS2）。クラウドLinuxで失敗していた6件はWindows Edgeで再現せず。`pnpm lan:assets`・debug両EXEのbuild、`cargo test --lib --locked` 43件成功。`pnpm test:ui`（専用SQLite）66件成功。`pnpm demo:smoke`（demo:preview起動下）成功。
+- 公開（v0.9.0、Release添付はsetup.exeの1点、SHA-256一致）後のmainデモ配信CIで、ターム表示テストのnarrowがaxe color-contrastで失敗（今日の教材行の文字色が画面切替フェード途中の混色値）。既存メモテストと同じく検査前に`.page-transition`のアニメーション終了を待つよう修正し、Edgeで広狭×10回の計20回成功。検査基準は変更なし。
 - 未実施：配布インストーラーのインストール・起動・旧単体EXEからの移行・アンインストールの実機試験（隔離Windowsアカウントが必要）、iOS Safari、読み上げ実聴。自己レビューのみ。
 
 ## Claude Codeへの作業環境移行（2026-10-08、B650）

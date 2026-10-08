@@ -1041,6 +1041,7 @@ test('同時に進める教材数を設定すると、承認済みの計画か�
   const term = page.getByRole('form', { name: 'ターム・メモ' }).getByRole('group', { name: 'ターム' });
   await expect(term).toContainText('現在のターム：対象問題集');
   await expect(term).toContainText('次のターム：別問題集');
+  await page.evaluate(() => Promise.allSettled(document.querySelector('.page-transition')!.getAnimations().map(animation => animation.finished)));
   expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await page.screenshot({ path: info.outputPath('study-term.png'), fullPage: true, animations: 'disabled' });

@@ -15,7 +15,7 @@ export function StudyNote({ state, update }: Props) {
   // Terms follow the approved plan; unapproved settings must not change today's view.
   const settings = state.plan?.settingsSnapshot ?? state.settings;
   const limit = parallelMaterialLimit(settings);
-  const { current, next } = currentTerms({ ...state, settings });
+  const { current, next, parallel } = currentTerms({ ...state, settings });
   async function save(event: FormEvent) {
     event.preventDefault();
     if (busy) return;
@@ -37,6 +37,7 @@ export function StudyNote({ state, update }: Props) {
       {limit ? <>
         {current && <p><span>現在のターム：</span><b>{current.items.map(termItemLabel).join('、')}</b></p>}
         <p><span>次のターム：</span><b>{next ? next.items.map(termItemLabel).join('、') : current ? 'なし（最後のターム）' : 'なし'}</b></p>
+        {parallel.length > 0 && <p><span>並行：</span><b>{parallel.map(termItemLabel).join('、')}</b></p>}
       </> : <p className="hint">「設定」→教材の「同時に進める教材数」を指定すると、次のタームを表示します。</p>}
     </div>
     <Field label="メモ"><textarea name="studyMemo" rows={2} maxLength={4000}

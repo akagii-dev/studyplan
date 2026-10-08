@@ -464,6 +464,37 @@ describe('同時に進める教材数（ターム）', () => {
     t = currentTerms(s);
     expect(t.current!.items.map((x) => x.material.id)).toEqual(['mC', 'mD']);
     expect(t.next!.items.map(termItemLabel)).toEqual(['A（2周目）', 'B（2周目）']);
-    expect(currentTerms(terms())).toEqual({ current: undefined, next: undefined });
+    expect(currentTerms(terms())).toEqual({ current: undefined, next: undefined, parallel: [] });
+  });
+  it('タームに含めない教材は毎日並行し、自分の周回順だけを守る', () => {
+    const s = terms(1);
+    s.settings.materials[0].outsideTerms = true;
+    const plan = generatePlan(s, from);
+    expect(plan.shortfalls).toEqual([]);
+    const study = plan.sessions.filter((x) => x.kind === 'study');
+    const at = (materialId: string, round: number) =>
+      span(study.filter((x) => x.materialId === materialId && x.round === round));
+    // B → C → D → B2 → C2 → D2 one at a time; A is outside the terms.
+    const order = ['mB', 'mC', 'mD'].flatMap((id) => [0, 1].map((round) => ({ id, round })))
+      .sort((a, b) => a.round - b.round).map(({ id, round }) => at(id, round));
+    for (let i = 1; i < order.length; i++) expect(order[i - 1].last <= order[i].first).toBe(true);
+    expect(at('mA', 0).last <= at('mA', 1).first).toBe(true);
+    const first = study[0].date;
+    expect(new Set(study.filter((x) => x.date === first).map((x) => x.materialId))).toEqual(new Set(['mA', 'mB']));
+    expect(at('mA', 0).first < at('mC', 0).first).toBe(true);
+  });
+  it('タームに含めない教材を現在の並行教材として周回付きで示す', () => {
+    let s = terms(1);
+    s.settings.materials[0].outsideTerms = true;
+    let t = currentTerms(s);
+    expect(t.current!.items.map(termItemLabel)).toEqual(['B（1周目）']);
+    expect(t.next!.items.map(termItemLabel)).toEqual(['C（1周目）']);
+    expect(t.parallel.map(termItemLabel)).toEqual(['A（1周目）']);
+    s = recordProgress(s, { ...entry(20), id: 'done-a', materialId: 'mA' });
+    t = currentTerms(s);
+    expect(t.current!.items.map(termItemLabel)).toEqual(['B（1周目）']);
+    expect(t.parallel.map(termItemLabel)).toEqual(['A（2周目）']);
+    s = recordProgress(s, { ...entry(20), id: 'done-a2', materialId: 'mA', round: 1 });
+    expect(currentTerms(s).parallel).toEqual([]);
   });
 });

@@ -156,6 +156,8 @@ export function settingChanges(before: Settings, after: Settings): string[] {
     add(`${m.name} / 総問題数`, old.total, m.total);
     add(`${m.name} / 順序`, old.order, m.order);
     add(`${m.name} / 周回数`, old.rounds.length, m.rounds.length);
+    const termMode = (x: typeof m) => (x.outsideTerms ? '常に並行' : 'タームで進める');
+    add(`${m.name} / ターム`, termMode(old), termMode(m));
     m.rounds.forEach((r, i) => {
       if (old.rounds[i]) {
         add(

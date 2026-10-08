@@ -1,3 +1,10 @@
+## タームに含めず常に並行する教材（2026-10-08、B650、未公開）
+
+- `Material.outsideTerms?`を追加。ターム指定時、該当教材はタームの区切りから外れ、自分の周回順だけを守って並行（`workPrecedence`）。今日のターム欄に「並行：」として残量のある最初の周回を表示。設定の教材一覧に選択欄（fieldset/checkbox）と設定差分「ターム」を追加し、バックアップスキーマ（zod/JSON、Rust取込み）を再生成。保存形式は任意項目の追加のみで従来データはそのまま読める。
+- pnpm verify成功（lint/型/単体554件。既存のタームテストへ並行配置と表示の2件を追加）。`PLAYWRIGHT_CHANNEL=msedge pnpm verify:ui`成功（84＋ICS2。並行表示・設定の選択と承認前の今日不変・axe・横溢れを広狭で確認する1ケースを追加、ターム関連は3回反復でも成功）。`cargo test --lib --locked` 43件成功。設定画面と今日の広狭画像を自己レビュー。
+- 実データは読取り専用で開き、Git対象外の`.test-data/real-split/`へ書換え前の控えと書換え用バックアップを作成（SQLite未変更）。論文マスターを6科目へ分割し倒産法を追加した状態で`parseBackup`と計画案を試算し、未配置・競合なし、商法1周目→憲法1周目→民法2周目の順、過去問題集4周は10/29までに完了を確認。
+- 未実施：`pnpm test:ui`・LAN（保存経路・Rustの処理変更なし）、iOS、読み上げ実聴。自己レビューのみ。
+
 ## v0.9.0：ターム機能のWindows検証とインストーラー化（2026-10-08、B650）
 
 - 配布をTauriのNSISインストーラー1点へ変更（ユーザー単位・日本語・ダウングレード拒否）。更新ZIPと`package-update.ps1`/`test-update.ps1`/`Update-StudyPlan.ps1`/手順書を廃止し、版番号の一致確認・CHANGELOGからの公開文・ビルド・タグ/push/Release作成を`scripts/release.ps1`（`pnpm release [-Publish]`）へ集約。版を0.9.0へ更新。保存先・データ形式・計算版は変更なし。

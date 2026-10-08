@@ -27,6 +27,7 @@ const material = z.looseObject({
   total: count.min(1),
   order: count.min(1),
   rounds: z.array(round).min(1).max(1000),
+  outsideTerms: z.boolean().optional(),
 });
 const windowRule = z.looseObject({
   id,

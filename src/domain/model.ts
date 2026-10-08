@@ -23,6 +23,8 @@ export interface Material {
   total: number;
   order: number;
   rounds: Round[];
+  /** With terms enabled, studied every day in parallel instead of joining a term. */
+  outsideTerms?: boolean;
 }
 export interface WindowRule {
   id: string;

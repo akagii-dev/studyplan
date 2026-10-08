@@ -3030,3 +3030,6 @@ textarea {
 .parallel-materials { display: grid; gap: 8px; margin-bottom: 12px; }
 .parallel-materials ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
 .parallel-materials li { overflow-wrap: anywhere; }
+.outside-terms { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 4px; font-size: 12px; }
+.outside-terms legend { padding: 0; margin-bottom: 4px; color: var(--ink); font-weight: 550; }
+.outside-terms label { display: flex; gap: 8px; align-items: center; min-height: 32px; overflow-wrap: anywhere; }

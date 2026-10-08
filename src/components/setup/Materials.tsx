@@ -4,7 +4,7 @@ import { Material, completed, uid } from '../../domain/model';
 import { validateSettings } from '../../domain/planning';
 import { minimumRetainedRounds } from '../../domain/revision';
 import { MAX_MINUTES_PER_UNIT } from '../../domain/materialConstraints';
-import { materialTermGroups } from '../../domain/terms';
+import { inTerms, materialTermGroups } from '../../domain/terms';
 import { AnimatedProgress } from '../AnimatedProgress';
 import { Empty, Field, Props, useDraft } from '../common';
 export function Materials({ state, update, onAdd }: Props & { onAdd: () => void }) {
@@ -246,12 +246,26 @@ export function Materials({ state, update, onAdd }: Props & { onAdd: () => void 
 function ParallelMaterials({ state, update }: Props) {
   const s = state.settings;
   const limit = s.parallelMaterials;
+  const termMaterials = s.materials.filter(inTerms);
   const options = Array.from(
-    { length: Math.max(s.materials.length - 1, limit ?? 0) },
+    { length: Math.max(termMaterials.length - 1, limit ?? 0, 1) },
     (_, i) => i + 1,
   );
   const groups = materialTermGroups(s);
-  const rounds = Math.max(...s.materials.map((m) => m.rounds.length));
+  const rounds = Math.max(...termMaterials.map((m) => m.rounds.length));
+  const setOutside = (id: string, outside: boolean) =>
+    void update((x) => ({
+      ...x,
+      settings: {
+        ...x.settings,
+        materials: x.settings.materials.map((m) => {
+          if (m.id !== id) return m;
+          const { outsideTerms: _old, ...material } = m;
+          return outside ? { ...material, outsideTerms: true } : material;
+        }),
+      },
+      proposal: null,
+    }));
   return (
     <div className="card compact parallel-materials">
       <Field
@@ -280,6 +294,21 @@ function ParallelMaterials({ state, update }: Props) {
           ))}
         </select>
       </Field>
+      {limit !== undefined && s.materials.length > 0 && (
+        <fieldset className="outside-terms">
+          <legend>タームに含めず常に並行する教材</legend>
+          {s.materials.map((m) => (
+            <label key={m.id}>
+              <input
+                type="checkbox"
+                checked={!!m.outsideTerms}
+                onChange={(e) => setOutside(m.id, e.target.checked)}
+              />
+              {m.name}
+            </label>
+          ))}
+        </fieldset>
+      )}
       {groups.length > 0 && (
         <>
           <ol aria-label="タームの順序">

@@ -1057,3 +1057,34 @@ test('同時に進める教材数を設定すると、承認済みの計画か�
   await nav(page, '今日');
   await expect(term).toContainText('次のターム：別問題集');
 });
+
+test('タームに含めない教材は今日に並行として表示し、設定の選択は承認まで今日を変えない', async ({ page }, info) => {
+  const fixture = adjustmentFixture(contractDay);
+  fixture.settings.parallelMaterials = 1;
+  fixture.settings.materials[0].outsideTerms = true;
+  fixture.plan!.settingsSnapshot = structuredClone(fixture.settings);
+  await seed(page, fixture, 2);
+  const term = page.getByRole('form', { name: 'ターム・メモ' }).getByRole('group', { name: 'ターム' });
+  await expect(term).toContainText('現在のターム：別問題集');
+  await expect(term).toContainText('次のターム：なし（最後のターム）');
+  await expect(term).toContainText('並行：対象問題集（1周目）');
+  await page.evaluate(() => Promise.allSettled(document.querySelector('.page-transition')!.getAnimations().map(animation => animation.finished)));
+  expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: info.outputPath('study-term-parallel.png'), fullPage: true, animations: 'disabled' });
+  await nav(page, '設定');
+  await page.getByRole('button', { name: '教材の一覧・編集', exact: true }).click();
+  const group = page.getByRole('group', { name: 'タームに含めず常に並行する教材' });
+  const outside = group.getByRole('checkbox', { name: '対象問題集', exact: true });
+  await expect(outside).toBeChecked();
+  await expect(page.getByRole('list', { name: 'タームの順序' })).toHaveText('ターム1：別問題集');
+  await outside.focus(); await page.keyboard.press('Space');
+  await expect.poll(async () => (await read(page)).settings.materials[0].outsideTerms).toBeUndefined();
+  await expect(page.getByRole('list', { name: 'タームの順序' })).toContainText('ターム1：対象問題集');
+  await page.evaluate(() => Promise.allSettled(document.getAnimations().map(animation => animation.finished)));
+  expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: info.outputPath('settings-outside-terms.png'), fullPage: true, animations: 'disabled' });
+  await nav(page, '今日');
+  await expect(term).toContainText('並行：対象問題集（1周目）');
+});

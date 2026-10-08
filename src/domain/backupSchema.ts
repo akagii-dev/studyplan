@@ -53,6 +53,7 @@ const settings = z.looseObject({
   preferredSessionMinutes: count.min(1).max(1440).optional(),
   rest: count.max(1440),
   buffer: z.number().min(0).lt(1),
+  parallelMaterials: count.min(1).max(100).optional(),
   focus: count.optional(),
   periods: z.array(minute).min(1).max(100),
   classTransition: count.max(180).optional(),

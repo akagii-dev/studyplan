@@ -131,6 +131,8 @@ export function settingChanges(before: Settings, after: Settings): string[] {
     add(mealNames[key], format(before), format(after));
   }
   add('余裕率', `${Math.round(before.buffer * 100)}%`, `${Math.round(after.buffer * 100)}%`);
+  const parallel = (x: typeof before) => (x.parallelMaterials ? `${x.parallelMaterials}教材` : '制限なし');
+  add('同時に進める教材数', parallel(before), parallel(after));
   for (const e of after.exams) {
     const old = before.exams.find((x) => x.id === e.id);
     if (!old) {

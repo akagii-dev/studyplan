@@ -20,7 +20,7 @@ describe('公開デモのブラウザー保存', () => {
     expect(first.revision).toBe(0);
     expect(first.data.settings.exams[0]?.name).toBe('民法（サンプル）');
     expect(first.data.settings.materials.map(material => material.name)).toEqual(['民法・問題集', '行政法・問題集', '憲法・問題集']);
-    expect(first.data.studyNote).toEqual({ nextTerm: '民法：意思表示', memo: '行政法：行政手続法\n憲法：基本的人権' });
+    expect(first.data.studyNote).toEqual({ nextTerm: '', memo: '行政法：行政手続法\n憲法：基本的人権' });
     expect(first.data.plan?.sessions.some((session) => session.date === first.data.plan?.from && session.count > 0)).toBe(true);
     const state = { ...initialState(), theme: 'sky' as const };
     expect(saveDemoState(storage, state, 0)).toEqual({ revision: 1, data: state });

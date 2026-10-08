@@ -49,7 +49,7 @@ try {
   await expect(page.getByText('デモ・このブラウザーに保存', { exact: true })).toContainText('このブラウザーに保存');
   await expect(page.locator('nav').getByRole('button', { name: 'バックアップ' })).toHaveCount(0);
   for (const subject of ['民法・問題集', '行政法・問題集', '憲法・問題集']) await expect(page.locator('.daily-record-row').filter({ hasText: subject })).toBeVisible();
-  await expect(page.getByLabel('次のターム：', { exact: true })).toHaveValue('民法：意思表示');
+  await expect(page.getByRole('group', { name: 'ターム' })).toContainText('同時に進める教材数');
   await expect(page.getByLabel('メモ', { exact: true })).toHaveValue('行政法：行政手続法\n憲法：基本的人権');
   await checkRecording(page);
   mkdirSync('test-results', { recursive: true });
@@ -68,7 +68,7 @@ try {
   await mobile.goto(url, { waitUntil: 'networkidle' });
   await expect(mobile.locator('.daily-record-row').filter({ hasText: '民法・問題集' })).toBeVisible();
   for (const subject of ['行政法・問題集', '憲法・問題集']) await expect(mobile.locator('.daily-record-row').filter({ hasText: subject })).toBeVisible();
-  await expect(mobile.getByLabel('次のターム：', { exact: true })).toHaveValue('民法：意思表示');
+  await expect(mobile.getByRole('group', { name: 'ターム' })).toContainText('同時に進める教材数');
   await checkRecording(mobile);
   await mobile.screenshot({ path: 'test-results/public-demo-mobile.png' });
   if (errors.length) throw new Error(`Demo runtime errors: ${errors.join('; ')}`);

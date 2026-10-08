@@ -459,6 +459,11 @@
               "minimum": 0,
               "exclusiveMaximum": 1
             },
+            "parallelMaterials": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
             "focus": {
               "type": "integer",
               "minimum": 0,
@@ -2338,6 +2343,11 @@
                       "minimum": 0,
                       "exclusiveMaximum": 1
                     },
+                    "parallelMaterials": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
+                    },
                     "focus": {
                       "type": "integer",
                       "minimum": 0,
@@ -2812,6 +2822,11 @@
                       "type": "number",
                       "minimum": 0,
                       "exclusiveMaximum": 1
+                    },
+                    "parallelMaterials": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
                     },
                     "focus": {
                       "type": "integer",
@@ -3513,6 +3528,11 @@
                       "type": "number",
                       "minimum": 0,
                       "exclusiveMaximum": 1
+                    },
+                    "parallelMaterials": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
                     },
                     "focus": {
                       "type": "integer",
@@ -4460,6 +4480,11 @@
                     "minimum": 0,
                     "exclusiveMaximum": 1
                   },
+                  "parallelMaterials": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  },
                   "focus": {
                     "type": "integer",
                     "minimum": 0,
@@ -5405,6 +5430,11 @@
                           "minimum": 0,
                           "exclusiveMaximum": 1
                         },
+                        "parallelMaterials": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 100
+                        },
                         "focus": {
                           "type": "integer",
                           "minimum": 0,
@@ -6314,6 +6344,11 @@
                       "type": "number",
                       "minimum": 0,
                       "exclusiveMaximum": 1
+                    },
+                    "parallelMaterials": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
                     },
                     "focus": {
                       "type": "integer",
@@ -7263,6 +7298,11 @@
                   "type": "number",
                   "minimum": 0,
                   "exclusiveMaximum": 1
+                },
+                "parallelMaterials": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
                 },
                 "focus": {
                   "type": "integer",
@@ -9143,6 +9183,11 @@
                           "minimum": 0,
                           "exclusiveMaximum": 1
                         },
+                        "parallelMaterials": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 100
+                        },
                         "focus": {
                           "type": "integer",
                           "minimum": 0,
@@ -9617,6 +9662,11 @@
                           "type": "number",
                           "minimum": 0,
                           "exclusiveMaximum": 1
+                        },
+                        "parallelMaterials": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 100
                         },
                         "focus": {
                           "type": "integer",
@@ -10318,6 +10368,11 @@
                           "type": "number",
                           "minimum": 0,
                           "exclusiveMaximum": 1
+                        },
+                        "parallelMaterials": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 100
                         },
                         "focus": {
                           "type": "integer",
@@ -11265,6 +11320,11 @@
                         "minimum": 0,
                         "exclusiveMaximum": 1
                       },
+                      "parallelMaterials": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100
+                      },
                       "focus": {
                         "type": "integer",
                         "minimum": 0,
@@ -12210,6 +12270,11 @@
                               "minimum": 0,
                               "exclusiveMaximum": 1
                             },
+                            "parallelMaterials": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100
+                            },
                             "focus": {
                               "type": "integer",
                               "minimum": 0,
@@ -13119,6 +13184,11 @@
                           "type": "number",
                           "minimum": 0,
                           "exclusiveMaximum": 1
+                        },
+                        "parallelMaterials": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 100
                         },
                         "focus": {
                           "type": "integer",

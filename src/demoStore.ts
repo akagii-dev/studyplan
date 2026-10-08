@@ -20,7 +20,7 @@ export function demoInitialState(date = today()): AppState {
     { id: 'demo-constitution', examId: 'demo-constitution-exam', name: '憲法・問題集', total: 80, order: 1,
       rounds: [{ completed: 0, minutes: 3 }] },
   ];
-  state.studyNote = { nextTerm: '民法：意思表示', memo: '行政法：行政手続法\n憲法：基本的人権' };
+  state.studyNote = { nextTerm: '', memo: '行政法：行政手続法\n憲法：基本的人権' };
   state.settings.windows = [{
     id: 'demo-study-window',
     name: '毎日の学習時間',

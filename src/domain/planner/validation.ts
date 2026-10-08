@@ -53,6 +53,11 @@ export function validateSettings(s: Settings): string[] {
       addDays(e.start, e.reviewDays) > e.target
     )
       errors.push(`${e.name || '試験'}：日付と復習期間を確認してください。`);
+  if (
+    s.parallelMaterials !== undefined &&
+    (!Number.isInteger(s.parallelMaterials) || s.parallelMaterials < 1 || s.parallelMaterials > 100)
+  )
+    errors.push('同時に進める教材数は1〜100の整数で指定してください。');
   for (const m of s.materials)
     if (
       !s.exams.some((e) => e.id === m.examId) ||

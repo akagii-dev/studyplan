@@ -10,6 +10,7 @@ import {
 } from './model';
 import { unavailableEvents } from './planAudit';
 import type { RevisionTopic } from './revision';
+import { workPrecedence } from './terms';
 
 export interface ConstraintIssue {
   message: string;
@@ -139,13 +140,10 @@ export function fixedOrderIssue(
   if (session.kind !== 'study') return null;
   const target = state.settings.materials.find((m) => m.id === session.materialId);
   if (!target) return null;
-  for (const material of state.settings.materials.filter((m) => m.examId === target.examId)) {
+  const precedes = workPrecedence(state.settings);
+  for (const material of state.settings.materials) {
     for (const round of material.rounds.keys()) {
-      const precedes =
-        material.order < target.order ||
-        (material.order === target.order &&
-          (material.id < target.id || (material.id === target.id && round < session.round)));
-      if (!precedes) continue;
+      if (!precedes({ materialId: material.id, round }, session)) continue;
       const before = sessions
         .filter(
           (x) =>

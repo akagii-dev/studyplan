@@ -987,22 +987,25 @@ test('記録成功を簡潔にしても計画の確認が必要な通知と理�
 });
 
 test('ターム・メモは日付跨ぎ・再読込で保持し、保存失敗の入力を失わず計算に触れない', async ({ page }, info) => {
-  await seed(page, adjustmentFixture(contractDay), 2);
+  const fixture = adjustmentFixture(contractDay);
+  fixture.studyNote = { nextTerm: '旧版の自由入力', memo: '' };
+  await seed(page, fixture, 2);
   const before = await read(page);
   const form = page.getByRole('form', { name: 'ターム・メモ' });
-  const term = form.getByLabel('次のターム：', { exact: true });
   const memo = form.getByLabel('メモ', { exact: true });
   await expect(page.getByRole('progressbar')).toHaveCount(0);
-  await term.focus(); await page.keyboard.type('民法・意思表示');
-  await page.keyboard.press('Tab'); await expect(memo).toBeFocused();
-  await memo.fill('判例を確認\n次は錯誤');
+  // The free-text term is replaced by the automatic display; its saved value is kept.
+  await expect(form.getByRole('textbox')).toHaveCount(1);
+  await expect(form.getByRole('group', { name: 'ターム' })).toContainText('同時に進める教材数');
+  await memo.focus(); await page.keyboard.type('判例を確認');
+  await page.keyboard.press('Shift+Enter'); await page.keyboard.type('次は錯誤');
   await page.keyboard.press('Tab'); await expect(form.getByRole('button', { name: '保存', exact: true })).toBeFocused();
   await page.keyboard.press('Enter');
-  await expect.poll(async () => (await read(page)).studyNote).toEqual({ nextTerm: '民法・意思表示', memo: '判例を確認\n次は錯誤' });
-  const after = await read(page); delete after.studyNote; expect(after).toEqual(before);
+  await expect.poll(async () => (await read(page)).studyNote).toEqual({ nextTerm: '旧版の自由入力', memo: '判例を確認\n次は錯誤' });
+  const after = await read(page); delete after.studyNote; delete before.studyNote; expect(after).toEqual(before);
   await page.clock.setSystemTime(new Date(`${addDays(contractDay, 1)}T12:00:00+09:00`));
-  await page.reload(); await expect(term).toHaveValue('民法・意思表示'); await expect(memo).toHaveValue('判例を確認\n次は錯誤');
-  await term.fill('保存失敗時の入力');
+  await page.reload(); await expect(memo).toHaveValue('判例を確認\n次は錯誤');
+  await memo.fill('保存失敗時の入力');
   await page.evaluate(() => {
     const original = Storage.prototype.setItem; let once = true;
     Storage.prototype.setItem = function(key, value) {
@@ -1012,22 +1015,44 @@ test('ターム・メモは日付跨ぎ・再読込で保持し、保存失敗�
   });
   await form.getByRole('button', { name: '保存', exact: true }).click();
   await expect(page.getByRole('alert').filter({ hasText: '専用試験：メモ保存失敗' })).toBeVisible();
-  await expect(term).toHaveValue('保存失敗時の入力');
-  await nav(page, '今後の予定'); await nav(page, '今日'); await expect(term).toHaveValue('保存失敗時の入力');
+  await expect(memo).toHaveValue('保存失敗時の入力');
+  await nav(page, '今後の予定'); await nav(page, '今日'); await expect(memo).toHaveValue('保存失敗時の入力');
   await form.getByRole('button', { name: '保存', exact: true }).click();
-  await expect.poll(async () => (await read(page)).studyNote?.nextTerm).toBe('保存失敗時の入力');
-  await term.fill(''); await memo.fill(''); await form.getByRole('button', { name: '保存', exact: true }).click();
-  await expect.poll(async () => (await read(page)).studyNote).toEqual({ nextTerm: '', memo: '' });
-  await page.reload(); await expect(term).toHaveValue(''); await expect(memo).toHaveValue('');
+  await expect.poll(async () => (await read(page)).studyNote?.memo).toBe('保存失敗時の入力');
+  await memo.fill(''); await form.getByRole('button', { name: '保存', exact: true }).click();
+  await expect.poll(async () => (await read(page)).studyNote).toEqual({ nextTerm: '旧版の自由入力', memo: '' });
+  await page.reload(); await expect(memo).toHaveValue('');
   await page.evaluate(() => Promise.allSettled(document.querySelector('.page-transition')!.getAnimations().map(animation => animation.finished)));
   for (const appearance of ['light', 'dark']) {
     await page.evaluate(mode => document.documentElement.dataset.appearance = mode, appearance);
     await page.clock.runFor(350);
     await memo.fill('画面確認用のメモ');
-    expect(await memo.evaluate(e => getComputedStyle(e).backgroundColor)).toBe(await term.evaluate(e => getComputedStyle(e).backgroundColor));
-    expect(await memo.evaluate(e => getComputedStyle(e).color)).toBe(await term.evaluate(e => getComputedStyle(e).color));
     expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await page.screenshot({ path: info.outputPath('study-note-' + appearance + '.png'), fullPage: true, animations: 'disabled' });
   }
+});
+
+test('同時に進める教材数を設定すると、承認済みの計画から現在と次のタームを表示する', async ({ page }, info) => {
+  const fixture = adjustmentFixture(contractDay);
+  fixture.settings.parallelMaterials = 1;
+  fixture.plan!.settingsSnapshot = structuredClone(fixture.settings);
+  await seed(page, fixture, 2);
+  const term = page.getByRole('form', { name: 'ターム・メモ' }).getByRole('group', { name: 'ターム' });
+  await expect(term).toContainText('現在のターム：対象問題集');
+  await expect(term).toContainText('次のターム：別問題集');
+  expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: info.outputPath('study-term.png'), fullPage: true, animations: 'disabled' });
+  // Changing the setting is a draft until approval: today keeps the approved terms.
+  await nav(page, '設定');
+  await page.getByRole('button', { name: '教材の一覧・編集', exact: true }).click();
+  const select = page.getByLabel('同時に進める教材数', { exact: true });
+  await expect(select).toHaveValue('1');
+  await expect(page.getByRole('list', { name: 'タームの順序' })).toContainText('ターム1：対象問題集');
+  await select.selectOption('');
+  await expect.poll(async () => (await read(page)).settings.parallelMaterials).toBeUndefined();
+  await expect(page.getByRole('list', { name: 'タームの順序' })).toHaveCount(0);
+  await nav(page, '今日');
+  await expect(term).toContainText('次のターム：別問題集');
 });

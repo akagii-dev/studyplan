@@ -4,6 +4,7 @@ import { Material, completed, uid } from '../../domain/model';
 import { validateSettings } from '../../domain/planning';
 import { minimumRetainedRounds } from '../../domain/revision';
 import { MAX_MINUTES_PER_UNIT } from '../../domain/materialConstraints';
+import { materialTermGroups } from '../../domain/terms';
 import { AnimatedProgress } from '../AnimatedProgress';
 import { Empty, Field, Props, useDraft } from '../common';
 export function Materials({ state, update, onAdd }: Props & { onAdd: () => void }) {
@@ -87,7 +88,10 @@ export function Materials({ state, update, onAdd }: Props & { onAdd: () => void 
                 onChange={(e) => set({ ...form, total: +e.target.value })}
               />
             </Field>
-            <Field label="取り組む順序" hint="同じ試験の中で小さい番号を先に学習">
+            <Field
+              label="取り組む順序"
+              hint="同じ試験の中で小さい番号を先に学習。タームを使う場合は試験をまたいで区切ります"
+            >
               <input
                 type="number"
                 min="1"
@@ -189,6 +193,7 @@ export function Materials({ state, update, onAdd }: Props & { onAdd: () => void 
               : '教材を追加'}
           </button>
         </div>
+        {state.settings.materials.length > 1 && <ParallelMaterials state={state} update={update} />}
         {!state.settings.materials.length ? (
           <Empty>
             <BookOpen />
@@ -233,6 +238,62 @@ export function Materials({ state, update, onAdd }: Props & { onAdd: () => void 
           })
         )}
       </section>
+    </div>
+  );
+}
+
+/** Terms: N materials are studied together; the next N start after all of them finish. */
+function ParallelMaterials({ state, update }: Props) {
+  const s = state.settings;
+  const limit = s.parallelMaterials;
+  const options = Array.from(
+    { length: Math.max(s.materials.length - 1, limit ?? 0) },
+    (_, i) => i + 1,
+  );
+  const groups = materialTermGroups(s);
+  const rounds = Math.max(...s.materials.map((m) => m.rounds.length));
+  return (
+    <div className="card compact parallel-materials">
+      <Field
+        label="同時に進める教材数"
+        hint="取り組む順序（同じ番号は一覧の順）で区切ってタームにします。前のタームが全て終わってから次へ進みます。"
+      >
+        <select
+          value={limit ?? ''}
+          onChange={(e) => {
+            const value = e.target.value ? Number(e.target.value) : undefined;
+            void update((x) => {
+              const { parallelMaterials: _old, ...settings } = x.settings;
+              return {
+                ...x,
+                settings: value ? { ...settings, parallelMaterials: value } : settings,
+                proposal: null,
+              };
+            });
+          }}
+        >
+          <option value="">制限なし（試験ごとの順序のみ）</option>
+          {options.map((n) => (
+            <option key={n} value={n}>
+              {n}教材
+            </option>
+          ))}
+        </select>
+      </Field>
+      {groups.length > 0 && (
+        <>
+          <ol aria-label="タームの順序">
+            {groups.map((group, i) => (
+              <li key={i}>
+                ターム{i + 1}：{group.map((m) => m.name).join('、')}
+              </li>
+            ))}
+          </ol>
+          {rounds > 1 && (
+            <p className="hint">周回ごとに、1周目のターム1から同じ順で繰り返します。</p>
+          )}
+        </>
+      )}
     </div>
   );
 }

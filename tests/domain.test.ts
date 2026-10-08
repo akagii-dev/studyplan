@@ -20,6 +20,7 @@ import {
   undoPlan,
 } from '../src/domain/planning';
 import { correctProgress, recordProgress } from '../src/domain/progress';
+import { currentTerms, termItemLabel } from '../src/domain/terms';
 const from = '2026-09-21';
 function fixture(): AppState {
   const s = initialState();
@@ -401,5 +402,68 @@ describe('承認・再計画・復元', () => {
     s = propose(s, from, '再計画');
     expect(s.proposal!.plan.conflicts.length).toBeGreaterThan(0);
     expect(() => approve(s)).toThrow();
+  });
+});
+describe('同時に進める教材数（ターム）', () => {
+  function terms(limit?: number): AppState {
+    const s = fixture();
+    s.settings.exams[0].target = addDays(from, 40);
+    s.settings.exams.push({ ...s.settings.exams[0], id: 'e2', name: '試験2' });
+    s.settings.materials = ['A', 'B', 'C', 'D'].map((name, i) => ({
+      id: `m${name}`,
+      examId: i % 2 ? 'e2' : 'e',
+      name,
+      total: 20,
+      order: 1,
+      rounds: [{ completed: 0, minutes: 2 }, { completed: 0, minutes: 2 }],
+    }));
+    if (limit) s.settings.parallelMaterials = limit;
+    return s;
+  }
+  const span = (sessions: { date: string; start: number; end: number }[]) => ({
+    first: sessions.map((x) => x.date + String(x.start).padStart(4, '0')).sort()[0],
+    last: sessions.map((x) => x.date + String(x.end).padStart(4, '0')).sort().at(-1)!,
+  });
+  it('一覧順に2教材ずつ区切り、周回ごとにタームを順に配置する', () => {
+    const plan = generatePlan(terms(2), from);
+    expect(plan.shortfalls).toEqual([]);
+    const study = plan.sessions.filter((x) => x.kind === 'study');
+    const term = (ids: string[], round: number) =>
+      span(study.filter((x) => ids.includes(x.materialId) && x.round === round));
+    const order = [term(['mA', 'mB'], 0), term(['mC', 'mD'], 0), term(['mA', 'mB'], 1), term(['mC', 'mD'], 1)];
+    for (let i = 1; i < order.length; i++) expect(order[i - 1].last <= order[i].first).toBe(true);
+    // Both materials of the first term are studied in parallel from the first study day.
+    const first = study[0].date;
+    expect(new Set(study.filter((x) => x.date === first).map((x) => x.materialId))).toEqual(new Set(['mA', 'mB']));
+  });
+  it('未設定なら従来どおり試験ごとの順序だけを守る', () => {
+    // A and C share an exam: without terms every round of A precedes C.
+    const study = generatePlan(terms(), from).sessions.filter((x) => x.kind === 'study');
+    const at = (materialId: string, round: number) =>
+      span(study.filter((x) => x.materialId === materialId && x.round === round));
+    expect(at('mA', 1).last <= at('mC', 0).first).toBe(true);
+  });
+  it('前のタームが終わる前の固定予定を順序違反として止める', () => {
+    const s = terms(2);
+    const plan = generatePlan(s, from);
+    s.plan = plan;
+    const c = plan.sessions.find((x) => x.materialId === 'mC' && x.round === 0)!;
+    s.plan.sessions = plan.sessions.map((x) =>
+      x.id === c.id ? { ...x, date: plan.sessions[0].date, start: 1080, end: 1080 + x.count * 2, fixed: true } : x,
+    );
+    const next = generatePlan(s, from);
+    expect(next.conflicts.join('')).toContain('取り組む順序を守れません');
+  });
+  it('現在と次のタームを実績から判定する', () => {
+    let s = terms(2);
+    let t = currentTerms(s);
+    expect(t.current!.items.map(termItemLabel)).toEqual(['A（1周目）', 'B（1周目）']);
+    expect(t.next!.items.map(termItemLabel)).toEqual(['C（1周目）', 'D（1周目）']);
+    for (const materialId of ['mA', 'mB'])
+      s = recordProgress(s, { ...entry(20), id: `done-${materialId}`, materialId });
+    t = currentTerms(s);
+    expect(t.current!.items.map((x) => x.material.id)).toEqual(['mC', 'mD']);
+    expect(t.next!.items.map(termItemLabel)).toEqual(['A（2周目）', 'B（2周目）']);
+    expect(currentTerms(terms())).toEqual({ current: undefined, next: undefined });
   });
 });

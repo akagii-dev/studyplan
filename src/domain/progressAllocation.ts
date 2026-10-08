@@ -3,6 +3,7 @@ import { recordTotals, createProgressBaseline } from './progressReflection';
 import { generatePlan } from './planner/generate';
 import type { PlanningContext } from './planner/context';
 import { fixedOrderIssue } from './planConstraints';
+import { workPrecedence } from './terms';
 import { requirePlanningInputs } from './setupIssues';
 import { validateRevisedSettings } from './revision';
 
@@ -339,17 +340,7 @@ export function allocateProgress(
   const allocatable = Object.fromEntries(
     Object.entries(budgets).map(([key, value]) => [key, value - (reserved[key] ?? 0)]),
   );
-  const precedes = (a: Session | { materialId: string; round: number }, b: Session) => {
-    const ma = state.settings.materials.find((m) => m.id === a.materialId);
-    const mb = state.settings.materials.find((m) => m.id === b.materialId);
-    return (
-      ma &&
-      mb &&
-      ma.examId === mb.examId &&
-      (ma.order < mb.order ||
-        (ma.order === mb.order && (ma.id < mb.id || (ma.id === mb.id && a.round < b.round))))
-    );
-  };
+  const precedes = workPrecedence(state.settings);
   let kept = future;
   let expanded = false;
   let plan: Plan;

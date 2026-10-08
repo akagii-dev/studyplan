@@ -3024,3 +3024,9 @@ textarea {
 .study-note { display: grid; gap: 10px; }
 .study-note .field { margin: 0; }
 .study-note textarea { resize: vertical; }
+.study-term { display: grid; gap: 4px; }
+.study-term p { margin: 0; overflow-wrap: anywhere; }
+.study-term span { color: var(--muted); }
+.parallel-materials { display: grid; gap: 8px; margin-bottom: 12px; }
+.parallel-materials ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.parallel-materials li { overflow-wrap: anywhere; }

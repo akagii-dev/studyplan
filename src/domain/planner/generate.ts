@@ -18,6 +18,7 @@ import { datesBetween, mergeIntervals, subtractIntervals } from './intervals';
 import { dailyWaterfill } from './dailyWaterfill';
 import { validateSettings } from './validation';
 import { createProgressBaseline } from '../progressReflection';
+import { workPrecedence } from '../terms';
 const EPS = 1e-7;
 export interface RetainedAllocation {
   sessions: Session[];
@@ -188,10 +189,9 @@ export function generatePlan(
       );
     }
   }
+  const workPrecedes = workPrecedence(s);
   const precedes = (a: (typeof tasks)[number], b: (typeof tasks)[number]) =>
-    a.exam.id === b.exam.id &&
-    (a.m.order < b.m.order ||
-      (a.m.order === b.m.order && (a.m.id < b.m.id || (a.m.id === b.m.id && a.round < b.round))));
+    workPrecedes({ materialId: a.m.id, round: a.round }, { materialId: b.m.id, round: b.round });
   const taskBounds = new Map(tasks.map((task) => {
     let first = { date: from, time: notBefore }, last = { date: deadline(task), time: 1440 };
     if (retention) for (const session of kept) {

@@ -83,6 +83,8 @@ export interface Settings {
   preferredSessionMinutes?: number;
   rest: number;
   buffer: number;
+  /** Materials studied together in one term. Omitted means no term limit. */
+  parallelMaterials?: number;
   periods: number[];
 }
 export interface Commute {

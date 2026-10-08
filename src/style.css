@@ -27,8 +27,8 @@
   --art: #cde3d3;
   --radius: 12px;
   --radius-control: 8px;
-  /* UD fonts first: BIZ UDPGothic ships with Windows 10 and later. */
-  font-family: 'BIZ UDPGothic', 'Noto Sans JP', 'Yu Gothic UI', 'Hiragino Sans', 'Meiryo', sans-serif;
+  /* System fonts only: Hiragino on iOS/macOS, Yu Gothic UI on Windows. */
+  font-family: system-ui, -apple-system, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Meiryo', sans-serif;
   color: var(--ink);
   background: var(--page);
   font-synthesis: none;

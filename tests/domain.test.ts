@@ -1,6 +1,6 @@
 import { reflectProgressSafely } from '../src/domain/progressReflection';
 import { calendarQuantity } from '../src/domain/calendarQuantity';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   AppState,
   Progress,
@@ -17,6 +17,7 @@ import {
   generatePlan,
   mergeIntervals,
   propose,
+  recordAndAdjust,
   subtractIntervals,
   undoPlan,
 } from '../src/domain/planning';
@@ -493,6 +494,28 @@ describe('同時に進める教材数（ターム）', () => {
     const first = study[0].date;
     expect(new Set(study.filter((x) => x.date === first).map((x) => x.materialId))).toEqual(new Set(['mA', 'mB']));
     expect(at('mA', 0).first < at('mC', 0).first).toBe(true);
+  });
+  it('予定より多く解くと、残りと次のタームの教材を前倒しし、予定どおりなら動かさない', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(`${from}T09:00:00+09:00`));
+    const source = approve(propose(terms(1), from, '初回'));
+    // Record on the first day with work for A, before its sessions start.
+    const day = source.plan!.sessions.filter((x) => x.materialId === 'mA' && x.count > 0).map((x) => x.date).sort()[0];
+    vi.setSystemTime(new Date(`${day}T09:00:00+09:00`));
+    const first = (state: AppState, materialId: string) => state.plan!.sessions
+      .filter((x) => x.kind === 'study' && x.materialId === materialId && x.round === 0 && x.count > 0 && x.date > day)
+      .map((x) => x.date).sort()[0];
+    const today = source.plan!.sessions.filter((x) => x.date === day && x.materialId === 'mA' && x.round === 0)
+      .reduce((n, x) => n + x.count, 0);
+    expect(today).toBeGreaterThan(0);
+    const onPlan = recordAndAdjust(source, { ...entry(today, 'on-plan', day), materialId: 'mA' });
+    expect(onPlan.plan!.sessions.filter((x) => x.date > day)).toEqual(source.plan!.sessions.filter((x) => x.date > day));
+    const ahead = recordAndAdjust(source, { ...entry(today + 6, 'ahead', day), materialId: 'mA' });
+    expect(ahead.plan!.sessions.filter((x) => x.materialId === 'mA' && x.round === 0 && x.date > day)
+      .reduce((n, x) => n + x.count, 0)).toBe(20 - today - 6);
+    expect(first(ahead, 'mA') <= first(source, 'mA')).toBe(true);
+    expect(first(ahead, 'mB') < first(source, 'mB')).toBe(true);
+    vi.useRealTimers();
   });
   it('タームに含めない教材を現在の並行教材として周回付きで示す', () => {
     let s = terms(1);

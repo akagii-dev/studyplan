@@ -38,10 +38,8 @@ function snapshot(state: AppState, plan: Plan, date: string, original: boolean):
   return { planId: plan.id, rows: [...rows.values()] };
 }
 
-/** Read approved storage only; proposals never establish a historical denominator. */
-export function historicalDayBaseline(state: AppState, date: string): StudyDayBaseline | null {
-  const saved = state.studyDayBaselines?.[date];
-  if (saved) return saved;
+/** The approved plan that defines a day's comparison basis when none is saved yet. */
+export function baselineSourcePlan(state: AppState, date: string): Plan | null {
   const plans = [...state.history, ...(state.plan ? [state.plan] : [])];
   const source = plans
     .filter(
@@ -51,13 +49,20 @@ export function historicalDayBaseline(state: AppState, date: string): StudyDayBa
         covers(p, date),
     )
     .at(-1);
-  if (source) return snapshot(state, source, date, true);
+  if (source) return source;
   // Replanning keeps sessions before `from` verbatim. They are saved historical
   // work, not newly generated work covered by the new plan's approval date.
-  const retained = plans.find(
+  return plans.find(
     (p) => date < p.from && p.sessions.some((s) => s.date === date && s.kind === 'study'),
-  );
-  return retained ? snapshot(state, retained, date, true) : null;
+  ) ?? null;
+}
+
+/** Read approved storage only; proposals never establish a historical denominator. */
+export function historicalDayBaseline(state: AppState, date: string): StudyDayBaseline | null {
+  const saved = state.studyDayBaselines?.[date];
+  if (saved) return saved;
+  const source = baselineSourcePlan(state, date);
+  return source ? snapshot(state, source, date, true) : null;
 }
 
 /** Called at data-changing boundaries, never while changing a display mode. Undo keeps this archive. */

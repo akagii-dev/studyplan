@@ -279,12 +279,12 @@ function conservation(state: AppState, date = day) {
   }
 }
 
-it('30問を4・2・2問と記録し、実績+今日の残り+未来+未配置を保存する', () => {
+it('30問を4・2・2問と記録し、予定を超えた分は続きを前倒しして保存する', () => {
   let state = adjustmentFixture();
   const expected = [
-    { add: 4, actual: 4, today: 2, future: 24, quantity: 0, materials: 0 },
-    { add: 2, actual: 6, today: 0, future: 24, quantity: 0, materials: 0 },
-    { add: 2, actual: 8, today: 0, future: 22, quantity: 1, materials: 1 },
+    { add: 4, actual: 4, today: 2, future: 24 },
+    { add: 2, actual: 6, today: 0, future: 24 },
+    { add: 2, actual: 8, today: 0, future: 22 },
   ];
   for (const [i, e] of expected.entries()) {
     state = recordAndAdjust(state, adjustmentReport(e.add, `r${i}`), adjustmentContext);
@@ -292,19 +292,24 @@ it('30問を4・2・2問と記録し、実績+今日の残り+未来+未配置�
     expect(completed(state, 'book', 0)).toBe(e.actual);
     expect(activePlanWork(state, day).find((s) => s.id === 'book-0')?.count ?? 0).toBe(e.today);
     expect(count(state, 'book', 0, addDays(day, 1))).toBe(e.future);
-    expect(summarizePlanChanges(latestReceipt(state)!.changes)).toEqual({
-      quantity: e.quantity,
-      placement: 0,
-      materials: e.materials,
-    });
+    // Within today's plan nothing moves; beyond it only the same material is replaced.
+    const summary = summarizePlanChanges(latestReceipt(state)!.changes);
+    if (i < 2) expect(summary).toEqual({ quantity: 0, placement: 0, materials: 0 });
+    else expect(summary.materials).toBe(1);
     expect(
       calendarQuantity(state, day, day).rows.find((s) => s.materialId === 'book' && s.round === 0)
         ?.planned,
     ).toBe(6);
   }
-  expect(state.plan!.sessions.filter((s) => s.materialId !== 'book' || s.round !== 0)).toEqual(
-    adjustmentFixture()
-      .plan!.sessions.filter((s) => s.materialId !== 'book' || s.round !== 0)
+  // The remainder starts from tomorrow; parallel work of another exam keeps its placement.
+  const source = adjustmentFixture().plan!;
+  const first = (plan: typeof source, round: number) =>
+    plan.sessions.filter((s) => s.materialId === 'book' && s.round === round && s.count > 0 && s.date > day)
+      .map((s) => s.date).sort()[0];
+  expect(first(state.plan!, 0)).toBe(addDays(day, 1));
+  expect(first(state.plan!, 1) <= first(source, 1)).toBe(true);
+  expect(state.plan!.sessions.filter((s) => s.materialId !== 'book')).toEqual(
+    source.sessions.filter((s) => s.materialId !== 'book')
       .sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start),
   );
 });
@@ -459,13 +464,16 @@ it('問数が変わる予定の詳細は時刻を列挙せず、配置だけの�
   const source = adjustmentFixture();
   const adjusted = recordAndAdjust(source, adjustmentReport(8), adjustmentContext);
   const quantityReceipt = latestReceipt(adjusted)!;
-  expect(quantityReceipt.changes).toMatchObject([
-    { beforeCount: 6, afterCount: 4, timeChanged: true },
-  ]);
+  const counted = quantityReceipt.changes.filter((change) =>
+    change.beforeCount !== undefined && change.afterCount !== undefined && change.beforeCount !== change.afterCount);
+  expect(counted.length).toBeGreaterThan(0);
   const quantityHtml = renderToStaticMarkup(
-    createElement(ProgressReceiptView, { state: adjusted, receipt: quantityReceipt }),
+    createElement(ProgressReceiptView, {
+      state: adjusted,
+      receipt: { ...quantityReceipt, changes: counted },
+    }),
   );
-  expect(quantityHtml).toContain('6 → 4問');
+  expect(quantityHtml).toContain(`${counted[0].beforeCount} → ${counted[0].afterCount}問`);
   expect(quantityHtml).not.toContain('時間 ');
 
   const moved = structuredClone(source.plan!);

@@ -244,6 +244,32 @@ export function allocateProgress(
     const key = workKey(s.materialId, s.round);
     budgets[key] = Math.max(0, budgets[key] - s.count);
   }
+  // Work recorded beyond today's plan leaves less than its basis future allocation. Its
+  // remainder and every unfixed successor are placed again from tomorrow (pulled forward);
+  // parallel work stays put. Derived from the day's basis and records only, so a
+  // correction back to the planned amount restores the original placement.
+  const precedes = workPrecedence(state.settings);
+  const basisFuture: Record<string, number> = {};
+  const basisToday: Record<string, number> = {};
+  for (const s of basis.sessions) {
+    if (s.kind !== 'study' || comparisonIds.has(s.id)) continue;
+    const key = workKey(s.materialId, s.round);
+    if (s.date >= from) basisFuture[key] = (basisFuture[key] ?? 0) + s.count;
+    else if (s.date === context.date) basisToday[key] = (basisToday[key] ?? 0) + s.count;
+  }
+  const works = state.settings.materials.flatMap((m) => [...m.rounds.keys()].map((round) => ({ materialId: m.id, round })));
+  // Ahead: today's records exceed today's planned amount and consumed future allocation.
+  const ahead = works.filter((w) => {
+    const key = workKey(w.materialId, w.round);
+    return (records[JSON.stringify([context.date, w.materialId, w.round])] ?? 0) > (basisToday[key] ?? 0) &&
+      (basisFuture[key] ?? 0) > budgets[key];
+  });
+  const changedWork = works.filter((w) =>
+    totalFor(records, w.materialId, w.round) !== totalFor(previousRecords, w.materialId, w.round));
+  // Successors of changed work follow the basis, not today's earlier pulled placements.
+  const linked = (s: Session) => changedWork.some((w) => precedes(w, s));
+  const pulled = (s: Session) => !s.fixed && s.kind === 'study' && ahead.some((w) =>
+    (w.materialId === s.materialId && w.round === s.round) || precedes(w, s));
   const left = { ...budgets };
   const future: Session[] = [];
   // An extension may have merged into a retained session under the same ID.
@@ -256,7 +282,7 @@ export function allocateProgress(
   ];
   let capacityReleased = false;
   for (const [index, session] of retained.entries()) {
-    if (!unchanged(session)) continue;
+    if (!unchanged(session) || linked(session)) continue;
     const current = source.sessions.find((s) => s.id === session.id && !comparisonIds.has(s.id));
     if (!current) {
       retained[index] = resize(session, 0);
@@ -295,7 +321,7 @@ export function allocateProgress(
     .filter(
       (s) =>
         s.kind === 'study' && s.date >= from && !originalIds.has(s.id) && !comparisonIds.has(s.id) &&
-        !rebalance.has(s.materialId),
+        !rebalance.has(s.materialId) && !linked(s) && !pulled(s),
     )) {
     const key = workKey(s.materialId, s.round);
     const count = Math.min(s.count, left[key] ?? 0);
@@ -340,8 +366,8 @@ export function allocateProgress(
   const allocatable = Object.fromEntries(
     Object.entries(budgets).map(([key, value]) => [key, value - (reserved[key] ?? 0)]),
   );
-  const precedes = workPrecedence(state.settings);
-  let kept = future;
+  let kept = future.filter((s) => !pulled(s));
+  const pulledForward = kept.length !== future.length;
   let expanded = false;
   let plan: Plan;
   // Reuse balanced allocation only for missing quantities, with real retained slots occupied.
@@ -415,6 +441,8 @@ export function allocateProgress(
     plan,
     reason: expanded
       ? '先行する教材・周回の未消化分を配置するため、後続の予定を調整しました。'
+      : pulledForward
+        ? '予定より進んだ分、続きの予定を前倒ししました。'
       : capacityReleased
         ? '訂正で元の枠を戻すため、重なる追加予定を再配置しました。'
         : residual.some((s) => s.date < context.date && s.count > 0)

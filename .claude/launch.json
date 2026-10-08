@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "demo",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["exec", "vite", "--mode", "demo", "--host", "127.0.0.1", "--port", "4176", "--strictPort"],
+      "port": 4176,
+      "url": "http://127.0.0.1:4176"
+    }
+  ]
+}

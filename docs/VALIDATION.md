@@ -74,7 +74,8 @@
 - main/cea22d7から`codex/parallel-terms`で実装。`Settings.parallelMaterials?`を追加し、`src/domain/terms.ts`の共通`workPrecedence`をplanner（generate）・通常調整（progressAllocation）・固定順序検査（planConstraints）へ適用。未設定時は従来の試験内順序と同一の判定。今日の「次のターム：」自由入力を現在/次のタームの自動表示へ置換し、メモと保存済み`nextTerm`は保持。設定の教材一覧に選択欄とタームの順序を追加し、設定差分へ「同時に進める教材数」を追加。バックアップスキーマ（zod/JSON）を再生成。SQLite・Rust・LAN API・計算版は変更なし。デモは計画条件を変えず`nextTerm`の初期例のみ空欄化。
 - `pnpm verify`成功：lint/型/単体552件・36ファイル/通常build。既存`tests/domain.test.ts`へ4件を追加（N=2・2周でA1B1→C1D1→A2B2→C2D2の時系列と最初の学習日の並行、未設定時の従来順序、前タームより前の固定予定の順序違反、実績による現在/次の判定）。
 - `pnpm verify:ui`（Linux Chromium 1194のheadless shell。Edge未導入）：76成功/6失敗。失敗6件（完了行・追加入力のsummaryへのfocus、wide/narrow）は変更前のcea22d7でも同じ6件が同じ箇所で失敗し、今回の差分によるものではない。Windows Edgeでの再確認が必要。ターム・メモの既存ケースをメモのみ・旧`nextTerm`保持へ更新し、承認済み設定からの現在/次ターム表示・未承認の設定変更が今日の表示を変えないこと・設定の選択とタームの順序表示を1ケース追加（wide/narrow成功、axe/横溢れなし）。PC1280px・320pxの画像を自己レビュー。
-- 未実施：`pnpm test:ui`（Windows実機）、`pnpm test:lan`、Cargo、`pnpm demo:smoke`（msedge必須）。LAN/Desktopのターム・メモケースは自由入力欄の撤去に合わせてメモのみへ更新したが未実行。iOS Safari・読み上げ実聴も未確認。自己レビューのみ。
+- 追加検証（同日・クラウドLinux）：Linux用のTauri依存を入れてdebugの`studyplan_lan_bridge`をbuildし、`pnpm test:lan`は33成功/15skip（幅非依存の重複14件と、実LANアドレスが必要なhttp wide 1件）。メモのみへ更新したLANのターム・メモケースもwide/narrowで成功。`cargo test --lib --locked`は42件成功。
+- 未実施：`pnpm test:ui`（Windows実機のTauri+WebView2が必要）、`pnpm demo:smoke`（msedge必須）、Windows Edgeでの`verify:ui`再確認。Desktopのターム・メモケースはメモのみへ更新したが未実行。iOS Safari・読み上げ実聴も未確認。自己レビューのみ。
 
 ## 今日の残りと折りたたみ進捗（2026-10-06 UTC）
 

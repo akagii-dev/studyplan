@@ -315,7 +315,7 @@ test('実機：LANと同じSQLiteを共有し外部更新で未入力実績を�
     await expect(phone.getByRole('button', { name: '最新を読み込む', exact: true })).toBeVisible();
     phone.once('dialog', (dialog) => dialog.accept());
     await phone.getByRole('button', { name: '最新を読み込む', exact: true }).click();
-    await expect(phoneRow).toContainText('✅完了');
+    await expect(phoneRow).toContainText('完了');
     const state = await storedState();
     const work = activePlanWork(state, today()).filter((s) => s.materialId === 'book' && s.round === 0);
     expect(work.reduce((n, s) => n + s.count, 0)).toBe(24);
@@ -323,7 +323,7 @@ test('実機：LANと同じSQLiteを共有し外部更新で未入力実績を�
   } finally { await client.close(); await server.close(); }
   await close();
   await launch();
-  await expect(page.locator('.daily-record-row').filter({ hasText: '対象問題集' })).toContainText('✅完了');
+  await expect(page.locator('.daily-record-row').filter({ hasText: '対象問題集' })).toContainText('完了');
 });
 
 for (const protection of ['initial', 'record', 'started', 'fixed', 'unused']) {
@@ -464,7 +464,7 @@ for (const previousReported of [false, true]) {
       await row.getByRole('textbox').fill(String(add));
       await row.getByRole('button', { name: '記録', exact: true }).click();
       await saved();
-      await expect(row).toContainText(actual > 6 ? `✅追加${actual-6}問` : actual === 6 ? '✅完了' : `あと${6-actual}問`);
+      await expect(row).toContainText(actual > 6 ? `追加${actual-6}問` : actual === 6 ? '完了' : `あと${6-actual}問`);
       const state = await storedState();
       const work = activePlanWork(state, today()).filter(
         (s) => s.materialId === 'book' && s.round === 0,
@@ -1647,7 +1647,7 @@ test('実機：予定6への追加4・2・2で数量と変更詳細を保存し�
     await row.getByRole('textbox').fill(String(add));
     await row.getByRole('button', { name: '記録', exact: true }).click();
     await saved();
-    await expect(row).toContainText(actual > 6 ? `✅追加${actual-6}問` : actual === 6 ? '✅完了' : `あと${6-actual}問`);
+    await expect(row).toContainText(actual > 6 ? `追加${actual-6}問` : actual === 6 ? '完了' : `あと${6-actual}問`);
     const stored = await storedState();
     expect(
       activePlanWork(stored, date)
@@ -2451,7 +2451,7 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
     await activeRow.getByRole('textbox').fill(String(actual));
     await activeRow.getByRole('button', { name: '記録', exact: true }).click();
     await saved();
-    await expect(activeRow).toContainText(actual > 10 ? `✅追加${actual-10}問` : actual === 10 ? '✅完了' : `あと${10-actual}問`);
+    await expect(activeRow).toContainText(actual > 10 ? `追加${actual-10}問` : actual === 10 ? '完了' : `あと${10-actual}問`);
     expect(await futureQuantity()).toBe(expected);
     expect((await storedState()).plan!.sessions.filter((session) => session.date === date)).toEqual(
       [originalToday],
@@ -2664,14 +2664,14 @@ test('実機：教材別の今日・周回・記録・訂正・取消・空表�
   await expect(page.locator('.progress-summary')).toContainText('完了 10問');
   await expect(page.locator('.progress-summary')).toContainText('残り 0問');
   await nav('ホーム');
-  await expect(essayRow).toContainText('✅完了');
+  await expect(essayRow).toContainText('完了');
   await expect(shortRow).toContainText('あと10問');
   await page.setViewportSize({ width: 900, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/progress-chart-900.png', fullPage: true });
   await close();
   await launch();
-  await expect(page.locator('.daily-record-row').filter({ hasText: '論文' })).toContainText('✅完了');
+  await expect(page.locator('.daily-record-row').filter({ hasText: '論文' })).toContainText('完了');
   await expect(page.locator('.daily-record-row').filter({ hasText: '短答' })).toContainText(
     'あと10問',
   );
@@ -4104,7 +4104,7 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
     const dailyRow = page.locator('.daily-record-row').filter({ hasText: '基本情報 午後問題集' });
     let recordButton;
     if (todayPlanned > 0) {
-      await expect(dailyRow.locator('.progress-value')).toHaveText(37 > todayPlanned ? `✅追加${37-todayPlanned}問` : 37 === todayPlanned ? '✅完了' : `あと${todayPlanned-37}問`);
+      await expect(dailyRow.locator('.progress-value')).toHaveText(37 > todayPlanned ? `追加${37-todayPlanned}問` : 37 === todayPlanned ? '完了' : `あと${todayPlanned-37}問`);
       if (await dailyRow.locator('.daily-record-input').getAttribute('open') === null)
         await dailyRow.locator('.daily-record-input summary').press('Enter');
       recordButton = dailyRow.getByRole('button', { name: '記録', exact: true });
@@ -4655,7 +4655,7 @@ test('実機：旧版の消化済み0問予定を起動・記録・バックア�
   await launch();
   await expect(page.getByRole('alert')).toHaveCount(0);
   const row = page.locator('.daily-record-row').filter({ hasText: '対象問題集' });
-  await expect(row).toContainText('✅追加6問');
+  await expect(row).toContainText('追加6問');
   const startState = await storedState();
   const backupPath = resolve(dataDir, '旧版の予定.studyplan.json');
   await nav('バックアップ');
@@ -4678,7 +4678,7 @@ test('実機：旧版の消化済み0問予定を起動・記録・バックア�
   await row.getByRole('textbox').fill('1');
   await row.getByRole('textbox').press('Enter');
   await saved();
-  await expect(row).toContainText('✅追加7問');
+  await expect(row).toContainText('追加7問');
   expect(
     (await storedState()).history.some((p) =>
       p.sessions.some((s) => s.count === 0 && s.start === s.end),
@@ -5544,7 +5544,7 @@ test('実機：共通進捗と今日への安全な入力引継ぎ', async () =>
   expect((await storedState()).records).toEqual(seed.records);
   await row.getByRole('button', { name: '記録', exact: true }).click();
   await saved();
-  await expect(row).toContainText('✅完了');
+  await expect(row).toContainText('完了');
   expect((await storedState()).records.reduce((n, r) => n + r.count, 0)).toBe(10);
   await page.screenshot({
     path: 'test-results/progress-consistency/native-today.png',
@@ -5552,7 +5552,7 @@ test('実機：共通進捗と今日への安全な入力引継ぎ', async () =>
   });
   await close();
   await launch();
-  await expect(page.locator('.daily-record-row')).toContainText('✅完了');
+  await expect(page.locator('.daily-record-row')).toContainText('完了');
   await nav('詳細カレンダー');
   await page
     .locator('.calendar-toolbar')

@@ -47,7 +47,7 @@ test('LAN画面から部分・追加・超過・訂正・取消とバックア�
   await open(page);
   for (const [n, actual, today, future] of [[4, 4, 2, 24], [2, 6, 0, 24], [2, 8, 0, 22]]) {
     await record(page, n);
-    await expect(book(page)).toContainText(actual > 6 ? `✅追加${actual-6}問` : actual === 6 ? '✅完了' : `あと${6-actual}問`);
+    await expect(book(page)).toContainText(actual > 6 ? `追加${actual-6}問` : actual === 6 ? '完了' : `あと${6-actual}問`);
     await counts(request, actual, today, future);
   }
   await page.getByRole('button', { name: '記録履歴', exact: true }).click();
@@ -102,7 +102,7 @@ test('同revisionの保存競合で他端末の実績と入力途中の値を失
   await expect(book(page)).toContainText('あと2問');
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: '最新を読み込む', exact: true }).click();
-  await expect(book(page)).toContainText('✅完了');
+  await expect(book(page)).toContainText('完了');
   await expect(book(page).getByRole('textbox', { includeHidden: true })).toBeHidden();
   await book(page).locator('.daily-record-input summary').press('Enter');
   await expect(book(page).getByRole('textbox')).toHaveValue('1');

@@ -25,7 +25,7 @@ async function progress(row: Locator, actual: number | null, deficit: number | n
   const schedule = await row.evaluate(element => element.matches('.daily-record-row') ||
     !!element.closest('.future-day')?.querySelector('h2 .future-today'));
   if (schedule) {
-    await expect(value).toHaveText((actual ?? 0) > 10 ? `✅追加${(actual ?? 0)-10}問` : actual === 10 ? '✅完了' : `あと${10 - (actual ?? 0)}問`);
+    await expect(value).toHaveText((actual ?? 0) > 10 ? `追加${(actual ?? 0)-10}問` : actual === 10 ? '完了' : `あと${10 - (actual ?? 0)}問`);
     await expect(value.getByRole('checkbox')).toHaveCount(0);
     return;
   }

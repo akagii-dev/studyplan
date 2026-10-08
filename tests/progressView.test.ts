@@ -241,11 +241,11 @@ for (const offset of [-1, 0, 1]) {
     ];
     if (offset === 0) {
       renders.push(createElement(TodayRecorder, { state, update: async () => {} }));
-      expect(todayStudyRows(state)[0].progress).toMatchObject({ ...view, text: (count ?? 0) > 10 ? `✅追加${(count ?? 0)-10}問` : count === 10 ? '✅完了' : `あと${10-(count ?? 0)}問`, supplement: '' });
+      expect(todayStudyRows(state)[0].progress).toMatchObject({ ...view, text: (count ?? 0) > 10 ? `追加${(count ?? 0)-10}問` : count === 10 ? '完了' : `あと${10-(count ?? 0)}問`, supplement: '' });
     }
     for (const element of renders) {
       const html = renderToStaticMarkup(element);
-      expect(html).toContain(offset === 0 && (element.type === Future || element.type === TodayRecorder) ? ((count ?? 0) > 10 ? `✅追加${(count ?? 0)-10}問` : count === 10 ? '✅完了' : `あと${10-(count ?? 0)}問`) : expected);
+      expect(html).toContain(offset === 0 && (element.type === Future || element.type === TodayRecorder) ? ((count ?? 0) > 10 ? `追加${(count ?? 0)-10}問` : count === 10 ? '完了' : `あと${10-(count ?? 0)}問`) : expected);
       expect(html).not.toContain('基準なし');
       expect(html).not.toContain('実績あり');
       const shortage = offset < 0 && count !== undefined && count < 10;
@@ -822,7 +822,7 @@ describe('今日の記録と今後の予定', () => {
       createElement(TodayRecorder, { state, update: async () => {} }),
     );
     expect(html).toContain('問題集A');
-    expect(html).toContain('✅追加5問');
+    expect(html).toContain('追加5問');
     expect(html).not.toContain('daily-progress-ring');
     expect(html).toContain('あと10問');
     expect(html).toContain('問題集C');
@@ -1006,11 +1006,11 @@ it('15問へ6→4→5を加算し、訂正・取消・再読込で今日と週�
     expect(todayStudyRows(state, adjustmentContext.date).find(row => row.materialId === 'other')!.progress.text).toBe('あと9問');
   };
   check('あと15問');
-  for (const [count, id, expected] of [[6, 'six', 'あと9問'], [4, 'four', 'あと5問'], [5, 'five', '✅完了']] as const) {
+  for (const [count, id, expected] of [[6, 'six', 'あと9問'], [4, 'four', 'あと5問'], [5, 'five', '完了']] as const) {
     state = recordAndAdjust(state, adjustmentReport(count, id), adjustmentContext);
     check(expected);
   }
-  state = JSON.parse(JSON.stringify(state)); check('✅完了');
+  state = JSON.parse(JSON.stringify(state)); check('完了');
   state = correctAndAdjust(state, 'five', 3, false, adjustmentContext); check('あと2問');
   state = correctAndAdjust(state, 'five', 3, true, adjustmentContext); check('あと5問');
 });
@@ -1024,7 +1024,7 @@ it('仕切り直しで翌日へ移動しただけを完了にせず、新しい�
   let restarted = approve(proposeRestart(source, adjustmentContext.date, context), false, context);
   expect(todayStudyRows(restarted, adjustmentContext.date).find(row => row.materialId === 'book')!.progress.text).toBe('あと6問');
   restarted = recordAndAdjust(restarted, adjustmentReport(6, 'after-restart'), context);
-  expect(todayStudyRows(restarted, adjustmentContext.date).find(row => row.materialId === 'book')!.progress.text).toBe('✅完了');
+  expect(todayStudyRows(restarted, adjustmentContext.date).find(row => row.materialId === 'book')!.progress.text).toBe('完了');
 });
 
 it('未報告/明示0・異単位・予定なし・予定外・過去の比較不能を完了と混同しない', () => {
@@ -1042,10 +1042,10 @@ it('未報告/明示0・異単位・予定なし・予定外・過去の比較�
 it('追加は予定を超えた累計量を単位別に示し、仕切り直し前の記録を追加扱いしない', () => {
   const state = adjustmentFixture();
   const row = { materialId: 'book', round: 0, unit: 'ページ', planned: 6, actual: 8, reported: true };
-  expect(studyProgressView(state, row, adjustmentContext.date, adjustmentContext.date).text).toBe('✅追加2ページ');
+  expect(studyProgressView(state, row, adjustmentContext.date, adjustmentContext.date).text).toBe('追加2ページ');
   const context = { ...adjustmentContext, minute: 0 };
   const source = recordAndAdjust(state, adjustmentReport(4), context);
   let restarted = approve(proposeRestart(source, context.date, context), false, context);
   restarted = recordAndAdjust(restarted, adjustmentReport(7, 'new'), context);
-  expect(todayStudyRows(restarted, context.date).find(row => row.materialId === 'book')!.progress.text).toBe('✅追加1問');
+  expect(todayStudyRows(restarted, context.date).find(row => row.materialId === 'book')!.progress.text).toBe('追加1問');
 });

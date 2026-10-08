@@ -460,7 +460,7 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
     await expect(phone.getByRole('button', { name: '最新を読み込む', exact: true })).toBeVisible();
     phone.once('dialog', (dialog) => dialog.accept());
     await phone.getByRole('button', { name: '最新を読み込む', exact: true }).click();
-    await expect(book(phone)).toContainText('✅完了');
+    await expect(book(phone)).toContainText('完了');
     const shared = await api<Envelope>(request, key, 'load_state');
     expect(shared.data.records.reduce((n, record) => n + record.count, 0)).toBe(6);
     expect(
@@ -478,7 +478,7 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
     await dismissNotice.focus();
     await phone.keyboard.press('Enter');
     await expect(phone.locator('.error-banner')).toHaveCount(0);
-    await expect(book(phone)).toContainText('✅完了');
+    await expect(book(phone)).toContainText('完了');
     expect(await api<Envelope>(request, key, 'load_state')).toEqual(shared);
 
     // Store CAS/replay are exercised through the embedded server, not the CLI host.

@@ -15,7 +15,7 @@ async function checkRecording(page) {
     await expect(summary).toBeFocused();
     await expect(row.locator('.daily-record-input')).not.toHaveAttribute('open', '');
     await expect(input).toBeHidden();
-    await expect(row.locator('.progress-value')).toHaveText(index === 0 ? '✅完了' : '✅追加1問');
+    await expect(row.locator('.progress-value')).toHaveText(index === 0 ? '完了' : '追加1問');
   }
   await summary.press('Enter'); await input.fill('2'); await summary.press('Enter');
   await expect(input).toBeHidden(); await summary.press('Enter');
@@ -23,9 +23,9 @@ async function checkRecording(page) {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await row.getByRole('button', { name: '記録', exact: true }).click();
   await expect(summary).toBeFocused(); await expect(input).toBeHidden();
-  await expect(row.locator('.progress-value')).toHaveText('✅追加3問');
+  await expect(row.locator('.progress-value')).toHaveText('追加3問');
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('studyplan-demo-state-v1')).data);
-  await page.reload(); await expect(row.locator('.progress-value')).toHaveText('✅追加3問');
+  await page.reload(); await expect(row.locator('.progress-value')).toHaveText('追加3問');
   await expect(input).toBeHidden();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('studyplan-demo-state-v1')).data)).toEqual(saved);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);

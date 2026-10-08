@@ -833,13 +833,13 @@ test('今日の完了行・追加入力を追加・訂正・取消で維持す�
   await expect(page.getByRole('progressbar')).toHaveCount(0);
   await expect(row.locator('.progress-value')).toHaveText('あと15問');
   await expect(page.locator('.daily-record-row').filter({ hasText: '別問題集' })).toContainText('あと9ページ');
-  for (const [count, expected] of [[6, 'あと9問'], [4, 'あと5問'], [5, '✅完了']] as const) {
+  for (const [count, expected] of [[6, 'あと9問'], [4, 'あと5問'], [5, '完了']] as const) {
     await input.fill(String(count));
     if (count === 5) await row.getByRole('button', { name: '記録', exact: true }).click();
     else await input.press('Enter');
     await expect(row.locator('.progress-value')).toHaveText(expected);
     await expect(page.locator('.daily-record-saved > p').first()).toHaveText(count + '問を記録しました。');
-    await expect(page.locator('.daily-record-saved')).not.toContainText(/あと\d+問|✅完了|予定の変更なし/);
+    await expect(page.locator('.daily-record-saved')).not.toContainText(/あと\d+問|完了|予定の変更なし/);
     await expect(page.locator('.daily-record-saved details')).toHaveCount(0);
     await expect(input).toHaveValue('');
   }
@@ -849,7 +849,7 @@ test('今日の完了行・追加入力を追加・訂正・取消で維持す�
   expect(await row.locator('summary').evaluate(e => getComputedStyle(e).outlineStyle)).toBe('none');
   await expect(row).toHaveClass(/is-complete/);
   await expect(row.locator('details')).not.toHaveAttribute('open', '');
-  await page.reload(); await expect(row.locator('.progress-value')).toHaveText('✅完了');
+  await page.reload(); await expect(row.locator('.progress-value')).toHaveText('完了');
   await expect(input).toBeHidden();
   await expect(row.locator('summary')).toHaveText('追加で解いた問題数を記録');
   await row.locator('summary').focus(); await page.keyboard.press('Enter'); await expect(input).toBeVisible();
@@ -870,7 +870,7 @@ test('今日の完了行・追加入力を追加・訂正・取消で維持す�
   await expect(input).toBeHidden();
   await nav(page, '今後の予定');
   const day = page.locator('.future-day').filter({ has: page.locator(`time[datetime="${contractDay}"]`) });
-  await expect(day.locator('li').filter({ hasText: state.settings.materials[0].name })).toContainText('✅完了');
+  await expect(day.locator('li').filter({ hasText: state.settings.materials[0].name })).toContainText('完了');
   await nav(page, '今日');
   await expect(input).toBeHidden();
   await row.locator('summary').click();
@@ -880,16 +880,16 @@ test('今日の完了行・追加入力を追加・訂正・取消で維持す�
   await expect(row.locator('.daily-record-error')).toBeVisible();
   await expect(input).toBeVisible();
   await expect(input).toHaveValue('99999');
-  await expect(row.locator('.progress-value')).toHaveText('✅完了');
+  await expect(row.locator('.progress-value')).toHaveText('完了');
   await input.fill('1'); await input.press('Enter');
-  await expect(row.locator('.progress-value')).toHaveText('✅追加1問');
+  await expect(row.locator('.progress-value')).toHaveText('追加1問');
   await expect(page.locator('.daily-record-saved > p').first()).toHaveText('1問を記録しました。');
   await expect(input).toBeHidden();
   await expect(row.locator('summary')).toBeFocused();
-  await page.reload(); await expect(row.locator('.progress-value')).toHaveText('✅追加1問');
+  await page.reload(); await expect(row.locator('.progress-value')).toHaveText('追加1問');
   await expect(input).toBeHidden();
   await nav(page, '今後の予定');
-  await expect(day.locator('li').filter({ hasText: state.settings.materials[0].name })).toContainText('✅追加1問');
+  await expect(day.locator('li').filter({ hasText: state.settings.materials[0].name })).toContainText('追加1問');
   await nav(page, '記録履歴');
   await page.getByRole('row').filter({ hasText: state.settings.materials[0].name }).filter({ hasText: '＋1問' }).getByRole('button', { name: '取消', exact: true }).click();
   await nav(page, '取消を確定');
@@ -934,7 +934,7 @@ for (const motion of ['no-preference', 'reduce'] as const) {
       });
       observer.observe(element, { attributes: true, attributeFilter: ['open'] });
     });
-    for (const [count, expected] of [[6, '✅完了'], [1, '✅追加1問']] as const) {
+    for (const [count, expected] of [[6, '完了'], [1, '追加1問']] as const) {
       if (count === 1) await summary.press('Enter');
       await input.fill(String(count));
       await row.getByRole('button', { name: '記録', exact: true }).click();
@@ -967,7 +967,7 @@ for (const motion of ['no-preference', 'reduce'] as const) {
     await nav(page, '今後の予定'); await nav(page, '今日');
     await summary.press('Enter'); await expect(input).toHaveValue('2');
     expect(await read(page)).toEqual(saved);
-    await page.reload(); await expect(row.locator('.progress-value')).toHaveText('✅追加1問');
+    await page.reload(); await expect(row.locator('.progress-value')).toHaveText('追加1問');
     await expect(input).toBeHidden();
     expect(await read(page)).toEqual(saved);
   });

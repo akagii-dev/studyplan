@@ -7,7 +7,7 @@ import { checkedEnvelope, lanCall, loadLanState, saveLanState } from './lanStore
 import { downloadText } from './fileSave';
 /**
  * The state stored at `revision`, so desktop saves send only changed top-level keys.
- * Keys are compared by content; the large, append-only history is compared by reference.
+ * Keys are compared by content; the large history is compared plan by plan by reference.
  */
 let stored: { revision: number; data: AppState; json: Map<string, string> } | null = null;
 const keyJson = (data: AppState) =>
@@ -25,14 +25,22 @@ async function commitDesktop(data: AppState, expected: number, requestId: string
   const json = keyJson(data);
   const changes: Record<string, unknown> = {};
   const removed: string[] = [];
+  let historyPrefix: number | undefined;
   for (const key of new Set([...Object.keys(base.data), ...Object.keys(data)]) as Set<keyof AppState>) {
     const value = data[key];
     if (value === undefined) {
       if (base.data[key] !== undefined) removed.push(key);
-    } else if (key === 'history' ? value !== base.data.history : json.get(key) !== base.json.get(key))
-      changes[key] = value;
+    } else if (key === 'history') {
+      if (value === base.data.history) continue;
+      // History plans are replaced, never edited in place: send only the changed tail.
+      const before = base.data.history ?? [];
+      let kept = 0;
+      while (kept < before.length && kept < data.history.length && data.history[kept] === before[kept]) kept++;
+      changes.history = data.history.slice(kept);
+      historyPrefix = kept;
+    } else if (json.get(key) !== base.json.get(key)) changes[key] = value;
   }
-  const revision = await invoke<number>('commit_state', { expected, requestId, changes, removed });
+  const revision = await invoke<number>('commit_state', { expected, requestId, changes, removed, historyPrefix });
   stored = { revision, data, json };
   return { revision, data };
 }

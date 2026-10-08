@@ -9,8 +9,12 @@ vi.mock('@tauri-apps/api/core', () => ({
     calls.push({ command, args });
     if (command === 'load_state') return stored && structuredClone(stored);
     if (command === 'commit_state') {
-      const { changes, removed } = args as { changes: Record<string, unknown>; removed: string[] };
+      const { changes, removed, historyPrefix } = args as {
+        changes: Record<string, unknown>; removed: string[]; historyPrefix?: number;
+      };
       const data = { ...(stored?.data ?? {}), ...structuredClone(changes) } as Record<string, unknown>;
+      if (historyPrefix !== undefined)
+        data.history = [...(stored?.data.history ?? []).slice(0, historyPrefix), ...(changes.history as unknown[])];
       for (const key of removed) delete data[key];
       stored = { revision: (stored?.revision ?? 0) + 1, data: data as unknown as AppState };
       return stored.revision;
@@ -51,6 +55,16 @@ it('履歴は参照で比べ、その他の項目は書き換えられても内�
   await saveState(appended, 4, 'in-place');
   expect(commits()[1].changes).toEqual({ settings: appended.settings });
   expect(stored!.data).toEqual(appended);
+});
+
+it('履歴は変わらない先頭を除いた末尾だけを送る', async () => {
+  const plan = (id: string) => ({ id, createdAt: 'x', from: '2026-10-01', sessions: [], capacities: [], shortfalls: [], conflicts: [] });
+  stored = { revision: 7, data: { ...initialState(), history: [plan('a'), plan('b')] } };
+  const loaded = (await loadState()).data;
+  const next = { ...loaded, history: [loaded.history[0], plan('b2'), plan('c')] };
+  await saveState(next, 7, 'tail');
+  expect(commits()[0]).toMatchObject({ changes: { history: [plan('b2'), plan('c')] }, historyPrefix: 1 });
+  expect(stored!.data).toEqual(next);
 });
 
 it('基準の版が一致しない場合は保存済みの内容を読み直してから差分を作る', async () => {

@@ -1,5 +1,6 @@
 import { AppState, Progress, addDays } from './model';
 import { retainStudyDayBaselines } from './calendarQuantity';
+import { compactHistory } from './planHistory';
 import { stalePlan } from './planAudit';
 import { recordProgress, correctProgress } from './progress';
 import { PlanningContext } from './planner/context';
@@ -96,7 +97,7 @@ export function reconcilePlanning(state: AppState, context: PlanningContext): Ap
     const conflictsChanged = JSON.stringify(source.conflicts) !== JSON.stringify(plan.conflicts);
     const hasChange = !!changes.length || shortfallsChanged || conflictsChanged;
     const retained = retainStudyDayBaselines(state, context.date, false);
-    const next = {
+    const next = compactHistory({
       ...retained,
       plan: hasChange
         ? plan
@@ -105,7 +106,7 @@ export function reconcilePlanning(state: AppState, context: PlanningContext): Ap
       draft: pendingProgress
         ? { ...state.draft, progressAdjustment: undefined }
         : state.draft,
-    };
+    }, context.date);
     if (!hasChange && currentPlanReconciliation(state)?.status !== 'blocked') return next;
     return withReconciliation(next, {
       asOf: context.date,
@@ -190,7 +191,10 @@ export function adjustAfterProgress(
         result,
       );
     }
-    return withResult({ ...changed, plan, history: [...changed.history, changed.plan] }, result);
+    return withResult(
+      compactHistory({ ...changed, plan, history: [...changed.history, changed.plan] }, context.date),
+      result,
+    );
   } catch (error) {
     return withResult(changed, {
       recordId,

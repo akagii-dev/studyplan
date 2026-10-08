@@ -4067,6 +4067,10 @@
                   ],
                   "additionalProperties": false
                 },
+                "compacted": {
+                  "type": "boolean",
+                  "const": true
+                },
                 "progressBaseline": {
                   "type": "object",
                   "properties": {
@@ -5021,6 +5025,10 @@
                 ],
                 "additionalProperties": false
               },
+              "compacted": {
+                "type": "boolean",
+                "const": true
+              },
               "progressBaseline": {
                 "type": "object",
                 "properties": {
@@ -5973,6 +5981,10 @@
                         "sessions"
                       ],
                       "additionalProperties": false
+                    },
+                    "compacted": {
+                      "type": "boolean",
+                      "const": true
                     },
                     "progressBaseline": {
                       "type": "object",
@@ -10940,6 +10952,10 @@
                       ],
                       "additionalProperties": false
                     },
+                    "compacted": {
+                      "type": "boolean",
+                      "const": true
+                    },
                     "progressBaseline": {
                       "type": "object",
                       "properties": {
@@ -11894,6 +11910,10 @@
                     ],
                     "additionalProperties": false
                   },
+                  "compacted": {
+                    "type": "boolean",
+                    "const": true
+                  },
                   "progressBaseline": {
                     "type": "object",
                     "properties": {
@@ -12846,6 +12866,10 @@
                             "sessions"
                           ],
                           "additionalProperties": false
+                        },
+                        "compacted": {
+                          "type": "boolean",
+                          "const": true
                         },
                         "progressBaseline": {
                           "type": "object",

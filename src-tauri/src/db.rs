@@ -188,7 +188,8 @@ fn validate_round_retention(
 enum Update {
     Full(Value),
     /// Changed and removed top-level keys, applied to the stored state at `expected`.
-    Changes(serde_json::Map<String, Value>, Vec<String>),
+    /// With a history prefix, `history` holds only the items after the first `n` stored ones.
+    Changes(serde_json::Map<String, Value>, Vec<String>, Option<usize>),
 }
 pub fn commit(
     db: &mut Connection,
@@ -205,12 +206,13 @@ pub fn commit_changes(
     request_id: &str,
     changes: serde_json::Map<String, Value>,
     removed: Vec<String>,
+    history_prefix: Option<usize>,
 ) -> Result<i64, String> {
     commit_inner(
         db,
         expected,
         request_id,
-        Update::Changes(changes, removed),
+        Update::Changes(changes, removed, history_prefix),
         false,
     )
     .map(|(revision, _)| revision)
@@ -229,13 +231,16 @@ fn envelope((revision, data): (i64, Option<Value>)) -> Envelope {
         data: data.unwrap_or(Value::Null),
     }
 }
-/// The database file and revision whose history last passed the full schema check.
+/// The database file, revision and history length whose history last passed the schema check.
 /// In-memory databases are never cached.
 static CHECKED_HISTORY: std::sync::Mutex<Option<(String, i64, usize)>> =
     std::sync::Mutex::new(None);
-fn history_key(db: &Connection, revision: i64, data: &Value) -> Option<(String, i64, usize)> {
+fn history_len(data: &Value) -> usize {
+    data["history"].as_array().map_or(0, Vec::len)
+}
+fn history_key(db: &Connection, revision: i64, len: usize) -> Option<(String, i64, usize)> {
     let path = db.path().filter(|path| !path.is_empty())?;
-    Some((path.to_owned(), revision, data["history"].as_array()?.len()))
+    Some((path.to_owned(), revision, len))
 }
 /// The state this process last stored by a change set, reused while the revision is unchanged.
 static STORED_STATE: std::sync::Mutex<Option<(String, i64, Value)>> = std::sync::Mutex::new(None);
@@ -294,14 +299,19 @@ fn commit_inner(
     }
     // A change set keeps only what later checks read from the previous state;
     // the full previous state is rebuilt only for the rare invalid-data path.
-    let (data, previous, replaced, history_unchanged) = match update {
+    // `kept`: leading history items carried over unchanged from the stored state.
+    let previous_history = previous.as_ref().map_or(0, |old| history_len(&old.data));
+    let (data, previous, replaced, kept) = match update {
         Update::Full(data) => {
-            let unchanged = previous
-                .as_ref()
-                .is_some_and(|old| old.data["history"] == data["history"]);
-            (data, previous.map(|old| old.data), None, unchanged)
+            let kept = match (previous.as_ref(), data["history"].as_array()) {
+                (Some(old), Some(new)) => old.data["history"].as_array().map_or(0, |old| {
+                    old.iter().zip(new).take_while(|(a, b)| a == b).count()
+                }),
+                _ => 0,
+            };
+            (data, previous.map(|old| old.data), None, kept)
         }
-        Update::Changes(changes, removed) => {
+        Update::Changes(mut changes, removed, history_prefix) => {
             // Nothing stored yet: the first change set contains every key.
             let stored = previous.is_some();
             let mut fields = match previous.map(|old| old.data) {
@@ -313,8 +323,33 @@ fn commit_inner(
                     )
                 }
             };
-            let unchanged =
-                !changes.contains_key("history") && !removed.iter().any(|key| key == "history");
+            let kept = if let Some(tail) = changes.get_mut("history") {
+                match history_prefix {
+                    Some(prefix) => {
+                        let stored_history = fields
+                            .get("history")
+                            .and_then(Value::as_array)
+                            .cloned()
+                            .unwrap_or_default();
+                        if prefix > stored_history.len() || !tail.is_array() {
+                            return Err(
+                                "保存済みの履歴と一致しません。再読み込みしてやり直してください。"
+                                    .into(),
+                            );
+                        }
+                        let mut history: Vec<Value> =
+                            stored_history.into_iter().take(prefix).collect();
+                        history.extend(tail.as_array_mut().map(std::mem::take).unwrap_or_default());
+                        *tail = Value::Array(history);
+                        prefix
+                    }
+                    None => 0,
+                }
+            } else if removed.iter().any(|key| key == "history") {
+                0
+            } else {
+                previous_history
+            };
             let before = stored.then(|| {
                 serde_json::json!({
                     "settings": fields.get("settings").cloned().unwrap_or(Value::Null),
@@ -334,17 +369,21 @@ fn commit_inner(
                 Value::Object(fields),
                 before,
                 stored.then_some(replaced),
-                unchanged,
+                kept,
             )
         }
     };
-    let known_history = history_unchanged
-        && history_key(&tx, revision, &data).is_some_and(|key| {
-            CHECKED_HISTORY
-                .lock()
-                .map(|checked| checked.as_ref() == Some(&key))
-                .unwrap_or(false)
-        });
+    // Only history items already checked at this revision are skipped.
+    let known_history = if history_key(&tx, revision, previous_history).is_some_and(|key| {
+        CHECKED_HISTORY
+            .lock()
+            .map(|checked| checked.as_ref() == Some(&key))
+            .unwrap_or(false)
+    }) {
+        kept
+    } else {
+        0
+    };
     validate(&data)?;
     let mut checked = true;
     if restore {
@@ -398,7 +437,7 @@ fn commit_inner(
     )
     .map_err(|e| e.to_string())?;
     let key = if checked {
-        history_key(&tx, next, &data)
+        history_key(&tx, next, history_len(&data))
     } else {
         None
     };
@@ -481,7 +520,7 @@ mod tests {
         data["history"] = serde_json::json!([data["plan"].clone()]);
         data["sidebarCollapsed"] = true.into();
         assert_eq!(
-            commit_changes(&mut db, 0, "first", changes(&data), vec![]).unwrap(),
+            commit_changes(&mut db, 0, "first", changes(&data), vec![], None).unwrap(),
             1
         );
         assert_eq!(load(&db).unwrap().unwrap().data, data);
@@ -496,7 +535,8 @@ mod tests {
                 1,
                 "record",
                 set.clone(),
-                vec!["sidebarCollapsed".into()]
+                vec!["sidebarCollapsed".into()],
+                None
             )
             .unwrap(),
             2
@@ -504,30 +544,52 @@ mod tests {
         assert_eq!(load(&db).unwrap().unwrap().data, data);
         // A replayed request keeps its revision; a stale one is rejected without changes.
         assert_eq!(
-            commit_changes(&mut db, 1, "record", set.clone(), vec![]).unwrap(),
+            commit_changes(&mut db, 1, "record", set.clone(), vec![], None).unwrap(),
             2
         );
-        assert!(commit_changes(&mut db, 1, "stale", set, vec![]).is_err());
+        assert!(commit_changes(&mut db, 1, "stale", set, vec![], None).is_err());
         // Another writer invalidates the in-memory state; later change sets use the database.
         data["draft"] = serde_json::json!({"name":"他の端末"});
         commit(&mut db, 2, "other", data.clone()).unwrap();
         let mut set = serde_json::Map::new();
         set.insert("step".into(), 2.into());
-        commit_changes(&mut db, 3, "after-other", set, vec![]).unwrap();
+        commit_changes(&mut db, 3, "after-other", set, vec![], None).unwrap();
         data["step"] = 2.into();
+        assert_eq!(load(&db).unwrap().unwrap().data, data);
+    }
+    #[test]
+    fn history_tails_extend_the_stored_history() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut db = open(&dir.path().join("history.sqlite3")).unwrap();
+        let mut data = state();
+        data["history"] = serde_json::json!([data["plan"].clone()]);
+        commit_changes(&mut db, 0, "first", changes(&data), vec![], None).unwrap();
+        // Keep the stored item and append one: the result equals a full save.
+        let mut next = data["plan"].clone();
+        next["id"] = "p2".into();
+        let mut set = serde_json::Map::new();
+        set.insert("history".into(), serde_json::json!([next.clone()]));
+        commit_changes(&mut db, 1, "append", set, vec![], Some(1)).unwrap();
+        data["history"] = serde_json::json!([data["plan"].clone(), next.clone()]);
+        assert_eq!(load(&db).unwrap().unwrap().data, data);
+        // A new tail is still validated, and a prefix beyond the stored history is rejected.
+        let mut set = serde_json::Map::new();
+        set.insert("history".into(), serde_json::json!([{"id":"broken"}]));
+        assert!(commit_changes(&mut db, 2, "bad-tail", set.clone(), vec![], Some(2)).is_err());
+        assert!(commit_changes(&mut db, 2, "long-prefix", set, vec![], Some(3)).is_err());
         assert_eq!(load(&db).unwrap().unwrap().data, data);
     }
     #[test]
     fn change_sets_still_validate_new_history_and_counts() {
         let dir = tempfile::tempdir().unwrap();
         let mut db = open(&dir.path().join("validate.sqlite3")).unwrap();
-        commit_changes(&mut db, 0, "first", changes(&state()), vec![]).unwrap();
+        commit_changes(&mut db, 0, "first", changes(&state()), vec![], None).unwrap();
         let mut set = serde_json::Map::new();
         set.insert("history".into(), serde_json::json!([{"id":"broken"}]));
-        assert!(commit_changes(&mut db, 1, "bad-history", set, vec![]).is_err());
+        assert!(commit_changes(&mut db, 1, "bad-history", set, vec![], None).is_err());
         let mut set = serde_json::Map::new();
         set.insert("records".into(), serde_json::json!([record("r", 8)]));
-        assert!(commit_changes(&mut db, 1, "too-many", set, vec![]).is_err());
+        assert!(commit_changes(&mut db, 1, "too-many", set, vec![], None).is_err());
         assert_eq!(load(&db).unwrap().unwrap().revision, 1);
         assert_eq!(load(&db).unwrap().unwrap().data, state());
     }

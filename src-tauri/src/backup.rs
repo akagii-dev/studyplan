@@ -27,13 +27,18 @@ pub fn check(file: &Value) -> Result<(), String> {
 }
 /// The same accepted state must be writable, exportable and restorable.
 pub fn check_data(data: &Value) -> Result<(), String> {
-    check_data_known(data, false)
+    check_data_known(data, 0)
 }
-/// `known_history`: the history is identical to one that already passed this check,
-/// so only its schema is not evaluated again. Every other check covers the whole state.
-pub fn check_data_known(data: &Value, known_history: bool) -> Result<(), String> {
-    static DATA_SCHEMAS: OnceLock<(jsonschema::Validator, jsonschema::Validator)> = OnceLock::new();
-    let (full, known) = DATA_SCHEMAS.get_or_init(|| {
+/// `known_history`: the number of leading history items identical to ones that already
+/// passed this check; only their schema is not evaluated again. Every other check covers
+/// the whole state.
+pub fn check_data_known(data: &Value, known_history: usize) -> Result<(), String> {
+    static DATA_SCHEMAS: OnceLock<(
+        jsonschema::Validator,
+        jsonschema::Validator,
+        jsonschema::Validator,
+    )> = OnceLock::new();
+    let (full, known, item) = DATA_SCHEMAS.get_or_init(|| {
         let schema: Value =
             serde_json::from_str(include_str!("../../src/domain/backupSchema.json"))
                 .expect("bundled backup schema");
@@ -41,17 +46,41 @@ pub fn check_data_known(data: &Value, known_history: bool) -> Result<(), String>
         data["$schema"] = schema["$schema"].clone();
         let mut light = data.clone();
         light["properties"]["history"] = json!({"type":"array"});
+        let mut plan = data["properties"]["history"]["items"].clone();
+        plan["$schema"] = schema["$schema"].clone();
         let build = |schema: &Value| {
             jsonschema::options()
                 .should_validate_formats(true)
                 .build(schema)
                 .expect("valid backup schema")
         };
-        (build(&data), build(&light))
+        (build(&data), build(&light), build(&plan))
     });
-    let validator = if known_history { known } else { full };
-    if let Some(error) = validator.iter_errors(data).next() {
-        return Err(format!("保存形式に合わない値があります（/data{}）。値を修正してください。現在のデータは変更していません。", error.instance_path()));
+    let invalid = |path: String| {
+        format!("保存形式に合わない値があります（/data{path}）。値を修正してください。現在のデータは変更していません。")
+    };
+    if known_history == 0 {
+        if let Some(error) = full.iter_errors(data).next() {
+            return Err(invalid(error.instance_path().to_string()));
+        }
+    } else {
+        if let Some(error) = known.iter_errors(data).next() {
+            return Err(invalid(error.instance_path().to_string()));
+        }
+        for (index, plan) in data["history"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .enumerate()
+            .skip(known_history)
+        {
+            if let Some(error) = item.iter_errors(plan).next() {
+                return Err(invalid(format!(
+                    "/history/{index}{}",
+                    error.instance_path()
+                )));
+            }
+        }
     }
     check_state(data)?;
     if let Some(previous) = data.get("resetBackup") {

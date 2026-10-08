@@ -250,25 +250,36 @@ export function allocateProgress(
   // correction back to the planned amount restores the original placement.
   const precedes = workPrecedence(state.settings);
   const basisFuture: Record<string, number> = {};
-  const basisToday: Record<string, number> = {};
-  for (const s of basis.sessions) {
-    if (s.kind !== 'study' || comparisonIds.has(s.id)) continue;
+  for (const s of basis.sessions)
+    if (s.kind === 'study' && !comparisonIds.has(s.id) && s.date >= from) {
+      const key = workKey(s.materialId, s.round);
+      basisFuture[key] = (basisFuture[key] ?? 0) + s.count;
+    }
+  // Today's planned amount as shown: today's slots in the plan at their original size,
+  // including slots added after the basis. Pulling forward never changes today's slots.
+  const plannedToday: Record<string, number> = {};
+  const counted = new Set<string>();
+  for (const s of [...source.sessions, ...basis.sessions]) {
+    if (s.kind !== 'study' || s.date !== context.date || comparisonIds.has(s.id) || counted.has(s.id)) continue;
+    counted.add(s.id);
     const key = workKey(s.materialId, s.round);
-    if (s.date >= from) basisFuture[key] = (basisFuture[key] ?? 0) + s.count;
-    else if (s.date === context.date) basisToday[key] = (basisToday[key] ?? 0) + s.count;
+    plannedToday[key] = (plannedToday[key] ?? 0) + (source.progressBaseline?.sessions[s.id]?.count ?? s.count);
   }
   const works = state.settings.materials.flatMap((m) => [...m.rounds.keys()].map((round) => ({ materialId: m.id, round })));
   // Ahead: today's records exceed today's planned amount and consumed future allocation.
   const ahead = works.filter((w) => {
     const key = workKey(w.materialId, w.round);
-    return (records[JSON.stringify([context.date, w.materialId, w.round])] ?? 0) > (basisToday[key] ?? 0) &&
+    return (records[JSON.stringify([context.date, w.materialId, w.round])] ?? 0) > (plannedToday[key] ?? 0) &&
       (basisFuture[key] ?? 0) > budgets[key];
   });
   const changedWork = works.filter((w) =>
     totalFor(records, w.materialId, w.round) !== totalFor(previousRecords, w.materialId, w.round));
   // Successors of changed work follow the basis, not today's earlier pulled placements.
   const linked = (s: Session) => changedWork.some((w) => precedes(w, s));
-  const pulled = (s: Session) => !s.fixed && s.kind === 'study' && ahead.some((w) =>
+  // Only work changed by this record is pulled; earlier pulled placements of other work stay.
+  const pulledWork = ahead.filter((w) =>
+    changedWork.some((c) => c.materialId === w.materialId && c.round === w.round));
+  const pulled = (s: Session) => !s.fixed && s.kind === 'study' && pulledWork.some((w) =>
     (w.materialId === s.materialId && w.round === s.round) || precedes(w, s));
   const left = { ...budgets };
   const future: Session[] = [];

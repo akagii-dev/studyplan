@@ -49,8 +49,11 @@ async fn commit_state(
     request_id: String,
     changes: serde_json::Map<String, serde_json::Value>,
     removed: Vec<String>,
+    history_prefix: Option<usize>,
 ) -> Result<i64, String> {
-    db.with(|conn| db::commit_changes(conn, expected, &request_id, changes, removed))
+    db.with(|conn| {
+        db::commit_changes(conn, expected, &request_id, changes, removed, history_prefix)
+    })
 }
 #[tauri::command]
 async fn export_backup(db: tauri::State<'_, Database>, path: String) -> Result<(), String> {

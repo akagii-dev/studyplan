@@ -141,6 +141,7 @@ const plan = z.looseObject({
       sessions: z.array(session),
     })
     .optional(),
+  compacted: z.literal(true).optional(),
   progressBaseline: z
     .object({
       records: z.record(z.string(), count),

@@ -167,6 +167,8 @@ export interface Plan {
     records: Record<string, number>;
     sessions: Session[];
   };
+  /** A history plan reduced to the days still needed; it cannot be restored. */
+  compacted?: true;
 }
 export interface PlanProgressBaseline {
   records: Record<string, number>;

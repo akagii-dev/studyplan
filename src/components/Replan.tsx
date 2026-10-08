@@ -351,7 +351,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
           >
             {state.draft.revision ? '対話の続きから見直す' : '対話で条件を見直す'}
           </button>
-          <button disabled={!state.history.length} onClick={() => setUndo(true)}>
+          <button disabled={!state.history.length || !!state.history.at(-1)!.compacted} onClick={() => setUndo(true)}>
             <Undo2 size={16} />
             前の計画へ戻す
           </button>

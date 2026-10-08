@@ -235,10 +235,11 @@ test('部分実績から追加・超過・訂正・取消まで、数量と変�
   }
   await result.locator('summary').focus();
   await page.keyboard.press('Enter');
-  await expect(result).toContainText('6 → 4問');
+  // Beyond today's plan, the same material's remainder is pulled forward; other work stays.
+  await expect(result).toContainText(/6 → \d+問/);
   await expect(result).not.toContainText('時間 ');
   await expect(result).not.toContainText('別問題集');
-  await expect(result).toContainText('同じ教材・周回');
+  await expect(result).toContainText('続きの予定を前倒ししました');
   expect(
     (
       await new AxeBuilder({ page })

@@ -12,6 +12,7 @@ import { generatePlan } from './generate';
 import { proposalUsesCurrentProgress } from '../progressReflection';
 import { pastWorkAdjustment, retainStudyDayBaselines } from '../calendarQuantity';
 import { calculateRestart } from '../planRestart';
+import { compactHistory } from '../planHistory';
 import {
   calculateRemainingAdjustment,
   remainingAdjustmentSourceDate,
@@ -362,7 +363,7 @@ export function approve(state: AppState, acknowledge: boolean, context: Planning
     throw new Error('固定予定・週の割当上限・復習枠の競合を解消してください。');
   if (p.unreported.length && !acknowledge) throw new Error('未報告の扱いを確認してください。');
   const retained = retainStudyDayBaselines(state, context.date);
-  return {
+  return compactHistory({
     ...retained,
     settings,
     settingsUpdatedAt: !sameSettings(state.settings, settings)
@@ -385,11 +386,11 @@ export function approve(state: AppState, acknowledge: boolean, context: Planning
       progressAdjustment: undefined,
       planReconciliation: undefined,
     },
-  };
+  }, context.date);
 }
 export function undoPlan(state: AppState, date?: string): AppState {
   const previous = state.history.at(-1);
-  if (!previous) throw new Error('戻せる計画がありません。');
+  if (!previous || previous.compacted) throw new Error('戻せる計画がありません。');
   return {
     ...(date ? retainStudyDayBaselines(state, date) : state),
     plan: previous,

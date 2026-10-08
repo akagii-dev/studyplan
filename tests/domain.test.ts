@@ -1,5 +1,6 @@
 import { reflectProgressSafely } from '../src/domain/progressReflection';
 import { calendarQuantity } from '../src/domain/calendarQuantity';
+import { compactHistory } from '../src/domain/planHistory';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AppState,
@@ -396,6 +397,32 @@ describe('承認・再計画・復元', () => {
     s = propose(s, addDays(from, 2), '再計画');
     expect(s.proposal!.unreported.length).toBeGreaterThan(0);
     expect(s.proposal!.unreported.every((x) => x.startsWith(addDays(from, 1)))).toBe(true);
+  });
+  it('履歴を圧縮しても比較の基準は変わらず、前の計画へは直前の1版だけ戻せる', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    // Replan on three days without compaction, then compact once.
+    let full = fixture();
+    for (const [i, day] of [from, addDays(from, 1), addDays(from, 2)].entries()) {
+      vi.setSystemTime(new Date(`${day}T09:00:00+09:00`));
+      if (i) full = recordProgress(full, { ...entry(3, `r${i}`, addDays(day, -1)) });
+      const plan = { ...propose(full, day, '再計画').proposal!.plan, approvedAt: new Date().toISOString() };
+      full = { ...full, plan, history: full.plan ? [...full.history, full.plan] : full.history };
+    }
+    const today = addDays(from, 2);
+    const compacted = compactHistory(full, today);
+    expect(compacted.history.length).toBeLessThan(full.history.length);
+    expect(compacted.history.at(-1)).toBe(full.history.at(-1));
+    for (let d = from; d <= addDays(from, 8); d = addDays(d, 1))
+      for (const reference of [today, addDays(today, 1), addDays(today, 5)])
+        expect(calendarQuantity(compacted, d, reference).rows).toEqual(calendarQuantity(full, d, reference).rows);
+    // The latest replaced plan is restored whole; reduced older plans are not restorable.
+    const undone = undoPlan(compacted);
+    expect(undone.plan).toEqual(full.history.at(-1));
+    if (undone.history.length) {
+      expect(undone.history.at(-1)!.compacted).toBe(true);
+      expect(() => undoPlan(undone)).toThrow('戻せる計画がありません。');
+    }
+    vi.useRealTimers();
   });
   it('計画の復元は実績を巻き戻さない', () => {
     let s = approve(propose(fixture(), from, '初回'));

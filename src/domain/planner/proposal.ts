@@ -10,7 +10,7 @@ import { capacityForDate, capacityForWeek } from './capacity';
 import { PlanningContext } from './context';
 import { generatePlan } from './generate';
 import { proposalUsesCurrentProgress } from '../progressReflection';
-import { retainStudyDayBaselines } from '../calendarQuantity';
+import { pastWorkAdjustment, retainStudyDayBaselines } from '../calendarQuantity';
 import { calculateRestart } from '../planRestart';
 import {
   calculateRemainingAdjustment,
@@ -223,7 +223,9 @@ export function propose(
             x.kind === 'study' &&
             x.date >= (state.plan?.allocationStart ?? '') &&
             (x.date < effectiveFrom || (x.date === effectiveFrom && x.start < notBefore)) &&
-            !reported(state, x.date, x.materialId, x.round),
+            !reported(state, x.date, x.materialId, x.round) &&
+            // A remainder the calendar shows as 調整済み is already in the current plan.
+            !pastWorkAdjustment(state, x.date, x.materialId, x.round),
         )
         .map(
           (x) =>

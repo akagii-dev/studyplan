@@ -158,6 +158,10 @@ function historicalAdjustments(state: AppState, date: string) {
   return tasks;
 }
 
+/** The calendar's 調整済み status of a past task, shared by the replan confirmation. */
+export const pastWorkAdjustment = (state: AppState, date: string, materialId: string, round: number) =>
+  historicalAdjustments(state, date)?.get(workKey(materialId, round));
+
 export function calendarQuantity(
   state: AppState,
   date: string,

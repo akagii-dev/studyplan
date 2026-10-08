@@ -5,9 +5,44 @@ import { loadDemoState, saveDemoState } from './demoStore';
 import { lanMode } from './lan';
 import { checkedEnvelope, lanCall, loadLanState, saveLanState } from './lanStore';
 import { downloadText } from './fileSave';
+/**
+ * The state stored at `revision`, so desktop saves send only changed top-level keys.
+ * Keys are compared by content; the large, append-only history is compared by reference.
+ */
+let stored: { revision: number; data: AppState; json: Map<string, string> } | null = null;
+const keyJson = (data: AppState) =>
+  new Map(Object.entries(data).filter(([key, value]) => key !== 'history' && value !== undefined)
+    .map(([key, value]) => [key, JSON.stringify(value)]));
+const rememberStored = (envelope: Envelope) => {
+  stored = isTauri() ? { ...envelope, json: keyJson(envelope.data) } : null;
+};
+async function commitDesktop(data: AppState, expected: number, requestId: string) {
+  if (stored?.revision !== expected) {
+    const current = await invoke<Envelope | null>('load_state');
+    rememberStored(current ?? { revision: 0, data: {} as AppState });
+  }
+  const base = stored!;
+  const json = keyJson(data);
+  const changes: Record<string, unknown> = {};
+  const removed: string[] = [];
+  for (const key of new Set([...Object.keys(base.data), ...Object.keys(data)]) as Set<keyof AppState>) {
+    const value = data[key];
+    if (value === undefined) {
+      if (base.data[key] !== undefined) removed.push(key);
+    } else if (key === 'history' ? value !== base.data.history : json.get(key) !== base.json.get(key))
+      changes[key] = value;
+  }
+  const revision = await invoke<number>('commit_state', { expected, requestId, changes, removed });
+  stored = { revision, data, json };
+  return { revision, data };
+}
 export async function loadState(): Promise<Envelope> {
-  if (isTauri())
-    return (await invoke<Envelope | null>('load_state')) ?? { revision: 0, data: initialState() };
+  if (isTauri()) {
+    const envelope = await invoke<Envelope | null>('load_state');
+    // Nothing is stored yet: the first save sends every key.
+    rememberStored(envelope ?? { revision: 0, data: {} as AppState });
+    return envelope ?? { revision: 0, data: initialState() };
+  }
   if (demoMode) return loadDemoState(localStorage);
   if (lanMode) return loadLanState();
   throw new Error(
@@ -19,7 +54,7 @@ export async function saveState(
   expected: number,
   requestId = uid(),
 ): Promise<Envelope> {
-  if (isTauri()) return invoke('commit_state', { data, expected, requestId });
+  if (isTauri()) return commitDesktop(data, expected, requestId);
   if (demoMode) return saveDemoState(localStorage, data, expected);
   if (lanMode) return saveLanState(data, expected, requestId);
   throw new Error('デスクトップ版が必要です。');
@@ -46,8 +81,10 @@ export const loadRestorePoint = () => !isTauri() && lanMode
 export const restoreBackup = async (expected: number, text?: string) => {
   const method = text === undefined ? 'undo_restore' : 'restore_backup';
   const args = { expected, text, requestId: uid() };
-  return !isTauri() && lanMode
-    ? checkedEnvelope(await lanCall<Envelope>(method, args)) : invoke<Envelope>(method, args);
+  if (!isTauri() && lanMode) return checkedEnvelope(await lanCall<Envelope>(method, args));
+  const envelope = await invoke<Envelope>(method, args);
+  rememberStored(envelope);
+  return envelope;
 };
 export const loadRevision = async (): Promise<number | null> => {
   if (isTauri()) return invoke<number>('revision');

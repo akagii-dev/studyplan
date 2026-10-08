@@ -1,4 +1,5 @@
 import { reflectProgressSafely } from '../src/domain/progressReflection';
+import { calendarQuantity } from '../src/domain/calendarQuantity';
 import { describe, expect, it } from 'vitest';
 import {
   AppState,
@@ -384,6 +385,16 @@ describe('承認・再計画・復元', () => {
     expect(() => approve(s)).toThrow();
     s = approve(s, true);
     expect(s.records).toHaveLength(0);
+  });
+  it('カレンダーで調整済みの未報告は再計画の確認対象にしない', () => {
+    let s = approve(propose(fixture(), from, '初回'));
+    s = approve(propose(s, addDays(from, 1), '再計画'), true);
+    const day0 = calendarQuantity(s, from, addDays(from, 2)).rows.filter((row) => row.planned);
+    expect(day0.length).toBeGreaterThan(0);
+    expect(day0.every((row) => row.adjustment === 'applied')).toBe(true);
+    s = propose(s, addDays(from, 2), '再計画');
+    expect(s.proposal!.unreported.length).toBeGreaterThan(0);
+    expect(s.proposal!.unreported.every((x) => x.startsWith(addDays(from, 1)))).toBe(true);
   });
   it('計画の復元は実績を巻き戻さない', () => {
     let s = approve(propose(fixture(), from, '初回'));

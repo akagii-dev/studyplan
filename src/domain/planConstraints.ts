@@ -128,6 +128,25 @@ export function fixedTimeIssue(
 export const fixedIssueMessage = (session: Session, issue: ConstraintIssue) =>
   `${session.date} ${clock(session.start)}〜${clock(session.end)}の固定予定：${issue.message}`;
 
+// Study sessions of each material round, indexed once per session list (rebuilt if it grows).
+const studyIndex = new WeakMap<Session[], { length: number; rounds: Map<string, Session[]> }>();
+function studySessionsOf(sessions: Session[], materialId: string, round: number) {
+  let index = studyIndex.get(sessions);
+  if (index?.length !== sessions.length) {
+    const rounds = new Map<string, Session[]>();
+    for (const x of sessions) {
+      if (x.kind !== 'study') continue;
+      const key = `${x.materialId}\u0000${x.round}`;
+      const list = rounds.get(key);
+      if (list) list.push(x);
+      else rounds.set(key, [x]);
+    }
+    index = { length: sessions.length, rounds };
+    studyIndex.set(sessions, index);
+  }
+  return index.rounds.get(`${materialId}\u0000${round}`) ?? [];
+}
+
 /** Remaining work must be scheduled before a fixed successor, not merely somewhere in the plan. */
 export function fixedOrderIssue(
   state: AppState,
@@ -144,12 +163,9 @@ export function fixedOrderIssue(
   for (const material of state.settings.materials) {
     for (const round of material.rounds.keys()) {
       if (!precedes({ materialId: material.id, round }, session)) continue;
-      const before = sessions
+      const before = studySessionsOf(sessions, material.id, round)
         .filter(
           (x) =>
-            x.kind === 'study' &&
-            x.materialId === material.id &&
-            x.round === round &&
             (x.date > from || (x.date === from && x.start >= notBefore)) &&
             (x.date < session.date || (x.date === session.date && x.end <= session.start + 1e-7)),
         )

@@ -49,13 +49,12 @@ function termIndexes(settings: Settings) {
   const limit = parallelMaterialLimit(settings);
   if (!limit) return undefined;
   const groups = termGroups(settings, limit);
-  const indexes = new Map<string, number>();
-  // Materials outside terms have no index and are ordered only by their own rounds.
+  // Material id → term number of each round. Materials outside terms have no entry
+  // and are ordered only by their own rounds.
+  const indexes = new Map<string, number[]>();
   groups.forEach((group, g) =>
     group.forEach((material) =>
-      material.rounds.forEach((_, round) =>
-        indexes.set(JSON.stringify([material.id, round]), round * groups.length + g),
-      ),
+      indexes.set(material.id, material.rounds.map((_, round) => round * groups.length + g)),
     ),
   );
   return indexes;
@@ -67,13 +66,21 @@ function termIndexes(settings: Settings) {
  * and a material outside terms only keeps the order of its own rounds.
  * Without terms, the original rule applies within one exam.
  */
+const precedenceCache = new WeakMap<Settings, (a: WorkRef, b: WorkRef) => boolean>();
 export function workPrecedence(settings: Settings) {
+  const cached = precedenceCache.get(settings);
+  if (cached) return cached;
+  const precedes = createWorkPrecedence(settings);
+  precedenceCache.set(settings, precedes);
+  return precedes;
+}
+function createWorkPrecedence(settings: Settings) {
   const indexes = termIndexes(settings);
   const materials = new Map(settings.materials.map((material) => [material.id, material]));
   return (a: WorkRef, b: WorkRef) => {
     if (indexes) {
-      const ta = indexes.get(JSON.stringify([a.materialId, a.round]));
-      const tb = indexes.get(JSON.stringify([b.materialId, b.round]));
+      const ta = indexes.get(a.materialId)?.[a.round];
+      const tb = indexes.get(b.materialId)?.[b.round];
       if (ta !== undefined && tb !== undefined) return ta < tb;
       return a.materialId === b.materialId && a.round < b.round;
     }
@@ -97,7 +104,7 @@ export function studyTerms(state: AppState): StudyTerm[] {
   const terms = new Map<number, TermItem[]>();
   for (const material of settings.materials.filter(inTerms))
     material.rounds.forEach((_, round) => {
-      const index = indexes.get(JSON.stringify([material.id, round]))!;
+      const index = indexes.get(material.id)![round];
       terms.set(index, [
         ...(terms.get(index) ?? []),
         { material, round, left: remaining(state, material.id, round) },

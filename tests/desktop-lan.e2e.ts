@@ -112,7 +112,8 @@ async function seed(data: AppState) {
     const current = await invoke<Envelope | null>('load_state');
     try {
       await invoke('commit_state', {
-        data,
+        changes: data,
+        removed: Object.keys(current?.data ?? {}).filter((key) => !(key in data)),
         expected: current?.revision ?? 0,
         requestId: 'embedded-host-seed',
       });

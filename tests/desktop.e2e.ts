@@ -2276,9 +2276,11 @@ async function seedState(data: AppState, requestId: string) {
       ).__TAURI_INTERNALS__.invoke;
       let error: unknown;
       for (let attempt = 0; attempt < 5; attempt += 1) {
-        const stored = (await invoke('load_state')) as { revision: number } | null;
+        const stored = (await invoke('load_state')) as { revision: number; data: object } | null;
         try {
-          await invoke('commit_state', { expected: stored?.revision ?? 0, requestId, data });
+          // Desktop saves send changed keys; seeding replaces every key.
+          const removed = Object.keys(stored?.data ?? {}).filter((key) => !(key in data));
+          await invoke('commit_state', { expected: stored?.revision ?? 0, requestId, changes: data, removed });
           return;
         } catch (caught) {
           error = caught;
@@ -5604,8 +5606,8 @@ for (const responseLost of [false, true]) {
       let once = true;
       window.fetch = async (input, options) => {
         if (String(input).includes('ipc.localhost/commit_state')) {
-          const args = JSON.parse(String(options?.body)) as { data: AppState };
-          const record = args.data.records.find(r => r.materialId === 'book' && r.count === 4);
+          const args = JSON.parse(String(options?.body)) as { changes: Partial<AppState> };
+          const record = args.changes.records?.find(r => r.materialId === 'book' && r.count === 4);
           if (record) {
             probe.recordAttemptIds.push(record.id);
             if (once) {

@@ -27,13 +27,66 @@ pub fn check(file: &Value) -> Result<(), String> {
 }
 /// The same accepted state must be writable, exportable and restorable.
 pub fn check_data(data: &Value) -> Result<(), String> {
-    let file = json!({"format":"StudyPlanBackup","version":1,"createdAt":"2026-09-25T00:00:00Z","appVersion":env!("CARGO_PKG_VERSION"),"data":data});
-    check(&file)?;
-    if serde_json::to_vec_pretty(&file)
-        .map_err(|e| e.to_string())?
-        .len()
-        > MAX_BYTES - 32
-    {
+    check_data_known(data, false)
+}
+/// `known_history`: the history is identical to one that already passed this check,
+/// so only its schema is not evaluated again. Every other check covers the whole state.
+pub fn check_data_known(data: &Value, known_history: bool) -> Result<(), String> {
+    static DATA_SCHEMAS: OnceLock<(jsonschema::Validator, jsonschema::Validator)> = OnceLock::new();
+    let (full, known) = DATA_SCHEMAS.get_or_init(|| {
+        let schema: Value =
+            serde_json::from_str(include_str!("../../src/domain/backupSchema.json"))
+                .expect("bundled backup schema");
+        let mut data = schema["properties"]["data"].clone();
+        data["$schema"] = schema["$schema"].clone();
+        let mut light = data.clone();
+        light["properties"]["history"] = json!({"type":"array"});
+        let build = |schema: &Value| {
+            jsonschema::options()
+                .should_validate_formats(true)
+                .build(schema)
+                .expect("valid backup schema")
+        };
+        (build(&data), build(&light))
+    });
+    let validator = if known_history { known } else { full };
+    if let Some(error) = validator.iter_errors(data).next() {
+        return Err(format!("保存形式に合わない値があります（/data{}）。値を修正してください。現在のデータは変更していません。", error.instance_path()));
+    }
+    check_state(data)?;
+    if let Some(previous) = data.get("resetBackup") {
+        check_state(previous)?;
+    }
+    // Count the exported size without allocating the pretty-printed backup.
+    #[derive(serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Packet<'a> {
+        format: &'a str,
+        version: u8,
+        created_at: &'a str,
+        app_version: &'a str,
+        data: &'a Value,
+    }
+    struct Counter(usize);
+    impl Write for Counter {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0 += bytes.len();
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let mut size = Counter(0);
+    let packet = Packet {
+        format: "StudyPlanBackup",
+        version: 1,
+        created_at: "2026-09-25T00:00:00Z",
+        app_version: env!("CARGO_PKG_VERSION"),
+        data,
+    };
+    serde_json::to_writer_pretty(&mut size, &packet).map_err(|e| e.to_string())?;
+    if size.0 > MAX_BYTES - 32 {
         return Err("保存内容がバックアップの50MB上限を超えています。".into());
     }
     Ok(())

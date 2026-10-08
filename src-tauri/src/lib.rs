@@ -41,22 +41,24 @@ async fn load_state(db: tauri::State<'_, Database>) -> Result<Option<db::Envelop
 fn revision(db: tauri::State<'_, Database>) -> Result<i64, String> {
     db.with(|conn| db::revision(conn))
 }
+// Storage commands are async so large states never block the window's main thread.
 #[tauri::command]
-fn commit_state(
+async fn commit_state(
     db: tauri::State<'_, Database>,
     expected: i64,
     request_id: String,
-    data: serde_json::Value,
-) -> Result<db::Envelope, String> {
-    db.with(|conn| db::commit(conn, expected, &request_id, data))
+    changes: serde_json::Map<String, serde_json::Value>,
+    removed: Vec<String>,
+) -> Result<i64, String> {
+    db.with(|conn| db::commit_changes(conn, expected, &request_id, changes, removed))
 }
 #[tauri::command]
-fn export_backup(db: tauri::State<'_, Database>, path: String) -> Result<(), String> {
+async fn export_backup(db: tauri::State<'_, Database>, path: String) -> Result<(), String> {
     let file = db.with(|conn| backup::packet(conn))?;
     backup::write_file(std::path::Path::new(&path), &file)
 }
 #[tauri::command]
-fn validate_backup(text: String) -> Result<(), String> {
+async fn validate_backup(text: String) -> Result<(), String> {
     backup::parse(&text).map(|_| ())
 }
 #[tauri::command]
@@ -68,7 +70,7 @@ async fn export_markdown(path: String, text: String) -> Result<(), String> {
     report_file::write(std::path::Path::new(&path), &text)
 }
 #[tauri::command]
-fn restore_backup(
+async fn restore_backup(
     db: tauri::State<'_, Database>,
     expected: i64,
     request_id: String,
@@ -78,11 +80,13 @@ fn restore_backup(
     db.with(|conn| db::restore(conn, expected, &request_id, file["data"].clone()))
 }
 #[tauri::command]
-fn load_restore_point(db: tauri::State<'_, Database>) -> Result<Option<serde_json::Value>, String> {
+async fn load_restore_point(
+    db: tauri::State<'_, Database>,
+) -> Result<Option<serde_json::Value>, String> {
     db.with(|conn| backup::recovery(conn))
 }
 #[tauri::command]
-fn undo_restore(
+async fn undo_restore(
     db: tauri::State<'_, Database>,
     expected: i64,
     request_id: String,

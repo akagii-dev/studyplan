@@ -69,8 +69,9 @@ export function generatePlan(
   const to = s.exams.reduce((d, e) => (e.target > d ? e.target : d), from);
   const weekStarts = new Map<string, string>();
   const weekStart = (date: string) => {
-    if (!weekStarts.has(date)) weekStarts.set(date, startOfWeek(date));
-    return weekStarts.get(date)!;
+    let week = weekStarts.get(date);
+    if (week === undefined) weekStarts.set(date, (week = startOfWeek(date)));
+    return week;
   };
   const weekDays = datesBetween(startOfWeek(from), addDays(startOfWeek(to), 6)).map((d) =>
     capacityForDate(s, d),
@@ -89,11 +90,23 @@ export function generatePlan(
   const comparisons = retained.filter((session) => comparisonIds.has(session.id));
   const kept = retained.filter((session) => !comparisonIds.has(session.id));
   const sessions: Session[] = kept.map((x) => ({ ...x }));
+  // The latest-ending study session of each material round. Placement only appends
+  // sessions; merging later changes them, after the last start check.
+  const latestStudy = new Map<string, { date: string; end: number }>();
+  const noteStudy = (x: Session) => {
+    if (x.kind !== 'study') return;
+    const key = `${x.materialId}\u0000${x.round}`;
+    const latest = latestStudy.get(key);
+    if (!latest || x.date > latest.date || (x.date === latest.date && x.end > latest.end))
+      latestStudy.set(key, { date: x.date, end: x.end });
+  };
+  sessions.forEach(noteStudy);
   const weeks = new Map(weeklyCapacities(weekDays, s.buffer, kept).map((w) => [w.from, w]));
   const weekFor = (date: string) => weeks.get(weekStart(date))!;
   const weeklyRoom = (date: string) => Math.max(0, weekFor(date).limit - weekFor(date).used);
   const assign = (session: Session) => {
     sessions.push(session);
+    noteStudy(session);
     weekFor(session.date).used += session.end - session.start;
   };
   const conflicts: string[] = [];
@@ -221,12 +234,8 @@ export function generatePlan(
         precedes(p, t) &&
         (p.left > 0 ||
           (retention?.unplaced?.[JSON.stringify([p.m.id, p.round])] ?? 0) > 0 ||
-          sessions.some(
-            (x) =>
-              x.kind === 'study' &&
-              x.materialId === p.m.id &&
-              x.round === p.round &&
-              (x.date > date || (x.date === date && x.end > time + EPS)),
+          ((latest) => !!latest && (latest.date > date || (latest.date === date && latest.end > time + EPS)))(
+            latestStudy.get(`${p.m.id}\u0000${p.round}`),
           )),
     );
   // Kept successors are an upper bound for new predecessor work. Do not insert
@@ -300,20 +309,71 @@ export function generatePlan(
       return [cap.date, subtractIntervals(cap.slots, busy)];
     }),
   );
-  const usableIntervals = (group: typeof tasks, c: Capacity) =>
-    mergeIntervals((freeSlots.get(c.date) ?? []).flatMap(([a, b]) => group.flatMap((task) => {
-      const interval = taskInterval(task, c.date, a, b);
-      return interval ? [interval] : [];
-    })));
-  const usable = (group: typeof tasks, c: Capacity) =>
-    usableIntervals(group, c).reduce((n, [a, b]) => n + b - a, 0);
-  const opportunity = (group: typeof tasks, caps: Capacity[]) => {
-    const byWeek = new Map<string, number>();
-    for (const c of caps) {
-      const week = weekStart(c.date);
-      byWeek.set(week, (byWeek.get(week) ?? 0) + usable(group, c));
+  // Free slots, eligibility and task bounds are fixed during placement, so the usable
+  // time of the same tasks on the same day is computed once.
+  const taskIndex = new Map(tasks.map((task, index) => [task, index]));
+  const groupKeys = new WeakMap<typeof tasks, string>();
+  const usableCache = new Map<string, Map<string, { intervals: Interval[]; minutes: number }>>();
+  const groupKey = (group: typeof tasks) => {
+    let key = groupKeys.get(group);
+    if (key === undefined) groupKeys.set(group, (key = group.map((task) => taskIndex.get(task)).join(',')));
+    return key;
+  };
+  const usableOn = (group: typeof tasks, c: Capacity) => {
+    const key = groupKey(group);
+    let byDate = usableCache.get(key);
+    if (!byDate) usableCache.set(key, (byDate = new Map()));
+    let cached = byDate.get(c.date);
+    if (!cached) {
+      const intervals = mergeIntervals((freeSlots.get(c.date) ?? []).flatMap(([a, b]) => group.flatMap((task) => {
+        const interval = taskInterval(task, c.date, a, b);
+        return interval ? [interval] : [];
+      })));
+      cached = { intervals, minutes: intervals.reduce((n, [a, b]) => n + b - a, 0) };
+      byDate.set(c.date, cached);
     }
-    return [...byWeek].reduce((n, [week, minutes]) => n + Math.min(minutes, weeklyRoom(week)), 0);
+    return cached;
+  };
+  const usableIntervals = (group: typeof tasks, c: Capacity) => usableOn(group, c).intervals;
+  const usable = (group: typeof tasks, c: Capacity) => usableOn(group, c).minutes;
+  // Usable minutes of each placement week for a group, summed in date order like opportunity().
+  const weekUsable = new Map<string, { week: string; dates: string[]; minutes: number[]; total: number }[]>();
+  const weeksOf = (group: typeof tasks) => {
+    const key = groupKey(group);
+    let weeks = weekUsable.get(key);
+    if (!weeks) {
+      weeks = [];
+      for (const c of capacities) {
+        const week = weekStart(c.date);
+        let last = weeks.at(-1);
+        if (last?.week !== week) weeks.push((last = { week, dates: [], minutes: [], total: 0 }));
+        const minutes = usable(group, c);
+        last.dates.push(c.date);
+        last.minutes.push(minutes);
+        last.total += minutes;
+      }
+      weekUsable.set(key, weeks);
+    }
+    return weeks;
+  };
+  /**
+   * Physical opportunity from `date` (inclusive) to the last placement day, limited by each
+   * week's remaining room. `strict` excludes `date` itself.
+   */
+  const opportunityFrom = (group: typeof tasks, date: string, strict = false) => {
+    let n = 0;
+    for (const w of weeksOf(group)) {
+      const last = w.dates[w.dates.length - 1];
+      if (last < date || (strict && last === date)) continue;
+      let minutes = w.total;
+      if (w.dates[0] < date || (strict && w.dates[0] === date)) {
+        minutes = 0;
+        for (let i = 0; i < w.dates.length; i++)
+          if (strict ? w.dates[i] > date : w.dates[i] >= date) minutes += w.minutes[i];
+      }
+      n += Math.min(minutes, weeklyRoom(w.week));
+    }
+    return n;
   };
   // A retained successor gives earlier work a different deadline of its own.
   // Combining it with later work would hide that bound in the quota denominator.
@@ -378,11 +438,13 @@ export function generatePlan(
     }
     const weight = (c: Capacity) =>
       Math.min(1, weeklyRoom(c.date) / Math.max(1, weekFree.get(weekStart(c.date)) ?? 0));
+    // Weekly room does not change while today's shares are computed.
+    const weights = futureCaps.map(weight);
     const shares = [...bucketTasks].map(([id, all]) => {
       const group = all.filter((t) => t.left > 0);
       const need = group.reduce((n, t) => n + t.left * t.minutes, 0);
       const today = usable(group, cap);
-      const future = futureCaps.reduce((n, c) => n + usable(group, c) * weight(c), 0);
+      const future = futureCaps.reduce((n, c, i) => n + usable(group, c) * weights[i], 0);
       const carry = Math.min(need, quotaCarry.get(id) ?? 0);
       let share =
         today > 0
@@ -414,8 +476,8 @@ export function generatePlan(
       }
       // Work whose deadline cannot be met using later slots may exceed its
       // fair share today. Overloaded tasks do not claim impossible demand.
-      const urgent = Math.max(0, Math.min(need, opportunity(group, futureCaps)) -
-        opportunity(group, futureCaps.filter((c) => c.date > cap.date)));
+      const urgent = Math.max(0, Math.min(need, opportunityFrom(group, cap.date)) -
+        opportunityFrom(group, cap.date, true));
       return { id, need, share, urgent, units };
     });
     const target = retention?.dailyQuantityBalance
@@ -448,13 +510,11 @@ export function generatePlan(
             (used.get(bucketKey(t)) || 0) < (quota.get(bucketKey(t)) || 0) - EPS &&
             canStart(t, cap.date, cursor),
         );
+        // Each candidate's pressure is fixed during one sort; compute it once.
+        const pressures = new Map(candidates.map((t) =>
+          [t, (t.left * t.minutes) / Math.max(1, opportunityFrom([t], cap.date))]));
         candidates.sort((a, b) => {
-          const pressure = (t: typeof a) =>
-            (t.left * t.minutes) /
-            Math.max(
-              1,
-              opportunity([t], futureCaps),
-            );
+          const pressure = (t: typeof a) => pressures.get(t)!;
           return (
             pressure(b) * (1 + b.exam.priority * 0.15) -
               pressure(a) * (1 + a.exam.priority * 0.15) || deadline(a).localeCompare(deadline(b))

@@ -2,30 +2,20 @@
 
 版番号は、不具合・不便の修正ではpatch、UI変更ではminorを上げる。0.10に到達した時点で方針を見直す。
 
-公開を依頼された場合に実施する。既公開リリースやタグは書き換えない。
+公開を依頼された場合に実施する。既公開リリースやタグは書き換えない。配布物はWindows用インストーラー`StudyPlan-X.Y.Z-setup.exe`の1点だけとする。
 
-1. Gitの作業状態とリモートを確認し、未コミット変更を保護する。
-2. `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`と対応する`Cargo.lock`のアプリ版を揃える。
-3. READMEの最新版リンクと`CHANGELOG.md`を更新する。公開文はCHANGELOGの対象版から短く作り、Git対象外の`.test-data/release-notes.md`へ保存する。版ごとの文書は増やさず、検証詳細は`docs/VALIDATION.md`へ記録する。
-4. 関連テスト・型検査・lint・通常ビルドを確認し、`pnpm desktop:build`でWindows版を作成する。配布EXEの起動試験は隔離Windowsアカウントでのみ行う。未実施は検証記録に明記する。
-5. `src-tauri/target/release/studyplan.exe`を`release/StudyPlan-X.Y.Z.exe`へコピーし、`./scripts/package-update.ps1`で更新ZIPを作る。
-6. `scripts/test-update.ps1`へ新パッケージのディレクトリと旧版EXEを渡し、隔離した複製で更新を確認する。利用者のEXEやSQLiteへ直接適用しない。
-7. ソース・文書だけをコミットし、`vX.Y.Z`をタグ付けしてpushする。
-8. GitHub ReleasesにEXEとZIPだけを添付し、公開文は`--notes-file`で渡す。公開状態・添付ファイルを確認する。mainのpushでデモ配信が走るため、その結果も確認する。
+1. `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`のアプリ版を揃え、`CHANGELOG.md`の「## vX.Y.Z の変更」とREADMEの最新版リンクを更新する。検証詳細は`docs/VALIDATION.md`へ記録する。
+2. `pnpm verify`と変更に応じた検証を行い、mainへコミットする。
+3. `pnpm release`でインストーラーを作成する。版番号の一致・CHANGELOGの対象版・未コミット変更なしを確認し、`release/StudyPlan-X.Y.Z-setup.exe`と公開文`.test-data/release-notes.md`を作る。
+4. `pnpm release -Publish`でタグ付け・main/タグのpush・GitHub Releasesへの公開・添付の確認まで行う。mainのpushでデモ配信が走るため、その結果も確認する。
 
-公開コマンド例（版番号は実際のものへ置換）：
+インストーラー（NSIS）はユーザー単位でインストールし、管理者権限を要求しない。更新は新しい版のインストーラーを実行する。旧版への上書き（ダウングレード）は拒否する。学習データは`%APPDATA%\jp.local.studyplan\`にあり、インストール・更新では変更しない。アンインストール時の「アプリデータを削除する」は既定で無効のまま変更しない。
 
-```powershell
-gh release create vX.Y.Z release/StudyPlan-X.Y.Z.exe release/StudyPlan-update-X.Y.Z.zip --verify-tag --title 'StudyPlan vX.Y.Z' --notes-file .test-data/release-notes.md
-```
-
-CMDランチャーおよび独立した`SHA256SUMS.txt`は今後生成・添付しない。ZIPの内容は`StudyPlan.exe`、`Update-StudyPlan.ps1`、`update.json`、`README.txt`の4ファイルだけにする。`update.json`内のSHA-256は破損検知に必要なので維持する。古い作業ディレクトリに残ったファイルはZIPへ混入させない。
-
-パッケージ生成だけを試験する場合は`-OutputDirectory .test-data/任意の検証フォルダー`を指定できる。既公開のローカル配布物を上書きせず検証する。
+配布インストーラーの起動・インストール試験は通常アカウントの保存先を使うため、隔離Windowsアカウントでのみ行う。未実施は検証記録に明記する。CMDランチャー・独立した`SHA256SUMS.txt`・更新ZIPは生成・添付しない。
 
 ## LAN版のローカル配信
 
-### 配布EXEから公開する
+### 配布版から公開する
 
 v0.6.3以降は公開中の設定欄にAPIキー付き接続QRを表示する。ポップアップではなく、設定へ戻って再確認できる。QRはアプリ内で生成し外部送信しない。停止で表示を消し、再開時は新キーへ切り替える。QR画像も接続権限を含むため公開しない。
 
@@ -37,7 +27,7 @@ LANファイルはビルド時にallowlistとハッシュを検証してEXEへ�
 
 既存のCLIホストが4178番を使用している場合、アプリは停止・強制終了せずエラーを表示する。CLI側の `pnpm lan:stop` でそのホストだけを止めてからアプリで公開する。アプリ内の停止も、自分で開始した配信のみを対象とする。
 
-旧ホストの`node.exe`だけを許可していた場合、その許可は配布EXEへ引き継がれない。別端末で開けない場合は、Windowsの受信規則をStudyPlanのTCP 4178・利用する同一LANの範囲に限定して確認する。全ポート・インターネット全体への許可は不要。
+旧ホストの`node.exe`だけを許可していた場合、その許可は配布版へ引き継がれない。別端末で開けない場合は、Windowsの受信規則をStudyPlanのTCP 4178・利用する同一LANの範囲に限定して確認する。全ポート・インターネット全体への許可は不要。
 
 ### 開発用CLIから公開する
 

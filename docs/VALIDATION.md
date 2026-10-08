@@ -1,3 +1,9 @@
+## v0.9.0：ターム機能のWindows検証とインストーラー化（2026-10-08、B650）
+
+- 配布をTauriのNSISインストーラー1点へ変更（ユーザー単位・日本語・ダウングレード拒否）。更新ZIPと`package-update.ps1`/`test-update.ps1`/`Update-StudyPlan.ps1`/手順書を廃止し、版番号の一致確認・CHANGELOGからの公開文・ビルド・タグ/push/Release作成を`scripts/release.ps1`（`pnpm release [-Publish]`）へ集約。版を0.9.0へ更新。保存先・データ形式・計算版は変更なし。
+- pnpm verify成功（lint/型/単体552件/通常build）。`PLAYWRIGHT_CHANNEL=msedge pnpm verify:ui`成功（82＋ICS2）。クラウドLinuxで失敗していた6件はWindows Edgeで再現せず。`pnpm lan:assets`・debug両EXEのbuild、`cargo test --lib --locked` 43件成功。`pnpm test:ui`（専用SQLite）66件成功。`pnpm demo:smoke`（demo:preview起動下）成功。
+- 未実施：配布インストーラーのインストール・起動・旧単体EXEからの移行・アンインストールの実機試験（隔離Windowsアカウントが必要）、iOS Safari、読み上げ実聴。自己レビューのみ。
+
 ## Claude Codeへの作業環境移行（2026-10-08、B650）
 
 - 製品コード変更なし。AGENTS.mdをCLAUDE.mdへ改名し、README/HANDOFFの参照、新規ブランチ規約（`claude/`）、ARCHITECTUREのエージェント固有設定の記述を更新。作業中ブランチを`claude/parallel-terms`へ改名（未push、リモートの既存`codex/*`は変更なし）。`skills-lock.json`記載のUI系Skill 9種をjakubkrehel/skills（d574cc8）から`.claude/skills/`へMarkdownのみ配置し、Codex専用`agents/openai.yaml`は除外。`.claude/skills/`・`.claude/settings.local.json`・`.claude/worktrees/`を.gitignoreへ追加。pnpm verify成功（lint/型/単体552件/通常build）。UI・保存・Rust変更なしのためverify:ui・test:ui・Cargo未実行。build出力distはごみ箱へ回収。

@@ -1,6 +1,6 @@
 {
   "name": "studyplan",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,7 +15,8 @@
     "test:ui": "playwright test",
     "tauri": "tauri",
     "desktop": "tauri dev",
-    "desktop:build": "tauri build --no-bundle",
+    "desktop:build": "tauri build --bundles nsis",
+    "release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1",
     "test:contracts": "playwright test --config playwright.web.config.ts",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "test:calendar-ui": "playwright test --config tests/calendar-ui/playwright.config.ts",

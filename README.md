@@ -111,4 +111,4 @@ SQLiteの保存データ、`.studyplan.json` バックアップ、`.env`、実�
 
 ## 変更履歴
 
-過去の変更は[CHANGELOG.md](CHANGELOG.md)にまとめています。開発時の方針は[AGENTS.md](AGENTS.md)を参照してください。
+過去の変更は[CHANGELOG.md](CHANGELOG.md)にまとめています。開発時の方針は[CLAUDE.md](CLAUDE.md)を参照してください。

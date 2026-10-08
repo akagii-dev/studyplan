@@ -65,11 +65,11 @@
 
 新PCでサブを使う場合はユーザー依頼と実ツールを確認し、上記を参考に担当ファイルを分離する。親が承認・統合・公開を担当し、レビュー担当は既定で読取りのみ。以前の実行環境は親を含め同時4枠だったが、新PCで利用可能な枠・ツールを改めて確認する。
 
-今回の製品修正に専用Skillの適用は不要だった。Skills・プラグインのカタログやローカルファイルはPC依存で、Gitのソースだけでは移らない。新PCの一覧と実在する`SKILL.md`を確認して必要なものだけ使う。同名Skillを無断で上書きしない。製品ビルドにCodex固有Skillは不要。
+今回の製品修正に専用Skillの適用は不要だった。Skills・プラグインのカタログやローカルファイルはPC依存で、Gitのソースだけでは移らない。新PCの一覧と実在する`SKILL.md`を確認して必要なものだけ使う。同名Skillを無断で上書きしない。製品ビルドにエージェント固有Skillは不要。Claude Code用のUI系Skillはローカルの`.claude/skills/`に置き、取得元は`skills-lock.json`に記録する。
 
 ## 5. 最初に読む仕様・関連コード
 
-正本は[AGENTS.md](../AGENTS.md)、[SPEC](SPEC.md)、[ARCHITECTUREの画面契約](ARCHITECTURE.md#進捗と画面の契約)。版別変更は[CHANGELOG](../CHANGELOG.md)、詳細な検証根拠は[VALIDATION](VALIDATION.md)、公開手順は[RELEASING](RELEASING.md)。本書のスナップショットより、その後のユーザー指示と正本を優先する。
+正本は[CLAUDE.md](../CLAUDE.md)、[SPEC](SPEC.md)、[ARCHITECTUREの画面契約](ARCHITECTURE.md#進捗と画面の契約)。版別変更は[CHANGELOG](../CHANGELOG.md)、詳細な検証根拠は[VALIDATION](VALIDATION.md)、公開手順は[RELEASING](RELEASING.md)。本書のスナップショットより、その後のユーザー指示と正本を優先する。
 
 | 領域 | 主なコード |
 | --- | --- |
@@ -103,7 +103,7 @@ git log --oneline --left-right HEAD...origin/main
 git diff --stat HEAD..origin/main
 ```
 
-未コミット変更があれば、必要なソースを個別に退避、または`codex/`ブランチでローカルWIPコミットへ保存する。未追跡も内容を確認する。SQLite・バックアップ・キー・ログ・配布物を一括で`git add`しない。`reset --hard`、`clean`、強制push、競合の一括上書きは行わない。
+未コミット変更があれば、必要なソースを個別に退避、または`claude/`ブランチでローカルWIPコミットへ保存する。未追跡も内容を確認する。SQLite・バックアップ・キー・ログ・配布物を一括で`git add`しない。`reset --hard`、`clean`、強制push、競合の一括上書きは行わない。
 
 ### B. 履歴を使って統合する
 
@@ -111,11 +111,11 @@ git diff --stat HEAD..origin/main
 - **移行先独自のコミットがある**なら、その変更を保持した現在ブランチから統合ブランチを作り、通常mergeする。以下のブランチ名が既存なら別の未使用名を選ぶ。
 
 ```powershell
-git switch -c codex/pc-migration-integration
+git switch -c claude/pc-migration-integration
 git merge origin/main
 ```
 
-競合は両側の意図を読んで解消する。特にLANのSSID/InterfaceAlias、当日/昨日以前の対象範囲、画面の入口、配分と反映基準、スキーマ、版番号・lockfile、AGENTS/仕様を確認する。`ours`/`theirs`で一括採用しない。共有済みのv0.6.4～v0.6.9を再cherry-pickせず、共通履歴を使う。
+競合は両側の意図を読んで解消する。特にLANのSSID/InterfaceAlias、当日/昨日以前の対象範囲、画面の入口、配分と反映基準、スキーマ、版番号・lockfile、CLAUDE.md/仕様を確認する。`ours`/`theirs`で一括採用しない。共有済みのv0.6.4～v0.6.9を再cherry-pickせず、共通履歴を使う。
 
 統合後は差分と既存テストを確認し、必要な追加検証だけ既存ファイルへ統合する。製品版0.6.9と計算版12を下げない。移行先に独自修正があれば、それも検証してから統合結果を共有する。v0.6.9は既公開のため、追加の製品変更を公開する場合は別版でRELEASINGに従う。
 

@@ -2,7 +2,7 @@ node_modules/
 .pnpm-store/
 dist/
 dist-*/
-.agents/
+.claude/skills/
 docs/calendar-compact-review/
 docs/navigation-result-after/
 docs/navigation-result-baseline/
@@ -32,3 +32,5 @@ release/
 *.log
 *.tsbuildinfo
 src-tauri/gen/
+.claude/settings.local.json
+.claude/worktrees/

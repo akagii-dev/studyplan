@@ -1,3 +1,7 @@
+## Claude Codeへの作業環境移行（2026-10-08、B650）
+
+- 製品コード変更なし。AGENTS.mdをCLAUDE.mdへ改名し、README/HANDOFFの参照、新規ブランチ規約（`claude/`）、ARCHITECTUREのエージェント固有設定の記述を更新。作業中ブランチを`claude/parallel-terms`へ改名（未push、リモートの既存`codex/*`は変更なし）。`skills-lock.json`記載のUI系Skill 9種をjakubkrehel/skills（d574cc8）から`.claude/skills/`へMarkdownのみ配置し、Codex専用`agents/openai.yaml`は除外。`.claude/skills/`・`.claude/settings.local.json`・`.claude/worktrees/`を.gitignoreへ追加。pnpm verify成功（lint/型/単体552件/通常build）。UI・保存・Rust変更なしのためverify:ui・test:ui・Cargo未実行。build出力distはごみ箱へ回収。
+
 ## 公開デモの複数科目・ターム例（2026-10-08、B650）
 
 - 初回seedを独立した民法/行政法/憲法のサンプル目標・問題集120/100/80問とし、共通plannerの順序・数量を保ったまま今日に3科目を表示。ターム「民法：意思表示」、メモ「行政法：行政手続法」「憲法：基本的人権」を初期例とした。既存保存の上書き/移行/キー変更なし。最初の同一目標例は教材順序で同時表示されずテスト不合格だったため、domainは変更せず科目ごとの独立目標へ修正。

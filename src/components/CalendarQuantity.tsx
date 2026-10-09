@@ -18,8 +18,8 @@ export function CalendarQuantityDetails({
   return (
     <div className="quantity-breakdown">
       {quantity.rows.map((row) => (
-        <section key={JSON.stringify([row.materialId, row.round, row.unit])}>
-          <h4>
+        <section key={JSON.stringify([row.materialId, row.round, row.unit])} className="border-b border-line py-3">
+          <h4 className="m-0 mb-1.5 [overflow-wrap:anywhere]">
             {row.name} · {row.round + 1}周目
           </h4>
           <ProgressValue
@@ -30,6 +30,7 @@ export function CalendarQuantityDetails({
               (m) => m.id === row.materialId && m.rounds[row.round],
             ) && (
               <button
+                className="min-h-11"
                 data-return-focus={`quantity:${date}:${row.materialId}:${row.round}`}
                 onClick={() =>
                   onRecord({

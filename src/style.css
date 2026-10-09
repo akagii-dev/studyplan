@@ -291,12 +291,6 @@
   color: var(--busy-ink);
 }
 
-
-
-
-
-
-
 .revision-wizard .wizard-options {
   margin: 16px 0 24px;
 }
@@ -1026,11 +1020,6 @@ main {
   font-size: 12px;
 }
 
-
-
-
-
-
 .segmented {
   display: flex;
   border: 1px solid var(--border);
@@ -1049,39 +1038,6 @@ main {
   color: var(--on-accent);
   font-weight: 650;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 .capacity-panel {
   padding: 21px;
@@ -1891,7 +1847,6 @@ progress::-webkit-progress-value {
   background: var(--surface);
 }
 
-
 .save-overlay {
   position: fixed;
   inset: 0;
@@ -2269,8 +2224,6 @@ progress::-webkit-progress-value {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-
-
 .card,
 .metric-card,
 .two > *,
@@ -2484,8 +2437,6 @@ textarea {
   flex-wrap: wrap;
 }
 
-
-
 .compact-topbar { justify-content: flex-end; }
 .future-page { max-width: 900px; }
 .study-record-form { display: grid; gap: 12px; min-width: 0; }
@@ -2603,15 +2554,8 @@ textarea {
 .remaining-adjustment form { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 8px; }
 .remaining-adjustment input[type="date"] { width: fit-content; min-height: 44px; max-width: 100%; }
 .replan-placement ul { padding-inline-start: 20px; }
-.calendar-amounts { margin: 6px 0; font-variant-numeric: tabular-nums; }
-.calendar-amounts > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
-.calendar-amounts dt { font-size: 0.875rem; }
-.calendar-amounts dd { margin: 0; font-size: 1.25rem; font-weight: 650; overflow-wrap: anywhere; }
-.calendar-amounts dd span { font-size: 0.875rem; margin-inline-start: 2px; font-weight: 400; }
-.quantity-breakdown > section { padding-block: 12px; border-block-end: 1px solid var(--border); }
-.quantity-breakdown h4 { margin: 0 0 6px; overflow-wrap: anywhere; }
-.quantity-breakdown .calendar-amounts { display: flex; flex-wrap: wrap; gap: 4px 18px; }
-.quantity-breakdown button { min-height: 44px; }.page-transition { animation: schedule-appear var(--page-fade-duration) var(--page-fade-easing); }
+
+.page-transition { animation: schedule-appear var(--page-fade-duration) var(--page-fade-easing); }
 @keyframes schedule-appear { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .page-transition { animation: none; } }
 
@@ -2619,23 +2563,7 @@ textarea {
 .schedule-view-switch { flex-wrap: wrap; max-width: 100%; margin-inline-start: auto; }
 .schedule-view-switch button { font-size: 1rem; padding: 9px 14px; min-height: 44px; min-width: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 
-
-
-
-
-
-
 @media (max-width: 600px) { .schedule-view-switch { margin-inline-start: 0; } }
-
-
-
-
-
-
-
-
-
-
 
 /* Keep pointer focus quiet in the calendar and page heading; keyboard marks remain. */
 .app-shell[data-input-mode='pointer'] h1:focus-visible,
@@ -2656,7 +2584,6 @@ textarea {
     .daily-record-input[open]::details-content { opacity: 1; }
   }
 }
-
 
 .parallel-materials { display: grid; gap: 8px; margin-bottom: 12px; }
 .parallel-materials ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
@@ -2695,9 +2622,4 @@ nav button.active:hover:not(:disabled) { background: var(--soft); color: var(--a
 .segmented button.active { background: var(--accent); color: var(--on-accent); box-shadow: none; }
 /* Today */
 /* Calendar: white cells; months, selection and exams told apart without filled days. */
-
-
-
-
-
 

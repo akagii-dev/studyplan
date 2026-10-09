@@ -38,13 +38,13 @@ function FutureRestart({ onRestart }: {
   useLayoutEffect(() => {
     if (open) input.current?.focus({ preventScroll: true });
   }, [open]);
-  return <details className="future-disclosure future-restart-panel" open={open} onKeyDown={(event) => {
+  return <details className="future-disclosure my-4 border-b border-line [&>summary]:min-h-11 [&>summary]:cursor-pointer [&>summary]:content-center future-restart-panel" open={open} onKeyDown={(event) => {
     if (event.key === 'Escape' && !event.defaultPrevented && open) { event.preventDefault(); close(); }
   }}>
     <summary ref={trigger} aria-disabled={sending || undefined}
       onClick={(event) => { event.preventDefault(); if (!sending) { if (open) close(); else { setDate(reference); setOpen(true); } } }}>計画を仕切り直す</summary>
     {open && <section aria-label="計画の仕切り直し">
-      <form className="future-restart" onSubmit={(event) => {
+      <form className="future-restart grid w-[20rem] max-w-full gap-2 p-1 [&_p]:m-0 [&_p]:text-[1rem]" onSubmit={(event) => {
         event.preventDefault();
         if (sending) return;
         setSending(true); setError('');
@@ -52,10 +52,10 @@ function FutureRestart({ onRestart }: {
           .finally(() => setSending(false));
       }}>
         <p>実績・履歴と固定予定を残し、未配置も含めて組み直します。</p>
-        <label htmlFor="restart-date">開始日</label>
-        <input ref={input} id="restart-date" type="date" required min={reference} value={date}
+        <label htmlFor="restart-date" className="font-[650]">開始日</label>
+        <input ref={input} id="restart-date" className="min-h-11 appearance-none" type="date" required min={reference} value={date}
           onChange={(event) => setDate(event.target.value)} />
-        <div className="future-restart-controls">
+        <div className="future-restart-controls flex flex-wrap items-center gap-2">
           <button className="primary" type="submit" disabled={sending}>この日から案を作成</button>
           <button type="button" disabled={sending} onClick={close}>やめる</button>
         </div>
@@ -175,17 +175,17 @@ export function Future({
   const receipts = visibleProgressReceipts(state);
   return (
     <div className="future-page">
-      <div className="future-week" role="group" aria-label="週間予定の表示範囲">
-        <div className="future-week-navigation">
-        <div className="future-week-range">
-          <button className="navigation-arrow" aria-label="前の週" onClick={() => moveWeek(addDays(week, -7))}><ChevronLeft size={20} strokeWidth={2.5} aria-hidden="true" /></button>
-          <time dateTime={week} aria-live="polite" aria-label={weekRangeLabel(week)}>
-            <span className="future-week-year">{week.slice(0, 4)}</span>{' '}
-            <strong>{shortDate(week)}–{week.slice(0, 4) !== weekEnd.slice(0, 4) && <><span className="future-week-year">{weekEnd.slice(0, 4)}</span>{' '}</>}{shortDate(weekEnd)}</strong>
+      <div className="future-week mb-1 flex flex-wrap items-center gap-x-2 gap-y-1" role="group" aria-label="週間予定の表示範囲">
+        <div className="future-week-navigation flex min-w-0 flex-wrap items-center gap-1">
+        <div className="future-week-range flex min-w-0 items-center gap-1">
+          <button className="navigation-arrow shrink-0 p-3 min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface" aria-label="前の週" onClick={() => moveWeek(addDays(week, -7))}><ChevronLeft className="shrink-0" size={20} strokeWidth={2.5} aria-hidden="true" /></button>
+          <time className="flex min-w-0 flex-wrap items-baseline justify-center gap-x-1.5 text-center [overflow-wrap:anywhere]" dateTime={week} aria-live="polite" aria-label={weekRangeLabel(week)}>
+            <span className="future-week-year text-[1rem] font-normal text-muted">{week.slice(0, 4)}</span>{' '}
+            <strong className="text-[1.125rem] tabular-nums">{shortDate(week)}–{week.slice(0, 4) !== weekEnd.slice(0, 4) && <><span className="future-week-year text-[1rem] font-normal text-muted">{weekEnd.slice(0, 4)}</span>{' '}</>}{shortDate(weekEnd)}</strong>
           </time>
-          <button className="navigation-arrow" aria-label="次の週" onClick={() => moveWeek(addDays(week, 7))}><ChevronRight size={20} strokeWidth={2.5} aria-hidden="true" /></button>
+          <button className="navigation-arrow shrink-0 p-3 min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface" aria-label="次の週" onClick={() => moveWeek(addDays(week, 7))}><ChevronRight className="shrink-0" size={20} strokeWidth={2.5} aria-hidden="true" /></button>
         </div>
-        <button onClick={() => moveWeek(currentWeek)}>今日</button>
+        <button className="min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface" onClick={() => moveWeek(currentWeek)}>今日</button>
         </div>
         <ScheduleViewSwitch calendar={false} onSwitch={() => onCalendar(week, false)} />
       </div>
@@ -211,8 +211,8 @@ export function Future({
             {placementMessage && <p role="status">{placementMessage}</p>}
           </form>}
         </section>}
-      <div role="status" aria-live="polite" aria-atomic="true" className="future-notice">{adjustmentNotice && !needsReview ? '未消化分を調整しました' : ''}</div>
-      {needsReview && <p className="future-reconciliation" role="status">
+      <div role="status" aria-live="polite" aria-atomic="true" className="future-notice [&:not(:empty)]:my-2">{adjustmentNotice && !needsReview ? '未消化分を調整しました' : ''}</div>
+      {needsReview && <p className="future-reconciliation my-3 border-s-[3px] border-s-warning ps-3 [overflow-wrap:anywhere]" role="status">
         調整未反映・要確認。現在の計画を保持しています。{reviewReason ? ` ${reviewReason}` : ''}
       </p>}
       {past.issue && past.issue !== reviewReason && !placementOpen && <p className="error" role="alert">{past.issue}</p>}
@@ -240,12 +240,12 @@ export function Future({
               });
             }
             return (
-              <section className="future-day" key={date}>
-                <h2>
+              <section className="future-day grid grid-cols-[9rem_minmax(0,1fr)] gap-x-4 gap-y-2 border-b border-line py-2 max-[600px]:grid-cols-[minmax(0,1fr)] max-[600px]:gap-0" key={date}>
+                <h2 className="m-0 mb-1.5 flex flex-wrap content-start items-center gap-x-1.5 text-[17px]">
                   <time dateTime={date}>{shortDayLabel(date)}</time>
-                  {date === reference && <span className="future-today">今日</span>}
+                  {date === reference && <span className="future-today ms-0 text-[.875rem] font-medium text-accent">今日</span>}
                 </h2>
-                <ul>
+                <ul className="m-0 min-w-0 list-none p-0">
                   {date <= reference && quantity.rows.map((row) => {
                       const progress = date === reference ? studyProgressView(state, row, date, reference) : progressView(row, date, reference);
                       const matching = sessions.filter(
@@ -255,15 +255,15 @@ export function Future({
                           s.round === row.round,
                       );
                       return (
-                        <li key={JSON.stringify([row.materialId, row.round, row.unit])}>
-                          <span>
+                        <li className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-1 py-1.5 text-[1rem]" key={JSON.stringify([row.materialId, row.round, row.unit])}>
+                          <span className="min-w-0 [overflow-wrap:anywhere]">
                             {row.name} · {row.round + 1}周目
                           </span>
-                          <span className="future-quantity">
+                          <span className="future-quantity flex max-w-[15rem] flex-wrap items-baseline justify-end gap-x-2.5 gap-y-1 [overflow-wrap:anywhere]">
                             <ProgressValue value={progress} />
                             {matching.some((s) => unavailableIds.has(s.id)) && <span>配置要確認</span>}
                             {matching.some((s) => s.fixed) && (
-                              <span className="future-fixed">
+                              <span className="future-fixed text-[1rem] text-muted">
                                 {matching.every((s) => s.fixed) ? '固定' : '一部固定'}
                               </span>
                             )}
@@ -274,22 +274,22 @@ export function Future({
                   {[...rows.values()]
                     .filter(({ session }) => date > reference || session.kind === 'review')
                     .map(({ session, count, minutes, needsReview: rowNeedsReview }) => (
-                      <li
+                      <li className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-1 py-1.5 text-[1rem]"
                         key={`${session.kind}/${session.materialId}/${session.round}/${session.examId}/${session.fixed}`}
                       >
-                        <span>
+                        <span className="min-w-0 [overflow-wrap:anywhere]">
                           {session.kind === 'review'
                             ? `${state.settings.exams.find((exam) => exam.id === session.examId)?.name ?? '試験'} · 復習`
                             : `${state.settings.materials.find((material) => material.id === session.materialId)?.name ?? session.materialId} · ${session.round + 1}周目`}
                         </span>
-                        <span className="future-quantity"><strong>
+                        <span className="future-quantity flex max-w-[15rem] flex-wrap items-baseline justify-end gap-x-2.5 gap-y-1 [overflow-wrap:anywhere]"><strong className="text-[1.125rem] tabular-nums">
                           {session.kind === 'review' ? duration(minutes) : progressView({
                             planned: count, actual: 0, reported: false,
                             unit: quantity.rows.find(row => row.materialId === session.materialId && row.round === session.round)?.unit ??
                               materialUnit(state.settings.materials.find((material) => material.id === session.materialId)?.unit),
                           }, date, reference).text}
                         </strong>
-                        {session.fixed && <span className="future-fixed">固定</span>}
+                        {session.fixed && <span className="future-fixed text-[1rem] text-muted">固定</span>}
                         {rowNeedsReview && <span>配置要確認</span>}
                         </span>
                       </li>
@@ -303,12 +303,12 @@ export function Future({
           {shortfalls.length ? 'この週に配置済み予定はありません。' : 'この週の予定はありません。'}
         </p>
       )}
-      {onBalanceFuture && state.plan && !state.proposal && <details className="future-disclosure future-balance">
+      {onBalanceFuture && state.plan && !state.proposal && <details className="future-disclosure my-4 border-b border-line [&>summary]:min-h-11 [&>summary]:cursor-pointer [&>summary]:content-center future-balance">
         <summary>対象の未来配分を均す</summary>
-      {state.settings.exams.length > 0 && <ul className="future-priorities" aria-label="試験の優先度">
+      {state.settings.exams.length > 0 && <ul className="future-priorities flex list-none flex-wrap gap-x-6 gap-y-2 p-0" aria-label="試験の優先度">
         {state.settings.exams.map((exam) => <li key={exam.id}>{exam.name} · 優先度：{priorityName(exam.priority)}</li>)}
       </ul>}
-        <form onSubmit={(event) => {
+        <form className="mt-3 grid gap-3" onSubmit={(event) => {
           event.preventDefault();
           if (balanceSending.current) return;
           balanceSending.current = true; setBalancing(true); setBalanceError('');
@@ -318,12 +318,12 @@ export function Future({
           }).catch((error) => setBalanceError(error instanceof Error ? error.message : String(error)))
             .finally(() => { balanceSending.current = false; setBalancing(false); });
         }}>
-          <fieldset disabled={balancing}>
+          <fieldset className="min-w-0" disabled={balancing}>
             <legend>配分を均す教材</legend>
             {state.settings.materials.map((material) => {
               const exam = state.settings.exams.find((item) => item.id === material.examId);
-              return <label className="block" key={material.id}>
-                <input type="checkbox" checked={balanceMaterials.includes(material.id)} onChange={(event) =>
+              return <label className="flex min-h-11 items-center gap-2 [overflow-wrap:anywhere]" key={material.id}>
+                <input className="flex-none" type="checkbox" checked={balanceMaterials.includes(material.id)} onChange={(event) =>
                   setBalanceMaterials((current) => event.target.checked ? [...current, material.id] : current.filter((id) => id !== material.id))} />
                 {material.name}{exam ? ` · ${exam.name}` : ''}
               </label>;

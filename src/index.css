@@ -3,7 +3,9 @@
 @layer theme, legacy, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
 @import './style.css' layer(legacy);
-@import 'tailwindcss/utilities.css' layer(utilities);
+@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+/* Only the app's own components: test and document strings must not create utilities. */
+@source './';
 
 /* The three color themes and light/dark stay in the existing CSS variables. */
 /* Spacing in px: the base font size is 14px, so rem-based steps would shrink. */

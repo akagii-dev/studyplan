@@ -843,10 +843,11 @@ describe('今日の記録と今後の予定', () => {
         onProposal: () => {},
       }),
     );
-    expect(html).toContain('10問</strong><span class="future-fixed">固定</span>');
+    // Classes after the hook name are layout utilities.
+    expect(html).toMatch(/10問<\/strong><span class="future-fixed[^"]*">固定<\/span>/);
     expect(html).toContain('5問</strong>');
     expect(html).toContain('試験 · 復習');
-    expect(html).not.toContain('15問</strong><span class="future-fixed">固定</span>');
+    expect(html).not.toMatch(/15問<\/strong><span class="future-fixed[^"]*">固定<\/span>/);
   });
 
   it('全量未配置でも今後の予定に教材別問数を常時示し、理由だけ開いて確認できる', () => {

@@ -28,7 +28,8 @@ function RecordInputDisclosure({ complete, expanded, onExpandedChange, unit, chi
     const form = detailsRef.current?.querySelector('form');
     if (form) form.inert = !open;
   }, [open]);
-  return <details className="daily-record-input" ref={detailsRef} open={open}>
+  return <details ref={detailsRef} open={open}
+    className="daily-record-input min-w-0 @max-[700px]:col-start-2 @max-[700px]:row-span-2 @max-[700px]:row-start-1">
     <summary ref={summaryRef} hidden={!complete} onClick={event => {
       event.preventDefault();
       onExpandedChange(!open);
@@ -110,25 +111,28 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
   return (
     <>
       {rows.length ? (
-        <div className="daily-record-list" role="list">
+        <div className="daily-record-list border-t border-line" role="list">
           {rows.map((row) => {
             const id = key(row.materialId, row.round);
             return (
-              <div className={`daily-record-row${row.progress.complete ? ' is-complete' : ''}`} role="listitem" key={id}>
-                <div className="daily-record-name">
-                  <strong>{row.materialName}</strong>
-                  <span>{row.round + 1}周目</span>
+              <div role="listitem" key={id} className={`daily-record-row${row.progress.complete ? ' is-complete' : ''} grid min-w-0 grid-cols-[minmax(130px,1.3fr)_minmax(160px,1fr)_minmax(185px,auto)] items-center gap-x-4 gap-y-2 border-b border-line py-4 @max-[700px]:grid-cols-[minmax(0,1fr)_auto] @max-[430px]:block`}>
+                <div className="daily-record-name flex min-w-0 flex-wrap gap-x-2.5 gap-y-1 [overflow-wrap:anywhere] @max-[430px]:mb-1.5">
+                  <strong className={`text-[16px] ${row.progress.complete ? 'text-muted' : ''}`}>{row.materialName}</strong>
+                  <span className="text-muted">{row.round + 1}周目</span>
                 </div>
-                <div className="daily-record-amounts">
-                  <ProgressValue value={row.progress} />
+                <div className="daily-record-amounts flex min-w-0 flex-wrap justify-end gap-x-2.5 gap-y-1 text-right @max-[700px]:col-start-1 @max-[430px]:mb-1.5 @max-[430px]:justify-start @max-[430px]:text-left">
+                  <ProgressValue value={row.progress}
+                    className="justify-end @max-[430px]:justify-start [&>span]:text-muted"
+                    strongClassName={`text-[16px] ${row.progress.complete ? 'inline-flex items-center gap-1 [overflow-wrap:anywhere]' : ''}`}
+                    tone={row.progress.complete ? 'text-accent' : 'text-ink'} />
                 </div>
                 <RecordInputDisclosure complete={row.progress.complete} expanded={additionalInputs[id] ?? false}
                   unit={row.unit} onExpandedChange={open => setAdditionalInputs(current => ({ ...current, [id]: open }))}>
                   <form
-                    className="daily-record-form"
+                    className="daily-record-form flex min-w-0 items-end gap-1.5 @max-[430px]:justify-start"
                     onSubmit={(event) => void save(event, row.materialId, row.round)}
                   >
-                    <label>
+                    <label className="grid min-w-0 gap-[3px] text-[.875rem]">
                       {studyInputLabel(row.unit)}
                       <StudyCountInput
                         ref={(node) => {
@@ -138,6 +142,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
                         type="text"
                         inputMode="numeric"
                         autoComplete="off"
+                        className="mt-[3px] w-[72px]"
                         value={drafts[id] ?? ''}
                         disabled={busy}
                         aria-label={`${row.materialName} ${row.round + 1}周目の${studyInputLabel(row.unit)}（${row.unit}）`}
@@ -147,14 +152,14 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
                         }}
                       />
                     </label>
-                    <span>{row.unit}</span>
-                    <button data-submit className="primary" type="submit" disabled={busy}>
+                    <span className="whitespace-nowrap pb-[11px]">{row.unit}</span>
+                    <button data-submit className="primary min-h-11 whitespace-nowrap" type="submit" disabled={busy}>
                       記録
                     </button>
                   </form>
                 </RecordInputDisclosure>
                 {errors[id] && (
-                  <p className="daily-record-error" role="alert">
+                  <p className="daily-record-error col-span-full m-0 text-error @max-[430px]:mt-1.5" role="alert">
                     {errors[id]}
                   </p>
                 )}
@@ -165,7 +170,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
       ) : (
         <p>今日の学習予定はありません。</p>
       )}
-      <details className="outside-record" ref={outsideRef}>
+      <details className="outside-record mt-4 [&_.study-record-form]:mt-3" ref={outsideRef}>
         <summary>予定外の学習を記録</summary>
         {state.settings.materials.length ? (
           <StudyRecordForm state={state} reference={date} fixedDate busy={busy}
@@ -182,7 +187,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
         )}
       </details>
       {savedRecord && (
-        <div className="daily-record-saved" role="status">
+        <div className="daily-record-saved mt-3 text-ink" role="status">
           <p>
             {savedRecord.count}{savedRecord.unit}を記録しました。
           </p>

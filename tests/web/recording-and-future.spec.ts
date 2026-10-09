@@ -856,7 +856,9 @@ test('今日の完了行・追加入力を追加・訂正・取消で維持す�
   expect(await row.locator('summary').evaluate(e => getComputedStyle(e).outlineStyle)).not.toBe('none');
   const otherRow = page.locator('.daily-record-row').filter({ hasText: '別問題集' });
   await expect(otherRow).not.toHaveClass(/is-complete/);
-  expect(await row.evaluate(e => getComputedStyle(e).backgroundColor)).not.toBe(await otherRow.evaluate(e => getComputedStyle(e).backgroundColor));
+  // Completion is shown by a check icon and the label, not by filling the row.
+  await expect(row.locator('.progress-check')).toBeVisible();
+  await expect(otherRow.locator('.progress-check')).toHaveCount(0);
   for (const appearance of ['light', 'dark']) {
     await page.evaluate(mode => document.documentElement.dataset.appearance = mode, appearance);
     await page.clock.runFor(250);

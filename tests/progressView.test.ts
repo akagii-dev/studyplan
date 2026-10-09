@@ -766,7 +766,7 @@ describe('今日の記録と今後の予定', () => {
         },
         {
           id: 'review',
-          date: addDays(date, 2),
+          date: addDays(date, 1),
           start: 1000,
           end: 1030,
           examId: 'exam',
@@ -835,7 +835,8 @@ describe('今日の記録と今後の予定', () => {
   it('将来の同じ教材でも固定10問と可動5問を区別し、復習を残す', () => {
     const html = renderToStaticMarkup(
       createElement(Future, {
-        initialWeek: today(),
+        // Tomorrow's week contains tomorrow on every weekday, including Sunday.
+        initialWeek: addDays(today(), 1),
         state: fixture(),
         update: async () => {},
         onCalendar: () => {},

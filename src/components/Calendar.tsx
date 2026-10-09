@@ -2,7 +2,7 @@ import { ScheduleViewSwitch } from './ScheduleViewSwitch';
 import { progressView } from '../domain/progressView';
 import { ProgressValue } from './ProgressValue';
 import { Warning } from './Warnings';
-import { useState, useEffect, useLayoutEffect, useRef, useId } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useId, type CSSProperties } from 'react';
 import { ChevronLeft, ChevronRight, CalendarDays, Settings } from 'lucide-react';
 import {
   CalendarDensity,
@@ -183,7 +183,7 @@ export function Calendar({
       <div
         key={s.id}
         className={`session-detail density-${level}`}
-        style={{ borderLeftColor: e?.color }}
+        style={{ borderLeftColor: e?.color, '--exam-color': e?.color } as CSSProperties}
       >
         {level !== 'compact' && (
           <div className="row">

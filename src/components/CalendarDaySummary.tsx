@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { calendarDisplayQuantity } from '../domain/calendarQuantity';
 import { progressView } from '../domain/progressView';
 import { ProgressValue } from './ProgressValue';
@@ -46,7 +47,7 @@ export function CalendarDaySummary({
             key={id}
             className="calendar-event"
             data-exam={id}
-            style={{ borderLeftColor: exam?.color }}
+            style={{ borderLeftColor: exam?.color, '--exam-color': exam?.color } as CSSProperties}
             onClick={onSelect}
           >
             <strong>{exam?.name ?? '試験'}</strong>

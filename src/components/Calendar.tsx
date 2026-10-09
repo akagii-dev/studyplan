@@ -359,23 +359,23 @@ export function Calendar({
   );
   return (
     <>
-      <div className="calendar-toolbar schedule-toolbar">
-        <div className="calendar-period">
-          <button aria-label="前の期間" className="navigation-arrow" onClick={() => jump(-1)}>
+      <div className="calendar-toolbar schedule-toolbar m-0 mb-1 flex max-w-[900px] flex-wrap items-center justify-between gap-x-2 gap-y-1 [&>*]:min-w-0">
+        <div className="calendar-period flex flex-wrap items-center gap-1">
+          <button aria-label="前の期間" className="navigation-arrow min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface px-2.5 py-[7px] text-[11px]" onClick={() => jump(-1)}>
             <ChevronLeft size={20} aria-hidden />
           </button>
-          <h2>
+          <h2 className="m-0 whitespace-nowrap text-[1.125rem]">
             {Number(anchor.slice(0, 4))}年 {Number(anchor.slice(5, 7))}月
           </h2>
-          <button aria-label="次の期間" className="navigation-arrow" onClick={() => jump(1)}>
+          <button aria-label="次の期間" className="navigation-arrow min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface px-2.5 py-[7px] text-[11px]" onClick={() => jump(1)}>
             <ChevronRight size={20} aria-hidden />
           </button>
-          <div className="calendar-today-actions">
-            <button className="future-today"
+          <div className="calendar-today-actions flex items-center gap-1">
+            <button className="future-today min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface px-3.5 py-2.5 text-[.875rem] font-medium"
               onClick={() => { setShowDay(false); setSelected(today()); }}>
               今日
             </button>
-            <button ref={settingsButtonRef} className="calendar-settings-toggle"
+            <button ref={settingsButtonRef} className="calendar-settings-toggle min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface px-2.5 py-[7px] text-[11px]"
               aria-label="カレンダーの表示設定" aria-haspopup="dialog"
               aria-expanded={settingsOpen} aria-controls={settingsId}
               onClick={() => setSettingsOpen(open => !open)}
@@ -440,10 +440,10 @@ export function Calendar({
           actionLabel="再計画で期間を見直す"
         />
       )}
-      <div className="legend">
+      <div className="legend mb-[17px] flex flex-wrap items-center gap-[18px]">
         {state.settings.exams.map((e) => (
-          <span key={e.id}>
-            <i style={{ background: e.color }} />
+          <span key={e.id} className="flex items-center gap-1.5 text-[10px] text-muted">
+            <i className="block size-[7px] rounded-full" style={{ background: e.color }} />
             {e.name}
           </span>
         ))}
@@ -467,33 +467,33 @@ export function Calendar({
           <p>初期設定を終えたら、最初の計画を作成しましょう。</p>
         </Empty>
       )}
-      <div className="calendar-only-layout" ref={calendarRef} onFocusCapture={(event) => { if (showDay && !detailRef.current?.contains(event.target)) setShowDay(false); }}>
+      <div className="calendar-only-layout grid min-w-0 gap-5" ref={calendarRef} onFocusCapture={(event) => { if (showDay && !detailRef.current?.contains(event.target)) setShowDay(false); }}>
         {selectedDayPanel}
         <div
-          className={`calendar-grid ${view} density-${density}`}
+          className={`calendar-grid ${view} density-${density} mb-[23px] overflow-hidden rounded-card border border-line bg-surface`}
         >
-          <div className="calendar-head">
+          <div className="calendar-head grid grid-cols-[repeat(7,minmax(0,1fr))] border-b border-line bg-surface @max-[680px]:hidden">
             {[1, 2, 3, 4, 5, 6, 0].map((d) => (
-              <span key={d}>{weekdays[d]}</span>
+              <span key={d} className="py-3 text-center text-[12px] font-semibold text-muted @max-[430px]:py-2">{weekdays[d]}</span>
             ))}
           </div>
-          <div className="calendar-body">
+          <div className="calendar-body grid gap-px @max-[680px]:gap-3">
             {days.filter((_, index) => index % 7 === 0).map((week) => (
-              <section className="calendar-week" key={week} aria-label={`${shortDayLabel(week)}からの週`}>
-                <h3 className="calendar-week-title">{shortDayLabel(week)}–{shortDayLabel(addDays(week, 6))}</h3>
-                <div className="calendar-week-days">
+              <section className="calendar-week min-w-0" key={week} aria-label={`${shortDayLabel(week)}からの週`}>
+                <h3 className="calendar-week-title hidden @max-[680px]:m-0 @max-[680px]:block @max-[680px]:bg-soft @max-[680px]:p-2 @max-[680px]:text-[.875rem] @max-[680px]:text-muted">{shortDayLabel(week)}–{shortDayLabel(addDays(week, 6))}</h3>
+                <div className="calendar-week-days grid grid-cols-[repeat(7,minmax(0,1fr))] gap-px @max-[680px]:grid-cols-[repeat(2,minmax(0,1fr))]">
                   {days.filter(d => d >= week && d <= addDays(week, 6)).map((d) => (
                     <div
                       key={d}
-                      className={`day ${d === today() ? 'today' : ''} ${d === selected ? 'chosen' : ''} ${view === 'month' && d.slice(0, 7) !== anchor.slice(0, 7) ? 'muted-day' : ''}`}
+                      className={`day ${d === today() ? 'today' : ''} ${d === selected ? 'chosen shadow-[inset_0_0_0_2px_var(--accent)]' : ''} ${view === 'month' && d.slice(0, 7) !== anchor.slice(0, 7) ? 'muted-day' : ''} min-w-0 cursor-pointer bg-surface px-[5px] py-[7px] outline-1 outline-line @max-[680px]:px-2 @max-[680px]:py-1.5`}
                       onClick={() => selectDay(d)}
                     >
                       <button
-                        className="date-number"
+                        className={`date-number mb-0.5 min-h-11 min-w-11 max-w-full border-0 bg-transparent p-1 text-[.875rem] ${d === today() ? 'hover:enabled:bg-transparent' : 'hover:enabled:bg-soft'} ${view === 'month' && d.slice(0, 7) !== anchor.slice(0, 7) ? 'font-medium text-muted' : 'font-[650] text-ink'}`}
                         aria-label={`${d}を表示`}
                         aria-pressed={d === selected}
                       >
-                        {d === today() ? <span className="today-date-badge">{Number(d.slice(8))}</span> : shortDayLabel(d)}
+                        {d === today() ? <span className="today-date-badge mx-auto grid size-[2rem] place-items-center rounded-full bg-accent text-on-accent">{Number(d.slice(8))}</span> : shortDayLabel(d)}
                       </button>
                         <CalendarDaySummary
                           state={state}

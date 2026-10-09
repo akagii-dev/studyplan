@@ -182,22 +182,22 @@ export function Calendar({
     return (
       <div
         key={s.id}
-        className={`session-detail density-${level}`}
+        className={`session-detail density-${level} ${todayOnly ? 'my-[18px]' : 'my-[15px]'} rounded-[3px] border-l-[3px] border-l-[color:var(--ring)] bg-surface px-[11px] py-2.5`}
         style={{ borderLeftColor: e?.color, '--exam-color': e?.color } as CSSProperties}
       >
         {level !== 'compact' && (
-          <div className="row">
-            <span className="eyebrow">{e?.name}</span>
+          <div className="row flex-wrap items-start gap-[5px] text-[10px]">
+            <span className="eyebrow text-[11px] tracking-[.6px]">{e?.name}</span>
             {level === 'detailed' && (
-              <span className="planned-time">
+              <span className="planned-time block text-[12px] tabular-nums">
                 学習予定 {clock(s.start)}–{clock(s.end)}
               </span>
             )}
           </div>
         )}
-        <h3>{s.kind === 'review' ? 'まとめの復習' : m?.name}</h3>
+        <h3 className="mx-0 my-[5px] text-[14px]">{s.kind === 'review' ? 'まとめの復習' : m?.name}</h3>
         {overlapsBusy(state.settings, s).length > 0 && (
-          <div className="error" role="status">
+          <div className="error mt-3 text-[12px] [&_p]:mb-1.5 [&_p]:[color:inherit]" role="status">
             <b>学習予定と授業・予定が重複</b>
             {overlapsBusy(state.settings, s).map((e) => (
               <p key={e.id}>
@@ -208,7 +208,7 @@ export function Calendar({
             <button onClick={onReplan}>対話で見直す</button>
           </div>
         )}
-        <div className="row">
+        <div className="row flex-wrap items-start gap-[5px] text-[10px]">
           {s.kind === 'study' && progress ? <ProgressValue value={progressView(progress, s.date, today())} /> : <span>{duration(s.end - s.start)}</span>}
         </div>
         {level === 'detailed' &&
@@ -231,9 +231,9 @@ export function Calendar({
                 : '期限内に配置するため、設定した下限より短い予定です。'}
             </p>
           )}
-        <div className="actions">
+        <div className="actions mt-2.5">
           {s.kind === 'study' && s.date <= today() && (
-            <button className="primary small" onClick={() => onRecord(s)}>
+            <button className="primary small px-[7px] py-[5px] text-[9px]" onClick={() => onRecord(s)}>
               進捗を記録
             </button>
           )}
@@ -265,7 +265,7 @@ export function Calendar({
       x.session ? (
         detail(x.session, level)
       ) : (
-        <div className="busy-event" key={x.id}>
+        <div className={`busy-event rounded-[6px] bg-[var(--busy-bg)] text-[11px] text-[var(--busy-ink)] ${todayOnly ? 'my-[18px] p-2' : 'mb-4 p-3'}`} key={x.id}>
           <b>
             {x.busy!.kind === 'class'
               ? '授業：' + (x.busy!.name.trim() || '大学の授業')
@@ -285,7 +285,7 @@ export function Calendar({
     const study = all.filter((x) => x.date === date);
     return (
       <>
-        <section className="card today-schedule" aria-label="今日の予定一覧">
+        <section className="card today-schedule max-w-[900px] [&+.daily-time]:mt-6" aria-label="今日の予定一覧">
           <h2>
             {date}（{weekdays[weekday(date)]}）
           </h2>
@@ -329,15 +329,15 @@ export function Calendar({
     calendarRef.current?.querySelector<HTMLButtonElement>('.date-number[aria-pressed="true"]')?.focus({ preventScroll: true });
   };
   const selectedDayPanel = showDay && (
-    <aside className="card day-panel" aria-label="選択した日の学習詳細" ref={detailRef} onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); closeDay(); } }}>
-      <div className="day-panel-heading">
+    <aside className="card day-panel fixed m-0 overflow-auto rounded-card border border-line bg-surface p-4 shadow-[0_6px_24px_#0003] bottom-20 right-4 z-12 h-max max-h-[min(60dvh,calc(100dvh-160px))] w-[min(26rem,calc(100vw-32px))]" aria-label="選択した日の学習詳細" ref={detailRef} onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); closeDay(); } }}>
+      <div className="day-panel-heading mb-2 flex flex-row-reverse flex-wrap items-start justify-between gap-2">
       <button
-        className="day-panel-close"
+        className="day-panel-close m-0 min-h-11 max-w-full"
         onClick={closeDay}
       >
         詳細を閉じる
       </button>
-      <h3 tabIndex={-1}>
+      <h3 className="m-0 min-w-0 text-[1.125rem]" tabIndex={-1}>
         {Number(selected.slice(5, 7))}月{Number(selected.slice(8))}日（
         {weekdays[weekday(selected)]}）
       </h3>
@@ -393,7 +393,7 @@ export function Calendar({
       </div>
       {settingsOpen && (
         <div ref={settingsPanelRef} id={settingsId} role="dialog" aria-labelledby={settingsId + '-title'}
-          className="card compact calendar-display-settings" style={settingsPosition}
+          className="card compact calendar-display-settings fixed m-0 overflow-auto rounded-card border border-line bg-surface p-4 shadow-[0_6px_24px_#0003] z-13 max-h-[calc(100dvh-24px)] w-[min(322px,calc(100vw-24px))]" style={settingsPosition}
           onKeyDown={event => {
             if (event.key === 'Tab') {
               const controls = settingsPanelRef.current?.querySelectorAll<HTMLButtonElement | HTMLSelectElement>('button, select');
@@ -406,11 +406,11 @@ export function Calendar({
               }
             }
           }}>
-          <div className="day-panel-heading">
-            <button className="day-panel-close" aria-label="表示設定を閉じる" onClick={event => closeSettings(event.detail === 0)}>閉じる</button>
-            <h3 id={settingsId + '-title'}>表示設定</h3>
+          <div className="day-panel-heading mb-2 flex flex-row-reverse flex-wrap items-start justify-between gap-2">
+            <button className="day-panel-close m-0 min-h-11 max-w-full" aria-label="表示設定を閉じる" onClick={event => closeSettings(event.detail === 0)}>閉じる</button>
+            <h3 className="m-0 min-w-0 text-[1.125rem]" id={settingsId + '-title'}>表示設定</h3>
           </div>
-          <div className="calendar-settings-fields">
+          <div className="calendar-settings-fields grid gap-2 [&_.field]:m-0 [&_.field]:flex-row [&_.field]:flex-wrap [&_.field]:items-center [&_.field]:gap-2 [&_.field]:text-[1rem] [&_.field>label]:flex-[0_1_5.5em] [&_select]:min-h-11 [&_select]:flex-[1_1_9em] [&_select]:px-2.5 [&_select]:py-2 [&_select]:text-[max(1rem,16px)]">
             <Field label="対象の試験">
               <select value={filter} onChange={event => setFilter(event.target.value)}>
                 <option value="all">すべての試験</option>

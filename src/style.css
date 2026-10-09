@@ -286,34 +286,17 @@
   margin: 4px 0 0;
   font-size: 13px;
 }
-.availability-breakdown .busy-time,
-.busy-event {
+.availability-breakdown .busy-time {
   background: var(--busy-bg);
   color: var(--busy-ink);
 }
 
 
 
-.session-detail .row {
-  flex-wrap: wrap;
-}
-.planned-time {
-  display: block;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-.session-detail .error {
-  margin-top: 12px;
-  font-size: 12px;
-}
-.session-detail .error p {
-  color: inherit;
-  margin-bottom: 6px;
-}
-.day-panel .busy-event {
-  padding: 12px;
-  margin-bottom: 16px;
-}
+
+
+
+
 .revision-wizard .wizard-options {
   margin: 16px 0 24px;
 }
@@ -338,11 +321,6 @@
 }
 .availability-breakdown .free-time {
   background: var(--soft);
-}
-.busy-event {
-  border-radius: 6px;
-  padding: 8px;
-  font-size: 11px;
 }
 .number-input {
   min-width: 0;
@@ -1095,57 +1073,16 @@ main {
 
 
 
-.day-panel {
-  padding: 19px;
-  height: max-content;
-}
-.day-panel > h3 {
-  font-size: 16px;
-  margin: 0 0 8px;
-}
-.session-detail {
-  border-left: 3px solid var(--ring);
-  padding: 10px 11px;
-  margin: 15px 0;
-  background: var(--surface);
-  border-radius: 3px;
-}
-.session-detail h3 {
-  font-size: 14px;
-  margin: 5px 0;
-}
-.session-detail .row {
-  font-size: 10px;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-.session-detail .session-quantity {
-  font-size: 16px;
-  font-weight: 600;
-}
-.session-detail .eyebrow {
-  font-size: 11px;
-  letter-spacing: 0.6px;
-}
-.session-detail .actions {
-  margin-top: 10px;
-}
-.session-detail .actions button {
-  font-size: 9px;
-  padding: 5px 7px;
-}
-.status {
-  background: var(--soft);
-  color: var(--muted);
-  padding: 2px 5px;
-  border-radius: 4px;
-  font-size: 9px;
-}
-.status.done {
-  background: var(--soft);
-  color: var(--muted);
-}
+
+
+
+
+
+
+
+
+
+
 .capacity-panel {
   padding: 21px;
 }
@@ -1407,10 +1344,7 @@ progress::-webkit-progress-value {
   .topbar {
     padding: 0 25px;
   }
-    .day-panel {
-    display: block;
-  }
-  .split {
+      .split {
     grid-template-columns: minmax(360px, 1.3fr) minmax(230px, 1fr);
     gap: 18px;
   }
@@ -1454,10 +1388,7 @@ progress::-webkit-progress-value {
   .card {
     padding: 22px;
   }
-    .day-panel {
-    display: block;
-  }
-}
+    }
 
 .field > label {
   color: var(--muted);
@@ -1959,16 +1890,8 @@ progress::-webkit-progress-value {
   border-radius: 12px;
   background: var(--surface);
 }
-.today-schedule {
-  max-width: 900px;
-}
-.today-schedule .session-detail,
-.today-schedule .busy-event {
-  margin: 18px 0;
-}
-.today-schedule + .daily-time {
-  margin-top: 24px;
-}
+
+
 .save-overlay {
   position: fixed;
   inset: 0;
@@ -2418,10 +2341,7 @@ textarea {
   overflow-wrap: anywhere;
 }
 @container (max-width: 880px) {
-    .day-panel {
-    display: block;
-  }
-  .metrics {
+      .metrics {
     grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
   }
 }
@@ -2683,7 +2603,6 @@ textarea {
 .remaining-adjustment form { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 8px; }
 .remaining-adjustment input[type="date"] { width: fit-content; min-height: 44px; max-width: 100%; }
 .replan-placement ul { padding-inline-start: 20px; }
-.day-panel-close { float: inline-end; margin-inline-start: 12px; }
 .calendar-amounts { margin: 6px 0; font-variant-numeric: tabular-nums; }
 .calendar-amounts > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
 .calendar-amounts dt { font-size: 0.875rem; }
@@ -2705,21 +2624,18 @@ textarea {
 
 
 
-.calendar-only-layout > .day-panel, .card.calendar-display-settings { position: fixed; overflow: auto; margin: 0; box-shadow: 0 6px 24px #0003; }
-.calendar-only-layout > .day-panel { inset: auto 16px 80px auto; z-index: 12; width: min(26rem, calc(100vw - 32px)); max-height: min(60dvh, calc(100dvh - 160px)); }
+
 @media (max-width: 600px) { .schedule-view-switch { margin-inline-start: 0; } }
 
 
-.day-panel-heading { display: flex; flex-direction: row-reverse; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-.day-panel-heading h3 { margin: 0; min-width: 0; font-size: 1.125rem; }
-.day-panel-heading .day-panel-close { float: none; margin: 0; max-width: 100%; min-height: 44px; }
 
-/* Reuse the compact card, day-panel heading/close and Field/select controls. */
-.card.calendar-display-settings { z-index: 13; width: min(322px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); }
-.calendar-settings-fields { display: grid; gap: 8px; }
-.calendar-settings-fields .field { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: 1rem; }
-.calendar-settings-fields .field > label { flex: 0 1 5.5em; }
-.calendar-settings-fields select { flex: 1 1 9em; min-height: 44px; font-size: max(1rem, 16px); padding: 8px 10px; }
+
+
+
+
+
+
+
 
 /* Keep pointer focus quiet in the calendar and page heading; keyboard marks remain. */
 .app-shell[data-input-mode='pointer'] h1:focus-visible,

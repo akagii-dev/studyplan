@@ -1,0 +1,29 @@
+/* Tailwind utilities override the legacy stylesheet while screens move over one by one.
+ * Preflight is not loaded until the legacy stylesheet is gone. */
+@layer theme, legacy, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import './style.css' layer(legacy);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/* The three color themes and light/dark stay in the existing CSS variables. */
+@theme inline {
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-soft: var(--soft);
+  --color-line: var(--border);
+  --color-control: var(--control-border);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-on-accent: var(--on-accent);
+  --color-warning: var(--warning-ink);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-line: var(--warning-border);
+  --color-error: var(--error-ink);
+  --color-error-bg: var(--error-bg);
+  --color-error-line: var(--error-border);
+  --radius-control: var(--radius-control);
+  --radius-card: var(--radius);
+}
+@custom-variant dark (&:where([data-appearance='dark'], [data-appearance='dark'] *));

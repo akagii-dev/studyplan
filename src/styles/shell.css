@@ -1,0 +1,271 @@
+/* App frame: sidebar, navigation, top bar, main area and page headings. */
+:root[data-theme='lime'] button.primary,
+:root[data-theme='lime'] .brand > div {
+  background: #b5dc49;
+  border-color: #6e8e29;
+  color: #293a13;
+}
+h1 {
+  font-size: 28px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+.sidebar {
+  overflow-y: auto;
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 226px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 29px 20px;
+  z-index: 2;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  text-decoration: none;
+  color: var(--ink);
+  margin: 2px 5px 43px;
+}
+.brand > div {
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--on-accent);
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+.brand > span {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+nav button {
+  justify-content: flex-start;
+  gap: 12px;
+  background: transparent;
+  border: 0;
+  font-size: 14px;
+  font-weight: 500;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  color: var(--muted);
+  white-space: nowrap;
+}
+nav button:hover:not(:disabled) {
+  background: var(--page);
+  color: var(--ink);
+}
+nav button.active,
+nav button.active:hover:not(:disabled) {
+  background: var(--soft);
+  color: var(--accent);
+  font-weight: 700;
+  box-shadow: inset 3px 0 var(--accent);
+}
+.sidebar-bottom {
+  margin-top: auto;
+  padding: 27px 12px 0;
+}
+.sidebar-bottom p {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 14px;
+}
+main {
+  margin-left: 226px;
+  width: calc(100% - 226px);
+}
+.topbar {
+  height: 56px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 38px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+}
+.topbar > div {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.topbar strong {
+  color: var(--muted);
+  font-weight: 500;
+}
+.main-content {
+  max-width: 1450px;
+  margin: auto;
+  padding: 34px 38px 50px;
+}
+.page-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+}
+.page-heading p {
+  margin-bottom: 0;
+}
+@media (max-width: 1150px) {
+  .sidebar {
+    width: 196px;
+    padding: 26px 14px;
+  }
+  main {
+    margin-left: 196px;
+    width: calc(100% - 196px);
+  }
+  .main-content {
+    padding: 28px 25px;
+  }
+  .topbar {
+    padding: 0 25px;
+  }
+}
+@media (max-width: 900px) {
+  .sidebar {
+    width: 180px;
+  }
+  .brand > span {
+    font-size: 19px;
+  }
+  main {
+    margin-left: 180px;
+    width: calc(100% - 180px);
+  }
+}
+.app-shell {
+  --sidebar-width: 226px;
+}
+.app-shell .sidebar {
+  width: calc(var(--sidebar-width) - 12px);
+  padding-right: 8px;
+  border-right: 0;
+}
+.app-shell main {
+  margin-left: var(--sidebar-width);
+  width: calc(100% - var(--sidebar-width));
+  min-width: 0;
+}
+.sidebar-toggle {
+  position: fixed;
+  left: calc(var(--sidebar-width) - 12px);
+  top: 0;
+  width: 12px;
+  height: 100dvh;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  font-size: 11px;
+  z-index: 3;
+}
+.sidebar-toggle:focus-visible {
+  outline-offset: -3px;
+}
+.sidebar-collapsed {
+  --sidebar-width: 12px;
+}
+.sidebar-collapsed .sidebar {
+  display: none;
+}
+.nav-label {
+  white-space: normal;
+  text-align: left;
+}
+.sidebar nav svg {
+  flex-shrink: 0;
+}
+.main-content {
+  container-type: inline-size;
+}
+@media (max-width: 1100px) {
+  .app-shell:not(.sidebar-collapsed) {
+    --sidebar-width: 196px;
+  }
+}
+@media (max-width: 700px) {
+  .app-shell:not(.sidebar-collapsed) {
+    --sidebar-width: 164px;
+  }
+  .main-content {
+    padding: 20px 12px;
+  }
+  .topbar {
+    padding: 0 12px;
+    gap: 8px;
+    height: auto;
+    min-height: 60px;
+    flex-wrap: wrap;
+  }
+  .sidebar {
+    padding: 16px 8px;
+  }
+  .brand {
+    gap: 6px;
+    margin: 0 0 20px;
+  }
+  .brand > span {
+    font-size: 16px;
+  }
+  .sidebar nav button {
+    font-size: 11px;
+    gap: 6px;
+  }
+  .page-heading h1 {
+    font-size: 24px;
+  }
+  .sidebar-bottom {
+    padding: 20px 4px 0;
+  }
+}
+.compact-topbar { justify-content: flex-end; }
+@media (max-width: 700px) {
+  .app-shell, .app-shell:not(.sidebar-collapsed) { --sidebar-width: 0px; }
+  .app-shell main { margin-left: 0; width: 100%; padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+  .app-shell .sidebar { position: fixed; inset: auto 0 0; width: 100%; height: auto; padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--border); z-index: 4; }
+  .sidebar .brand, .sidebar-bottom, .sidebar-toggle { display: none; }
+  .sidebar nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
+  .sidebar nav button { display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; justify-content: center; gap: 2px; width: 100%; min-width: 0; min-height: 48px; padding: 5px 1px; white-space: normal; }
+  .sidebar nav button.active { box-shadow: inset 0 -3px var(--accent); }
+  .sidebar nav button:focus-visible { outline-offset: -3px; }
+  .nav-label { text-align: center; }
+  .sidebar-collapsed .sidebar { display: flex; }
+  .main-content { padding: 18px 12px 32px; }
+  .page-heading { gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+}
+.navigation-arrow { color: var(--accent); }
+.navigation-arrow:hover:not(:disabled) { background: var(--soft); }
+.navigation-arrow:active:not(:disabled) { background: var(--accent); color: var(--surface); }
+.navigation-arrow:focus-visible { outline: 3px solid var(--accent); }
+.page-transition { animation: schedule-appear var(--page-fade-duration) var(--page-fade-easing); }
+@keyframes schedule-appear { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+ .page-transition { animation: none; }
+}
+/* Keep pointer focus quiet in the calendar and page heading; keyboard marks remain. */
+.app-shell[data-input-mode='pointer'] h1:focus-visible,
+.app-shell[data-input-mode='pointer'] .calendar-period button:focus-visible,
+.app-shell[data-input-mode='pointer'] .calendar-display-settings :focus-visible { outline: none; }

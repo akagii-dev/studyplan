@@ -1,8 +1,22 @@
-/* Tailwind utilities override the legacy stylesheet while screens move over one by one.
- * Preflight is not loaded until the legacy stylesheet is gone. */
+/* Tailwind utilities override the legacy styles in src/styles while screens move over one by one.
+ * Their order keeps the original cascade; the design foundation stays last.
+ * Preflight is not loaded until the legacy styles are gone. */
 @layer theme, legacy, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
-@import './style.css' layer(legacy);
+@import './styles/tokens.css' layer(legacy);
+@import './styles/base.css' layer(legacy);
+@import './styles/controls.css' layer(legacy);
+@import './styles/shell.css' layer(legacy);
+@import './styles/overlays.css' layer(legacy);
+@import './styles/today.css' layer(legacy);
+@import './styles/calendar.css' layer(legacy);
+@import './styles/daily-time.css' layer(legacy);
+@import './styles/setup.css' layer(legacy);
+@import './styles/guided.css' layer(legacy);
+@import './styles/replan.css' layer(legacy);
+@import './styles/settings.css' layer(legacy);
+@import './styles/responsive.css' layer(legacy);
+@import './styles/foundation.css' layer(legacy);
 @import 'tailwindcss/utilities.css' layer(utilities) source(none);
 /* Only the app's own components: test and document strings must not create utilities. */
 @source './';

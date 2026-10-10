@@ -1,0 +1,138 @@
+/* Buttons, inputs, selects and form fields, including their states. */
+.timetable-row > button.class-selected {
+  background: var(--busy-bg);
+  color: var(--busy-ink);
+  border: 2px solid var(--busy-border);
+}
+.timetable-row > button.class-selected small {
+  display: block;
+  color: var(--busy-muted);
+  font-size: 10px;
+}
+.number-input input[aria-invalid='true'] {
+  border-color: var(--error-border);
+}
+button,
+input,
+select,
+.study-note textarea {
+  font: inherit;
+}
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
+  min-height: 40px;
+  padding: 8px 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  transition:
+    background 0.12s,
+    border 0.12s;
+}
+button:hover:not(:disabled) {
+  background: var(--soft);
+  border-color: var(--accent);
+}
+input,
+select,
+.study-note textarea {
+  width: 100%;
+  min-width: 0;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
+  min-height: 44px;
+  padding: 10px 12px;
+}
+input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+input:hover:not(:disabled),
+select:hover:not(:disabled),
+.study-note textarea:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+input[type='number'] {
+  font-variant-numeric: tabular-nums;
+}
+.primary {
+  color: var(--on-accent);
+  background: var(--accent);
+  border-color: var(--accent);
+  padding: 11px 19px;
+}
+.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.primary.small {
+  padding: 7px 12px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 19px;
+  font-size: 12px;
+}
+.field > span {
+  color: var(--ink);
+  font-weight: 550;
+}
+.field small {
+  font-weight: 400;
+  line-height: 1.6;
+}
+.actions button {
+  font-size: 11px;
+  padding: 7px 11px;
+}
+.text-danger {
+  color: var(--error-ink);
+}
+.segmented {
+  display: flex;
+  border: 1px solid var(--border);
+  background: var(--soft);
+  padding: 3px;
+  border-radius: 7px;
+  white-space: nowrap;
+}
+.segmented button {
+  border: 0;
+  background: transparent;
+  min-width: 39px;
+}
+.segmented button.active {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 650;
+}
+td input {
+  max-width: 120px;
+}
+.field > label {
+  color: var(--muted);
+  font-weight: 550;
+}
+input,
+select,
+textarea {
+  max-width: 100%;
+  min-width: 0;
+}

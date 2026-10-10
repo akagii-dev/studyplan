@@ -1,0 +1,170 @@
+/* Setup editors: exams, materials, availability, timetable and number inputs. */
+.timetable-preview {
+  margin-top: 22px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.timetable-preview .field {
+  max-width: 260px;
+}
+.number-input {
+  min-width: 0;
+}
+.number-input small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+.number-input small.error {
+  color: var(--error-ink);
+}
+.buffer-reference {
+  margin: 20px 0;
+}
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+input[type='color'] {
+  height: 38px;
+  width: 46px;
+  padding: 3px;
+}
+.swatch {
+  min-width: 32px !important;
+  width: 32px;
+  height: 32px;
+  color: white !important;
+  border: 3px solid white;
+  border-radius: 50%;
+  padding: 0;
+}
+.swatch.selected {
+  outline: 2px solid var(--accent);
+}
+.timetable {
+  display: grid;
+  grid-template-columns: 160px repeat(5, 1fr);
+  gap: 9px;
+  align-items: center;
+  text-align: center;
+  margin: 15px 0 25px;
+}
+.timetable > div:first-child {
+  font-size: 11px;
+  color: var(--muted);
+}
+.timetable-row {
+  display: contents;
+}
+.timetable-row > label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.timetable-row > label input {
+  padding: 7px 6px;
+}
+.timetable-row > button {
+  height: 45px;
+  color: var(--muted);
+  background: var(--surface);
+}
+.timetable > b {
+  font-size: 12px;
+  font-weight: 400;
+}
+.color-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.color-options i {
+  display: block;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  margin-right: 7px;
+}
+.color-options button svg {
+  margin-left: auto;
+}
+.setup-issue {
+  margin: 16px 0;
+}
+.setup-issue p {
+  margin: 7px 0;
+}
+.setup-issue small {
+  display: block;
+}
+.setup-issue button {
+  display: block;
+  margin-top: 10px;
+  font-size: 12px;
+}
+.skip-impact {
+  margin: 3px 0 0;
+}
+.skip-impact p {
+  margin-bottom: 8px;
+}
+.setup-tools {
+  margin-bottom: 24px;
+  padding: 18px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+.setup-tools > [role='region'],
+.setup-tools:has(.reset-settings[open]) .reset-settings {
+  flex-basis: 100%;
+}
+.setup-tools .reset-settings {
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 0;
+}
+.class-names {
+  padding: 18px;
+  margin: 20px 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.file-picker:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.registration-status {
+  padding: 1.2rem;
+  margin-bottom: 1.4rem;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.registration-status h3 {
+  margin-top: 0;
+}
+.registration-status p {
+  margin: 0.65rem 0 1rem;
+}
+.impact-list li + li {
+  margin-top: 0.55rem;
+}
+.replan-details > summary:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+@container (max-width: 680px) {
+  .timetable {
+    overflow-x: auto;
+  }
+}
+.parallel-materials { display: grid; gap: 8px; margin-bottom: 12px; }
+.parallel-materials ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.parallel-materials li { overflow-wrap: anywhere; }

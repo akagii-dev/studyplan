@@ -1,0 +1,97 @@
+/* Schedule views: period navigation, week view, shortfall and adjustments. */
+.calendar-export {
+  margin: 18px 0 0;
+}
+.calendar-export > .card {
+  margin-top: 14px;
+}
+.calendar-export fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.calendar-export .actions {
+  margin-bottom: 16px;
+}
+.weekday-choices {
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr);
+}
+.weekday-choices .wizard-choice {
+  padding: 15px 0;
+}
+.weekday-choices .wizard-choice > span {
+  padding-right: 0;
+}
+.weekday-choices .wizard-choice > svg {
+  display: none;
+}
+.schedule-review {
+  border-top: 1px solid var(--border);
+  padding: 18px 0;
+}
+.schedule-review p {
+  margin: 9px 0;
+}
+.schedule-review .actions {
+  margin-top: 10px;
+}
+.shortfall-summary {
+  margin: 18px 0 0;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.shortfall-summary h2 {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+.shortfall-summary ul {
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+.shortfall-summary li {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+.shortfall-summary li > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.shortfall-summary li span { overflow-wrap: anywhere; }
+.shortfall-summary li strong { white-space: nowrap; }
+.shortfall-summary li details { margin-top: 3px; }
+.shortfall-summary li p {
+  margin: 4px 0 0;
+}
+.future-page { max-width: 900px; }
+.future-heading { max-width: 900px; gap: 12px; flex-wrap: nowrap; margin-bottom: 8px; }
+.future-heading > div { min-width: 0; }
+.future-page button, .future-page summary { min-height: 44px; }
+.future-page button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.future-page summary { padding-block: 8px; cursor: pointer; }
+.future-page form { scroll-margin-block: 12px; }
+.future-page > .shortfall-summary { margin-block: 12px 16px; padding-block: 8px; border-block: 1px solid var(--warning-border); }
+.future-page .shortfall-summary h2 { font-size: 1.125rem; }
+.future-page .shortfall-summary ul { margin-block-end: 0; }
+.future-page .shortfall-summary li { padding-block: 4px; }
+.future-page .shortfall-summary li > div > span { min-width: 0; }
+.future-page .shortfall-summary li summary { width: fit-content; min-width: 44px; }
+.future-page .plan-change-history > summary { margin-block-start: 16px; }
+.remaining-adjustment { min-width: 0; }
+.remaining-adjustment form { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 8px; }
+.remaining-adjustment input[type="date"] { width: fit-content; min-height: 44px; max-width: 100%; }
+/* Period navigation shares the same controls in both schedule views. */
+.schedule-view-switch { flex-wrap: wrap; max-width: 100%; margin-inline-start: auto; }
+.schedule-view-switch button { font-size: 1rem; padding: 9px 14px; min-height: 44px; min-width: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+ .schedule-view-switch { margin-inline-start: 0; }
+}
+.outside-terms { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 4px; font-size: 12px; }
+.outside-terms legend { padding: 0; margin-bottom: 4px; color: var(--ink); font-weight: 550; }
+.outside-terms label { display: flex; gap: 8px; align-items: center; min-height: 32px; overflow-wrap: anywhere; }

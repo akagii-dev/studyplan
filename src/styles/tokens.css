@@ -1,0 +1,90 @@
+/* Color themes, light/dark and shared custom properties. */
+:root {
+  --page-fade-duration: 280ms;
+  --page-fade-easing: ease-out;
+  color-scheme: light;
+  --on-accent: #fff;
+  --on-ink: #fff;
+  --busy-bg: #e8edf4;
+  --busy-ink: #354e68;
+  --busy-muted: #435c75;
+  --busy-border: #859ab0;
+  --warning-bg: #fbf5e8;
+  --warning-ink: #694b19;
+  --warning-border: #c8ae78;
+  --error-bg: #fcf0eb;
+  --error-ink: #914534;
+  --error-border: #cc998a;
+  --ink: #1a2420;
+  --muted: #4d5a54;
+  --page: #f4f6f5;
+  --surface: #ffffff;
+  --soft: #e6f2ec;
+  --border: #d5dcd8;
+  --control-border: #77837d;
+  --accent: #216957;
+  --accent-hover: #195340;
+  --ring: #5d947f;
+  --art: #cde3d3;
+  --radius: 12px;
+  --radius-control: 8px;
+  /* System fonts only: Hiragino on iOS/macOS, Yu Gothic UI on Windows. */
+  font-family: system-ui, -apple-system, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Meiryo', sans-serif;
+  color: var(--ink);
+  background: var(--page);
+  font-synthesis: none;
+  font-size: 14px;
+  line-height: 1.7;
+}
+:root[data-theme='sky'] {
+  --ink: #18222c;
+  --muted: #4b5865;
+  --page: #f4f6f8;
+  --surface: #ffffff;
+  --soft: #e3eef8;
+  --border: #d3dbe3;
+  --control-border: #75818d;
+  --accent: #28628f;
+  --accent-hover: #204e74;
+  --ring: #609ac2;
+  --art: #cde3f5;
+}
+:root[data-theme='lime'] {
+  --ink: #222a17;
+  --muted: #50593f;
+  --page: #f5f6f2;
+  --surface: #ffffff;
+  --soft: #eaf2d6;
+  --border: #d8ddcd;
+  --control-border: #7c8470;
+  --accent: #4c711d;
+  --accent-hover: #3b5915;
+  --ring: #799d39;
+  --art: #dceda4;
+}
+:root[data-appearance='dark'] {
+  color-scheme: dark;
+  --ink: #e8eeeb;
+  --muted: #b4bfba;
+  --page: #121514;
+  --surface: #1a1e1c;
+  --soft: #233a30;
+  --border: #39423e;
+  --control-border: #7f8c86;
+  --accent: #8dd7b9;
+  --accent-hover: #ace7ce;
+  --ring: #8bbca5;
+  --art: #355547;
+  --on-accent: #12281e;
+  --on-ink: #17241e;
+  --busy-bg: #253344;
+  --busy-ink: #d5e5f6;
+  --busy-muted: #b9cce0;
+  --busy-border: #8ba6c1;
+  --warning-bg: #392f1d;
+  --warning-ink: #efcf8f;
+  --warning-border: #9e8350;
+  --error-bg: #3d2826;
+  --error-ink: #ffc0ae;
+  --error-border: #b98275;
+}

@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Calendar } from '../../src/components/Calendar';
 import { progressContractFixture, contractDay } from '../fixtures/progressContract';
 import { createCalendarFile } from '../../src/domain/icalendar';
-import '../../src/style.css';
+import '../../src/index.css';
 
 // Isolated UI harness: no application bootstrap, SQLite, or production state.
 function Fixture() {

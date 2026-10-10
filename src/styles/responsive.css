@@ -1,0 +1,16 @@
+/* Shared rules for narrow containers; kept after the screens so they still apply. */
+@container (max-width: 680px) {
+  .split,
+.tutorial {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@container (max-width: 430px) {
+  .card,
+  .metric-card {
+    padding: 14px;
+  }
+}

@@ -1,0 +1,30 @@
+/* ===== Design foundation (Digital Agency base) =====
+ * White page, sections separated by headings with a theme-color rule and hairlines,
+ * small-radius controls, clear active states. Typeface, base size and the three color
+ * themes are unchanged.
+ */
+:root { --page: var(--surface); --radius: 8px; --radius-control: 6px; }
+.topbar, .sidebar, .sidebar-toggle { background: var(--surface); }
+.sidebar { border-right: 1px solid var(--border); }
+/* Sections: a heading with a theme-color rule instead of a card. */
+.card { background: transparent; border: 0; border-top: 1px solid var(--border); border-radius: 0; padding: 28px 0 8px; }
+.card h2 { padding-bottom: 8px; border-bottom: 3px solid var(--accent); }
+.card .card { border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.card .card h2 { border-bottom: 0; padding-bottom: 0; }
+/* Controls: small radius; secondary actions outlined in the theme color. */
+button, input, select, .study-note textarea { border-radius: var(--radius-control); }
+.settings-row button:not(.primary), .settings-links button, .actions button:not(.primary) { border-color: var(--accent); color: var(--accent); }
+/* Navigation: rectangular highlight with a theme-color bar on the current page. */
+nav button { border-radius: var(--radius-control); }
+nav button.active,
+nav button.active:hover:not(:disabled) { background: var(--soft); color: var(--accent); box-shadow: inset 4px 0 var(--accent); }
+@media (max-width: 700px) {
+  .sidebar nav button.active,
+  .sidebar nav button.active:hover:not(:disabled) { background: transparent; box-shadow: inset 0 3px var(--accent); border-radius: 0; }
+}
+/* Segmented: one outlined group, the current option filled. */
+.segmented { border: 1px solid var(--accent); padding: 0; border-radius: var(--radius-control); background: var(--surface); overflow: hidden; }
+.segmented button { border-radius: 0; color: var(--accent); }
+.segmented button.active { background: var(--accent); color: var(--on-accent); box-shadow: none; }
+/* Today */
+/* Calendar: white cells; months, selection and exams told apart without filled days. */

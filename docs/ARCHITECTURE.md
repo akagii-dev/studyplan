@@ -115,6 +115,7 @@ Desktopの通常保存・復元はバックアップと同じスキーマ・参�
 | `src-tauri/src/window_state.rs`      | ネイティブのサイズ・最大化状態の監視、終了前保存、表示前の復元と作業領域への補正       |
 | `src/store.ts`                       | Tauriコマンドの呼出し境界                                                              |
 | `src/demoStore.ts`                   | 公開デモだけで使うlocalStorageのリビジョン付き保存                                     |
+| `src/index.css`, `src/styles/*.css`  | Tailwindの設定と、移行中の内容別スタイル。styles側はlegacy層で、読込順が優先順位を決めるので並べ替えない。デザイン基盤は最後 |
 
 画面は `state` と `update` を受け取る。SQLiteのリビジョンや保存キューを画面ごとに持たない。更新は直ちに画面へ反映し、保存は順序を保つ。Desktopの`store.ts`は保存済みの版を基準に、履歴は参照・他の項目は内容で比べた差分だけを`commit_state`へ送る。失敗時は以降の保存世代を無効にし、SQLiteの正本を読み直す。復旧未確認中や復元中の編集を防ぐ。これらの処理は分割前と同じ契約を保つ。
 

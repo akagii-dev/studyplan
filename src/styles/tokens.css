@@ -1,4 +1,4 @@
-/* Color themes, light/dark and shared custom properties. */
+/* Color themes, light/dark and shared custom properties (Tailwind base layer). */
 :root {
   --page-fade-duration: 280ms;
   --page-fade-easing: ease-out;
@@ -17,7 +17,8 @@
   --error-border: #cc998a;
   --ink: #1a2420;
   --muted: #4d5a54;
-  --page: #f4f6f5;
+  /* White page (Digital Agency base); the sky/lime themes and dark keep their own page color. */
+  --page: var(--surface);
   --surface: #ffffff;
   --soft: #e6f2ec;
   --border: #d5dcd8;
@@ -26,8 +27,8 @@
   --accent-hover: #195340;
   --ring: #5d947f;
   --art: #cde3d3;
-  --radius: 12px;
-  --radius-control: 8px;
+  --radius: 8px;
+  --radius-control: 6px;
   /* System fonts only: Hiragino on iOS/macOS, Yu Gothic UI on Windows. */
   font-family: system-ui, -apple-system, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Meiryo', sans-serif;
   color: var(--ink);
@@ -87,9 +88,6 @@
   --error-bg: #3d2826;
   --error-ink: #ffc0ae;
   --error-border: #b98275;
-}
-:root[data-theme='lime'] button.primary:hover:not(:disabled) {
-  background: #a7ce3b;
 }
 :root[data-theme='sky'][data-appearance='dark'] {
   --ink: #e6edf5;

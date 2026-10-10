@@ -1,17 +1,9 @@
-/* Page elements and shared building blocks (cards, rows, hints, tables, details). */
+/* Element defaults (Tailwind base layer). Shared parts are in components.css; screens use utilities. */
 * {
   box-sizing: border-box;
 }
 body {
   margin: 0;
-}
-:root button:disabled,
-:root[data-theme] button:disabled {
-  cursor: not-allowed;
-  background: var(--page);
-  color: var(--muted);
-  border-color: var(--border);
-  opacity: 1;
 }
 h1,
 h2,
@@ -47,83 +39,6 @@ strong,
 b {
   font-weight: 700;
 }
-.eyebrow {
-  font-family: inherit;
-  font-size: 9px;
-  letter-spacing: 1.7px;
-  color: var(--muted);
-  font-weight: 650;
-  margin-bottom: 8px;
-}
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 24px;
-  margin-bottom: 24px;
-  min-width: 0;
-}
-.card.compact {
-  padding: 20px;
-  margin-bottom: 16px;
-}
-.row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-}
-.row h2,
-.row h3 {
-  margin-bottom: 0;
-}
-.row p {
-  margin: 0;
-}
-.note {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 15px;
-  background: var(--soft);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--muted);
-  font-size: 12px;
-  margin: 20px 0 0;
-}
-.note:has(p),
-.note:has(.actions) {
-  display: block;
-}
-.two {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-.choices button.selected:not(.swatch),
-.selected:not(.swatch) {
-  background: var(--soft) !important;
-  border-color: var(--accent) !important;
-  color: var(--ink) !important;
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
-.actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-top: 16px;
-}
-.actions span {
-  font-size: 12px;
-}
-.hint {
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: 12px;
-  margin-bottom: 14px;
-}
 details {
   margin-top: 18px;
 }
@@ -152,18 +67,6 @@ td {
   padding: 14px 10px;
   border-bottom: 1px solid var(--border);
 }
-td .actions {
-  margin-top: 0;
-}
-.error {
-  color: var(--error-ink);
-  background: var(--error-bg);
-  border: 1px solid var(--error-border);
-  border-radius: 7px;
-  padding: 12px;
-  font-size: 12px;
-  white-space: pre-line;
-}
 progress {
   width: 100%;
   height: 6px;
@@ -173,26 +76,83 @@ progress {
   background: var(--soft);
   margin: 12px 0 7px;
 }
-@media (max-width: 900px) {
-    
-  .card {
-    padding: 22px;
-  }
+button,
+input,
+select {
+  font: inherit;
 }
-.card,
-.two > *,
-.row > * {
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
+  min-height: 40px;
+  padding: 8px 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  transition:
+    background 0.12s,
+    border 0.12s;
+}
+input,
+select {
+  width: 100%;
+  min-width: 0;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
+  min-height: 44px;
+  padding: 10px 12px;
+}
+input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+input[type='number'] {
+  font-variant-numeric: tabular-nums;
+}
+td input {
+  max-width: 120px;
+}
+input,
+select,
+textarea {
+  max-width: 100%;
   min-width: 0;
 }
-.row {
-  flex-wrap: wrap;
+progress::-webkit-progress-bar {
+  background: var(--soft);
+  border-radius: 6px;
 }
-.card table {
-  display: block;
-  overflow-x: auto;
-  max-width: 100%;
+progress::-webkit-progress-value {
+  background: var(--accent);
+  border-radius: 6px;
 }
-.card h2,
-.card h3 {
-  overflow-wrap: anywhere;
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+input[type='color'] {
+  height: 38px;
+  width: 46px;
+  padding: 3px;
+}
+h1 {
+  font-size: 28px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  margin-bottom: 8px;
+  font-weight: 700;
 }

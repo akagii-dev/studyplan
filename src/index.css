@@ -1,14 +1,11 @@
-/* Tailwind utilities override the legacy styles in src/styles while screens move over one by one.
- * Their order keeps the original cascade; the design foundation stays last.
- * Preflight is not loaded until the legacy styles are gone. */
-@layer theme, legacy, utilities;
+/* Tailwind only: color tokens and element defaults in the base layer, shared parts in the
+ * components layer, and everything else as utilities in the markup. Preflight is not loaded;
+ * base.css sets the element defaults instead. */
+@layer theme, base, components, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
-@import './styles/tokens.css' layer(legacy);
-@import './styles/base.css' layer(legacy);
-@import './styles/controls.css' layer(legacy);
-@import './styles/shell.css' layer(legacy);
-@import './styles/responsive.css' layer(legacy);
-@import './styles/foundation.css' layer(legacy);
+@import './styles/tokens.css' layer(base);
+@import './styles/base.css' layer(base);
+@import './styles/components.css' layer(components);
 @import 'tailwindcss/utilities.css' layer(utilities) source(none);
 /* Only the app's own components: test and document strings must not create utilities. */
 @source './';

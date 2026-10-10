@@ -862,6 +862,7 @@ test('今日の完了行・追加入力を追加・訂正・取消で維持す�
   for (const appearance of ['light', 'dark']) {
     await page.evaluate(mode => document.documentElement.dataset.appearance = mode, appearance);
     await page.clock.runFor(250);
+    await page.evaluate(() => document.getAnimations().forEach(animation => { if (animation instanceof CSSTransition) animation.finish(); }));
     await page.screenshot({ path: info.outputPath('today-recording-' + appearance + '.png'), fullPage: true, animations: 'disabled' });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
@@ -1029,6 +1030,8 @@ test('ターム・メモは日付跨ぎ・再読込で保持し、保存失敗�
     await page.evaluate(mode => document.documentElement.dataset.appearance = mode, appearance);
     await page.clock.runFor(350);
     await memo.fill('画面確認用のメモ');
+    // Check the settled colors, not a frame of the button color transition.
+    await page.evaluate(() => document.getAnimations().forEach(animation => { if (animation instanceof CSSTransition) animation.finish(); }));
     expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await page.screenshot({ path: info.outputPath('study-note-' + appearance + '.png'), fullPage: true, animations: 'disabled' });

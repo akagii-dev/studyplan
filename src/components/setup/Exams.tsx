@@ -4,7 +4,7 @@ import { examColors } from '../../domain/appearance';
 import { Exam, addDays, today, uid } from '../../domain/model';
 import { validateSettings } from '../../domain/planning';
 import { Empty, Field, Props, useDraft } from '../common';
-import { choices } from '../ui';
+import { badge, choices, iconButton } from '../ui';
 const colors = examColors.map((color) => color.value);
 export function Exams({
   state,
@@ -133,9 +133,9 @@ export function Exams({
         </section>
       )}
       <section>
-        <div className="row addition-actions">
+        <div className="row mb-[1.25rem] flex-wrap">
           <h3>
-            登録した試験 <span className="badge">{state.settings.exams.length}</span>
+            登録した試験 <span className={badge}>{state.settings.exams.length}</span>
           </h3>
           <button className="primary" onClick={onAdd}>
             <Plus size={17} />
@@ -155,14 +155,14 @@ export function Exams({
             <div className="card compact" key={e.id} style={{ borderLeft: `4px solid ${e.color}` }}>
               <div className="row">
                 <h3>{e.name}</h3>
-                <button className="icon" aria-label={`${e.name}を編集`} onClick={() => set(e)}>
+                <button className={iconButton} aria-label={`${e.name}を編集`} onClick={() => set(e)}>
                   <Pencil size={16} />
                 </button>
               </div>
               <p>
                 {e.start} → {e.target}
               </p>
-              <div className="tags">
+              <div className="flex gap-[9px] [&>span]:rounded-[4px] [&>span]:bg-soft [&>span]:px-[7px] [&>span]:py-[3px] [&>span]:text-[10px] [&>span]:text-muted">
                 <span>優先度：{['', '低い', 'ふつう', '高い'][e.priority]}</span>
                 <span>復習 {e.reviewDays}日</span>
               </div>

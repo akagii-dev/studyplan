@@ -5,7 +5,7 @@ export function Buffer({ state, update }: Props) {
   const s = state.settings;
   const [other, setOther] = useState(![0.1, 0.2, 0.3].includes(s.buffer));
   return (
-    <section className="card narrow">
+    <section className="card max-w-[780px]">
       <div className="eyebrow">STEP 05 · ROOM TO BREATHE</div>
       <h2>どのくらい余裕を残しますか？</h2>
       <p>

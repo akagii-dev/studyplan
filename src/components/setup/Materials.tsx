@@ -7,6 +7,7 @@ import { MAX_MINUTES_PER_UNIT } from '../../domain/materialConstraints';
 import { inTerms, materialTermGroups } from '../../domain/terms';
 import { AnimatedProgress } from '../AnimatedProgress';
 import { Empty, Field, Props, useDraft } from '../common';
+import { badge, iconButton } from '../ui';
 export function Materials({ state, update, onAdd }: Props & { onAdd: () => void }) {
   const blank: Material = {
     id: '',
@@ -124,7 +125,7 @@ export function Materials({ state, update, onAdd }: Props & { onAdd: () => void 
             />
           </Field>
           {form.rounds.map((r, i) => (
-            <div className="round-form" key={i}>
+            <div className="grid grid-cols-[45px_1fr_1fr] gap-3 border-t border-t-line pt-4 [align-items:start] [&>b]:pt-[29px] [&>b]:text-[11px]" key={i}>
               <b>{i + 1}周目</b>
               <Field
                 draftKey={`completed-${form.id}-${i}`}
@@ -181,9 +182,9 @@ export function Materials({ state, update, onAdd }: Props & { onAdd: () => void 
         </section>
       )}
       <section>
-        <div className="row addition-actions">
+        <div className="row mb-[1.25rem] flex-wrap">
           <h3>
-            教材と進捗 <span className="badge">{state.settings.materials.length}</span>
+            教材と進捗 <span className={badge}>{state.settings.materials.length}</span>
           </h3>
           <button className="primary" onClick={onAdd}>
             <Plus size={17} />
@@ -208,7 +209,7 @@ export function Materials({ state, update, onAdd }: Props & { onAdd: () => void 
                   <span className="eyebrow">
                     {state.settings.exams.find((e) => e.id === m.examId)?.name}
                   </span>
-                  <button className="icon" aria-label={`${m.name}を編集`} onClick={() => set(m)}>
+                  <button className={iconButton} aria-label={`${m.name}を編集`} onClick={() => set(m)}>
                     <Pencil size={16} />
                   </button>
                 </div>

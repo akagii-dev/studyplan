@@ -32,6 +32,7 @@ import { nonComparisonSessions } from '../domain/planDisplay';
 import { usePlanningClock } from '../hooks/usePlanningClock';
 import { elapsedRemainingTargets, remainingAdjustmentSourceDate, pastRemainingWork } from '../domain/remainingAllocation';
 import { reproposeRemainingAdjustment } from '../domain/planning';
+import { check } from './ui';
 export function Replan({ state, update, onCalendar, onFuture }: Props & { onCalendar: () => void; onFuture: () => void }) {
   const currentTime = usePlanningClock();
   const [ack, setAck] = useState(false);
@@ -669,7 +670,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                       <li key={x}>{x}</li>
                     ))}
                   </ul>
-                  <label className="check">
+                  <label className={check}>
                     <input
                       type="checkbox"
                       checked={ack}

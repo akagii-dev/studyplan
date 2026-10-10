@@ -10,6 +10,7 @@ import {
 } from '../domain/setupIssues';
 import { Props } from './common';
 import { StudyCoverageGap } from '../domain/studyCoverage';
+import { badge } from './ui';
 
 export function StudyCoverageNotice({
   settings,
@@ -121,7 +122,7 @@ export function ScheduleReview({ state, update }: Props) {
           <div className="schedule-review border-t border-t-line px-0 py-[18px] [&_.actions]:mt-2.5 [&_p]:mx-0 [&_p]:my-[9px]" key={kind}>
             <div className="row">
               <b>{scheduleInfo[kind].label}</b>
-              <span className="badge">
+              <span className={badge}>
                 {status === 'none'
                   ? '予定なし'
                   : status === 'registered'

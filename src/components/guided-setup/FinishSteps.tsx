@@ -152,7 +152,7 @@ export function FinishSteps(ctx: StepContext): QuestionView | undefined {
           />
           <button
             data-submit
-            className="primary wide"
+            className="primary w-full"
             onClick={onGenerate}
             disabled={setupIssues(state.settings).some((i) => i.severity === 'error')}
           >

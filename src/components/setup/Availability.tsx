@@ -8,7 +8,7 @@ import { Empty, Field, Props, useDraft, weekdays } from '../common';
 import { ScheduleReview } from '../SetupImpact';
 import { TimetablePreview } from '../TimetablePreview';
 import { ClassCancellations } from './ClassCancellations';
-import { choices } from '../ui';
+import { badge, choices, deleteConfirm, split } from '../ui';
 
 function DeleteAction({ label, onDelete }: { label: string; onDelete: () => Promise<void> }) {
   const [confirming, setConfirming] = useState(false);
@@ -19,7 +19,7 @@ function DeleteAction({ label, onDelete }: { label: string; onDelete: () => Prom
       </button>
     );
   return (
-    <div className="delete-confirm" role="group" aria-label={`${label}の削除確認`}>
+    <div className={deleteConfirm} role="group" aria-label={`${label}の削除確認`}>
       <span>{label}を削除しますか？</span>
       <button className="text-danger" onClick={() => void onDelete().catch(() => {})}>削除する</button>
       <button onClick={() => setConfirming(false)}>やめる</button>
@@ -108,7 +108,7 @@ export function Availability({ state, update, focusTarget }: Props & { focusTarg
   };
   return (
     <>
-      <div className="split">
+      <div className={split}>
         <section className="card">
           <div className="eyebrow">STEP 02 · AVAILABILITY</div>
           <h2>いつ、勉強できそうですか？</h2>
@@ -227,7 +227,7 @@ export function Availability({ state, update, focusTarget }: Props & { focusTarg
               <div className="card compact" key={w.id}>
                 <div className="row">
                   <b>{w.name}</b>
-                  <span className="badge">{w.kind === 'study' ? '学習可' : '予定'}</span>
+                  <span className={badge}>{w.kind === 'study' ? '学習可' : '予定'}</span>
                 </div>
                 <p>
                   {w.weekdays.map((d) => weekdays[d]).join('・')}　{clock(w.start)}–{clock(w.end)}

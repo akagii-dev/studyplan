@@ -25,3 +25,19 @@ export const questionCard =
 /** Back and next buttons under a question; the back button is a quiet text button. */
 export const questionFooter =
   'question-footer mt-auto flex justify-between border-t border-t-line pt-[22px] [&>button:first-child]:pl-0 [&>button:first-child:enabled]:border-transparent [&>button:first-child:enabled]:bg-transparent [&>button:first-child:enabled]:text-muted';
+
+/** Two columns, the second narrower; one column in a narrow container. */
+export const split =
+  'split grid grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] gap-[26px] [align-items:start] max-[1150px]:gap-[18px] @max-[680px]:grid-cols-[minmax(0,1fr)]';
+
+/** A small count or kind label. */
+export const badge = 'badge rounded-[4px] bg-soft px-[7px] py-[3px] text-[10px] text-muted';
+
+/** A checkbox with its label on one line. */
+export const check = 'check flex items-center gap-2.5 text-[12px]';
+
+/** Inline confirmation before deleting: question and buttons. */
+export const deleteConfirm = 'flex flex-wrap items-center gap-1.5 [&_span]:text-[12px]';
+
+/** A borderless icon-only edit button that still shows the hover state. */
+export const iconButton = 'p-1.5 enabled:border-transparent enabled:bg-transparent hover:enabled:border-accent hover:enabled:bg-soft';

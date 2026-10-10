@@ -5,7 +5,7 @@ export function Focus({ state, update }: Props) {
   const patch = (key: string, value: number) =>
     void update((x) => ({ ...x, settings: { ...x.settings, [key]: value }, proposal: null }));
   return (
-    <section className="card narrow">
+    <section className="card max-w-[780px]">
       <div className="eyebrow">STEP 03 · YOUR PACE</div>
       <h2>最長でどのくらい続けて勉強できますか？</h2>
       <Field label="連続で勉強できる最長時間（分）">

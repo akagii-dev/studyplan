@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { ClassCancellation, today, uid } from '../../domain/model';
 import { classCancellationErrors, classCancellationLabel, classLabel } from '../../domain/classCancellations';
 import { Field, Props, useDraft } from '../common';
+import { check, deleteConfirm } from '../ui';
 
 interface CancellationDraft {
   id: string;
@@ -94,12 +95,12 @@ export function ClassCancellations({ state, update }: Props) {
     {form.scope === 'selected' && <fieldset disabled={saving}>
       <legend>対象の授業コマ</legend>
       {!classes.length && <p>授業が登録されていません。</p>}
-      {classes.map((item) => <label className="check" key={item.id}>
+      {classes.map((item) => <label className={check} key={item.id}>
         <input type="checkbox" checked={form.classIds.includes(item.id)} onChange={(e) => setForm({
           ...form, classIds: e.target.checked ? [...form.classIds, item.id] : form.classIds.filter((id) => id !== item.id),
         })} />{classLabel(item)}
       </label>)}
-      {form.classIds.filter((id) => !classes.some((item) => item.id === id)).map((id) => <label className="check" key={id}>
+      {form.classIds.filter((id) => !classes.some((item) => item.id === id)).map((id) => <label className={check} key={id}>
         <input type="checkbox" checked onChange={() => setForm({ ...form, classIds: form.classIds.filter((old) => old !== id) })} />削除済みの授業
       </label>)}
     </fieldset>}
@@ -115,7 +116,7 @@ export function ClassCancellations({ state, update }: Props) {
           setForm({ ...item, range: item.from !== item.to, scope: item.classIds === undefined ? 'all' : 'selected', classIds: item.classIds ?? [] });
           setError('');
         }}>編集</button>
-        {removing === item.id ? <div className="delete-confirm" role="group" aria-label={`${item.from}の休講取消確認`}>
+        {removing === item.id ? <div className={deleteConfirm} role="group" aria-label={`${item.from}の休講取消確認`}>
           <span>この休講を取り消して、授業を戻しますか？</span>
           <button disabled={saving} onClick={() => void remove(item.id)}>休講を取り消す</button>
           <button disabled={saving} onClick={() => setRemoving(null)}>やめる</button>

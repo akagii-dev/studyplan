@@ -15,6 +15,7 @@ import { StudyRecordForm, type StudyRecordFields } from './StudyRecordForm';
 import { useRecordInput, useStudyRecord } from '../hooks/useStudyRecord';
 import { usePlanningClock } from '../hooks/usePlanningClock';
 import { Empty, Props } from './common';
+import { split } from './ui';
 export function Progress({ state, update, onHistory, onReplan }: Props & { onHistory?: () => void; onReplan?: () => void }) {
   const { date: reference } = usePlanningClock();
   const initial = { date: reference, materialId: state.settings.materials[0]?.id ?? '', round: 0, choice: '', custom: '' };
@@ -54,7 +55,7 @@ export function Progress({ state, update, onHistory, onReplan }: Props & { onHis
       setError(failure instanceof Error ? failure.message : String(failure));
     }
   }
-  return <div className="split"><section className="card">
+  return <div className={split}><section className="card">
     <div className="eyebrow">DAILY CHECK-IN</div>
     <h2>進捗の記録</h2>
     <StudyRecordForm state={state} value={value} onChange={change} onSubmit={() => void save()} reference={reference} busy={busy} error={error} />

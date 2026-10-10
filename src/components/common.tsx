@@ -50,7 +50,7 @@ export function Field({
   );
 }
 export function Empty({ children }: { children: ReactNode }) {
-  return <div className="empty">{children}</div>;
+  return <div className="rounded-[10px] border border-dashed border-line bg-surface px-[22px] py-10 text-center text-muted [.card_&]:my-5 [&_h3]:mx-0 [&_h3]:mt-3.5 [&_h3]:mb-1 [&_h3]:text-muted [&_h3+p]:mt-0 [&_p]:mx-0 [&_p]:mt-3 [&_p]:mb-0 [&_p]:text-[12px] [&_p]:text-muted [&_svg]:text-muted">{children}</div>;
 }
 export function duration(n: number) {
   return n >= 60

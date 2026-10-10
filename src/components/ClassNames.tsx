@@ -5,7 +5,7 @@ export function ClassNames({ state, update, from, to }: Props & { from?: string;
   const classes = sortedClasses(state.settings.windows, from, to);
   if (!classes.length) return null;
   return (
-    <div className="class-names">
+    <div className="class-names mx-0 my-5 rounded-[12px] border border-line bg-surface p-[18px]">
       <h3>授業名を付けますか？（任意）</h3>
       {classes.map((w) => (
         <Field

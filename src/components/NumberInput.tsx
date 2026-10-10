@@ -144,7 +144,7 @@ export function NumberInput({
     };
   });
   return (
-    <div className="number-input">
+    <div className="min-w-0 [&_input[aria-invalid='true']]:border-error-line [&_small]:mt-1 [&_small]:block [&_small]:text-muted [&_small.error]:text-error">
       <input
         {...props}
         type="text"

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Field, Props } from '../common';
+import { choicesLarge } from '../ui';
 export function Buffer({ state, update }: Props) {
   const s = state.settings;
   const [other, setOther] = useState(![0.1, 0.2, 0.3].includes(s.buffer));
@@ -10,7 +11,7 @@ export function Buffer({ state, update }: Props) {
       <p>
         週全体（月〜日）の学習可能時間から、計画に割り当てずに残す割合です。曜日ごとの余裕時間は予約しません。
       </p>
-      <div className="choices large">
+      <div className={choicesLarge}>
         {[0.1, 0.2, 0.3].map((b) => (
           <button
             key={b}

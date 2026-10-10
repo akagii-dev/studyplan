@@ -413,7 +413,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
       )}
       {!p || !plan ? (
         result ? (
-          <section className="card registration-status" role="status">
+          <section className="card mb-[1.4rem] [&_h3]:mt-0 [&_p]:mx-0 [&_p]:mt-[0.65rem] [&_p]:mb-[1rem]" role="status">
             <CheckCircle2 size={24} />
             <h2 ref={resultHeading} tabIndex={-1}>
               {result}
@@ -508,7 +508,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
               <h3 id="plan-impact-heading">計画への主な影響</h3>
               <p className="hint">現在の承認済み計画 → 新しい候補計画</p>
               {impacts.length ? (
-                <ul className="impact-list">
+                <ul className="impact-list [&_li+li]:mt-[0.55rem]">
                   {impacts.map((impact) => (
                     <li key={impact.materialId}>
                       <b>{materialLabel(impact.materialId)}</b>

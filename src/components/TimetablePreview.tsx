@@ -28,7 +28,7 @@ export function TimetablePreview({
   const busy = unavailableEvents(settings, validDate);
   const available = freeIntervalsForDate(settings, validDate);
   return (
-    <section className="timetable-preview" aria-label="授業を除いた学習枠の確認">
+    <section className="mt-[22px] rounded-[12px] border border-line bg-surface p-[18px] [&_.field]:max-w-[260px]" aria-label="授業を除いた学習枠の確認">
       <h3>選択したコマは「授業・学習不可」です</h3>
       <p>授業前後の移動・準備：各 {settings.classTransition ?? 0}分です。</p>
       <Field label="学習枠を確認する日">

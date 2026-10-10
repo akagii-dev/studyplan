@@ -1,7 +1,6 @@
 /* Shared rules for narrow containers; kept after the screens so they still apply. */
 @container (max-width: 680px) {
-  .split,
-.tutorial {
+  .split {
     grid-template-columns: minmax(0, 1fr);
   }
   .two {

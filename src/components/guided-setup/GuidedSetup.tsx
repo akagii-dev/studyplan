@@ -19,6 +19,7 @@ import {
   saveAnswer,
 } from './transitions';
 import { StepContext } from './types';
+import { questionCard, questionFooter, wizardOptions } from '../ui';
 export function GuidedSetup({
   state,
   update,
@@ -102,7 +103,7 @@ export function GuidedSetup({
   const choice = (label: string, selected: boolean, action: () => void) => (
     <button
       key={label}
-      className={`wizard-choice ${selected ? 'selected' : ''}`}
+      className={`wizard-choice relative min-h-[47px] [&>span]:pr-5 [&>svg]:absolute [&>svg]:right-3.5 ${selected ? 'selected' : ''}`}
       aria-pressed={selected}
       onClick={action}
     >
@@ -160,9 +161,9 @@ export function GuidedSetup({
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
   return (
-    <div className="guided-setup">
+    <div className="guided-setup mx-auto my-0 max-w-[790px] [&_.choices.large]:grid [&_.choices.large]:grid-cols-[repeat(4,1fr)] max-[1000px]:[&_.choices.large]:grid-cols-[repeat(2,1fr)] [&_.choices.large_button]:min-w-0 [&_.choices.large_button]:px-2.5 [&_.choices.large_button]:py-[15px] [&_.choices.large_button]:text-[15px] [&_.choices.large_.wizard-choice>span]:p-0 [&_.choices.large_.wizard-choice>svg]:hidden">
       {!mode && (
-        <section className="card setup-tools">
+        <section className="card mb-6 flex flex-wrap items-center gap-4 [&>[role='region']]:basis-full">
           <button onClick={() => setEditing(!editing)}>
             {editing ? '項目選択を閉じる' : '設定項目を選んで修正する'}
           </button>
@@ -170,7 +171,7 @@ export function GuidedSetup({
             <div aria-label="初期設定の項目選択" role="region">
               <h3>どの設定を修正しますか？</h3>
               <p>選んだ項目だけ修正します。計画への反映は再計画の承認後です。</p>
-              <div className="wizard-options">
+              <div className={wizardOptions}>
                 {state.settings.exams.map((e) => (
                   <button
                     key={e.id}
@@ -332,16 +333,16 @@ export function GuidedSetup({
         </section>
       )}
       {!mode && !w.editScope && (
-        <div className="guided-phases">
+        <div className="mx-0 mt-2 mb-7 flex items-center justify-between gap-2.5 max-[1000px]:gap-1.5">
           {['試験・目標', '勉強できる時間', '連続時間と休憩', '教材', '余裕率'].map((name, i) => (
-            <span key={name} className={i === phase ? 'active' : i < phase ? 'complete' : ''}>
-              <i>{i < phase ? <Check size={12} /> : i + 1}</i>
+            <span key={name} className={`flex items-center gap-[7px] text-[11px] max-[1000px]:text-[9px] ${i === phase ? 'active font-[650] text-ink' : i < phase ? 'complete text-muted' : 'text-muted'}`}>
+              <i className={`grid size-6 place-items-center rounded-[50%] text-[10px] not-italic max-[1000px]:size-5 ${i === phase ? 'bg-ink text-[var(--on-ink)]' : i < phase ? 'bg-soft text-ink' : 'bg-soft'}`}>{i < phase ? <Check size={12} /> : i + 1}</i>
               {name}
             </span>
           ))}
         </div>
       )}
-      <section className="card question-card" aria-label={mode ? '追加の質問' : undefined}>
+      <section className={`card ${questionCard}`} aria-label={mode ? '追加の質問' : undefined}>
         <div className="eyebrow">
           {mode
             ? w.step === 'addition.saved'
@@ -358,14 +359,14 @@ export function GuidedSetup({
             適用期間：{w.classFrom}〜{w.classTo}
           </p>
         )}
-        <div className="question-answer">{content}</div>
+        <div className="question-answer mx-0 mt-[30px] mb-[25px] flex-1 [&>.choices]:mb-5 [:where(&)_.field]:mb-[7px] [:where(&)_input]:px-[15px] [:where(&)_input]:py-[13px] [:where(&)_input]:text-[16px] [:where(&)_select]:px-[15px] [:where(&)_select]:py-[13px] [:where(&)_select]:text-[16px]">{content}</div>
         {error && (
           <p role="alert" className="error">
             {error}
           </p>
         )}
         {w.step !== 'addition.saved' && w.step !== 'edit.saved' && (
-          <div className="question-footer">
+          <div className={questionFooter}>
             <button disabled={!w.trail.length} onClick={back}>
               <ArrowLeft size={16} />
               前の質問
@@ -379,7 +380,7 @@ export function GuidedSetup({
           </div>
         )}
       </section>
-      <div className="guided-save">
+      <div className="flex items-center justify-center gap-[7px] text-[11px] text-muted">
         <Check size={14} />
         {mode && w.step !== 'addition.saved'
           ? '入力途中は自動保存されます。登録は最後の確認で行います。'

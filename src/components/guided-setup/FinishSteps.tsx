@@ -8,6 +8,7 @@ import { RegistrationStatus } from '../RegistrationStatus';
 import { SetupImpact } from '../SetupImpact';
 import { newWindow } from './model';
 import { QuestionView, StepContext } from './types';
+import { answerSummary, choicesLarge } from '../ui';
 
 export function FinishSteps(ctx: StepContext): QuestionView | undefined {
   const {
@@ -38,7 +39,7 @@ export function FinishSteps(ctx: StepContext): QuestionView | undefined {
             別の項目を修正する
           </button>
           {state.plan && w.editScope !== 'outside' && (
-            <div className="registration-status">
+            <div className="rounded-[16px] border border-line bg-surface p-[1.2rem] mb-[1.4rem] [&_h3]:mt-0 [&_p]:mx-0 [&_p]:mt-[0.65rem] [&_p]:mb-[1rem]">
               <h3>計画に未反映</h3>
               <p>確定した変更は保存済みです。計画の更新は案を確認した後に行います。</p>
             </div>
@@ -80,7 +81,7 @@ export function FinishSteps(ctx: StepContext): QuestionView | undefined {
       content = (
         <>
           <p>週全体（月〜日）の割当上限に適用します。日ごとの余裕時間は予約しません。</p>
-          <div className="choices large">
+          <div className={choicesLarge}>
             {[0.1, 0.2, 0.3].map((b) =>
               choice(
                 `${b * 100}%${b === 0.2 ? '（初期値）' : ''}`,
@@ -113,7 +114,7 @@ export function FinishSteps(ctx: StepContext): QuestionView | undefined {
       title = '設定の確認';
       content = (
         <>
-          <div className="answer-summary">
+          <div className={answerSummary}>
             <p>
               試験 <b>{state.settings.exams.length}件</b> · 教材{' '}
               <b>{state.settings.materials.length}件</b>

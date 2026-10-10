@@ -139,7 +139,7 @@ export function PlanInsights({
             </p>
           )}
           {preview && (
-            <div className="buffer-reference">
+            <div className="mx-0 my-5">
               <h3>バッファーなし（余裕率0%）なら、いつ終わる？</h3>
               <p>余裕率だけを0%にした参考日です。現在の計画は変わりません。</p>
               <table>

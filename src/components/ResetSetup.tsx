@@ -24,7 +24,7 @@ export function ResetSetup({ state, update }: Props) {
     }
   };
   return (
-    <details className="reset-settings">
+    <details className="m-0 ml-auto p-0 [border:0] open:basis-full">
       <summary>初期設定を初期化する</summary>
       <p>やり直す範囲を選んでください。確認するまでは変更されません。</p>
       <div className="actions">

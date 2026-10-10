@@ -3,6 +3,7 @@ import { clock, defaultMeals, mealKeys, mealNames, minutes } from '../domain/mod
 import { Field, Props } from './common';
 import { NumericDraftProvider } from './NumberInput';
 import { commuteScheduleErrors } from '../domain/commute';
+import { choices, questionCard, questionFooter } from './ui';
 
 /** Small, persisted questions shared by onboarding and the schedule editor. */
 export function MealSetup({ state, update, onDone }: Props & { onDone: () => void }) {
@@ -53,7 +54,7 @@ export function MealSetup({ state, update, onDone }: Props & { onDone: () => voi
   };
   return (
     <NumericDraftProvider state={state} update={update} scope={`meals/${index}`}>
-      <section className="question-card meal-questions" aria-label="食事時間の質問">
+      <section className={`${questionCard} px-0 py-4 @max-[680px]:p-[22px]`} aria-label="食事時間の質問">
         <small>食事の質問 {index + 1} / 6 · 毎日に適用</small>
         <h2>
           {mealNames[key]}は{durationStep ? '何分確保しますか？' : '何時からですか？'}
@@ -61,7 +62,7 @@ export function MealSetup({ state, update, onDone }: Props & { onDone: () => voi
         <p>{durationStep ? '30〜60分で指定してください。' : 'この時間は学習枠から除きます。'}</p>
         {durationStep ? (
           <>
-            <div className="choices">
+            <div className={choices}>
               {[30, 45, 60].map((n) => (
                 <button
                   key={n}
@@ -104,7 +105,7 @@ export function MealSetup({ state, update, onDone }: Props & { onDone: () => voi
             {error}
           </p>
         )}
-        <div className="question-footer">
+        <div className={questionFooter}>
           <button
             disabled={!index}
             onClick={() =>

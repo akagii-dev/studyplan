@@ -47,7 +47,7 @@ export function StudyCoverageNotice({
 
 export function SkipImpact({ kind }: { kind: ScheduleKind }) {
   return (
-    <Warning id={`skip-${kind}`} title="あとで設定する場合の影響" className="skip-impact">
+    <Warning id={`skip-${kind}`} title="あとで設定する場合の影響" className="skip-impact [&_p]:mb-2">
       <h3>「あとで設定する」を選ぶと</h3>
       <p>{scheduleInfo[kind].impact}</p>
       <small>
@@ -94,7 +94,7 @@ export function SetupImpact({
             </>
           );
           return i.severity === 'error' ? (
-            <div className="error setup-issue" role="alert" key={i.id}>
+            <div className="error mx-0 my-4 [&_button]:mt-2.5 [&_button]:block [&_button]:text-[12px] [&_p]:mx-0 [&_p]:my-[7px] [&_small]:block" role="alert" key={i.id}>
               <b>{i.title}</b>
               {content}
             </div>
@@ -118,7 +118,7 @@ export function ScheduleReview({ state, update }: Props) {
         const status = scheduleStatus(state.settings, kind);
         const count = scheduleCount(state.settings, kind);
         return (
-          <div className="schedule-review" key={kind}>
+          <div className="schedule-review border-t border-t-line px-0 py-[18px] [&_.actions]:mt-2.5 [&_p]:mx-0 [&_p]:my-[9px]" key={kind}>
             <div className="row">
               <b>{scheduleInfo[kind].label}</b>
               <span className="badge">

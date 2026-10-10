@@ -29,6 +29,7 @@ import { TimetablePreview } from './TimetablePreview';
 import { sessionPolicy } from '../domain/sessionPolicy';
 import { StudyCoverageNotice } from './SetupImpact';
 import { beginStudyCoverageRepair, beginStudyGoalReview } from '../domain/repairPlan';
+import { choices, questionCard, questionFooter, wizardOptions } from './ui';
 
 const topics: [RevisionTopic, string][] = [
   ['exam', '試験・目標日'],
@@ -429,7 +430,7 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
       update={update}
       scope={`revision/${d.id}/${d.topic}/${d.itemId}/${d.index}`}
     >
-      <section className="card question-card revision-wizard" aria-label="対話式の再計画">
+      <section className={`card ${questionCard} [&_.wizard-options]:mx-0 [&_.wizard-options]:mt-4 [&_.wizard-options]:mb-6 [&_.wizard-options_button]:flex-col [&_.wizard-options_button]:items-start [&_.wizard-options_button]:text-left [&_li]:mx-0 [&_li]:my-2.5`} aria-label="対話式の再計画">
         <div className="eyebrow">今の設定を引き継いで、必要なところだけ</div>
         <p>変更は、最後に承認すると反映されます。</p>
         {stale && (
@@ -445,7 +446,7 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
         {d.stage === 'choose' && (
           <>
             <h2>どこを見直しますか？</h2>
-            <div className="wizard-options">
+            <div className={wizardOptions}>
               {topics.map(([topic, label]) => (
                 <button
                   key={topic}
@@ -470,7 +471,7 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
         {d.stage === 'item' && (
           <>
             <h2>どの{topics.find(([t]) => t === d.topic)?.[1]}を見直しますか？</h2>
-            <div className="wizard-options">
+            <div className={wizardOptions}>
               {itemList.map((x) => (
                 <button
                   key={x.id}
@@ -527,7 +528,7 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
               {item?.name ?? '全試験で共通の設定'} · {d.index + 1} / {questions.length}
             </small>
             {q.type === 'weekdays' ? (
-              <div className="choices">
+              <div className={choices}>
                 {weekdays.map((name, day) => {
                   const selected = d.settings.windows
                     .find((w) => w.id === d.itemId)!
@@ -587,7 +588,7 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
             {d.topic === 'material' && d.index === 2 && (
               <p className="hint">完了数・記録・開始済み予定・固定予定のある周回は残します。</p>
             )}
-            <div className="question-footer">
+            <div className={questionFooter}>
               <button onClick={() => patch(d.index ? { index: d.index - 1 } : { stage: 'choose' })}>
                 前の質問
               </button>
@@ -598,7 +599,7 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
           </>
         )}
         {d.stage === 'question' && ['study', 'class', 'busy', 'exception'].includes(d.topic) && (
-          <div className="revision-remove">
+          <div className="mt-5">
             <button onClick={() => setRemove(true)}>この時間枠・予定を取り除く</button>
             {remove && (
               <div className="confirmation-panel">
@@ -668,7 +669,7 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
             {error}
           </p>
         )}
-        <div className="revision-bottom">
+        <div className="mt-7 flex flex-wrap gap-3 border-t border-t-line pt-5">
           <button onClick={onClose}>下書きを残して閉じる</button>
           <button onClick={() => setDiscard(true)}>変更の下書きを破棄する</button>
         </div>

@@ -476,7 +476,7 @@ export default function App() {
             )}
             {page === 'replan' && <Replan {...props} onCalendar={() => setPage('calendar')} onFuture={() => setPage('future')} />}{' '}
             {['availability', 'focus'].includes(page) && (
-              <div className="wizard-footer">
+              <div className="mt-2.5 flex flex-wrap items-center justify-end gap-3 [&>span]:mr-auto [&>span]:text-[11px] [&>span]:text-muted">
                 <span>設定の変更は保存済みの計画を自動で書き換えません。</span>
                 <button data-submit className="primary" onClick={generate}>
                   設定から計画案を作成

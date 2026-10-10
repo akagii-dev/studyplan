@@ -1,17 +1,4 @@
-/* Buttons, inputs, selects and form fields, including their states. */
-.timetable-row > button.class-selected {
-  background: var(--busy-bg);
-  color: var(--busy-ink);
-  border: 2px solid var(--busy-border);
-}
-.timetable-row > button.class-selected small {
-  display: block;
-  color: var(--busy-muted);
-  font-size: 10px;
-}
-.number-input input[aria-invalid='true'] {
-  border-color: var(--error-border);
-}
+
 button,
 input,
 select,
@@ -125,4 +112,13 @@ progress::-webkit-progress-bar {
 progress::-webkit-progress-value {
   background: var(--accent);
   border-radius: 6px;
+}
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+input[type='color'] {
+  height: 38px;
+  width: 46px;
+  padding: 3px;
 }

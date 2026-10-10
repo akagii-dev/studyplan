@@ -8,6 +8,7 @@ import { Empty, Field, Props, useDraft, weekdays } from '../common';
 import { ScheduleReview } from '../SetupImpact';
 import { TimetablePreview } from '../TimetablePreview';
 import { ClassCancellations } from './ClassCancellations';
+import { choices } from '../ui';
 
 function DeleteAction({ label, onDelete }: { label: string; onDelete: () => Promise<void> }) {
   const [confirming, setConfirming] = useState(false);
@@ -155,7 +156,7 @@ export function Availability({ state, update, focusTarget }: Props & { focusTarg
             </Field>
           </div>
           <Field label="曜日">
-            <div className="choices">
+            <div className={choices}>
               {weekdays.map((w, i) => (
                 <button
                   key={i}
@@ -278,13 +279,13 @@ export function Availability({ state, update, focusTarget }: Props & { focusTarg
             />
           </Field>
         </div>
-        <div className="timetable">
+        <div className="timetable mx-0 mt-[15px] mb-[25px] grid items-center text-center @max-[680px]:overflow-x-auto [&>b]:text-[12px] [&>b]:font-normal [&>div:first-child]:text-[11px] [&>div:first-child]:text-muted grid-cols-[160px_repeat(5,1fr)] gap-[9px]">
           <div>時限 / 開始</div>
           {[1, 2, 3, 4, 5].map((d) => (
             <b key={d}>{weekdays[d]}</b>
           ))}
           {state.settings.periods.map((start, i) => (
-            <div className="timetable-row" key={i}>
+            <div className="timetable-row contents [&>button]:h-[45px] [&>button]:bg-surface [&>button]:text-muted [&>button.class-selected]:border-2 [&>button.class-selected]:border-[var(--busy-border)] [&>button.class-selected]:bg-[var(--busy-bg)] [&>button.class-selected]:text-[var(--busy-ink)] [&>button.class-selected_small]:block [&>button.class-selected_small]:text-[10px] [&>button.class-selected_small]:text-[var(--busy-muted)] [&>button:hover:enabled]:border-accent [&>button:hover:enabled]:bg-soft [&>label]:flex [&>label]:items-center [&>label]:gap-2 [&>label]:text-[11px] [&>label]:whitespace-nowrap [&>label_input]:px-1.5 [&>label_input]:py-[7px]" key={i}>
               <label>
                 {i + 1}限
                 <input
@@ -395,7 +396,7 @@ export function Availability({ state, update, focusTarget }: Props & { focusTarg
             />
           </Field>
         </div>
-        <div className="choices">
+        <div className={choices}>
           <button
             className={exception.start === 0 && exception.end === 1440 ? 'selected' : ''}
             onClick={() => setException({ ...exception, start: 0, end: 1440 })}

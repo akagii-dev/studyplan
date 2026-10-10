@@ -4,6 +4,7 @@ import { examColors } from '../../domain/appearance';
 import { Exam, addDays, today, uid } from '../../domain/model';
 import { validateSettings } from '../../domain/planning';
 import { Empty, Field, Props, useDraft } from '../common';
+import { choices } from '../ui';
 const colors = examColors.map((color) => color.value);
 export function Exams({
   state,
@@ -97,14 +98,14 @@ export function Exams({
             </Field>
           </div>
           <Field label="カレンダーの表示色">
-            <div className="choices">
+            <div className={choices}>
               {colors.map((c) => (
                 <button
                   key={c}
                   aria-label={`表示色 ${c}`}
                   title={examColors.find((color) => color.value === c)?.name}
                   aria-pressed={form.color === c}
-                  className={`swatch ${form.color === c ? 'selected' : ''}`}
+                  className={`swatch size-8 min-w-8! rounded-[50%] border-[3px] border-white p-0 text-white! hover:enabled:border-accent ${form.color === c ? 'selected outline-2 outline-accent' : ''}`}
                   style={{ background: c }}
                   onClick={() => set({ ...form, color: c })}
                 >

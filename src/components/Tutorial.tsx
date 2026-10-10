@@ -179,8 +179,8 @@ export function Tutorial({ navigate, step, onStepChange, onClose }: { navigate: 
   const setStep = onStepChange;
   const lesson = lessons[step];
   return (
-    <div className="tutorial">
-      <nav className="tutorial-topics" aria-label="チュートリアルの項目">
+    <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6 [align-items:start] max-[1000px]:grid-cols-[1fr] @max-[680px]:grid-cols-[minmax(0,1fr)]">
+      <nav className="grid gap-2 max-[1000px]:grid-cols-[repeat(3,minmax(0,1fr))] max-[600px]:grid-cols-[repeat(2,minmax(0,1fr))] [&_button]:justify-start [&_button]:text-left [&_button[aria-pressed='true']]:border-accent [&_button[aria-pressed='true']]:bg-soft [&_button[aria-pressed='true']]:text-accent" aria-label="チュートリアルの項目">
         {lessons.map((item, i) => (
           <button key={item.name} aria-pressed={step === i} onClick={() => setStep(i)}>
             <item.icon size={18} />
@@ -188,12 +188,12 @@ export function Tutorial({ navigate, step, onStepChange, onClose }: { navigate: 
           </button>
         ))}
       </nav>
-      <section className="card tutorial-lesson" aria-labelledby="tutorial-title">
+      <section className="card" aria-labelledby="tutorial-title">
         <div className="eyebrow">
           {step + 1} / {lessons.length}
         </div>
         <h2 id="tutorial-title">{lesson.title}</h2>
-        <div className="tutorial-flow" aria-label="操作・設定の例">
+        <div className="mx-0 my-7 flex flex-wrap items-center gap-2.5 [&_b]:rounded-[9px] [&_b]:bg-soft [&_b]:px-3.5 [&_b]:py-2.5 [&_b]:font-medium [&_b]:text-accent [&_span]:flex [&_span]:items-center [&_span]:gap-2.5 [&_span]:text-muted" aria-label="操作・設定の例">
           {lesson.flow.map((item, i) => (
             <span key={item + i}>
               {i > 0 && <ArrowRight size={16} aria-hidden="true" />}
@@ -201,7 +201,7 @@ export function Tutorial({ navigate, step, onStepChange, onClose }: { navigate: 
             </span>
           ))}
         </div>
-        <dl className="tutorial-points">
+        <dl className="mb-[30px] grid gap-6 [&_dd]:m-0 [&_dd]:max-w-[52em] [&_dd]:leading-[1.8] [&_dd]:text-muted [&_dt]:mb-1.5 [&_dt]:font-[650]">
           {lesson.points.map(([title, text]) => (
             <div key={title}>
               <dt>{title}</dt>
@@ -221,7 +221,7 @@ export function Tutorial({ navigate, step, onStepChange, onClose }: { navigate: 
             </button>
           ))}
         </div>
-        <div className="question-footer tutorial-footer">
+        <div className="question-footer mt-7 flex justify-between border-t border-t-line pt-[22px] [&>button]:min-h-11 [&>button:first-child]:pl-3.5 [&>button:first-child:enabled]:border-line [&>button:first-child:enabled]:bg-surface [&>button:first-child:enabled]:text-ink">
           <button disabled={step === 0} onClick={() => setStep(step - 1)}>
             前の項目
           </button>

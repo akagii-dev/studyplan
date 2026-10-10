@@ -4,6 +4,7 @@ import { Field } from '../common';
 import { newMaterial } from './model';
 import { QuestionView, StepContext } from './types';
 import { MAX_MINUTES_PER_UNIT } from '../../domain/materialConstraints';
+import { answerSummary, choices, wizardOptions } from '../ui';
 
 export function MaterialSteps(ctx: StepContext): QuestionView | undefined {
   const { w, state, mode, mat, go, choice, saveAndGo, savingItem } = ctx;
@@ -14,7 +15,7 @@ export function MaterialSteps(ctx: StepContext): QuestionView | undefined {
     case 'material.exam':
       title = 'どの試験の教材を登録しますか？';
       content = (
-        <div className="wizard-options">
+        <div className={wizardOptions}>
           {state.settings.exams.map((e) =>
             choice(e.name, w.material.examId === e.id, () => mat({ examId: e.id })),
           )}
@@ -54,7 +55,7 @@ export function MaterialSteps(ctx: StepContext): QuestionView | undefined {
       title = 'この教材を何周しますか？';
       content = (
         <>
-          <div className="choices">
+          <div className={choices}>
             {[1, 2, 3].map((n) =>
               choice(`${n}周`, w.material.rounds.length === n, () =>
                 mat({
@@ -133,7 +134,7 @@ export function MaterialSteps(ctx: StepContext): QuestionView | undefined {
     case 'material.custom':
       title = '周回ごとに、所要時間を変えますか？';
       content = (
-        <div className="wizard-options">
+        <div className={wizardOptions}>
           <button
             data-submit
             className="primary"
@@ -200,7 +201,7 @@ export function MaterialSteps(ctx: StepContext): QuestionView | undefined {
       title = mode || w.editScope ? 'この教材を登録しますか？' : 'ほかの教材も登録しますか？';
       content = (
         <>
-          <div className="answer-summary">
+          <div className={answerSummary}>
             <h3>{w.material.name}</h3>
             {mode && <p>{state.settings.exams.find((e) => e.id === w.material.examId)?.name}</p>}
             <p>
@@ -212,7 +213,7 @@ export function MaterialSteps(ctx: StepContext): QuestionView | undefined {
               </p>
             ))}
           </div>
-          <div className="wizard-options">
+          <div className={wizardOptions}>
             {mode ? (
               <button
                 data-submit

@@ -5,6 +5,7 @@ import { addDays, today } from '../../domain/model';
 import { Field } from '../common';
 import { newExam } from './model';
 import { QuestionView, StepContext } from './types';
+import { answerSummary, choices, wizardOptions } from '../ui';
 
 export function ExamSteps(ctx: StepContext): QuestionView | undefined {
   const { w, state, mode, exam, go, choice, saveAndGo, savingItem } = ctx;
@@ -43,7 +44,7 @@ export function ExamSteps(ctx: StepContext): QuestionView | undefined {
       title = 'いつから計画を始めますか？';
       content = (
         <>
-          <div className="choices">
+          <div className={choices}>
             {choice('今日から', w.exam.start === today(), () => exam({ start: today() }))}
           </div>
           <Field label="計画開始日">
@@ -61,7 +62,7 @@ export function ExamSteps(ctx: StepContext): QuestionView | undefined {
     case 'exam.priority':
       title = 'この試験の優先度は？';
       content = (
-        <div className="wizard-options">
+        <div className={wizardOptions}>
           {[
             [3, '高い'],
             [2, 'ふつう'],
@@ -75,7 +76,7 @@ export function ExamSteps(ctx: StepContext): QuestionView | undefined {
     case 'exam.color':
       title = 'この試験の色を選んでください。';
       content = (
-        <div className="wizard-options color-options">
+        <div className={`${wizardOptions} [&_button_svg]:ml-auto [&_i]:mr-[7px] [&_i]:block [&_i]:size-[17px] [&_i]:rounded-[50%] grid-cols-[1fr_1fr]`}>
           {examColors.map(({ value: color, name }) => (
             <button
               key={color}
@@ -95,7 +96,7 @@ export function ExamSteps(ctx: StepContext): QuestionView | undefined {
     case 'exam.review':
       title = '最後に復習する期間を取りますか？';
       content = (
-        <div className="wizard-options">
+        <div className={wizardOptions}>
           {choice('復習期間を設定する', w.exam.reviewDays > 0, () => go('exam.reviewDays'))}
           {choice('今回は設定しない', w.exam.reviewDays === 0, () =>
             go('exam.done', { exam: { ...w.exam, reviewDays: 0 } }),
@@ -107,7 +108,7 @@ export function ExamSteps(ctx: StepContext): QuestionView | undefined {
       title = '復習に何日間、取っておきますか？';
       content = (
         <>
-          <div className="choices">
+          <div className={choices}>
             {[7, 14, 21].map((n) =>
               choice(`${n}日`, w.exam.reviewDays === n, () => exam({ reviewDays: n })),
             )}
@@ -131,7 +132,7 @@ export function ExamSteps(ctx: StepContext): QuestionView | undefined {
       title = '目標はこれでよいですか？';
       content = (
         <>
-          <div className="answer-summary">
+          <div className={answerSummary}>
             <h3>{w.exam.name}</h3>
             <p>
               {w.exam.start} → {w.exam.target}
@@ -140,7 +141,7 @@ export function ExamSteps(ctx: StepContext): QuestionView | undefined {
               優先度：{['', '低い', 'ふつう', '高い'][w.exam.priority]} · 復習 {w.exam.reviewDays}日
             </p>
           </div>
-          <div className="wizard-options">
+          <div className={wizardOptions}>
             {mode ? (
               <button
                 data-submit

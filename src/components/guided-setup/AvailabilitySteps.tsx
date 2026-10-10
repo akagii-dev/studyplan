@@ -8,6 +8,7 @@ import { SkipImpact } from '../SetupImpact';
 import { TimetablePreview } from '../TimetablePreview';
 import { newWindow } from './model';
 import { QuestionView, StepContext } from './types';
+import { answerSummary, choices, wizardOptions } from '../ui';
 
 export function AvailabilitySteps(ctx: StepContext): QuestionView | undefined {
   const {
@@ -58,7 +59,7 @@ export function AvailabilitySteps(ctx: StepContext): QuestionView | undefined {
     case 'busy.days':
       title = w.step === 'window.days' ? 'どの曜日に勉強できますか？' : '何曜日の予定ですか？';
       content = (
-        <div className="choices weekday-choices">
+        <div className={`${choices} weekday-choices grid! grid-cols-[repeat(7,1fr)] [&_.wizard-choice]:px-0 [&_.wizard-choice]:py-[15px] [&_.wizard-choice>span]:pr-0 [&_.wizard-choice>svg]:hidden`}>
           {weekdays.map((label, i) =>
             choice(label, w.window.weekdays.includes(i), () =>
               win({
@@ -117,7 +118,7 @@ export function AvailabilitySteps(ctx: StepContext): QuestionView | undefined {
       title = w.editScope ? 'この時間帯で保存しますか？' : 'ほかの時間帯も追加しますか？';
       content = (
         <>
-          <div className="answer-summary">
+          <div className={answerSummary}>
             <h3>{w.window.name}</h3>
             <p>
               {w.window.weekdays.map((d) => weekdays[d]).join('・')}　{clock(w.window.start)}〜
@@ -127,7 +128,7 @@ export function AvailabilitySteps(ctx: StepContext): QuestionView | undefined {
               {w.window.from}〜{w.window.to}
             </p>
           </div>
-          <div className="wizard-options">
+          <div className={wizardOptions}>
             <button
               data-submit
               className="primary"
@@ -157,7 +158,7 @@ export function AvailabilitySteps(ctx: StepContext): QuestionView | undefined {
     case 'class.ask':
       title = '大学の授業を登録しますか？';
       content = (
-        <div className="wizard-options">
+        <div className={wizardOptions}>
           <button data-submit className="primary" onClick={() => go('class.period')}>
             時間割を登録する
           </button>
@@ -206,7 +207,7 @@ export function AvailabilitySteps(ctx: StepContext): QuestionView | undefined {
       title = '授業の開始時刻は合っていますか？';
       content = (
         <>
-          <div className="answer-summary">
+          <div className={answerSummary}>
             {state.settings.periods.map((t, i) => (
               <div className="row" key={i}>
                 <span>{i + 1}限</span>
@@ -254,13 +255,13 @@ export function AvailabilitySteps(ctx: StepContext): QuestionView | undefined {
       title = '授業があるコマを押してください。';
       content = (
         <>
-          <div className="timetable wizard-timetable">
+          <div className="timetable mx-0 mt-[15px] mb-[25px] grid items-center text-center @max-[680px]:overflow-x-auto [&>b]:text-[12px] [&>b]:font-normal [&>div:first-child]:text-[11px] [&>div:first-child]:text-muted grid-cols-[85px_repeat(5,1fr)] gap-2 [&_.timetable-row>span]:text-[12px] [&_small]:block">
             <div>時限</div>
             {[1, 2, 3, 4, 5].map((d) => (
               <b key={d}>{weekdays[d]}</b>
             ))}
             {state.settings.periods.map((t, i) => (
-              <div className="timetable-row" key={i}>
+              <div className="timetable-row contents [&>button]:h-[45px] [&>button]:bg-surface [&>button]:text-muted [&>button.class-selected]:border-2 [&>button.class-selected]:border-[var(--busy-border)] [&>button.class-selected]:bg-[var(--busy-bg)] [&>button.class-selected]:text-[var(--busy-ink)] [&>button.class-selected_small]:block [&>button.class-selected_small]:text-[10px] [&>button.class-selected_small]:text-[var(--busy-muted)] [&>button:hover:enabled]:border-accent [&>button:hover:enabled]:bg-soft [&>label]:flex [&>label]:items-center [&>label]:gap-2 [&>label]:text-[11px] [&>label]:whitespace-nowrap [&>label_input]:px-1.5 [&>label_input]:py-[7px]" key={i}>
                 <span>
                   {i + 1}限 <small>{clock(t)}</small>
                 </span>
@@ -325,7 +326,7 @@ export function AvailabilitySteps(ctx: StepContext): QuestionView | undefined {
     case 'busy.ask':
       title = '授業以外に、毎週の予定はありますか？';
       content = (
-        <div className="wizard-options">
+        <div className={wizardOptions}>
           <button onClick={() => go('busy.name', { window: newWindow('busy') })}>
             定期予定を登録する
           </button>
@@ -368,7 +369,7 @@ export function AvailabilitySteps(ctx: StepContext): QuestionView | undefined {
     case 'exception.ask':
       title = '勉強できない特定の日はありますか？';
       content = (
-        <div className="wizard-options">
+        <div className={wizardOptions}>
           <button
             onClick={() =>
               go('exception.date', {
@@ -423,7 +424,7 @@ export function AvailabilitySteps(ctx: StepContext): QuestionView | undefined {
     case 'exception.kind':
       title = '一日中、それとも一部の時間ですか？';
       content = (
-        <div className="wizard-options">
+        <div className={wizardOptions}>
           <button
             onClick={() =>
               go('exception.done', { exception: { ...w.exception, start: 0, end: 1440 } })
@@ -471,7 +472,7 @@ export function AvailabilitySteps(ctx: StepContext): QuestionView | undefined {
       title = 'この予定を登録します。';
       content = (
         <>
-          <div className="answer-summary">
+          <div className={answerSummary}>
             <b>{w.exception.date}</b>
             <p>
               {w.exception.end === 1440 && w.exception.start === 0
@@ -479,7 +480,7 @@ export function AvailabilitySteps(ctx: StepContext): QuestionView | undefined {
                 : `${clock(w.exception.start)}〜${clock(w.exception.end)}`}
             </p>
           </div>
-          <div className="wizard-options">
+          <div className={wizardOptions}>
             <button data-submit className="primary" onClick={() => saveAndGo('exception', 'meals')}>
               {w.editScope ? '保存して修正を終了' : '保存して次へ'}
             </button>

@@ -3,6 +3,7 @@ import { Commute, Settings, clock, minutes, today, mealKeys, mealNames } from '.
 import { commuteErrors, commuteScheduleErrors, defaultCommute } from '../domain/commute';
 import { proposeSettings } from '../domain/planning';
 import { Field, Props, useDraft, weekdays } from './common';
+import { choices } from './ui';
 
 export function CommuteEditor({
   state,
@@ -155,7 +156,7 @@ export function CommuteEditor({
               </Field>
             </div>
             {draft.mode === 'weekdays' && (
-              <div className="choices" aria-label="通学する曜日">
+              <div className={choices} aria-label="通学する曜日">
                 {weekdays.map((day, i) => (
                   <button
                     type="button"

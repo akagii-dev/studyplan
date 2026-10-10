@@ -310,8 +310,7 @@ progress {
 .row > * {
   min-width: 0;
 }
-.row,
-.wizard-footer {
+.row {
   flex-wrap: wrap;
 }
 .card table {

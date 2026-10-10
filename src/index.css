@@ -17,6 +17,12 @@
 /* Spacing in px: the base font size is 14px, so rem-based steps would shrink. */
 @theme {
   --spacing: 4px;
+  /* Page change: a short fade that reuses the details fade timing. */
+  --animate-page-fade: schedule-appear var(--page-fade-duration) var(--page-fade-easing);
+  @keyframes schedule-appear {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
 }
 @theme inline {
   --color-ink: var(--ink);

@@ -39,6 +39,9 @@ const fallbackFor = (page: Page): Page =>
   page === 'calendar' || page === 'replan' ? 'future' :
     page === 'progress' ? 'history' : page === 'today' ? 'dashboard' : 'settings';
 type ReturnPoint = { page: Page; top: number; focus: HTMLElement | null; focusKey?: string; day?: string };
+/** Each page fades in on arrival unless reduced motion is requested. */
+const pageFade = 'page-transition animate-page-fade motion-reduce:animate-none';
+
 export default function App() {
   const recordMemory = useRef(createRecordMemory());
   const [recordTarget, setRecordTarget] = useState<RecordTarget | null>(null);
@@ -345,15 +348,15 @@ export default function App() {
           <StudyRecordMemory.Provider value={recordMemory.current}>
           <NumericDraftProvider key={reloadEpoch} state={state} update={update} scope={numericScope}>
             {page === 'dashboard' && (
-              <div className="page-transition"><Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} recordTarget={recordTarget} /></div>
+              <div className={pageFade}><Dashboard {...props} navigate={setPage} onReview={reviewAdjustment} recordTarget={recordTarget} /></div>
             )}{' '}
             {page === 'future' && (
-              <div className="page-transition">
+              <div className={pageFade}>
               <Future {...props} onRestart={restartPlan} adjustmentNotice={!!reconciliationNotice && reconciliation?.status === 'applied' && !saving && !error && !recovery} selection={futureSelection} onWeekChange={(from) => setFutureSelection({ from, selectedOn: today() })} onCalendar={(date, revealDay = !!date) => { if (revealDay || !calendarVisited.current) setCalendarDate(date ?? today()); calendarVisited.current = true; if (revealDay) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} onAdjustRemaining={adjustRemaining} onBalanceFuture={balanceFuture} />
               </div>
             )}
             {(page === 'settings' || originStack.current.some((entry) => entry.page === 'settings')) && (
-              <div hidden={page !== 'settings'} className={page === 'settings' ? 'page-transition' : undefined}>
+              <div hidden={page !== 'settings'} className={page === 'settings' ? pageFade : undefined}>
                 <SettingsHub
                 {...props}
                 navigate={(destination) =>
@@ -425,7 +428,7 @@ export default function App() {
               </>
             )}{' '}
             {page === 'today' && (
-              <div className="page-transition"><Calendar
+              <div className={pageFade}><Calendar
                 {...props}
                 todayOnly
                 initialDate={today()}
@@ -434,7 +437,7 @@ export default function App() {
               /></div>
             )}
             {page === 'calendar' && (
-              <div className="page-transition">
+              <div className={pageFade}>
               <Calendar {...props} onFuture={() => originStack.current.at(-1)?.page === 'future' ? goBack() : setPage('future')} initialDate={calendarDate} initialView={calendarView} onViewChange={setCalendarView} initialFilter={calendarFilter} onFilterChange={setCalendarFilter} revealDay={calendarRevealDay} onDetailChange={setCalendarRevealDay} onDateChange={setCalendarDate} onRecord={onRecord} onReplan={() => setPage('replan')} />
               </div>
             )}{' '}
@@ -450,7 +453,7 @@ export default function App() {
               />
             )}{' '}
             {page === 'history' && (
-              <div className="page-transition"><History
+              <div className={pageFade}><History
                 {...props}
                 onReplan={() => (currentProgressAdjustment(state)?.status === 'failed' ? setPage('future') : state.proposal ? setPage('replan') : generate())}
                 onRecordPast={() => setPage('progress')}

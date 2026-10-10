@@ -47,19 +47,6 @@ strong,
 b {
   font-weight: 700;
 }
-.local-indicator {
-  font-size: 11px;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.local-indicator span {
-  width: 6px;
-  height: 6px;
-  background: var(--muted);
-  border-radius: 50%;
-}
 .eyebrow {
   font-family: inherit;
   font-size: 9px;
@@ -294,9 +281,6 @@ progress {
   .card {
     padding: 22px;
   }
-}
-.detail-back {
-  margin-bottom: 0.5rem;
 }
 .addition-actions {
   margin-bottom: 1.25rem;

@@ -178,12 +178,12 @@ export function Future({
       <div className="future-week mb-1 flex flex-wrap items-center gap-x-2 gap-y-1" role="group" aria-label="週間予定の表示範囲">
         <div className="future-week-navigation flex min-w-0 flex-wrap items-center gap-1">
         <div className="future-week-range flex min-w-0 items-center gap-1">
-          <button className="navigation-arrow shrink-0 p-3 min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface" aria-label="前の週" onClick={() => moveWeek(addDays(week, -7))}><ChevronLeft className="shrink-0" size={20} strokeWidth={2.5} aria-hidden="true" /></button>
+          <button className="shrink-0 p-3 min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface" aria-label="前の週" onClick={() => moveWeek(addDays(week, -7))}><ChevronLeft className="shrink-0" size={20} strokeWidth={2.5} aria-hidden="true" /></button>
           <time className="flex min-w-0 flex-wrap items-baseline justify-center gap-x-1.5 text-center [overflow-wrap:anywhere]" dateTime={week} aria-live="polite" aria-label={weekRangeLabel(week)}>
             <span className="future-week-year text-[1rem] font-normal text-muted">{week.slice(0, 4)}</span>{' '}
             <strong className="text-[1.125rem] tabular-nums">{shortDate(week)}–{week.slice(0, 4) !== weekEnd.slice(0, 4) && <><span className="future-week-year text-[1rem] font-normal text-muted">{weekEnd.slice(0, 4)}</span>{' '}</>}{shortDate(weekEnd)}</strong>
           </time>
-          <button className="navigation-arrow shrink-0 p-3 min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface" aria-label="次の週" onClick={() => moveWeek(addDays(week, 7))}><ChevronRight className="shrink-0" size={20} strokeWidth={2.5} aria-hidden="true" /></button>
+          <button className="shrink-0 p-3 min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface" aria-label="次の週" onClick={() => moveWeek(addDays(week, 7))}><ChevronRight className="shrink-0" size={20} strokeWidth={2.5} aria-hidden="true" /></button>
         </div>
         <button className="min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface" onClick={() => moveWeek(currentWeek)}>今日</button>
         </div>

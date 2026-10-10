@@ -180,7 +180,7 @@ export function Tutorial({ navigate, step, onStepChange, onClose }: { navigate: 
   const lesson = lessons[step];
   return (
     <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6 [align-items:start] max-[1000px]:grid-cols-[1fr] @max-[680px]:grid-cols-[minmax(0,1fr)]">
-      <nav className="grid gap-2 max-[1000px]:grid-cols-[repeat(3,minmax(0,1fr))] max-[600px]:grid-cols-[repeat(2,minmax(0,1fr))] [&_button]:justify-start [&_button]:text-left [&_button[aria-pressed='true']]:border-accent [&_button[aria-pressed='true']]:bg-soft [&_button[aria-pressed='true']]:text-accent" aria-label="チュートリアルの項目">
+      <nav className="grid flex-col gap-2 [&_button]:min-h-11 [&_button]:gap-3 [&_button]:rounded-control [&_button]:bg-transparent [&_button]:px-3 [&_button]:py-2.5 [&_button]:text-[14px] [&_button]:font-medium [&_button]:whitespace-nowrap [&_button]:text-muted [&_button]:[border:0] [&_button:hover:enabled]:bg-page [&_button:hover:enabled]:text-ink max-[1000px]:grid-cols-[repeat(3,minmax(0,1fr))] max-[600px]:grid-cols-[repeat(2,minmax(0,1fr))] [&_button]:justify-start [&_button]:text-left [&_button[aria-pressed='true']]:border-accent [&_button[aria-pressed='true']]:bg-soft [&_button[aria-pressed='true']]:text-accent" aria-label="チュートリアルの項目">
         {lessons.map((item, i) => (
           <button key={item.name} aria-pressed={step === i} onClick={() => setStep(i)}>
             <item.icon size={18} />

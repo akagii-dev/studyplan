@@ -361,13 +361,13 @@ export function Calendar({
     <>
       <div className="calendar-toolbar schedule-toolbar m-0 mb-1 flex max-w-[900px] flex-wrap items-center justify-between gap-x-2 gap-y-1 [&>*]:min-w-0">
         <div className="calendar-period flex flex-wrap items-center gap-1">
-          <button aria-label="前の期間" className="navigation-arrow min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface px-2.5 py-[7px] text-[11px]" onClick={() => jump(-1)}>
+          <button aria-label="前の期間" className="min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface px-2.5 py-[7px] text-[11px]" onClick={() => jump(-1)}>
             <ChevronLeft size={20} aria-hidden />
           </button>
           <h2 className="m-0 whitespace-nowrap text-[1.125rem]">
             {Number(anchor.slice(0, 4))}年 {Number(anchor.slice(5, 7))}月
           </h2>
-          <button aria-label="次の期間" className="navigation-arrow min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface px-2.5 py-[7px] text-[11px]" onClick={() => jump(1)}>
+          <button aria-label="次の期間" className="min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface px-2.5 py-[7px] text-[11px]" onClick={() => jump(1)}>
             <ChevronRight size={20} aria-hidden />
           </button>
           <div className="calendar-today-actions flex items-center gap-1">

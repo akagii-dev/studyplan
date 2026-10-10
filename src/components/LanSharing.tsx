@@ -120,9 +120,9 @@ export function LanSharing() {
     pending === 'check' ? '確認中' : !status ? '状態未確認' : status.active ? '公開中' : '停止中';
 
   return (
-    <details className="card lan-sharing">
-      <summary>LAN公開 <span role="status">{statusLabel}</span></summary>
-      <div className="lan-sharing-content" aria-busy={pending !== null}>
+    <details className="card lan-sharing [&_button]:min-h-11 [&_select]:min-h-11">
+      <summary className="cursor-pointer text-[16px] font-[650]">LAN公開 <span className="ms-2 text-[14px] font-normal" role="status">{statusLabel}</span></summary>
+      <div className="mt-4 grid gap-4 [&_p]:m-0 [&_p]:[overflow-wrap:anywhere]" aria-busy={pending !== null}>
         <p id="lan-sharing-warning" className="lan-sharing-warning">
           <strong>注意：</strong>同じWi-Fiの信頼できる端末で使用してください。HTTP通信は暗号化されません。
           {!status?.active && 'キーを知る人は学習データを閲覧・変更できます。'}
@@ -135,40 +135,40 @@ export function LanSharing() {
               キーを知る人は学習データを閲覧・変更できます。接続リンク・QRコードにもキーを含みます。共有しないでください。
             </p>
             {connectionLink && (
-              <figure className="lan-sharing-qr">
-                <figcaption>スマホで接続（APIキー付き）</figcaption>
+              <figure className="m-0 grid gap-2 [&_svg]:block [&_svg]:h-auto [&_svg]:max-w-full">
+                <figcaption className="font-[650]">スマホで接続（APIキー付き）</figcaption>
                 <QRCodeSVG value={connectionLink} size={240} level="M" marginSize={4}
                   bgColor="#ffffff" fgColor="#000000" role="img"
                   aria-label="LAN接続用QRコード" aria-describedby="lan-sharing-key-warning" />
               </figure>
             )}
-            <div className="lan-sharing-field">
+            <div className="grid min-w-0 gap-2 [&>label]:font-[650] [&_button]:[justify-self:start]">
               <label htmlFor="lan-sharing-url">接続先URL</label>
-              <textarea id="lan-sharing-url" value={status.url ?? ''} readOnly rows={2} spellCheck={false} dir="ltr"
+              <textarea className="w-full resize-y rounded-[8px] border border-control bg-surface px-2.5 py-2 text-ink [font:16px/1.5_Consolas,monospace] [overflow-wrap:anywhere]" id="lan-sharing-url" value={status.url ?? ''} readOnly rows={2} spellCheck={false} dir="ltr"
                 onFocus={(event) => event.currentTarget.select()} />
               <button type="button" onClick={() => void copy('link')} disabled={!!pending || !connectionLink}>
                 接続リンクをコピー
               </button>
             </div>
-            <div className="lan-sharing-field">
+            <div className="grid min-w-0 gap-2 [&>label]:font-[650] [&_button]:[justify-self:start]">
               <label htmlFor="lan-sharing-key">APIキー</label>
-              <textarea id="lan-sharing-key" ref={keyField} value={status.key ?? ''} readOnly rows={3} spellCheck={false} dir="ltr"
+              <textarea className="w-full resize-y rounded-[8px] border border-control bg-surface px-2.5 py-2 text-ink [font:16px/1.5_Consolas,monospace] [overflow-wrap:anywhere]" id="lan-sharing-key" ref={keyField} value={status.key ?? ''} readOnly rows={3} spellCheck={false} dir="ltr"
                 aria-describedby="lan-sharing-key-warning" onFocus={(event) => event.currentTarget.select()} />
               <button type="button" onClick={() => void copy('key')} disabled={!!pending || !status.key}>
                 APIキーをコピー
               </button>
             </div>
             {manualCopy === 'link' && (
-              <div className="lan-sharing-field">
+              <div className="grid min-w-0 gap-2 [&>label]:font-[650] [&_button]:[justify-self:start]">
                 <label htmlFor="lan-sharing-manual-link">手動コピー用の接続リンク</label>
-                <textarea id="lan-sharing-manual-link" ref={linkField} value={connectionLink} readOnly rows={4} spellCheck={false} dir="ltr"
+                <textarea className="w-full resize-y rounded-[8px] border border-control bg-surface px-2.5 py-2 text-ink [font:16px/1.5_Consolas,monospace] [overflow-wrap:anywhere]" id="lan-sharing-manual-link" ref={linkField} value={connectionLink} readOnly rows={4} spellCheck={false} dir="ltr"
                   aria-describedby="lan-sharing-key-warning" onFocus={(event) => event.currentTarget.select()} />
               </div>
             )}
           </>
         ) : status && !pending && (
           status.addresses.length > 1 ? (
-            <div className="lan-sharing-field">
+            <div className="grid min-w-0 gap-2 [&>label]:font-[650] [&_button]:[justify-self:start]">
               <label htmlFor="lan-sharing-address">使用するLANアドレス</label>
               <select id="lan-sharing-address" ref={addressField} value={address} aria-invalid={addressError || undefined}
                 aria-describedby={addressError ? 'lan-sharing-error' : undefined}
@@ -176,15 +176,15 @@ export function LanSharing() {
                 <option value="">選択してください</option>
                 {status.addresses.map((candidate) => <option key={candidate.address} value={candidate.address}>{lanAddressLabel(candidate)}</option>)}
               </select>
-              {selectedCandidate && <output className="lan-sharing-selection" htmlFor="lan-sharing-address" aria-label="選択中のLAN公開先">
+              {selectedCandidate && <output className="lan-sharing-selection hidden [overflow-wrap:anywhere] @max-[700px]:block" htmlFor="lan-sharing-address" aria-label="選択中のLAN公開先">
                 {lanAddressLabel(selectedCandidate)}
               </output>}
             </div>
           ) : status.addresses.length === 1 ? <p>LANアドレス：{lanAddressLabel(status.addresses[0])}</p> :
             <p>LANが見つかりません。Wi-Fiまたは有線LANに接続して、状態を再確認してください。</p>
         )}
-        <p className="lan-sharing-lifetime">アプリ終了で公開を停止します。開始するたびにキーが変わります。</p>
-        <div className="lan-sharing-actions">
+        <p className="text-muted">アプリ終了で公開を停止します。開始するたびにキーが変わります。</p>
+        <div className="flex flex-wrap gap-2">
           {status?.active ? (
             <button type="button" onClick={() => void changeSharing('stop')} disabled={!!pending}>
               {pending === 'stop' ? '公開を停止中…' : '公開を停止'}

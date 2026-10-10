@@ -13,7 +13,7 @@
 .card .card h2 { border-bottom: 0; padding-bottom: 0; }
 /* Controls: small radius; secondary actions outlined in the theme color. */
 button, input, select, .study-note textarea { border-radius: var(--radius-control); }
-.settings-row button:not(.primary), .settings-links button, .actions button:not(.primary) { border-color: var(--accent); color: var(--accent); }
+.actions button:not(.primary) { border-color: var(--accent); color: var(--accent); }
 /* Navigation: rectangular highlight with a theme-color bar on the current page. */
 nav button { border-radius: var(--radius-control); }
 nav button.active,

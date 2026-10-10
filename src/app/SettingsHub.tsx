@@ -40,6 +40,14 @@ const sections: { title: string; pages: { page: Page; label: string }[] }[] = [
   },
 ];
 
+/** One row of the settings list; a row that needs fixing is marked in the error color. */
+const settingsRow = (error = false) =>
+  `grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-b-line py-2.5 max-[700px]:grid-cols-[minmax(0,1fr)] max-[700px]:gap-1.5 [&_b]:text-[14px] [&_span]:text-[12px] [&_small]:text-[12px] [&_button]:min-h-11 [&_button:enabled]:border-accent [&_button:enabled]:text-accent max-[700px]:[&>button]:[justify-self:start] [&_details]:text-[12px] [&_details]:text-muted [&_details_summary]:w-fit [&_details_summary]:cursor-pointer [&_details_p]:my-1 [&_details_ul]:my-1 [&_details_ul]:pl-[18px] ${
+    error ? 'border-l-[3px] border-l-error pl-2.5 [&_span]:text-error [&_small]:text-error' : '[&_span]:text-muted [&_small]:text-muted'}`;
+const rowLabel = 'grid min-w-0 gap-0.5';
+const rowActions = 'flex gap-1.5 max-[700px]:flex-wrap max-[700px]:[justify-self:start]';
+const rows = 'border-t border-t-line';
+
 export function SettingsHub({
   state,
   update,
@@ -106,38 +114,38 @@ export function SettingsHub({
   };
 
   return (
-    <div className="settings-hub">
-      <section className="card settings-primary" aria-label="基本設定">
-        <h2>基本設定 <span className="settings-count">{readyCount}/3</span></h2>
-        <div className="settings-rows">
-          <div className={`settings-row ${invalidExam || (attempted && missing.some((issue) => issue.id === 'exams')) ? 'settings-row-error' : ''}`}>
-            <div>
+    <div className="max-w-[900px]">
+      <section className="card" aria-label="基本設定">
+        <h2 className="mb-2">基本設定 <span className="ml-1.5 text-[13px] font-medium text-muted">{readyCount}/3</span></h2>
+        <div className={rows}>
+          <div className={settingsRow(!!invalidExam || (attempted && missing.some((issue) => issue.id === 'exams')))}>
+            <div className={rowLabel}>
               <b>試験・目標</b>
               <span>{invalidExam ? '修正が必要' : state.settings.exams.length ? `${state.settings.exams.length}件設定済み` : '未登録'}</span>
               {invalidExam && <small>{validationErrors.find((message) => message.startsWith(`${invalidExam.name || '試験'}：`))}</small>}
             </div>
-            <div className="settings-row-actions">
+            <div className={rowActions}>
               <button onClick={invalidExam ? () => editItem('exam', invalidExam.id) : addExam}>
                 {invalidExam ? '試験を修正' : '試験を追加'}
               </button>
               {!!state.settings.exams.length && <button aria-label="試験・目標の一覧・編集" onClick={() => navigate('exams')}>一覧・編集</button>}
             </div>
           </div>
-          <div className={`settings-row ${invalidMaterial || (attempted && missing.some((issue) => issue.id === 'materials')) ? 'settings-row-error' : ''}`}>
-            <div>
+          <div className={settingsRow(!!invalidMaterial || (attempted && missing.some((issue) => issue.id === 'materials')))}>
+            <div className={rowLabel}>
               <b>教材</b>
               <span>{invalidMaterial ? '修正が必要' : state.settings.materials.length ? `${state.settings.materials.length}件設定済み` : '未登録'}</span>
               {invalidMaterial && <small>{validationErrors.find((message) => message.startsWith(`${invalidMaterial.name || '教材'}：`))}</small>}
             </div>
-            <div className="settings-row-actions">
+            <div className={rowActions}>
               <button onClick={!state.settings.exams.length ? addExam : invalidMaterial ? () => editItem('material', invalidMaterial.id) : addMaterial}>
                 {!state.settings.exams.length ? '先に試験を追加' : invalidMaterial ? '教材を修正' : '教材を追加'}
               </button>
               {!!state.settings.materials.length && <button aria-label="教材の一覧・編集" onClick={() => navigate('materials')}>一覧・編集</button>}
             </div>
           </div>
-          <div className={`settings-row ${invalidStudy || (attempted && missing.some((issue) => issue.id === 'study')) ? 'settings-row-error' : ''}`}>
-            <div>
+          <div className={settingsRow(!!invalidStudy || (attempted && missing.some((issue) => issue.id === 'study')))}>
+            <div className={rowLabel}>
               <b>勉強できる時間</b>
               <span>{invalidStudy ? '修正が必要' : studyCount ? `${studyCount}枠設定済み` : '未登録'}</span>
               {invalidStudy && <small>{validationErrors.find((message) => message.startsWith(`${invalidStudy.name}：`))}</small>}
@@ -168,11 +176,11 @@ export function SettingsHub({
         </div>
       </section>
 
-      <details className="card settings-extra">
+      <details className="card settings-extra [&_summary]:cursor-pointer [&_summary]:text-[16px] [&_summary]:font-[650] open:[&_summary]:mb-3">
         <summary>追加の条件{attentionCount ? ` · 要確認 ${attentionCount}件` : ''}</summary>
-        <div className="settings-rows">
-          <div className="settings-row">
-            <div>
+        <div className={rows}>
+          <div className={settingsRow()}>
+            <div className={rowLabel}>
               <b>食事時間</b>
               <span>{missingMeals.length ? `${missingMeals.map((key) => mealNames[key]).join('・')}が未設定` : '設定済み'}</span>
               {hidden('meals') && <small>通知非表示</small>}
@@ -184,14 +192,14 @@ export function SettingsHub({
             const status = scheduleStatus(state.settings, kind);
             const count = scheduleCount(state.settings, kind);
             return (
-              <div className="settings-row" key={kind}>
-                <div>
+              <div className={settingsRow()} key={kind}>
+                <div className={rowLabel}>
                   <b>{scheduleInfo[kind].label}</b>
                   <span>{status === 'registered' ? `${count}件設定済み` : status === 'none' ? '予定なし' : status === 'deferred' ? 'あとで設定' : '未確認'}</span>
                   {hidden(kind) && <small>通知非表示</small>}
                   {warningFor(kind) && <details><summary>影響</summary><p>{warningFor(kind)?.impact}</p></details>}
                 </div>
-                <div className="settings-row-actions">
+                <div className={rowActions}>
                   <button onClick={() => openAvailability(kind)}>設定・確認</button>
                   {!count && (status === 'unknown' || status === 'deferred') &&
                     <button onClick={() => setScheduleNone(kind)}>予定なし</button>}
@@ -199,8 +207,8 @@ export function SettingsHub({
               </div>
             );
           })}
-          <div className="settings-row">
-            <div>
+          <div className={settingsRow()}>
+            <div className={rowLabel}>
               <b>学習枠の期間</b>
               <span>{!state.settings.exams.length ? '試験の設定後に確認' : !studyCount ? '学習枠の設定後に確認' : gaps.length ? `未登録 ${gaps.length}期間` : '設定済み'}</span>
               {gaps.some((gap) => hidden(gap.id)) && <small>通知非表示の期間あり</small>}
@@ -219,7 +227,7 @@ export function SettingsHub({
       {sections.map((section) => (
         <section className="card" key={section.title}>
           <h2>{section.title}</h2>
-          <div className="settings-links">
+          <div className="flex flex-wrap gap-2 [&_button:enabled]:border-accent [&_button:enabled]:text-accent">
             {section.pages
               .filter(({ page }) => !demoMode || page !== 'backup')
               .map(({ page, label }) => (
@@ -231,7 +239,7 @@ export function SettingsHub({
       {desktopLanAvailable() && <LanSharing />}
       <section className="card">
         <h2>表示</h2>
-        <div className="settings-display">
+        <div className="flex flex-wrap gap-4 [&_label]:grid [&_label]:gap-[5px]">
           <label>
             表示モード
             <select

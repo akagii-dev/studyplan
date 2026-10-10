@@ -136,10 +136,6 @@ input[type='color'] {
   border-radius: 12px;
   background: var(--surface);
 }
-.file-picker:focus-within {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
 .registration-status {
   padding: 1.2rem;
   margin-bottom: 1.4rem;
@@ -168,3 +164,8 @@ input[type='color'] {
 .parallel-materials { display: grid; gap: 8px; margin-bottom: 12px; }
 .parallel-materials ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
 .parallel-materials li { overflow-wrap: anywhere; }
+.reset-settings {
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}

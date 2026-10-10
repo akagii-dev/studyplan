@@ -1,19 +1,4 @@
-/* Schedule views: period navigation, week view, shortfall and adjustments. */
-.calendar-export {
-  margin: 18px 0 0;
-}
-.calendar-export > .card {
-  margin-top: 14px;
-}
-.calendar-export fieldset {
-  border: 0;
-  padding: 0;
-  margin: 0;
-  min-width: 0;
-}
-.calendar-export .actions {
-  margin-bottom: 16px;
-}
+
 .weekday-choices {
   display: grid !important;
   grid-template-columns: repeat(7, 1fr);

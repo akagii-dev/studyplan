@@ -59,7 +59,7 @@ function DesktopCalendarExport({ state, from, to, examId = 'all' }: CalendarExpo
     }
   }
   return (
-    <div className="calendar-export">
+    <div className="calendar-export mt-[18px]">
       <button
         disabled={busy}
         aria-expanded={open}
@@ -76,9 +76,9 @@ function DesktopCalendarExport({ state, from, to, examId = 'all' }: CalendarExpo
         ICSを書き出す
       </button>
       {open && (
-        <section className="card" aria-label="ICS書き出し">
+        <section className="card mt-3.5" aria-label="ICS書き出し">
           <h3>カレンダーファイルを保存</h3>
-          <fieldset disabled={busy}>
+          <fieldset className="m-0 min-w-0 border-0 p-0" disabled={busy}>
             <div className="two">
               <Field label="書き出す開始日">
                 <input
@@ -95,8 +95,8 @@ function DesktopCalendarExport({ state, from, to, examId = 'all' }: CalendarExpo
                 />
               </Field>
             </div>
-            <div className="actions">
-              <label className="export-check">
+            <div className="actions mb-4">
+              <label className="inline-flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={options.study}
@@ -104,7 +104,7 @@ function DesktopCalendarExport({ state, from, to, examId = 'all' }: CalendarExpo
                 />
                 学習予定
               </label>
-              <label className="export-check">
+              <label className="inline-flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={options.classes}
@@ -149,7 +149,7 @@ function DesktopCalendarExport({ state, from, to, examId = 'all' }: CalendarExpo
             </p>
           )}
           {message && <p role="status">{message}</p>}
-          <div className="actions">
+          <div className="actions mb-4">
             <button className="primary" disabled={busy} onClick={() => void write()}>
               {busy ? '書き出し中…' : 'ICSを保存する'}
             </button>

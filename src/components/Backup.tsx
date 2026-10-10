@@ -113,7 +113,7 @@ export function Backup({
   }
   const candidate = mode === 'file' ? file?.backup.data : previous?.data;
   return (
-    <div className="backup-page">
+    <div className="max-w-[980px] [&>.card]:mb-6">
       <section className="card">
         <h2>バックアップを保存</h2>
         <p>設定・計画・実績を、ひとつのファイルに保存します。</p>
@@ -130,10 +130,11 @@ export function Backup({
       </section>
       <section className="card">
         <h2>バックアップから復元</h2>
-        <label className="file-picker">
+        <label className="relative my-[18px] inline-flex cursor-pointer items-center gap-3 rounded-[10px] border border-line bg-surface px-[18px] py-3 focus-within:outline-2 focus-within:outline-offset-[3px] focus-within:outline-accent">
           <Upload size={18} />
           ファイルを選択
           <input
+            className="absolute inset-0 w-full cursor-pointer opacity-0"
             aria-label="復元するバックアップ"
             type="file"
             accept=".json,.studyplan.json"
@@ -167,7 +168,7 @@ export function Backup({
               <b>現在の設定・計画・実績を、上の内容で置き換えます。</b>
               直前のデータは1回分残し、復元を取り消せます。
             </p>
-            <label className="reset-check">
+            <label className="my-4 flex items-center gap-2.5 [&_input]:w-auto">
               <input
                 type="checkbox"
                 checked={checked}

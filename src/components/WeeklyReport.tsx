@@ -11,6 +11,9 @@ import { progressView } from '../domain/progressView';
 import { demoMode } from '../demo';
 import { selectSaveDestination } from '../fileSave';
 import { lanMode } from '../lan';
+/** One headline number of the week. */
+const metricCard =
+  'min-w-0 rounded-[10px] border border-line bg-surface px-6 py-[23px] max-[1150px]:p-[18px] @max-[430px]:p-3.5';
 
 export function WeeklyReport({
   state,
@@ -191,7 +194,7 @@ export function WeeklyReport({
             </h2>
             <p>月曜〜日曜 ／ 全体の進捗は出力時点</p>
             <div className="mb-[26px] grid grid-cols-[repeat(3,minmax(0,1fr))] gap-[18px] max-[1150px]:gap-3 max-[1100px]:grid-cols-[1fr] [&_p]:mb-[5px] [&_p]:text-[10px] [&_p]:text-muted [&_strong]:mx-0 [&_strong]:mt-3 [&_strong]:mb-0.5 [&_strong]:block [&_strong]:text-[32px] [&_strong]:leading-[1.5] [&_strong]:font-semibold [&_strong]:text-ink [&_strong]:tabular-nums [&>div>span]:flex [&>div>span]:items-center [&>div>span]:gap-[9px] [&>div>span]:text-[11px] [&>div>span]:text-muted">
-              <div className="min-w-0 rounded-[10px] border border-line bg-surface px-6 py-[23px] max-[1150px]:p-[18px] @max-[430px]:p-3.5">
+              <div className={metricCard}>
                 <span>この週に記録した量</span>
                 <strong>
                   {totals((t) => (t.recordCount ? amount(t.weekDone, t.unit) : '記録なし'))}
@@ -200,12 +203,12 @@ export function WeeklyReport({
                   週間予定 {report.hasWeekPlan ? totals((t) => amount(t.weekPlanned, t.unit)) : '—'}
                 </p>
               </div>
-              <div className="min-w-0 rounded-[10px] border border-line bg-surface px-6 py-[23px] max-[1150px]:p-[18px] @max-[430px]:p-3.5">
+              <div className={metricCard}>
                 <span>全体の進捗率</span>
                 <strong>{totals((t) => reportRate(t.done, t.total))}</strong>
                 <p>完了 {totals((t) => `${t.done} / ${t.total}${t.unit}`)}</p>
               </div>
-              <div className="min-w-0 rounded-[10px] border border-line bg-surface px-6 py-[23px] max-[1150px]:p-[18px] @max-[430px]:p-3.5">
+              <div className={metricCard}>
                 <span>この週の記録 / 全体の総量</span>
                 <strong>
                   {totals((t) => (t.recordCount ? reportRate(t.weekDone, t.total) : '—'))}
@@ -295,7 +298,7 @@ export function WeeklyReport({
             </section>
             <details className="card">
               <summary>Markdownの内容を確認</summary>
-              <pre className="max-h-[520px] overflow-y-auto whitespace-pre-wrap bg-surface p-3 text-[12px] [font-family:inherit] [font-style:inherit] [font-weight:inherit] [line-height:inherit] [overflow-wrap:anywhere]" tabIndex={0} aria-label="書き出すMarkdown">
+              <pre className="max-h-[520px] overflow-y-auto whitespace-pre-wrap bg-surface p-3 text-[12px] [font-family:inherit] [font-style:inherit] [font-weight:inherit] [line-height:inherit] wrap-anywhere" tabIndex={0} aria-label="書き出すMarkdown">
                 {report.markdown}
               </pre>
             </details>

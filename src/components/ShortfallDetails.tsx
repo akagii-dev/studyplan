@@ -16,7 +16,7 @@ export function ShortfallDetails({ state, onReview, inWeek = false }: { state: A
         {shortfalls.map((item) => (
           <li className={`border-b border-b-line ${inWeek ? 'py-1' : 'py-[7px]'}`} key={`${item.materialId}/${item.round}`}>
             <div className="flex items-baseline justify-between gap-2.5">
-              <span className={`[overflow-wrap:anywhere] ${inWeek ? 'min-w-0' : ''}`}>
+              <span className={`wrap-anywhere ${inWeek ? 'min-w-0' : ''}`}>
                 {state.settings.materials.find((material) => material.id === item.materialId)
                   ?.name ?? item.materialId}{' '}
                 · {item.round + 1}周目

@@ -1,6 +1,7 @@
 import { AppState } from '../domain/model';
 import { samePlanningSettings, stalePlan } from '../domain/planAudit';
 import { setupIssues } from '../domain/setupIssues';
+import { statusBox } from './ui';
 
 export function RegistrationStatus({
   state,
@@ -20,7 +21,7 @@ export function RegistrationStatus({
     !!state.proposal?.plan.settingsSnapshot &&
     samePlanningSettings(state.proposal.plan.settingsSnapshot, state.settings);
   return (
-    <section className="rounded-[16px] border border-line bg-surface p-[1.2rem] mb-[1.4rem] [&_h3]:mt-0 [&_p]:mx-0 [&_p]:mt-[0.65rem] [&_p]:mb-[1rem]" aria-label="登録と計画の状態">
+    <section className={statusBox} aria-label="登録と計画の状態">
       <h3>計画に未反映</h3>
       <p>確定した変更は保存済みです。計画案を確認し、更新するとカレンダーへ反映します。</p>
       {missing.length ? (

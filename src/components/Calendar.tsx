@@ -26,6 +26,16 @@ import { CalendarExport } from './CalendarExport';
 import { sessionPolicy } from '../domain/sessionPolicy';
 import { StudyCoverageNotice } from './SetupImpact';
 import { displayPlanSessions } from '../domain/planDisplay';
+import { periodButton } from './ui';/** Floating panel heading with its close button at the end. */
+const panelHeading =
+  'day-panel-heading mb-2 flex flex-row-reverse flex-wrap items-start justify-between gap-2';
+/** Close button of a floating panel. */
+const panelClose =
+  'day-panel-close m-0 min-h-11 max-w-full';
+/** A small line of details in a session card. */
+const detailRow =
+  'row flex-wrap items-start gap-[5px] text-[10px]';
+
 export function Calendar({
   state,
   update,
@@ -186,7 +196,7 @@ export function Calendar({
         style={{ borderLeftColor: e?.color, '--exam-color': e?.color } as CSSProperties}
       >
         {level !== 'compact' && (
-          <div className="row flex-wrap items-start gap-[5px] text-[10px]">
+          <div className={detailRow}>
             <span className="eyebrow text-[11px] tracking-[.6px]">{e?.name}</span>
             {level === 'detailed' && (
               <span className="planned-time block text-[12px] tabular-nums">
@@ -208,7 +218,7 @@ export function Calendar({
             <button onClick={onReplan}>対話で見直す</button>
           </div>
         )}
-        <div className="row flex-wrap items-start gap-[5px] text-[10px]">
+        <div className={detailRow}>
           {s.kind === 'study' && progress ? <ProgressValue value={progressView(progress, s.date, today())} /> : <span>{duration(s.end - s.start)}</span>}
         </div>
         {level === 'detailed' &&
@@ -330,9 +340,9 @@ export function Calendar({
   };
   const selectedDayPanel = showDay && (
     <aside className="card day-panel fixed m-0 overflow-auto rounded-card border border-line bg-surface p-4 shadow-[0_6px_24px_#0003] bottom-20 right-4 z-12 h-max max-h-[min(60dvh,calc(100dvh-160px))] w-[min(26rem,calc(100vw-32px))]" aria-label="選択した日の学習詳細" ref={detailRef} onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); closeDay(); } }}>
-      <div className="day-panel-heading mb-2 flex flex-row-reverse flex-wrap items-start justify-between gap-2">
+      <div className={panelHeading}>
       <button
-        className="day-panel-close m-0 min-h-11 max-w-full"
+        className={panelClose}
         onClick={closeDay}
       >
         詳細を閉じる
@@ -361,21 +371,21 @@ export function Calendar({
     <>
       <div className="calendar-toolbar schedule-toolbar m-0 mb-1 flex max-w-[900px] flex-wrap items-center justify-between gap-x-2 gap-y-1 [&>*]:min-w-0">
         <div className="calendar-period flex flex-wrap items-center gap-1">
-          <button aria-label="前の期間" className="min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface px-2.5 py-[7px] text-[11px]" onClick={() => jump(-1)}>
+          <button aria-label="前の期間" className={`${periodButton} px-2.5 py-[7px] text-[11px]`} onClick={() => jump(-1)}>
             <ChevronLeft size={20} aria-hidden />
           </button>
           <h2 className="m-0 whitespace-nowrap text-[1.125rem]">
             {Number(anchor.slice(0, 4))}年 {Number(anchor.slice(5, 7))}月
           </h2>
-          <button aria-label="次の期間" className="min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface px-2.5 py-[7px] text-[11px]" onClick={() => jump(1)}>
+          <button aria-label="次の期間" className={`${periodButton} px-2.5 py-[7px] text-[11px]`} onClick={() => jump(1)}>
             <ChevronRight size={20} aria-hidden />
           </button>
           <div className="calendar-today-actions flex items-center gap-1">
-            <button className="future-today min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface px-3.5 py-2.5 text-[.875rem] font-medium"
+            <button className={`future-today ${periodButton} px-3.5 py-2.5 text-[.875rem] font-medium`}
               onClick={() => { setShowDay(false); setSelected(today()); }}>
               今日
             </button>
-            <button ref={settingsButtonRef} className="calendar-settings-toggle min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface px-2.5 py-[7px] text-[11px]"
+            <button ref={settingsButtonRef} className={`calendar-settings-toggle ${periodButton} px-2.5 py-[7px] text-[11px]`}
               aria-label="カレンダーの表示設定" aria-haspopup="dialog"
               aria-expanded={settingsOpen} aria-controls={settingsId}
               onClick={() => setSettingsOpen(open => !open)}
@@ -406,8 +416,8 @@ export function Calendar({
               }
             }
           }}>
-          <div className="day-panel-heading mb-2 flex flex-row-reverse flex-wrap items-start justify-between gap-2">
-            <button className="day-panel-close m-0 min-h-11 max-w-full" aria-label="表示設定を閉じる" onClick={event => closeSettings(event.detail === 0)}>閉じる</button>
+          <div className={panelHeading}>
+            <button className={panelClose} aria-label="表示設定を閉じる" onClick={event => closeSettings(event.detail === 0)}>閉じる</button>
             <h3 className="m-0 min-w-0 text-[1.125rem]" id={settingsId + '-title'}>表示設定</h3>
           </div>
           <div className="calendar-settings-fields grid gap-2 [&_.field]:m-0 [&_.field]:flex-row [&_.field]:flex-wrap [&_.field]:items-center [&_.field]:gap-2 [&_.field]:text-[1rem] [&_.field>label]:flex-[0_1_5.5em] [&_select]:min-h-11 [&_select]:flex-[1_1_9em] [&_select]:px-2.5 [&_select]:py-2 [&_select]:text-[max(1rem,16px)]">

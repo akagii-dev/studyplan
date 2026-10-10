@@ -32,7 +32,10 @@ import { nonComparisonSessions } from '../domain/planDisplay';
 import { usePlanningClock } from '../hooks/usePlanningClock';
 import { elapsedRemainingTargets, remainingAdjustmentSourceDate, pastRemainingWork } from '../domain/remainingAllocation';
 import { reproposeRemainingAdjustment } from '../domain/planning';
-import { check } from './ui';
+import { check, statusText } from './ui';/** One decision step of the plan review, separated by a rule. */
+const decision =
+  'replan-decision border-t border-t-line py-[1.25rem] first-of-type:mt-[1.25rem] [&_h3]:mx-0 [&_h3]:mt-0 [&_h3]:mb-[0.75rem] [&_ul]:mx-0 [&_ul]:my-[0.5rem] [&_ul]:pl-[1.25rem] max-[640px]:[&_.actions]:w-full max-[640px]:[&_.actions_button]:w-full';
+
 export function Replan({ state, update, onCalendar, onFuture }: Props & { onCalendar: () => void; onFuture: () => void }) {
   const currentTime = usePlanningClock();
   const [ack, setAck] = useState(false);
@@ -414,7 +417,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
       )}
       {!p || !plan ? (
         result ? (
-          <section className="card mb-[1.4rem] [&_h3]:mt-0 [&_p]:mx-0 [&_p]:mt-[0.65rem] [&_p]:mb-[1rem]" role="status">
+          <section className={`card ${statusText}`} role="status">
             <CheckCircle2 size={24} />
             <h2 ref={resultHeading} tabIndex={-1}>
               {result}
@@ -488,7 +491,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                 開始日：<time dateTime={plan.allocationStart ?? plan.from}>{plan.allocationStart ?? plan.from}</time>。実績・履歴と固定予定を残し、未配置も再評価しました。
               </p>
             )}
-            <section className="replan-decision border-t border-t-line py-[1.25rem] first-of-type:mt-[1.25rem] [&_h3]:mx-0 [&_h3]:mt-0 [&_h3]:mb-[0.75rem] [&_ul]:mx-0 [&_ul]:my-[0.5rem] [&_ul]:pl-[1.25rem] max-[640px]:[&_.actions]:w-full max-[640px]:[&_.actions_button]:w-full" aria-labelledby="changed-settings-heading">
+            <section className={decision} aria-labelledby="changed-settings-heading">
               <h3 id="changed-settings-heading">変更した条件</h3>
               {conditionChanges === null ? (
                 <p>以前の計画に条件の記録がないため、条件差分を判定できません。</p>
@@ -505,7 +508,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                 <p className="hint">この内容で更新すると、上記の設定も計画と同時に反映します。</p>
               ) : null}
             </section>
-            <section className="replan-decision border-t border-t-line py-[1.25rem] first-of-type:mt-[1.25rem] [&_h3]:mx-0 [&_h3]:mt-0 [&_h3]:mb-[0.75rem] [&_ul]:mx-0 [&_ul]:my-[0.5rem] [&_ul]:pl-[1.25rem] max-[640px]:[&_.actions]:w-full max-[640px]:[&_.actions_button]:w-full" aria-labelledby="plan-impact-heading">
+            <section className={decision} aria-labelledby="plan-impact-heading">
               <h3 id="plan-impact-heading">計画への主な影響</h3>
               <p className="hint">現在の承認済み計画 → 新しい候補計画</p>
               {impacts.length ? (
@@ -564,7 +567,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                 ))}
               </dl>
             </section>
-            <section className="replan-decision border-t border-t-line py-[1.25rem] first-of-type:mt-[1.25rem] [&_h3]:mx-0 [&_h3]:mt-0 [&_h3]:mb-[0.75rem] [&_ul]:mx-0 [&_ul]:my-[0.5rem] [&_ul]:pl-[1.25rem] max-[640px]:[&_.actions]:w-full max-[640px]:[&_.actions_button]:w-full" aria-labelledby="plan-problems-heading">
+            <section className={decision} aria-labelledby="plan-problems-heading">
               <h3 id="plan-problems-heading">対応が必要な問題</h3>
               {approvalBlocks.length ? (
                 <section className="mt-[22px] rounded-[9px] border border-line bg-soft p-[18px] [&_button]:text-[12px] [&_li]:flex [&_li]:flex-wrap [&_li]:items-center [&_li]:justify-between [&_li]:gap-2.5 [&_li]:px-0 [&_li]:py-2 [&_li]:text-[12px] [&_ul]:list-none [&_ul]:p-0" aria-label="承認前の確認">
@@ -686,7 +689,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                 </div>
               )}
             </section>
-            <section className="replan-decision border-t border-t-line py-[1.25rem] first-of-type:mt-[1.25rem] [&_h3]:mx-0 [&_h3]:mt-0 [&_h3]:mb-[0.75rem] [&_ul]:mx-0 [&_ul]:my-[0.5rem] [&_ul]:pl-[1.25rem] max-[640px]:[&_.actions]:w-full max-[640px]:[&_.actions_button]:w-full" aria-labelledby="apply-plan-heading">
+            <section className={decision} aria-labelledby="apply-plan-heading">
               <h3 id="apply-plan-heading">適用操作</h3>
               <p>
                 {conditionChanges?.length

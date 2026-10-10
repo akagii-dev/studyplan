@@ -188,7 +188,7 @@ export function AppShell({
           </div>
           {error && (
             <div className="error-banner mb-5 flex justify-between rounded-[7px] border border-error-line bg-error-bg p-3 text-[12px] whitespace-pre-line text-error flex-col items-start gap-2" role="alert">
-              <span className="max-w-full [overflow-wrap:anywhere]">{error}</span>
+              <span className="max-w-full wrap-anywhere">{error}</span>
               <button className="min-h-11 shrink-0 whitespace-nowrap" onClick={dismissError}>閉じる</button>
             </div>
           )}

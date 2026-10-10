@@ -8,7 +8,7 @@ import { RegistrationStatus } from '../RegistrationStatus';
 import { SetupImpact } from '../SetupImpact';
 import { newWindow } from './model';
 import { QuestionView, StepContext } from './types';
-import { answerSummary, choicesLarge } from '../ui';
+import { answerSummary, choicesLarge, statusBox } from '../ui';
 
 export function FinishSteps(ctx: StepContext): QuestionView | undefined {
   const {
@@ -39,7 +39,7 @@ export function FinishSteps(ctx: StepContext): QuestionView | undefined {
             別の項目を修正する
           </button>
           {state.plan && w.editScope !== 'outside' && (
-            <div className="rounded-[16px] border border-line bg-surface p-[1.2rem] mb-[1.4rem] [&_h3]:mt-0 [&_p]:mx-0 [&_p]:mt-[0.65rem] [&_p]:mb-[1rem]">
+            <div className={statusBox}>
               <h3>計画に未反映</h3>
               <p>確定した変更は保存済みです。計画の更新は案を確認した後に行います。</p>
             </div>

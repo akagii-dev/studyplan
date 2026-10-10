@@ -41,3 +41,20 @@ export const deleteConfirm = 'flex flex-wrap items-center gap-1.5 [&_span]:text-
 
 /** A borderless icon-only edit button that still shows the hover state. */
 export const iconButton = 'p-1.5 enabled:border-transparent enabled:bg-transparent hover:enabled:border-accent hover:enabled:bg-soft';
+
+/** A borderless button in the period navigation (previous, next, today, settings). */
+export const periodButton =
+  'min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface';
+
+/** A checkbox that confirms a replacing action, with its statement on one line. */
+export const confirmCheck = 'my-4 flex items-center gap-2.5 [&_input]:w-auto';
+
+/** Registration status text; `statusBox` adds the frame when it is not inside a card. */
+export const statusText = 'mb-[1.4rem] [&_h3]:mt-0 [&_p]:mx-0 [&_p]:mt-[0.65rem] [&_p]:mb-[1rem]';
+export const statusBox = `rounded-[16px] border border-line bg-surface p-[1.2rem] ${statusText}`;
+
+/** The weekly class timetable: heading row, period labels and day buttons. */
+export const timetableGrid =
+  'timetable mx-0 mt-[15px] mb-[25px] grid items-center text-center @max-[680px]:overflow-x-auto [&>b]:text-[12px] [&>b]:font-normal [&>div:first-child]:text-[11px] [&>div:first-child]:text-muted';
+export const timetableRow =
+  'timetable-row contents [&>button]:h-[45px] [&>button]:bg-surface [&>button]:text-muted [&>button.class-selected]:border-2 [&>button.class-selected]:border-[var(--busy-border)] [&>button.class-selected]:bg-[var(--busy-bg)] [&>button.class-selected]:text-[var(--busy-ink)] [&>button.class-selected_small]:block [&>button.class-selected_small]:text-[10px] [&>button.class-selected_small]:text-[var(--busy-muted)] [&>button:hover:enabled]:border-accent [&>button:hover:enabled]:bg-soft [&>label]:flex [&>label]:items-center [&>label]:gap-2 [&>label]:text-[11px] [&>label]:whitespace-nowrap [&>label_input]:px-1.5 [&>label_input]:py-[7px]';

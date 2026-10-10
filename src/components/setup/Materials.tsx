@@ -268,7 +268,7 @@ function ParallelMaterials({ state, update }: Props) {
       proposal: null,
     }));
   return (
-    <div className="card compact grid gap-2 [&_li]:[overflow-wrap:anywhere] [&_ol]:m-0 [&_ol]:grid [&_ol]:list-none [&_ol]:gap-1 [&_ol]:p-0">
+    <div className="card compact grid gap-2 [&_li]:wrap-anywhere [&_ol]:m-0 [&_ol]:grid [&_ol]:list-none [&_ol]:gap-1 [&_ol]:p-0">
       <Field
         label="同時に進める教材数"
         hint="取り組む順序（同じ番号は一覧の順）で区切ってタームにします。前のタームが全て終わってから次へ進みます。"
@@ -296,7 +296,7 @@ function ParallelMaterials({ state, update }: Props) {
         </select>
       </Field>
       {limit !== undefined && s.materials.length > 0 && (
-        <fieldset className="outside-terms m-0 grid min-w-0 gap-1 p-0 text-[12px] [border:0] [&_label]:flex [&_label]:min-h-8 [&_label]:items-center [&_label]:gap-2 [&_label]:[overflow-wrap:anywhere]">
+        <fieldset className="outside-terms m-0 grid min-w-0 gap-1 p-0 text-[12px] [border:0] [&_label]:flex [&_label]:min-h-8 [&_label]:items-center [&_label]:gap-2 [&_label]:wrap-anywhere">
           <legend className="mb-1 p-0 font-[550] text-ink">タームに含めず常に並行する教材</legend>
           {s.materials.map((m) => (
             <label key={m.id}>

@@ -8,7 +8,7 @@ import { SkipImpact } from '../SetupImpact';
 import { TimetablePreview } from '../TimetablePreview';
 import { newWindow } from './model';
 import { QuestionView, StepContext } from './types';
-import { answerSummary, choices, wizardOptions } from '../ui';
+import { answerSummary, choices, timetableGrid, timetableRow, wizardOptions } from '../ui';
 
 export function AvailabilitySteps(ctx: StepContext): QuestionView | undefined {
   const {
@@ -255,13 +255,13 @@ export function AvailabilitySteps(ctx: StepContext): QuestionView | undefined {
       title = '授業があるコマを押してください。';
       content = (
         <>
-          <div className="timetable mx-0 mt-[15px] mb-[25px] grid items-center text-center @max-[680px]:overflow-x-auto [&>b]:text-[12px] [&>b]:font-normal [&>div:first-child]:text-[11px] [&>div:first-child]:text-muted grid-cols-[85px_repeat(5,1fr)] gap-2 [&_.timetable-row>span]:text-[12px] [&_small]:block">
+          <div className={`${timetableGrid} grid-cols-[85px_repeat(5,1fr)] gap-2 [&_.timetable-row>span]:text-[12px] [&_small]:block`}>
             <div>時限</div>
             {[1, 2, 3, 4, 5].map((d) => (
               <b key={d}>{weekdays[d]}</b>
             ))}
             {state.settings.periods.map((t, i) => (
-              <div className="timetable-row contents [&>button]:h-[45px] [&>button]:bg-surface [&>button]:text-muted [&>button.class-selected]:border-2 [&>button.class-selected]:border-[var(--busy-border)] [&>button.class-selected]:bg-[var(--busy-bg)] [&>button.class-selected]:text-[var(--busy-ink)] [&>button.class-selected_small]:block [&>button.class-selected_small]:text-[10px] [&>button.class-selected_small]:text-[var(--busy-muted)] [&>button:hover:enabled]:border-accent [&>button:hover:enabled]:bg-soft [&>label]:flex [&>label]:items-center [&>label]:gap-2 [&>label]:text-[11px] [&>label]:whitespace-nowrap [&>label_input]:px-1.5 [&>label_input]:py-[7px]" key={i}>
+              <div className={timetableRow} key={i}>
                 <span>
                   {i + 1}限 <small>{clock(t)}</small>
                 </span>

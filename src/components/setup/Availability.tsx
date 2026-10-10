@@ -8,7 +8,7 @@ import { Empty, Field, Props, useDraft, weekdays } from '../common';
 import { ScheduleReview } from '../SetupImpact';
 import { TimetablePreview } from '../TimetablePreview';
 import { ClassCancellations } from './ClassCancellations';
-import { badge, choices, deleteConfirm, split } from '../ui';
+import { badge, choices, deleteConfirm, split, timetableGrid, timetableRow } from '../ui';
 
 function DeleteAction({ label, onDelete }: { label: string; onDelete: () => Promise<void> }) {
   const [confirming, setConfirming] = useState(false);
@@ -26,6 +26,9 @@ function DeleteAction({ label, onDelete }: { label: string; onDelete: () => Prom
     </div>
   );
 }
+/** A registered entry in the list. */
+const historyRow =
+  'row border-t border-t-line py-3 text-[12px]';
 
 export function Availability({ state, update, focusTarget }: Props & { focusTarget?: AvailabilityTarget | null }) {
   const blank: WindowRule = {
@@ -279,13 +282,13 @@ export function Availability({ state, update, focusTarget }: Props & { focusTarg
             />
           </Field>
         </div>
-        <div className="timetable mx-0 mt-[15px] mb-[25px] grid items-center text-center @max-[680px]:overflow-x-auto [&>b]:text-[12px] [&>b]:font-normal [&>div:first-child]:text-[11px] [&>div:first-child]:text-muted grid-cols-[160px_repeat(5,1fr)] gap-[9px]">
+        <div className={`${timetableGrid} grid-cols-[160px_repeat(5,1fr)] gap-[9px]`}>
           <div>時限 / 開始</div>
           {[1, 2, 3, 4, 5].map((d) => (
             <b key={d}>{weekdays[d]}</b>
           ))}
           {state.settings.periods.map((start, i) => (
-            <div className="timetable-row contents [&>button]:h-[45px] [&>button]:bg-surface [&>button]:text-muted [&>button.class-selected]:border-2 [&>button.class-selected]:border-[var(--busy-border)] [&>button.class-selected]:bg-[var(--busy-bg)] [&>button.class-selected]:text-[var(--busy-ink)] [&>button.class-selected_small]:block [&>button.class-selected_small]:text-[10px] [&>button.class-selected_small]:text-[var(--busy-muted)] [&>button:hover:enabled]:border-accent [&>button:hover:enabled]:bg-soft [&>label]:flex [&>label]:items-center [&>label]:gap-2 [&>label]:text-[11px] [&>label]:whitespace-nowrap [&>label_input]:px-1.5 [&>label_input]:py-[7px]" key={i}>
+            <div className={timetableRow} key={i}>
               <label>
                 {i + 1}限
                 <input
@@ -355,7 +358,7 @@ export function Availability({ state, update, focusTarget }: Props & { focusTarg
           {state.settings.windows
             .filter((w) => w.kind === 'class')
             .map((w) => (
-              <div className="row border-t border-t-line py-3 text-[12px]" key={w.id}>
+              <div className={historyRow} key={w.id}>
                 <span>
                   {w.weekdays.map((d) => weekdays[d])} {clock(w.start)}–{clock(w.end)}　{w.from}〜
                   {w.to}
@@ -449,7 +452,7 @@ export function Availability({ state, update, focusTarget }: Props & { focusTarg
           {state.settings.exceptions.some((item) => item.id === exception.id) ? '予定を更新する' : '予定を追加する'}
         </button>
         {state.settings.exceptions.map((x) => (
-          <div className="row border-t border-t-line py-3 text-[12px]" key={x.id}>
+          <div className={historyRow} key={x.id}>
             <span>
               {x.date}　{x.name}　
               {x.start === 0 && x.end === 1440 ? '終日' : `${clock(x.start)}–${clock(x.end)}`}

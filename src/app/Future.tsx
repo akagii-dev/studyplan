@@ -16,6 +16,7 @@ import { currentPlanningStatus } from '../domain/progressAdjustment';
 import { displayPlanSessions } from '../domain/planDisplay';
 import { usePlanningClock } from '../hooks/usePlanningClock';
 import { pastRemainingWork } from '../domain/remainingAllocation';
+import { periodButton } from '../components/ui';
 
 export interface FutureSelection { from: string; selectedOn: string }
 const priorityName = (priority: number) => ['', '低い', 'ふつう', '高い'][priority] ?? String(priority);
@@ -64,6 +65,15 @@ function FutureRestart({ onRestart }: {
     </section>}
   </details>;
 }
+/** Year shown before a week date. */
+const weekYear =
+  'future-week-year text-[1rem] font-normal text-muted';
+/** A material line with its quantity at the end. */
+const quantityRow =
+  'grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-1 py-1.5 text-[1rem]';
+/** Planned and recorded quantity of a line. */
+const quantityText =
+  'future-quantity flex max-w-[15rem] flex-wrap items-baseline justify-end gap-x-2.5 gap-y-1 wrap-anywhere';
 
 export function Future({
   state,
@@ -174,18 +184,18 @@ export function Future({
   const shortfalls = state.plan?.shortfalls ?? [];
   const receipts = visibleProgressReceipts(state);
   return (
-    <div className="future-page max-w-[900px] [:where(&)_button]:min-h-11 [:where(&)_button]:max-w-full [:where(&)_button]:whitespace-normal [:where(&)_button]:[overflow-wrap:anywhere] [:where(&)_summary]:min-h-11 [:where(&)_summary]:cursor-pointer [:where(&)_summary]:py-2 [:where(&)_form]:scroll-my-3">
+    <div className="future-page max-w-[900px] [:where(&)_button]:min-h-11 [:where(&)_button]:max-w-full [:where(&)_button]:whitespace-normal [:where(&)_button]:wrap-anywhere [:where(&)_summary]:min-h-11 [:where(&)_summary]:cursor-pointer [:where(&)_summary]:py-2 [:where(&)_form]:scroll-my-3">
       <div className="future-week mb-1 flex flex-wrap items-center gap-x-2 gap-y-1" role="group" aria-label="週間予定の表示範囲">
         <div className="future-week-navigation flex min-w-0 flex-wrap items-center gap-1">
         <div className="future-week-range flex min-w-0 items-center gap-1">
-          <button className="shrink-0 p-3 min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface" aria-label="前の週" onClick={() => moveWeek(addDays(week, -7))}><ChevronLeft className="shrink-0" size={20} strokeWidth={2.5} aria-hidden="true" /></button>
-          <time className="flex min-w-0 flex-wrap items-baseline justify-center gap-x-1.5 text-center [overflow-wrap:anywhere]" dateTime={week} aria-live="polite" aria-label={weekRangeLabel(week)}>
-            <span className="future-week-year text-[1rem] font-normal text-muted">{week.slice(0, 4)}</span>{' '}
-            <strong className="text-[1.125rem] tabular-nums">{shortDate(week)}–{week.slice(0, 4) !== weekEnd.slice(0, 4) && <><span className="future-week-year text-[1rem] font-normal text-muted">{weekEnd.slice(0, 4)}</span>{' '}</>}{shortDate(weekEnd)}</strong>
+          <button className={`shrink-0 p-3 ${periodButton}`} aria-label="前の週" onClick={() => moveWeek(addDays(week, -7))}><ChevronLeft className="shrink-0" size={20} strokeWidth={2.5} aria-hidden="true" /></button>
+          <time className="flex min-w-0 flex-wrap items-baseline justify-center gap-x-1.5 text-center wrap-anywhere" dateTime={week} aria-live="polite" aria-label={weekRangeLabel(week)}>
+            <span className={weekYear}>{week.slice(0, 4)}</span>{' '}
+            <strong className="text-[1.125rem] tabular-nums">{shortDate(week)}–{week.slice(0, 4) !== weekEnd.slice(0, 4) && <><span className={weekYear}>{weekEnd.slice(0, 4)}</span>{' '}</>}{shortDate(weekEnd)}</strong>
           </time>
-          <button className="shrink-0 p-3 min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface" aria-label="次の週" onClick={() => moveWeek(addDays(week, 7))}><ChevronRight className="shrink-0" size={20} strokeWidth={2.5} aria-hidden="true" /></button>
+          <button className={`shrink-0 p-3 ${periodButton}`} aria-label="次の週" onClick={() => moveWeek(addDays(week, 7))}><ChevronRight className="shrink-0" size={20} strokeWidth={2.5} aria-hidden="true" /></button>
         </div>
-        <button className="min-h-11 min-w-11 border-0 bg-transparent text-accent hover:enabled:bg-soft active:enabled:bg-accent active:enabled:text-surface" onClick={() => moveWeek(currentWeek)}>今日</button>
+        <button className={periodButton} onClick={() => moveWeek(currentWeek)}>今日</button>
         </div>
         <ScheduleViewSwitch calendar={false} onSwitch={() => onCalendar(week, false)} />
       </div>
@@ -212,7 +222,7 @@ export function Future({
           </form>}
         </section>}
       <div role="status" aria-live="polite" aria-atomic="true" className="future-notice [&:not(:empty)]:my-2">{adjustmentNotice && !needsReview ? '未消化分を調整しました' : ''}</div>
-      {needsReview && <p className="future-reconciliation my-3 border-s-[3px] border-s-warning ps-3 [overflow-wrap:anywhere]" role="status">
+      {needsReview && <p className="future-reconciliation my-3 border-s-[3px] border-s-warning ps-3 wrap-anywhere" role="status">
         調整未反映・要確認。現在の計画を保持しています。{reviewReason ? ` ${reviewReason}` : ''}
       </p>}
       {past.issue && past.issue !== reviewReason && !placementOpen && <p className="error" role="alert">{past.issue}</p>}
@@ -255,11 +265,11 @@ export function Future({
                           s.round === row.round,
                       );
                       return (
-                        <li className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-1 py-1.5 text-[1rem]" key={JSON.stringify([row.materialId, row.round, row.unit])}>
-                          <span className="min-w-0 [overflow-wrap:anywhere]">
+                        <li className={quantityRow} key={JSON.stringify([row.materialId, row.round, row.unit])}>
+                          <span className="min-w-0 wrap-anywhere">
                             {row.name} · {row.round + 1}周目
                           </span>
-                          <span className="future-quantity flex max-w-[15rem] flex-wrap items-baseline justify-end gap-x-2.5 gap-y-1 [overflow-wrap:anywhere]">
+                          <span className={quantityText}>
                             <ProgressValue value={progress} />
                             {matching.some((s) => unavailableIds.has(s.id)) && <span>配置要確認</span>}
                             {matching.some((s) => s.fixed) && (
@@ -274,15 +284,15 @@ export function Future({
                   {[...rows.values()]
                     .filter(({ session }) => date > reference || session.kind === 'review')
                     .map(({ session, count, minutes, needsReview: rowNeedsReview }) => (
-                      <li className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-1 py-1.5 text-[1rem]"
+                      <li className={quantityRow}
                         key={`${session.kind}/${session.materialId}/${session.round}/${session.examId}/${session.fixed}`}
                       >
-                        <span className="min-w-0 [overflow-wrap:anywhere]">
+                        <span className="min-w-0 wrap-anywhere">
                           {session.kind === 'review'
                             ? `${state.settings.exams.find((exam) => exam.id === session.examId)?.name ?? '試験'} · 復習`
                             : `${state.settings.materials.find((material) => material.id === session.materialId)?.name ?? session.materialId} · ${session.round + 1}周目`}
                         </span>
-                        <span className="future-quantity flex max-w-[15rem] flex-wrap items-baseline justify-end gap-x-2.5 gap-y-1 [overflow-wrap:anywhere]"><strong className="text-[1.125rem] tabular-nums">
+                        <span className={quantityText}><strong className="text-[1.125rem] tabular-nums">
                           {session.kind === 'review' ? duration(minutes) : progressView({
                             planned: count, actual: 0, reported: false,
                             unit: quantity.rows.find(row => row.materialId === session.materialId && row.round === session.round)?.unit ??
@@ -322,7 +332,7 @@ export function Future({
             <legend>配分を均す教材</legend>
             {state.settings.materials.map((material) => {
               const exam = state.settings.exams.find((item) => item.id === material.examId);
-              return <label className="flex min-h-11 items-center gap-2 [overflow-wrap:anywhere]" key={material.id}>
+              return <label className="flex min-h-11 items-center gap-2 wrap-anywhere" key={material.id}>
                 <input className="flex-none" type="checkbox" checked={balanceMaterials.includes(material.id)} onChange={(event) =>
                   setBalanceMaterials((current) => event.target.checked ? [...current, material.id] : current.filter((id) => id !== material.id))} />
                 {material.name}{exam ? ` · ${exam.name}` : ''}

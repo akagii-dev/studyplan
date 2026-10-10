@@ -1,6 +1,6 @@
 /** One option of the segmented switch; the current view is filled in the theme color. */
 const option = (active: boolean) =>
-  `min-h-11 min-w-11 max-w-full rounded-none [border:0] px-3.5 py-[9px] text-[1rem] whitespace-normal [overflow-wrap:anywhere] ${
+  `min-h-11 min-w-11 max-w-full rounded-none [border:0] px-3.5 py-[9px] text-[1rem] whitespace-normal wrap-anywhere ${
     active ? 'active bg-accent font-[650] text-on-accent [box-shadow:none]' : 'bg-transparent text-accent hover:enabled:bg-soft'}`;
 
 export function ScheduleViewSwitch({ calendar, onSwitch }: { calendar: boolean; onSwitch: () => void }) {

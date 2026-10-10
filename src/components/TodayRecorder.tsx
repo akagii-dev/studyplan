@@ -30,7 +30,7 @@ function RecordInputDisclosure({ complete, expanded, onExpandedChange, unit, chi
   }, [open]);
   return <details ref={detailsRef} open={open}
     className="daily-record-input min-w-0 @max-[700px]:col-start-2 @max-[700px]:row-span-2 @max-[700px]:row-start-1 motion-safe:[&::details-content]:opacity-0 motion-safe:[&::details-content]:[transition:opacity_var(--page-fade-duration)_var(--page-fade-easing),content-visibility_var(--page-fade-duration)_var(--page-fade-easing)_allow-discrete] motion-safe:[&[open]::details-content]:opacity-100">
-    <summary className="min-h-11 content-center text-[.875rem] text-ink [overflow-wrap:anywhere] [&[hidden]]:hidden focus:not-focus-visible:[outline:none]" ref={summaryRef} hidden={!complete} onClick={event => {
+    <summary className="min-h-11 content-center text-[.875rem] text-ink wrap-anywhere [&[hidden]]:hidden focus:not-focus-visible:[outline:none]" ref={summaryRef} hidden={!complete} onClick={event => {
       event.preventDefault();
       onExpandedChange(!open);
     }}>
@@ -116,14 +116,14 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
             const id = key(row.materialId, row.round);
             return (
               <div role="listitem" key={id} className={`daily-record-row${row.progress.complete ? ' is-complete' : ''} grid min-w-0 grid-cols-[minmax(130px,1.3fr)_minmax(160px,1fr)_minmax(185px,auto)] items-center gap-x-4 gap-y-2 border-b border-line py-4 @max-[700px]:grid-cols-[minmax(0,1fr)_auto] @max-[430px]:block`}>
-                <div className="daily-record-name flex min-w-0 flex-wrap gap-x-2.5 gap-y-1 [overflow-wrap:anywhere] @max-[430px]:mb-1.5">
+                <div className="daily-record-name flex min-w-0 flex-wrap gap-x-2.5 gap-y-1 wrap-anywhere @max-[430px]:mb-1.5">
                   <strong className={`text-[16px] ${row.progress.complete ? 'text-muted' : ''}`}>{row.materialName}</strong>
                   <span className="text-muted">{row.round + 1}周目</span>
                 </div>
                 <div className="daily-record-amounts flex min-w-0 flex-wrap justify-end gap-x-2.5 gap-y-1 text-right @max-[700px]:col-start-1 @max-[430px]:mb-1.5 @max-[430px]:justify-start @max-[430px]:text-left">
                   <ProgressValue value={row.progress}
                     className="justify-end @max-[430px]:justify-start [&>span]:text-muted"
-                    strongClassName={`text-[16px] ${row.progress.complete ? 'inline-flex items-center gap-1 [overflow-wrap:anywhere]' : ''}`}
+                    strongClassName={`text-[16px] ${row.progress.complete ? 'inline-flex items-center gap-1 wrap-anywhere' : ''}`}
                     tone={row.progress.complete ? 'text-accent' : 'text-ink'} />
                 </div>
                 <RecordInputDisclosure complete={row.progress.complete} expanded={additionalInputs[id] ?? false}

@@ -33,7 +33,7 @@ export function StudyNote({ state, update }: Props) {
     } finally { setBusy(false); }
   }
   return <form className="card study-note grid gap-2.5 [&_.field]:m-0" onSubmit={event => void save(event)} aria-label="ターム・メモ">
-    <div className="study-term grid gap-1.5 border-b border-line pb-3 [&_p]:m-0 [&_p]:[overflow-wrap:anywhere] [&_span]:text-muted" role="group" aria-label="ターム">
+    <div className="study-term grid gap-1.5 border-b border-line pb-3 [&_p]:m-0 [&_p]:wrap-anywhere [&_span]:text-muted" role="group" aria-label="ターム">
       {limit ? <>
         {current && <p><span>現在のターム：</span><b>{current.items.map(termItemLabel).join('、')}</b></p>}
         <p><span>次のターム：</span><b>{next ? next.items.map(termItemLabel).join('、') : current ? 'なし（最後のターム）' : 'なし'}</b></p>

@@ -6,6 +6,9 @@ import { TodayRecorder, RecordTarget } from '../components/TodayRecorder';
 import { today } from '../domain/model';
 import { currentPlanReconciliation, currentProgressAdjustment } from '../domain/progressAdjustment';
 import { Page } from './navigation';
+/** Status of the adjustment after a record. */
+const adjustmentNote =
+  'daily-adjustment mb-4 rounded-[8px] bg-soft px-3.5 py-2.5';
 
 export function Dashboard({
   state,
@@ -30,13 +33,13 @@ export function Dashboard({
   return (
     <div className="daily-page max-w-[900px]">
       {reconciliation?.status === 'blocked' ? (
-        <div className="daily-adjustment mb-4 rounded-[8px] bg-soft px-3.5 py-2.5" role="status">
+        <div className={adjustmentNote} role="status">
           <strong>調整未反映・要確認。現在の計画を保持しています。</strong>
           {reconciliation.detail && <p>{reconciliation.detail}</p>}
           <button onClick={() => navigate('future')}>今後の予定を確認</button>
         </div>
       ) : (result?.status === 'review' || result?.status === 'failed') && (
-        <div className="daily-adjustment mb-4 rounded-[8px] bg-soft px-3.5 py-2.5" role="status">
+        <div className={adjustmentNote} role="status">
           {result.status === 'failed' ? '実績は保存されました。予定調整に失敗しました。' : '予定の確認が必要です。'}
           {result.status === 'failed' ? (
             <span className="actions">

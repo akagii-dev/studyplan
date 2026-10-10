@@ -6,6 +6,7 @@ import { loadRestorePoint, validateBackup } from '../store';
 import { dateTime } from '../domain/planAudit';
 import { selectSaveDestination } from '../fileSave';
 import { lanMode } from '../lan';
+import { confirmCheck } from './ui';
 
 function Summary({ state }: { state: AppState }) {
   const n = backupSummary(state);
@@ -168,7 +169,7 @@ export function Backup({
               <b>現在の設定・計画・実績を、上の内容で置き換えます。</b>
               直前のデータは1回分残し、復元を取り消せます。
             </p>
-            <label className="my-4 flex items-center gap-2.5 [&_input]:w-auto">
+            <label className={confirmCheck}>
               <input
                 type="checkbox"
                 checked={checked}

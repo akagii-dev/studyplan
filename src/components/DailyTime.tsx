@@ -18,6 +18,9 @@ const labels: Record<DisplayTimeKind, string> = {
   bath: '風呂',
   outside: '学習対象外・未設定',
 };
+/** A note under a category, aligned with its name. */
+const note =
+  'daily-time-note ms-[calc(28px+0.35rem)] block text-muted';
 
 export function DailyTime({
   settings,
@@ -57,7 +60,7 @@ export function DailyTime({
             : display.totals[kind],
     }));
   return (
-    <section className="card daily-time [overflow-wrap:anywhere]" aria-labelledby={headingId}>
+    <section className="card daily-time wrap-anywhere" aria-labelledby={headingId}>
       <header className="flex flex-wrap items-baseline gap-x-[1.25rem] gap-y-[0.35rem]">
         <h2 className="m-0 text-[1.3rem]" id={headingId}>1日の可処分時間</h2>
         <p className="m-0 text-[1rem] text-muted">
@@ -178,9 +181,9 @@ export function DailyTime({
                       {s.title ?? labels[s.kind]}
                     </span>
                   </span>
-                  {s.title && <span className="daily-time-note ms-[calc(28px+0.35rem)] block text-muted">学習対象外</span>}
+                  {s.title && <span className={note}>学習対象外</span>}
                   {s.commuteNames.length > 0 && (
-                    <span className="daily-time-note ms-[calc(28px+0.35rem)] block text-muted">{s.commuteNames.join('・')}</span>
+                    <span className={note}>{s.commuteNames.join('・')}</span>
                   )}
                 </td>
                 <td>{duration(s.end - s.start)}</td>

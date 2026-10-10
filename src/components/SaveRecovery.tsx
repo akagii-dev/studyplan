@@ -34,7 +34,7 @@ export function SaveRecovery({
   }
   return (
     <div className={saveOverlay} role="dialog" aria-modal="true" aria-label="保存状態の確認">
-      <section className="card save-recovery max-h-[calc(100vh-48px)] overflow-auto [&_details_p]:[overflow-wrap:anywhere]">
+      <section className="card save-recovery max-h-[calc(100vh-48px)] overflow-auto [&_details_p]:wrap-anywhere">
         {confirmClose ? (
           <>
             <h2>保存を確認せずに終了しますか？</h2>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { resetSetup, restoreReset } from '../domain/reset';
 import { Props } from './common';
+import { confirmCheck } from './ui';
 export function ResetSetup({ state, update }: Props) {
   const [mode, setMode] = useState<'questions' | 'all' | 'restore' | null>(null);
   const [checked, setChecked] = useState(false);
@@ -52,7 +53,7 @@ export function ResetSetup({ state, update }: Props) {
                 ? '初期化後に入力した内容を、初期化直前の設定・計画・記録で置き換えます。'
                 : '質問の位置と入力途中の回答を戻します。登録済みの設定・教材・計画・固定予定・実績は残ります。'}
           </p>
-          <label className="my-4 flex items-center gap-2.5 [&_input]:w-auto">
+          <label className={confirmCheck}>
             <input
               type="checkbox"
               checked={checked}

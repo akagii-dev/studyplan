@@ -69,7 +69,7 @@ export function Startup({
             {!demoMode && (
               <details className="startup-details mt-7 text-left">
                 <summary>エラーの詳細</summary>
-                <pre className="rounded-[8px] bg-soft p-3 text-[12px] whitespace-pre-wrap [overflow-wrap:anywhere]">{error}</pre>
+                <pre className="rounded-[8px] bg-soft p-3 text-[12px] whitespace-pre-wrap wrap-anywhere">{error}</pre>
               </details>
             )}
           </>

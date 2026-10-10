@@ -50,7 +50,7 @@ export function OutsideLabelEditor({
   const range = `${clock(start)}〜${clock(end)}`;
   return editing ? (
     <form
-      className="outside-label-editor"
+      className="outside-label-editor col-[1/-1] mt-[0.35rem] [&_.actions]:flex-wrap [&_input]:min-w-0 [&_input]:max-w-full"
       onSubmit={(e) => {
         e.preventDefault();
         void commit(text);
@@ -88,7 +88,7 @@ export function OutsideLabelEditor({
     <button
       ref={button}
       type="button"
-      className="outside-label-edit"
+      className="outside-label-edit size-[28px] min-w-[28px] border-transparent bg-transparent p-0 hover:enabled:border-accent hover:enabled:bg-soft"
       aria-label={`${range}の「${title ?? '学習対象外・未設定'}」の名前を編集`}
       title="名前を編集"
       onClick={() => {

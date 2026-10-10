@@ -74,8 +74,8 @@ export function OutsideTimeSetup({
           ? '何時に起きますか？'
           : '何時にお風呂から上がりますか？';
   return (
-    <section className="outside-time-setup" aria-label={`${name}の質問`}>
-      <h3>{title}</h3>
+    <section aria-label={`${name}の質問`}>
+      <h3 className="text-[1.2rem]">{title}</h3>
       <p>毎日の「学習対象外・未設定」だけを細分化します。学習計画には影響しません。</p>
       {draft.phase === 'ask' ? (
         <>

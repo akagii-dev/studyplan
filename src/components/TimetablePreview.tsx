@@ -43,7 +43,7 @@ export function TimetablePreview({
       <p>
         {validDate}（{weekdays[weekday(validDate)]}）・{periodLabel}：{from}〜{to}
       </p>
-      <dl className="availability-breakdown">
+      <dl className="mx-0 my-3 [&_dd]:mx-0 [&_dd]:mt-1 [&_dd]:mb-0 [&_dd]:text-[13px] [&_dt]:text-[12px] [&_dt]:font-[650] [&>div]:border-b [&>div]:border-b-line [&>div]:p-3">
         <div>
           <dt>登録した学習可能枠</dt>
           <dd>
@@ -52,7 +52,7 @@ export function TimetablePreview({
               : 'この日の学習可能枠はありません'}
           </dd>
         </div>
-        <div className="busy-time">
+        <div className="busy-time bg-[var(--busy-bg)] text-[var(--busy-ink)]">
           <dt>授業・予定（学習不可）</dt>
           <dd>
             {busy.length
@@ -65,7 +65,7 @@ export function TimetablePreview({
               : '登録なし'}
           </dd>
         </div>
-        <div className="free-time">
+        <div className="free-time bg-soft">
           <dt>除外後の学習枠</dt>
           <dd>
             {available.length

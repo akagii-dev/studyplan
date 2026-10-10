@@ -8,7 +8,6 @@
 @import './styles/controls.css' layer(legacy);
 @import './styles/shell.css' layer(legacy);
 @import './styles/calendar.css' layer(legacy);
-@import './styles/daily-time.css' layer(legacy);
 @import './styles/setup.css' layer(legacy);
 @import './styles/guided.css' layer(legacy);
 @import './styles/replan.css' layer(legacy);

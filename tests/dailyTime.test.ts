@@ -228,8 +228,8 @@ describe('1日の時間内訳表示', () => {
     const settings = initialState().settings;
     const before = structuredClone(settings);
     const html = renderToStaticMarkup(createElement(DailyTime, { settings, date }));
-    expect(html).toContain('<dt>学習可能</dt><dd>0分</dd>');
-    expect(html).toContain('<details class="daily-time-details">');
+    expect(html).toMatch(/<dt[^>]*>学習可能<\/dt><dd[^>]*>0分<\/dd>/);
+    expect(html).toMatch(/<details class="daily-time-details[ "]/);
     expect(html).not.toContain(' open=');
     expect(html).not.toContain('role="img"');
     expect(html.match(/<circle /g)).toHaveLength(1);
@@ -264,7 +264,7 @@ describe('1日の時間内訳表示', () => {
         createElement(DailyTime, { settings, date }),
       ),
     );
-    const ids = [...html.matchAll(/<h2 id="([^"]+)"/g)].map((m) => m[1]);
+    const ids = [...html.matchAll(/<h2[^>]* id="([^"]+)"/g)].map((m) => m[1]);
     expect(new Set(ids).size).toBe(2);
     for (const id of ids) expect(html).toContain(`aria-labelledby="${id}"`);
   });

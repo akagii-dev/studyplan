@@ -4,7 +4,7 @@ import { Settings, OutsideTime, OutsideLabel, clock } from '../domain/model';
 import { dailyTime } from '../domain/dailyTime';
 import { dailyTimeDisplay, DisplayTimeKind } from '../domain/dailyTimeDisplay';
 import { duration } from './common';
-import { DailyTimeChart } from './DailyTimeChart';
+import { DailyTimeChart, timeColorStyle } from './DailyTimeChart';
 import { OutsideLabelEditor } from './OutsideLabelEditor';
 
 const labels: Record<DisplayTimeKind, string> = {
@@ -57,10 +57,10 @@ export function DailyTime({
             : display.totals[kind],
     }));
   return (
-    <section className="card daily-time" aria-labelledby={headingId}>
-      <header className="daily-time-heading">
-        <h2 id={headingId}>1日の可処分時間</h2>
-        <p>
+    <section className="card daily-time [overflow-wrap:anywhere]" aria-labelledby={headingId}>
+      <header className="flex flex-wrap items-baseline gap-x-[1.25rem] gap-y-[0.35rem]">
+        <h2 className="m-0 text-[1.3rem]" id={headingId}>1日の可処分時間</h2>
+        <p className="m-0 text-[1rem] text-muted">
           <time dateTime={date}>{date}</time> · 現在の設定
         </p>
       </header>
@@ -76,15 +76,15 @@ export function DailyTime({
           </Warning>
         )}
       {day.totals.mealCommute > 0 && (
-        <p className="daily-time-warning">
+        <p className="daily-time-warning border-l-[3px] border-l-warning bg-warning-bg p-[0.75rem] text-warning">
           食事と通学が{duration(day.totals.mealCommute)}
           重なっています。通学の出発時刻または食事時間を修正してください。
         </p>
       )}
-      <div className="daily-time-summary">
+      <div className="daily-time-summary mt-[1.25rem] grid grid-cols-[minmax(0,1fr)] items-center gap-x-[1.5rem] gap-y-[1rem] @min-[600px]:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
         <DailyTimeChart items={chartItems} focus={day.capacity.focus} />
         <div className="daily-time-breakdown">
-          <dl className="time-legend">
+          <dl className="time-legend m-0 flex flex-wrap gap-x-[1.5rem] gap-y-[0.6rem] text-muted @min-[600px]:flex-col @min-[600px]:items-start">
             {chartItems
               .filter(
                 ({ kind }) =>
@@ -92,16 +92,16 @@ export function DailyTime({
                   (kind !== 'sleep' || !!outsideTime?.sleep || !!outsideTime?.bath),
               )
               .map(({ kind, value }) => (
-                <div key={kind} data-kind={kind}>
-                  <dt>
-                    <span className={`time-swatch time-${kind}`} aria-hidden="true" />
+                <div className="flex max-w-full flex-wrap items-baseline gap-x-[0.5rem] gap-y-0" key={kind} data-kind={kind}>
+                  <dt className="min-w-0">
+                    <span className={`time-swatch time-${kind} mr-[0.5rem] inline-block size-[0.7rem] rounded-[2px] bg-[var(--time-color)]`} style={timeColorStyle(kind)} aria-hidden="true" />
                     {kind === 'meal'
                       ? '通学・食事'
                       : kind === 'sleep'
                         ? '睡眠・風呂'
                         : labels[kind]}
                   </dt>
-                  <dd>
+                  <dd className="m-0 tabular-nums">
                     {kind === 'meal' ? (
                       <>
                         （食事{duration(display.totals.meal + display.totals.mealCommute)}、通学
@@ -119,20 +119,20 @@ export function DailyTime({
                 </div>
               ))}
           </dl>
-          <p className="daily-time-support">休憩を含む空き枠 {duration(day.capacity.free)}</p>
+          <p className="daily-time-support mx-0 mt-[0.75rem] mb-0 text-muted">休憩を含む空き枠 {duration(day.capacity.free)}</p>
         </div>
       </div>
-      <details className="daily-time-details">
-        <summary>時刻・通学の内訳を見る</summary>
+      <details className="daily-time-details mt-[1rem] [&_h3]:mx-0 [&_h3]:mt-[1rem] [&_h3]:mb-[0.5rem] [&_h3]:text-[1.1rem] [&_p]:mx-0 [&_p]:my-[0.5rem]">
+        <summary className="min-h-11 scroll-my-[1rem] px-[0.25rem] py-[0.65rem] text-[1rem] text-ink focus-visible:rounded-[2px] focus-visible:[outline:3px_solid_var(--accent)] focus-visible:outline-offset-2">時刻・通学の内訳を見る</summary>
         {day.commutes.length > 0 && (
           <div className="daily-commute">
             <h3>通学の往復</h3>
             <p>この日の通学：計{duration(day.commuteMinutes)}（重複区間は1回だけ集計）</p>
-            <dl className="daily-commute-list">
+            <dl className="daily-commute-list mx-0 mt-[0.5rem] mb-[1rem]">
               {day.commutes.map((e) => (
-                <div key={e.id}>
+                <div className="my-[0.4rem] flex flex-wrap gap-x-[0.75rem] gap-y-0" key={e.id}>
                   <dt>{e.name}</dt>
-                  <dd>
+                  <dd className="m-0">
                     {clock(e.start)}〜{clock(e.end)} · {duration(e.end - e.start)}
                   </dd>
                 </div>
@@ -146,8 +146,8 @@ export function DailyTime({
         {(outsideTime?.sleep || outsideTime?.bath) && (
           <p>睡眠・風呂は学習対象外の区間に重なる分だけを表示しています。</p>
         )}
-        <table className="daily-time-table">
-          <caption>24時間の内訳</caption>
+        <table className="daily-time-table mx-0 mt-[1rem] mb-0 table w-full table-auto overflow-visible text-[1rem] [&_td]:px-[0.3rem] [&_td]:py-[0.6rem] [&_td]:align-top [&_td]:text-ink [&_td]:[font-size:inherit] [&_th]:px-[0.3rem] [&_th]:py-[0.6rem] [&_th]:align-top [&_th]:text-ink [&_th]:[font-size:inherit] [&_th:first-child]:w-[32%] [&_th:last-child]:w-[24%] [&_tbody_th]:font-normal [&_tbody_th_span]:whitespace-nowrap">
+          <caption className="py-[0.5rem] text-left font-semibold">24時間の内訳</caption>
           <thead>
             <tr>
               <th scope="col">時刻</th>
@@ -163,8 +163,8 @@ export function DailyTime({
                   <span>{clock(s.end)}</span>
                 </th>
                 <td>
-                  <span className="time-category-row">
-                    <span className="time-category-action">
+                  <span className="grid min-w-0 grid-cols-[28px_minmax(0,max-content)] items-center gap-[0.35rem]">
+                    <span className="col-[1] min-w-[28px] has-[.outside-label-editor]:col-[1/-1] has-[.outside-label-editor]:row-[2]">
                       {s.kind === 'outside' && onRenameOutside && (
                         <OutsideLabelEditor
                           start={s.start}
@@ -174,13 +174,13 @@ export function DailyTime({
                         />
                       )}
                     </span>
-                    <span className={`time-category time-${s.kind}`}>
+                    <span className={`time-category time-${s.kind} col-[2] bg-transparent underline [text-decoration-color:var(--time-color)] [text-decoration-thickness:0.2em] underline-offset-[0.22em]`} style={timeColorStyle(s.kind)}>
                       {s.title ?? labels[s.kind]}
                     </span>
                   </span>
-                  {s.title && <span className="daily-time-note">学習対象外</span>}
+                  {s.title && <span className="daily-time-note ms-[calc(28px+0.35rem)] block text-muted">学習対象外</span>}
                   {s.commuteNames.length > 0 && (
-                    <span className="daily-time-note">{s.commuteNames.join('・')}</span>
+                    <span className="daily-time-note ms-[calc(28px+0.35rem)] block text-muted">{s.commuteNames.join('・')}</span>
                   )}
                 </td>
                 <td>{duration(s.end - s.start)}</td>

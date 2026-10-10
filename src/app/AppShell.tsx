@@ -165,7 +165,7 @@ export function AppShell({
               公開デモです。入力内容はこのブラウザー内だけに保存され、デスクトップ版とは共有されません。
             </p>
           )}
-          <div className={`page-heading${(page === 'future' || page === 'calendar') ? ' future-heading' : ''}`}>
+          <div className={`page-heading${(page === 'future' || page === 'calendar') ? ' future-heading mb-2 max-w-[900px] flex-nowrap gap-3 [&>div]:min-w-0' : ''}`}>
             <div>
               {onBack && <button className="detail-back" onClick={onBack}>← {backLabel}へ戻る</button>}
               <h1 ref={pageHeading} tabIndex={-1}>
@@ -173,7 +173,7 @@ export function AppShell({
               </h1>
             </div>
             {['dashboard', 'today'].includes(page) && (
-              <span className="today-label">
+              <span className="text-[11px] text-muted max-[900px]:hidden">
                 {today().replaceAll('-', ' / ')}（
                 {['日', '月', '火', '水', '木', '金', '土'][weekday(today())]}）
               </span>

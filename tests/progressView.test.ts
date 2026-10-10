@@ -613,12 +613,12 @@ describe('ホームの未配置表示', () => {
         onReview: () => {},
       }),
     );
-    expect(html).toContain('<section class="shortfall-summary"');
-    expect(html).toContain('<h2>未配置 2件・1時間10分</h2>');
-    expect(html).toContain('問題集A · 1周目</span><strong>15問</strong>');
-    expect(html).toContain('<summary>理由</summary>');
+    expect(html).toMatch(/<section class="shortfall-summary[ "]/);
+    expect(html).toMatch(/<h2[^>]*>未配置 2件・1時間10分<\/h2>/);
+    expect(html).toMatch(/問題集A · 1周目<\/span><strong[^>]*>15問<\/strong>/);
+    expect(html).toMatch(/<summary[^>]*>理由<\/summary>/);
     expect(html).toContain('学習枠がありません。');
-    expect(html).toContain('問題集B · 2周目</span><strong>20問</strong>');
+    expect(html).toMatch(/問題集B · 2周目<\/span><strong[^>]*>20問<\/strong>/);
     expect(html).toContain('期限内に収まりません。');
     expect(html).not.toContain('理由を確認');
   });
@@ -869,9 +869,9 @@ describe('今日の記録と今後の予定', () => {
     );
     expect(html).toContain('この週に配置済み予定はありません');
     expect(html).toContain('未配置 2件・16分');
-    expect(html).toContain('問題集A · 1周目</span><strong>5問</strong>');
-    expect(html).toContain('問題集B · 1周目</span><strong>2問</strong>');
-    expect(html).toContain('<summary>理由</summary>');
+    expect(html).toMatch(/問題集A · 1周目<\/span><strong[^>]*>5問<\/strong>/);
+    expect(html).toMatch(/問題集B · 1周目<\/span><strong[^>]*>2問<\/strong>/);
+    expect(html).toMatch(/<summary[^>]*>理由<\/summary>/);
     expect(html).not.toContain('未配置 7問');
   });
 });

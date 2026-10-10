@@ -174,7 +174,7 @@ export function Future({
   const shortfalls = state.plan?.shortfalls ?? [];
   const receipts = visibleProgressReceipts(state);
   return (
-    <div className="future-page">
+    <div className="future-page max-w-[900px] [:where(&)_button]:min-h-11 [:where(&)_button]:max-w-full [:where(&)_button]:whitespace-normal [:where(&)_button]:[overflow-wrap:anywhere] [:where(&)_summary]:min-h-11 [:where(&)_summary]:cursor-pointer [:where(&)_summary]:py-2 [:where(&)_form]:scroll-my-3">
       <div className="future-week mb-1 flex flex-wrap items-center gap-x-2 gap-y-1" role="group" aria-label="週間予定の表示範囲">
         <div className="future-week-navigation flex min-w-0 flex-wrap items-center gap-1">
         <div className="future-week-range flex min-w-0 items-center gap-1">
@@ -190,10 +190,10 @@ export function Future({
         <ScheduleViewSwitch calendar={false} onSwitch={() => onCalendar(week, false)} />
       </div>
       {state.proposal && <button className="primary" onClick={onProposal}>計画案を確認</button>}
-        {onAdjustRemaining && state.plan && !state.proposal && (past.sessions.length > 0 || placementOpen) && <section className="remaining-adjustment" aria-label="経過済みの未消化分をまとめて調整">
+        {onAdjustRemaining && state.plan && !state.proposal && (past.sessions.length > 0 || placementOpen) && <section className="remaining-adjustment min-w-0" aria-label="経過済みの未消化分をまとめて調整">
           {!placementOpen ? <>
             <button ref={placementTrigger} onClick={openPlacement}>未消化{past.sessions.length}件・調整する</button>
-          </> : <form onSubmit={(event) => { event.preventDefault(); void adjustPlacement(); }}>
+          </> : <form className="grid gap-3 rounded-[8px] border border-line p-4" onSubmit={(event) => { event.preventDefault(); void adjustPlacement(); }}>
             <h2>経過済みの未消化分をまとめて調整</h2>
             <p>昨日以前の未消化分が対象です。今日と未来の予定・実績は維持します。</p>
             <ul aria-label="調整する対象">{pastGroups.map(({ material, round, count }) => <li key={`${material.id}/${round}`}>
@@ -201,7 +201,7 @@ export function Future({
             </li>)}</ul>
             {past.issue && <p className="error" role="alert">{past.issue}</p>}
             <label htmlFor="remaining-from">配置する開始日</label>
-            <input id="remaining-from" ref={placementField} type="date" required min={lowerDate}
+            <input className="min-h-11 w-fit max-w-full" id="remaining-from" ref={placementField} type="date" required min={lowerDate}
               value={placementDate} onChange={(event) => setPlacementDate(event.target.value)} />
             <div className="actions">
               <button type="submit" className="primary" disabled={placing || !!past.issue || !past.sessions.length}>配置案を確認</button>
@@ -216,7 +216,7 @@ export function Future({
         調整未反映・要確認。現在の計画を保持しています。{reviewReason ? ` ${reviewReason}` : ''}
       </p>}
       {past.issue && past.issue !== reviewReason && !placementOpen && <p className="error" role="alert">{past.issue}</p>}
-      <ShortfallDetails state={state} />
+      <ShortfallDetails state={state} inWeek />
       {groups.size ? (
         [...groups]
           .sort(([a], [b]) => a.localeCompare(b))
@@ -340,7 +340,7 @@ export function Future({
 
       {receipts.length > 0 && (
         <details className="plan-change-history">
-          <summary>実績による予定調整の履歴</summary>
+          <summary className="mt-4">実績による予定調整の履歴</summary>
           {[...receipts].reverse().map((receipt) => (
             <details key={receipt.id}>
               <summary>

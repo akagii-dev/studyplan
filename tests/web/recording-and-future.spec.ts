@@ -555,7 +555,7 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
     await page.clock.runFor(150);
     await expect(page.locator('.page-transition')).toHaveCSS('opacity', '1');
     const selected = view.getByRole('button', { name: '週間予定', exact: true });
-    await expect(selected).toHaveClass('active');
+    await expect(selected).toHaveClass(/(^|\s)active(\s|$)/);
     // Theme changes also transition button backgrounds for 120ms; wait for settled paint.
     await expect.poll(() => selected.evaluate(element =>
       element.getAnimations().filter(animation => animation instanceof CSSTransition &&

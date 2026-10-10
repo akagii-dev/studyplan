@@ -8,10 +8,6 @@
   top: 0;
   z-index: 1;
 }
-.today-label {
-  font-size: 11px;
-  color: var(--muted);
-}
 .history-row {
   padding: 12px 0;
   border-top: 1px solid var(--border);
@@ -59,11 +55,6 @@ progress::-webkit-progress-bar {
 progress::-webkit-progress-value {
   background: var(--accent);
   border-radius: 6px;
-}
-@media (max-width: 900px) {
-  .today-label {
-    display: none;
-  }
 }
 .progress-result p:first-child {
   margin-top: 0;

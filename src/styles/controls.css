@@ -105,24 +105,6 @@ input[type='number'] {
 .text-danger {
   color: var(--error-ink);
 }
-.segmented {
-  display: flex;
-  border: 1px solid var(--border);
-  background: var(--soft);
-  padding: 3px;
-  border-radius: 7px;
-  white-space: nowrap;
-}
-.segmented button {
-  border: 0;
-  background: transparent;
-  min-width: 39px;
-}
-.segmented button.active {
-  background: var(--accent);
-  color: var(--on-accent);
-  font-weight: 650;
-}
 td input {
   max-width: 120px;
 }

@@ -32,10 +32,10 @@ export function Warning({
   if (context?.state.ignoredWarnings?.[id]?.version === stamp) return null;
   const expanded = context?.state.warningExpanded?.[id] ?? true;
   return (
-    <section className={`warning dismissible-warning ${className}`} aria-label={label ?? title}>
-      <div className="warning-toolbar">
+    <section className={`warning dismissible-warning my-5 rounded-[9px] border border-warning-line bg-warning-bg px-6 py-5 text-warning [overflow-wrap:anywhere] [&_h3]:[color:inherit] [&_li]:text-[11px] [&_p]:text-[12px] [&_p]:[color:inherit] [&_small]:[color:inherit] ${className}`} aria-label={label ?? title}>
+      <div className="flex justify-between gap-3 [align-items:start] @max-[430px]:flex-wrap">
         <button
-          className="warning-toggle"
+          className="bg-transparent px-0 py-1 text-left font-[650] [border:0] [color:inherit] [justify-content:start] [overflow-wrap:anywhere] hover:enabled:bg-soft"
           aria-expanded={expanded}
           onClick={() => {
             if (context)
@@ -51,7 +51,7 @@ export function Warning({
         </button>
         {context && (
           <button
-            className="warning-ignore"
+            className="shrink-0 text-[12px]"
             onClick={() => {
               void context
                 .update((s) => ({
@@ -68,7 +68,7 @@ export function Warning({
           </button>
         )}
       </div>
-      {expanded && <div className="warning-content">{children}</div>}
+      {expanded && <div className="warning-content mt-3">{children}</div>}
       {error && <p role="alert">{error}</p>}
     </section>
   );
@@ -97,9 +97,9 @@ export function WarningSettings({ state, update }: Props) {
       ) : (
         <>
           <button onClick={() => restore()}>すべて再表示</button>
-          <ul className="ignored-warnings">
+          <ul className="list-none p-0">
             {entries.map(([id, entry]) => (
-              <li key={id}>
+              <li className="flex items-center justify-between gap-3 border-b border-b-line py-4" key={id}>
                 <div>
                   <b>{entry.title}</b>
                   <small className="block">

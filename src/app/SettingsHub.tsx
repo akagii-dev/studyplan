@@ -155,7 +155,7 @@ export function SettingsHub({
             </button>
           </div>
         </div>
-        <div id="settings-plan-check" className="settings-plan-check">
+        <div id="settings-plan-check" className="scroll-mt-5 pt-4 [&_.error]:mb-3 [&_li]:mt-2 [&_li_button]:ml-2 [&_ul]:mx-0 [&_ul]:mt-2 [&_ul]:mb-0 [&_ul]:pl-5">
           {attempted && missing.length > 0 && (
             <p className="error" role="alert">未登録の項目を入力してください。</p>
           )}

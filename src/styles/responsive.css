@@ -9,8 +9,7 @@
   }
 }
 @container (max-width: 430px) {
-  .card,
-  .metric-card {
+  .card {
     padding: 14px;
   }
 }

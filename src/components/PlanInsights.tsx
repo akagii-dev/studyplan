@@ -29,7 +29,7 @@ export function PlanInsights({
     open?: boolean;
   }) =>
     flat ? (
-      <section className="plan-insight-section">
+      <section className="mt-[1.5rem] min-w-0">
         <h4>{summary}</h4>
         {children}
       </section>
@@ -66,7 +66,7 @@ export function PlanInsights({
     );
   }, [plan, settings]);
   return (
-    <section className="card plan-insights" aria-label="計画の条件と一日の問題数">
+    <section className="card plan-insights [&_details]:mt-4" aria-label="計画の条件と一日の問題数">
       <h3>計画の条件</h3>
       <p>
         計画作成：{dateTime(plan.createdAt)}

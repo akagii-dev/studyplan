@@ -334,13 +334,13 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
   );
   if (editing && state.draft.revision)
     return (
-      <div ref={revisionView} tabIndex={-1} className="approval-target">
+      <div ref={revisionView} tabIndex={-1} className="scroll-mt-6">
         <GuidedRevision state={state} update={update} onClose={() => setEditing(false)} />
       </div>
     );
   return (
     <>
-      <div className="row replan-tools">
+      <div className="row mb-[1rem] flex-wrap items-start [&>p]:mx-0 [&>p]:my-[0.65rem] [&>p]:text-muted max-[640px]:[&_.actions]:w-full max-[640px]:[&_.actions_button]:w-full">
         <p>条件修正・復元・再生成</p>
         <div className="actions">
           <button
@@ -456,7 +456,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                 <button disabled={acting} onClick={() => void act(s => proposeBalancedRemaining({ ...s, proposal: null }, basis!.balanceMaterialIds ?? [], basis!.from))}>削減しない案へ戻す</button>
               </div>}
             </section>}
-            {partialPreview && <section className="replan-placement" aria-label="選択した残量の配置案">
+            {partialPreview && <section className="[&_ul]:ps-5" aria-label="選択した残量の配置案">
               <h3>選択した残量の配置案</h3>
               {partialPreview.rows.map((row) => <div key={`${row.materialId}/${row.round}`}>
                 <h4>{row.name} · {row.round + 1}周目</h4>
@@ -487,7 +487,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                 開始日：<time dateTime={plan.allocationStart ?? plan.from}>{plan.allocationStart ?? plan.from}</time>。実績・履歴と固定予定を残し、未配置も再評価しました。
               </p>
             )}
-            <section className="replan-decision" aria-labelledby="changed-settings-heading">
+            <section className="replan-decision border-t border-t-line py-[1.25rem] first-of-type:mt-[1.25rem] [&_h3]:mx-0 [&_h3]:mt-0 [&_h3]:mb-[0.75rem] [&_ul]:mx-0 [&_ul]:my-[0.5rem] [&_ul]:pl-[1.25rem] max-[640px]:[&_.actions]:w-full max-[640px]:[&_.actions_button]:w-full" aria-labelledby="changed-settings-heading">
               <h3 id="changed-settings-heading">変更した条件</h3>
               {conditionChanges === null ? (
                 <p>以前の計画に条件の記録がないため、条件差分を判定できません。</p>
@@ -504,7 +504,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                 <p className="hint">この内容で更新すると、上記の設定も計画と同時に反映します。</p>
               ) : null}
             </section>
-            <section className="replan-decision" aria-labelledby="plan-impact-heading">
+            <section className="replan-decision border-t border-t-line py-[1.25rem] first-of-type:mt-[1.25rem] [&_h3]:mx-0 [&_h3]:mt-0 [&_h3]:mb-[0.75rem] [&_ul]:mx-0 [&_ul]:my-[0.5rem] [&_ul]:pl-[1.25rem] max-[640px]:[&_.actions]:w-full max-[640px]:[&_.actions_button]:w-full" aria-labelledby="plan-impact-heading">
               <h3 id="plan-impact-heading">計画への主な影響</h3>
               <p className="hint">現在の承認済み計画 → 新しい候補計画</p>
               {impacts.length ? (
@@ -553,7 +553,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
               ) : (
                 <p>最初の統合計画を作成します。</p>
               )}
-              <dl className="replan-totals">
+              <dl className="replan-totals mx-0 mt-[1rem] mb-0 flex flex-wrap gap-x-[1.5rem] gap-y-[0.75rem] max-[640px]:grid max-[640px]:grid-cols-[1fr] [&_dd]:m-0 [&_dd]:font-[750] [&_dt]:text-muted [&>div]:flex [&>div]:items-baseline [&>div]:gap-[0.5rem]">
                 {candidateWork.filter((row) => row.allocated || row.unplaced || previousUnplaced.get(`${row.materialId}/${row.round}`)).map((row) => (
                   <div key={`${row.materialId}/${row.round}`}>
                     <dt>{row.name} · {row.round + 1}周目</dt>
@@ -563,10 +563,10 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                 ))}
               </dl>
             </section>
-            <section className="replan-decision" aria-labelledby="plan-problems-heading">
+            <section className="replan-decision border-t border-t-line py-[1.25rem] first-of-type:mt-[1.25rem] [&_h3]:mx-0 [&_h3]:mt-0 [&_h3]:mb-[0.75rem] [&_ul]:mx-0 [&_ul]:my-[0.5rem] [&_ul]:pl-[1.25rem] max-[640px]:[&_.actions]:w-full max-[640px]:[&_.actions_button]:w-full" aria-labelledby="plan-problems-heading">
               <h3 id="plan-problems-heading">対応が必要な問題</h3>
               {approvalBlocks.length ? (
-                <section className="approval-blockers" aria-label="承認前の確認">
+                <section className="mt-[22px] rounded-[9px] border border-line bg-soft p-[18px] [&_button]:text-[12px] [&_li]:flex [&_li]:flex-wrap [&_li]:items-center [&_li]:justify-between [&_li]:gap-2.5 [&_li]:px-0 [&_li]:py-2 [&_li]:text-[12px] [&_ul]:list-none [&_ul]:p-0" aria-label="承認前の確認">
                   <p id={approvalStatusId}>現在は更新できません。下の問題を解消してください。</p>
                   {summaryBlocks.length > 0 && (
                     <ul>
@@ -584,7 +584,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
               )}
               {conflicts.length > 0 && (
                 <section className="confirmation-panel" aria-label="計画エラーの修正">
-                  <h3 ref={conflictsHeading} tabIndex={-1} className="approval-target">
+                  <h3 ref={conflictsHeading} tabIndex={-1} className="scroll-mt-6">
                     予定の競合
                   </h3>
                   {conflicts.map((message) => {
@@ -658,7 +658,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
               )}
               {p.unreported.length > 0 && (
                 <div className="confirmation-panel">
-                  <h3 ref={unreportedHeading} tabIndex={-1} className="approval-target">
+                  <h3 ref={unreportedHeading} tabIndex={-1} className="scroll-mt-6">
                     未報告の予定を確認してください
                   </h3>
                   <p>
@@ -685,7 +685,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                 </div>
               )}
             </section>
-            <section className="replan-decision replan-apply" aria-labelledby="apply-plan-heading">
+            <section className="replan-decision border-t border-t-line py-[1.25rem] first-of-type:mt-[1.25rem] [&_h3]:mx-0 [&_h3]:mt-0 [&_h3]:mb-[0.75rem] [&_ul]:mx-0 [&_ul]:my-[0.5rem] [&_ul]:pl-[1.25rem] max-[640px]:[&_.actions]:w-full max-[640px]:[&_.actions_button]:w-full" aria-labelledby="apply-plan-heading">
               <h3 id="apply-plan-heading">適用操作</h3>
               <p>
                 {conditionChanges?.length
@@ -696,7 +696,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                 <button
                   data-submit
                   ref={approveButton}
-                  className="primary"
+                  className="primary min-w-[min(100%,14rem)]"
                   aria-describedby={approvalBlocks.length ? approvalStatusId : undefined}
                   disabled={acting || approvalBlocks.length > 0}
                   onClick={() =>
@@ -720,9 +720,9 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
             </section>
           </section>
           <details className="card replan-details">
-            <summary>計算条件・個別予定・全一覧を確認</summary>
+            <summary className="flex min-h-11 cursor-pointer items-center font-[750] focus-visible:[outline:3px_solid_var(--accent)] focus-visible:outline-offset-[3px]">計算条件・個別予定・全一覧を確認</summary>
             <PlanInsights state={state} plan={plan} preview flat />
-            <section className="replan-detail-section">
+            <section className="mt-[1.5rem] min-w-0">
               <h3>日ごとの予定量の差分</h3>
               <p className="hint">過去の予定と固定した予定を保持し、残りの学習日へ分散します。</p>
               {keys.length ? (
@@ -753,7 +753,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                   予定量の変更はありません。設定の変更による時刻・復習枠の差も、以下で確認できます。
                 </p>
               )}
-              <section className="plan-insight-section">
+              <section className="mt-[1.5rem] min-w-0">
                 <h4>時刻・復習を含む差分（{detailedChanges.length}件）</h4>
                 <table>
                   <thead>
@@ -781,7 +781,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                   </tbody>
                 </table>
               </section>
-              <section className="plan-insight-section">
+              <section className="mt-[1.5rem] min-w-0">
                 <h4>変更案の時刻・固定・復習枠</h4>
                 <table>
                   <thead>

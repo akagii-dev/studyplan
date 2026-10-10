@@ -283,7 +283,6 @@ main {
   color: inherit;
 }
 @container (max-width: 430px) {
-  .warning,
   .confirmation-panel {
     padding: 14px;
   }

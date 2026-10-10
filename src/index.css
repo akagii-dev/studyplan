@@ -10,7 +10,6 @@
 @import './styles/calendar.css' layer(legacy);
 @import './styles/setup.css' layer(legacy);
 @import './styles/guided.css' layer(legacy);
-@import './styles/replan.css' layer(legacy);
 @import './styles/responsive.css' layer(legacy);
 @import './styles/foundation.css' layer(legacy);
 @import 'tailwindcss/utilities.css' layer(utilities) source(none);

@@ -152,10 +152,6 @@ input[type='color'] {
 .impact-list li + li {
   margin-top: 0.55rem;
 }
-.replan-details > summary:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 3px;
-}
 @container (max-width: 680px) {
   .timetable {
     overflow-x: auto;

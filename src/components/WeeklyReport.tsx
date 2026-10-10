@@ -102,7 +102,7 @@ export function WeeklyReport({
   }
   return (
     <>
-      <section className="card report-controls" aria-label="週間レポートの書き出し">
+      <section className="card [&_.field]:max-w-[350px] [&>.error]:mx-0 [&>.error]:mt-[18px] [&>.error]:mb-0 [&>[role='status']]:mx-0 [&>[role='status']]:mt-[18px] [&>[role='status']]:mb-0" aria-label="週間レポートの書き出し">
         <Field label="レポートの対象日（その日を含む週）">
           <input
             type="date"
@@ -190,8 +190,8 @@ export function WeeklyReport({
               {report.from}〜{report.to}
             </h2>
             <p>月曜〜日曜 ／ 全体の進捗は出力時点</p>
-            <div className="metrics report-metrics">
-              <div className="metric-card">
+            <div className="mb-[26px] grid grid-cols-[repeat(3,minmax(0,1fr))] gap-[18px] max-[1150px]:gap-3 max-[1100px]:grid-cols-[1fr] [&_p]:mb-[5px] [&_p]:text-[10px] [&_p]:text-muted [&_strong]:mx-0 [&_strong]:mt-3 [&_strong]:mb-0.5 [&_strong]:block [&_strong]:text-[32px] [&_strong]:leading-[1.5] [&_strong]:font-semibold [&_strong]:text-ink [&_strong]:tabular-nums [&>div>span]:flex [&>div>span]:items-center [&>div>span]:gap-[9px] [&>div>span]:text-[11px] [&>div>span]:text-muted">
+              <div className="min-w-0 rounded-[10px] border border-line bg-surface px-6 py-[23px] max-[1150px]:p-[18px] @max-[430px]:p-3.5">
                 <span>この週に記録した量</span>
                 <strong>
                   {totals((t) => (t.recordCount ? amount(t.weekDone, t.unit) : '記録なし'))}
@@ -200,12 +200,12 @@ export function WeeklyReport({
                   週間予定 {report.hasWeekPlan ? totals((t) => amount(t.weekPlanned, t.unit)) : '—'}
                 </p>
               </div>
-              <div className="metric-card">
+              <div className="min-w-0 rounded-[10px] border border-line bg-surface px-6 py-[23px] max-[1150px]:p-[18px] @max-[430px]:p-3.5">
                 <span>全体の進捗率</span>
                 <strong>{totals((t) => reportRate(t.done, t.total))}</strong>
                 <p>完了 {totals((t) => `${t.done} / ${t.total}${t.unit}`)}</p>
               </div>
-              <div className="metric-card">
+              <div className="min-w-0 rounded-[10px] border border-line bg-surface px-6 py-[23px] max-[1150px]:p-[18px] @max-[430px]:p-3.5">
                 <span>この週の記録 / 全体の総量</span>
                 <strong>
                   {totals((t) => (t.recordCount ? reportRate(t.weekDone, t.total) : '—'))}
@@ -225,7 +225,7 @@ export function WeeklyReport({
             <section className="card">
               <h3>試験ごとの比較</h3>
               <div
-                className="report-table"
+                className="overflow-x-auto [&_table]:min-w-[500px]"
                 role="region"
                 aria-label="試験ごとの週間・全体比較"
                 tabIndex={0}
@@ -260,7 +260,7 @@ export function WeeklyReport({
             </section>
             <section className="card">
               <h3>日別の予定・実績</h3>
-              <div className="report-table" role="region" aria-label="週間の日別実績" tabIndex={0}>
+              <div className="overflow-x-auto [&_table]:min-w-[500px]" role="region" aria-label="週間の日別実績" tabIndex={0}>
                 <table>
                   <thead>
                     <tr>
@@ -293,9 +293,9 @@ export function WeeklyReport({
                 </table>
               </div>
             </section>
-            <details className="card report-markdown">
+            <details className="card">
               <summary>Markdownの内容を確認</summary>
-              <pre tabIndex={0} aria-label="書き出すMarkdown">
+              <pre className="max-h-[520px] overflow-y-auto whitespace-pre-wrap bg-surface p-3 text-[12px] [font-family:inherit] [font-style:inherit] [font-weight:inherit] [line-height:inherit] [overflow-wrap:anywhere]" tabIndex={0} aria-label="書き出すMarkdown">
                 {report.markdown}
               </pre>
             </details>

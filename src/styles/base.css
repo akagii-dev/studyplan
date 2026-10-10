@@ -306,7 +306,6 @@ progress {
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
 }
 .card,
-.metric-card,
 .two > *,
 .row > * {
   min-width: 0;
@@ -321,8 +320,7 @@ progress {
   max-width: 100%;
 }
 .card h2,
-.card h3,
-.warning {
+.card h3 {
   overflow-wrap: anywhere;
 }
 .delete-confirm { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }

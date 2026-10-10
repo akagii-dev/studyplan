@@ -123,7 +123,7 @@ export function LanSharing() {
     <details className="card lan-sharing [&_button]:min-h-11 [&_select]:min-h-11">
       <summary className="cursor-pointer text-[16px] font-[650]">LAN公開 <span className="ms-2 text-[14px] font-normal" role="status">{statusLabel}</span></summary>
       <div className="mt-4 grid gap-4 [&_p]:m-0 [&_p]:[overflow-wrap:anywhere]" aria-busy={pending !== null}>
-        <p id="lan-sharing-warning" className="lan-sharing-warning">
+        <p id="lan-sharing-warning" className="text-warning">
           <strong>注意：</strong>同じWi-Fiの信頼できる端末で使用してください。HTTP通信は暗号化されません。
           {!status?.active && 'キーを知る人は学習データを閲覧・変更できます。'}
         </p>
@@ -131,7 +131,7 @@ export function LanSharing() {
         {status?.active ? (
           <>
             <p>LAN公開先：{activeCandidate ? lanAddressLabel(activeCandidate) : status.address}</p>
-            <p id="lan-sharing-key-warning" className="lan-sharing-warning">
+            <p id="lan-sharing-key-warning" className="text-warning">
               キーを知る人は学習データを閲覧・変更できます。接続リンク・QRコードにもキーを含みます。共有しないでください。
             </p>
             {connectionLink && (

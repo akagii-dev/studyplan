@@ -118,3 +118,11 @@ textarea {
   max-width: 100%;
   min-width: 0;
 }
+progress::-webkit-progress-bar {
+  background: var(--soft);
+  border-radius: 6px;
+}
+progress::-webkit-progress-value {
+  background: var(--accent);
+  border-radius: 6px;
+}

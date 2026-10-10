@@ -108,7 +108,7 @@ export function ClassCancellations({ state, update }: Props) {
       <button className="primary" disabled={saving} onClick={() => void save()}>{form.id ? '休講を更新する' : '休講を追加する'}</button>
       {form.id && <button disabled={saving} onClick={() => { setForm(blank); setError(''); }}>編集をやめる</button>}
     </div>
-    {(state.settings.classCancellations ?? []).map((item) => <div className="history-row" key={item.id}>
+    {(state.settings.classCancellations ?? []).map((item) => <div className="border-t border-t-line py-3 text-[12px]" key={item.id}>
       <p>{classCancellationLabel(state.settings, item)}</p>
       <div className="row actions">
         <button disabled={saving} aria-label={`${item.from}の休講を編集`} onClick={() => {

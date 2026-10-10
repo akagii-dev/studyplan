@@ -7,7 +7,6 @@
 @import './styles/base.css' layer(legacy);
 @import './styles/controls.css' layer(legacy);
 @import './styles/shell.css' layer(legacy);
-@import './styles/today.css' layer(legacy);
 @import './styles/calendar.css' layer(legacy);
 @import './styles/daily-time.css' layer(legacy);
 @import './styles/setup.css' layer(legacy);

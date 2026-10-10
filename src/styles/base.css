@@ -302,15 +302,6 @@ progress {
   margin-bottom: 1.25rem;
   flex-wrap: wrap;
 }
-/* Reusable progress motion; no dependency or timer is needed. */
-.animated-progress {
-  width: 100%;
-  height: 8px;
-  overflow: hidden;
-  border-radius: 8px;
-  background: var(--soft);
-  margin: 12px 0;
-}
 .split {
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
 }
@@ -336,13 +327,3 @@ progress {
 }
 .delete-confirm { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .delete-confirm span { font-size: 12px; }
-@supports selector(::details-content) {
-  @media (prefers-reduced-motion: no-preference) {
-    .daily-record-input::details-content {
-      opacity: 0;
-      transition: opacity var(--page-fade-duration) var(--page-fade-easing),
-        content-visibility var(--page-fade-duration) var(--page-fade-easing) allow-discrete;
-    }
-    .daily-record-input[open]::details-content { opacity: 1; }
-  }
-}

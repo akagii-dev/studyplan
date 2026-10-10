@@ -58,7 +58,7 @@ export function Progress({ state, update, onHistory, onReplan }: Props & { onHis
     <div className="eyebrow">DAILY CHECK-IN</div>
     <h2>進捗の記録</h2>
     <StudyRecordForm state={state} value={value} onChange={change} onSubmit={() => void save()} reference={reference} busy={busy} error={error} />
-    {message && <div role="status" className="note progress-result">
+    {message && <div role="status" className="note progress-result [&_p:first-child]:mt-0">
       <p>{message}</p>
       {savedRecordId && latestReceipt(state, savedRecordId) && <details>
         <summary>{receiptLabel(latestReceipt(state, savedRecordId)!)} · {receiptDetailLabel(latestReceipt(state, savedRecordId)!)}</summary>

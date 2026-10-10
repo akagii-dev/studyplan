@@ -217,7 +217,7 @@ export function PlanInsights({
       )}
       <Disclosure summary="一日の予定問題数（全試験で共有）" open={preview}>
         <div
-          className="daily-plan-table"
+          className="daily-plan-table max-h-[360px] overflow-auto [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-1"
           role="region"
           aria-label="一日の予定問題数の表"
           tabIndex={0}

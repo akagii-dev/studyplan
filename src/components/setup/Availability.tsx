@@ -354,7 +354,7 @@ export function Availability({ state, update, focusTarget }: Props & { focusTarg
           {state.settings.windows
             .filter((w) => w.kind === 'class')
             .map((w) => (
-              <div className="row history-row" key={w.id}>
+              <div className="row border-t border-t-line py-3 text-[12px]" key={w.id}>
                 <span>
                   {w.weekdays.map((d) => weekdays[d])} {clock(w.start)}–{clock(w.end)}　{w.from}〜
                   {w.to}
@@ -448,7 +448,7 @@ export function Availability({ state, update, focusTarget }: Props & { focusTarg
           {state.settings.exceptions.some((item) => item.id === exception.id) ? '予定を更新する' : '予定を追加する'}
         </button>
         {state.settings.exceptions.map((x) => (
-          <div className="row history-row" key={x.id}>
+          <div className="row border-t border-t-line py-3 text-[12px]" key={x.id}>
             <span>
               {x.date}　{x.name}　
               {x.start === 0 && x.end === 1440 ? '終日' : `${clock(x.start)}–${clock(x.end)}`}

@@ -40,7 +40,7 @@ export function StudyRecordForm({ state, value, onChange, onSubmit, reference, f
   const confirmedRetry = useConfirmedRecordRetry(state, value);
   let valid = !!material?.rounds[value.round] && !!value.date && value.date <= reference;
   try { parseNumberInput(value.text, 0, left, 1); } catch { valid = valid && confirmedRetry; }
-  return <form className="study-record-form" noValidate onSubmit={(event) => { event.preventDefault(); if (!busy) onSubmit(); }}>
+  return <form className="study-record-form grid min-w-0 gap-3 [&_label]:min-w-0 [&_input]:max-w-full [&_select]:max-w-full [&_input[type='date']]:box-border [&_input[type='date']]:min-h-11 [&_input[type='date']]:appearance-none" noValidate onSubmit={(event) => { event.preventDefault(); if (!busy) onSubmit(); }}>
     <Field label="記録対象日">
       <input type="date" max={reference} value={value.date} readOnly={fixedDate} disabled={busy}
         onChange={(event) => onChange({ ...value, date: event.target.value })} />
@@ -58,7 +58,7 @@ export function StudyRecordForm({ state, value, onChange, onSubmit, reference, f
         </select>
       </Field>
     </div>
-    {material?.rounds[value.round] && <div className="progress-summary">
+    {material?.rounds[value.round] && <div className="progress-summary mx-0 mt-1.5 mb-7 flex justify-between rounded-[8px] bg-soft px-5 py-[15px] text-[12px] text-muted @max-[430px]:flex-wrap @max-[430px]:gap-[7px] @max-[430px]:p-3 [&_b]:mx-[3px] [&_b]:my-0 [&_b]:text-[20px] [&_b]:text-muted">
       <span>完了 <b>{completed(state, material.id, value.round)}</b>{unit}</span>
       <span>残り <b>{left}</b>{unit}</span>
     </div>}

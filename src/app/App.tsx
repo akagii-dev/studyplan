@@ -9,7 +9,7 @@ import { NumericDraftProvider } from '../components/NumberInput';
 import { History, Progress } from '../components/Progress';
 import { RegistrationStatus } from '../components/RegistrationStatus';
 import { Replan } from '../components/Replan';
-import { SaveRecovery } from '../components/SaveRecovery';
+import { SaveRecovery, saveOverlay } from '../components/SaveRecovery';
 import { Availability, Buffer, Exams, Focus, Materials } from '../components/setup';
 import { Startup } from '../components/Startup';
 import { Tutorial } from '../components/Tutorial';
@@ -287,7 +287,7 @@ export default function App() {
       )}
       {(closing || restoring) && (
         <div
-          className="save-overlay"
+          className={saveOverlay}
           role="dialog"
           aria-modal="true"
           aria-label={closing ? '保存して終了' : 'データの復元'}

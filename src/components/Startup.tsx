@@ -29,15 +29,15 @@ export function Startup({
     }
   };
   return (
-    <main className="startup-screen">
-      <section className="card startup-card" aria-busy={loading}>
-        <Leaf size={36} aria-hidden="true" />
-        <h1>StudyPlan</h1>
+    <main className="m-0 grid min-h-[100vh] w-full place-items-center p-8">
+      <section className="card w-[min(100%,560px)] text-center [&_button]:mt-4" aria-busy={loading}>
+        <Leaf className="text-accent" size={36} aria-hidden="true" />
+        <h1 className="mx-0 mt-2 mb-7">StudyPlan</h1>
         {!error ? (
           <p role="status">学習データを読み込んでいます…</p>
         ) : (
           <>
-            <h2>{canRetry ? '学習データを開けませんでした' : 'デスクトップ版で開いてください'}</h2>
+            <h2 className="text-[20px]">{canRetry ? '学習データを開けませんでした' : 'デスクトップ版で開いてください'}</h2>
             <p>
               {desktop
                 ? '保存済みのデータはそのままです。'
@@ -48,7 +48,7 @@ export function Startup({
                     : 'StudyPlan.exeを起動すると、設定と記録を保存できます。'}
             </p>
             {lanMode && (
-              <details className="startup-details" open={keyRequired}>
+              <details className="startup-details mt-7 text-left" open={keyRequired}>
                 <summary>接続キーを入力・変更</summary>
                 <form onSubmit={(event) => { event.preventDefault(); connect(); }}>
                   <label htmlFor="lan-access-key">接続キー</label>
@@ -67,9 +67,9 @@ export function Startup({
               </button>
             )}
             {!demoMode && (
-              <details className="startup-details">
+              <details className="startup-details mt-7 text-left">
                 <summary>エラーの詳細</summary>
-                <pre>{error}</pre>
+                <pre className="rounded-[8px] bg-soft p-3 text-[12px] whitespace-pre-wrap [overflow-wrap:anywhere]">{error}</pre>
               </details>
             )}
           </>

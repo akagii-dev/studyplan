@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { lanMode } from '../lan';
 
+/** Dimmed full-window layer that keeps a save dialog in front of the app. */
+export const saveOverlay = 'fixed inset-0 z-1000 grid place-items-center bg-[#18252b88] [&_.card]:m-6 [&_.card]:max-w-[500px]';
+
 export function SaveRecovery({
   checking,
   detail,
@@ -30,8 +33,8 @@ export function SaveRecovery({
     }
   }
   return (
-    <div className="save-overlay" role="dialog" aria-modal="true" aria-label="保存状態の確認">
-      <section className="card save-recovery">
+    <div className={saveOverlay} role="dialog" aria-modal="true" aria-label="保存状態の確認">
+      <section className="card save-recovery max-h-[calc(100vh-48px)] overflow-auto [&_details_p]:[overflow-wrap:anywhere]">
         {confirmClose ? (
           <>
             <h2>保存を確認せずに終了しますか？</h2>

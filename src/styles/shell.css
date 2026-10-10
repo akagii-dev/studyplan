@@ -269,3 +269,22 @@ main {
 .app-shell[data-input-mode='pointer'] h1:focus-visible,
 .app-shell[data-input-mode='pointer'] .calendar-period button:focus-visible,
 .app-shell[data-input-mode='pointer'] .calendar-display-settings :focus-visible { outline: none; }
+/* Shared confirmation panel (backup, reset, replan, revision). */
+.confirmation-panel {
+  padding: 20px 24px;
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  border-radius: 9px;
+  margin: 20px 0;
+  color: var(--warning-ink);
+}
+.confirmation-panel p,
+.confirmation-panel small {
+  color: inherit;
+}
+@container (max-width: 430px) {
+  .warning,
+  .confirmation-panel {
+    padding: 14px;
+  }
+}

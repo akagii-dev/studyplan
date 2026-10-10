@@ -251,8 +251,7 @@ td .actions {
   gap: 10px;
   font-size: 12px;
 }
-.error,
-.error-banner {
+.error {
   color: var(--error-ink);
   background: var(--error-bg);
   border: 1px solid var(--error-border);

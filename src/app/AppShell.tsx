@@ -147,7 +147,7 @@ export function AppShell({
       </aside>
       <main>
         <header className="topbar compact-topbar">
-          <span className={`save-status ${saving ? 'pending' : ''}`} role="status">
+          <span className={`save-status ${saving ? 'pending text-warning' : 'text-muted'}`} role="status">
             {recovering
               ? '保存未確認'
               : connectionError
@@ -161,7 +161,7 @@ export function AppShell({
         </header>
         <div className="main-content">
           {demoMode && (
-            <p className="demo-banner" role="status">
+            <p className="mx-0 mt-0 mb-[1.25rem] rounded-control border border-line border-l-4 border-l-accent bg-surface px-[1rem] py-[0.75rem] text-[14px] text-ink" role="status">
               公開デモです。入力内容はこのブラウザー内だけに保存され、デスクトップ版とは共有されません。
             </p>
           )}
@@ -180,9 +180,9 @@ export function AppShell({
             )}
           </div>
           {error && (
-            <div className="error-banner error-banner-dismissible" role="alert">
-              <span>{error}</span>
-              <button onClick={dismissError}>閉じる</button>
+            <div className="error-banner mb-5 flex justify-between rounded-[7px] border border-error-line bg-error-bg p-3 text-[12px] whitespace-pre-line text-error flex-col items-start gap-2" role="alert">
+              <span className="max-w-full [overflow-wrap:anywhere]">{error}</span>
+              <button className="min-h-11 shrink-0 whitespace-nowrap" onClick={dismissError}>閉じる</button>
             </div>
           )}
           {externalUpdate && (
@@ -191,7 +191,7 @@ export function AppShell({
             </div>
           )}
           {connectionError && (
-            <div className="error-banner" role="status">
+            <div className="error-banner mb-5 flex justify-between rounded-[7px] border border-error-line bg-error-bg p-3 text-[12px] whitespace-pre-line text-error items-center" role="status">
               <span>Windowsに接続できません。配信PCとWi-Fiを確認してください。</span>
               <button onClick={checkConnection}>再接続</button>
             </div>

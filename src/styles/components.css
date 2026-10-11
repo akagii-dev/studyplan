@@ -169,7 +169,7 @@ select:hover:not(:disabled),
 .primary.small {
   padding: 7px 12px;
 }
-:root[data-theme='lime'] button.primary {
+:root[data-theme='lime'] button.primary:not(:disabled) {
   background: #b5dc49;
   border-color: #6e8e29;
   color: #293a13;

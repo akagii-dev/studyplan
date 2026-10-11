@@ -113,7 +113,6 @@ export function Availability({ state, update, focusTarget }: Props & { focusTarg
     <>
       <div className={split}>
         <section className="card">
-          <div className="eyebrow">STEP 02 · AVAILABILITY</div>
           <h2>いつ、勉強できそうですか？</h2>
           <p>
             「勉強できる時間」は学習予定を置いてよい範囲です。開始から終了までずっと勉強する指定ではありません。授業・予定を除き、連続学習の長さと休憩・余裕率を適用して予定を作ります。
@@ -259,7 +258,6 @@ export function Availability({ state, update, focusTarget }: Props & { focusTarg
         </section>
       </div>
       <section className="card">
-        <div className="eyebrow">WEEKLY TIMETABLE</div>
         <h2>大学の授業を選んでください</h2>
         <p>
           1コマ100分。開始時刻は各行で設定できます。時間割の適用期間を切り替えて、授業期間と休暇を区別します。

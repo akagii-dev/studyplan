@@ -21,6 +21,8 @@ import { propose, proposeRestart, proposePastRemainingAdjustment, proposeBalance
 import { currentPlanReconciliation, currentProgressAdjustment } from '../domain/progressAdjustment';
 import { requirePlanningInputs } from '../domain/setupIssues';
 import { usePersistentAppState } from '../hooks/usePersistentAppState';
+import { runBusyTask } from '../hooks/busyTask';
+import { BusyIndicator } from '../components/BusyIndicator';
 import { AppShell } from './AppShell';
 import { Dashboard } from './Dashboard';
 import { Future, type FutureSelection } from './Future';
@@ -160,7 +162,7 @@ export default function App() {
     recordMemory.current.confirmed = confirmSavedRecord;
   }, [confirmSavedRecord]);
   const generate = () => {
-    void update((s) => {
+    void runBusyTask(() => update((s) => {
       requirePlanningInputs(s.settings);
       return propose(
         s,
@@ -169,7 +171,7 @@ export default function App() {
           ? '変更した設定をもとに、今後の課題を再配分します。'
           : '登録した目標・教材・時間枠から最初の統合計画を作成しました。',
       );
-    })
+    }))
       .then(() => setPage('replan'))
       .catch(() => {});
   };
@@ -178,30 +180,30 @@ export default function App() {
       setPage('replan');
       return;
     }
-    void update((current) => propose(current, addDays(today(), 1), '実績を踏まえた今後の予定を確認します。'))
+    void runBusyTask(() => update((current) => propose(current, addDays(today(), 1), '実績を踏まえた今後の予定を確認します。')))
       .then(() => setPage('replan'))
       .catch(() => {});
   };
   const restartPlan = async (from: string) => {
-    await update((current) => proposeRestart(current, from));
+    await runBusyTask(() => update((current) => proposeRestart(current, from)));
     setPage('replan');
   };
   const adjustRemaining = async (from: string) => {
     let created = false;
-    await update((current) => {
+    await runBusyTask(() => update((current) => {
       const next = proposePastRemainingAdjustment(current, from);
       created = next !== current;
       return next;
-    });
+    }));
     return created;
   };
   const balanceFuture = async (materialIds: string[], from: string, allowReduction: boolean) => {
     let created = false;
-    await update((current) => {
+    await runBusyTask(() => update((current) => {
       const next = proposeBalancedRemaining(current, materialIds, from, allowReduction);
       created = next !== current;
       return next;
-    });
+    }));
     return created;
   };
   const onRecord = (session: Pick<Session, 'date' | 'materialId' | 'round'>) => {
@@ -495,6 +497,7 @@ export default function App() {
           </NumericDraftProvider>
           </StudyRecordMemory.Provider>
         </AppShell>
+        <BusyIndicator />
       </WarningsProvider>
     </>
   );

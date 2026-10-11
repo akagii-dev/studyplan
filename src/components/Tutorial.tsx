@@ -25,7 +25,7 @@ const lessons = [
   {
     name: 'はじめの設定',
     icon: BookOpen,
-    title: '質問に答えて、計画の準備',
+    title: '初期設定',
     flow: ['試験・目標', '時間・授業', '教材'],
     points: [
       [
@@ -47,7 +47,7 @@ const lessons = [
   {
     name: '勉強できる時間',
     icon: Timer,
-    title: '空き時間の中に、休憩と余裕を',
+    title: '休憩と余裕率',
     flow: ['勉強 50分', '休憩 10分', '勉強 50分'],
     points: [
       [
@@ -100,7 +100,7 @@ const lessons = [
   {
     name: '進捗を記録',
     icon: CheckCircle2,
-    title: '今日の予定からそのまま記録',
+    title: '今日の記録',
     flow: ['今日の予定', '追加問数', '記録'],
     points: [
       [
@@ -130,7 +130,7 @@ const lessons = [
   {
     name: '計画を見直す',
     icon: RefreshCw,
-    title: 'いまの設定を引き継いで、組み直す',
+    title: '計画の見直し',
     flow: ['対話で修正', '変更案を比較', '承認'],
     points: [
       [
@@ -148,7 +148,7 @@ const lessons = [
   {
     name: '保存と復元',
     icon: DatabaseBackup,
-    title: '大切な記録を、ファイルにも保存',
+    title: 'バックアップ',
     flow: ['バックアップを保存', '内容を確認', '復元'],
     points: [
       [

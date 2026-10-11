@@ -1,3 +1,4 @@
+import { runBusyTask } from '../hooks/busyTask';
 import { NumberInput } from './NumberInput';
 import { materialUnit } from '../domain/calendarQuantity';
 import { useState } from 'react';
@@ -56,7 +57,6 @@ export function Progress({ state, update, onHistory, onReplan }: Props & { onHis
     }
   }
   return <div className={split}><section className="card">
-    <div className="eyebrow">DAILY CHECK-IN</div>
     <h2>進捗の記録</h2>
     <StudyRecordForm state={state} value={value} onChange={change} onSubmit={() => void save()} reference={reference} busy={busy} error={error} />
     {message && <div role="status" className="note progress-result [&_p:first-child]:mt-0">
@@ -92,11 +92,11 @@ export function History({
     err('');
     try {
       let receiptId: string | null = null;
-      await update((s) => {
+      await runBusyTask(() => update((s) => {
         const next = correctAndAdjust(s, r.id, cancelled ? r.count : Number(count), cancelled);
         receiptId = latestReceipt(next, r.id)?.id ?? null;
         return next;
-      });
+      }));
       setEditing(null);
       setCancelId(null);
       err('');
@@ -108,7 +108,6 @@ export function History({
   }
   return (
     <section className="card">
-      <div className="eyebrow">PROGRESS HISTORY</div>
       <h2>これまでの記録</h2>
       <button onClick={onRecordPast}>過去日の学習を記録</button>
       {resultMessage && (

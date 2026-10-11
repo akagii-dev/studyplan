@@ -47,7 +47,6 @@ export function Exams({
     <div className={form.id ? 'split' : ''}>
       {form.id && (
         <section className="card">
-          <div className="eyebrow">STEP 01 · GOALS</div>
           <h2>どんな試験を目指しますか？</h2>
           <p>目標を一つずつ登録しましょう。あとから変更できます。</p>
           <Field label="試験名">
@@ -148,7 +147,7 @@ export function Exams({
         {!state.settings.exams.length ? (
           <Empty>
             <GraduationCap />
-            <p>最初の目標から、始めましょう。</p>
+            <p>目標が登録されていません。</p>
           </Empty>
         ) : (
           state.settings.exams.map((e) => (

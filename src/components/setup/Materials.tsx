@@ -56,7 +56,6 @@ export function Materials({ state, update, onAdd }: Props & { onAdd: () => void 
     <div className={form.id ? 'split' : ''}>
       {form.id && (
         <section className="card">
-          <div className="eyebrow">STEP 04 · MATERIALS</div>
           <h2>何を、どのくらい学びますか？</h2>
           <p>周回ごとに残りの学習量を計算します。</p>
           <Field label="対象の試験">

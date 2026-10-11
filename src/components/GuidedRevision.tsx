@@ -1,3 +1,4 @@
+import { runBusyTask } from '../hooks/busyTask';
 import { Warning } from './Warnings';
 import { MAX_MINUTES_PER_UNIT } from '../domain/materialConstraints';
 import { useState } from 'react';
@@ -413,12 +414,12 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
   };
   const apply = async () => {
     try {
-      await update((s) => {
+      await runBusyTask(() => update((s) => {
         const draft = s.draft.revision as RevisionDraft;
         if (revisionIsStale(draft, s.settings))
           throw new Error('編集中に元の設定が変わりました。現在の設定からやり直してください。');
         return proposeSettings(s, draft.settings, today());
-      });
+      }));
       onClose();
     } catch (e) {
       setError(String(e));
@@ -431,7 +432,6 @@ export function GuidedRevision({ state, update, onClose }: Props & { onClose: ()
       scope={`revision/${d.id}/${d.topic}/${d.itemId}/${d.index}`}
     >
       <section className={`card ${questionCard} [&_.wizard-options]:mx-0 [&_.wizard-options]:mt-4 [&_.wizard-options]:mb-6 [&_.wizard-options_button]:flex-col [&_.wizard-options_button]:items-start [&_.wizard-options_button]:text-left [&_li]:mx-0 [&_li]:my-2.5`} aria-label="対話式の再計画">
-        <div className="eyebrow">今の設定を引き継いで、必要なところだけ</div>
         <p>変更は、最後に承認すると反映されます。</p>
         {stale && (
           <Warning

@@ -1,3 +1,4 @@
+import { runBusyTask } from '../hooks/busyTask';
 import { useState } from 'react';
 import { Commute, Settings, clock, minutes, today, mealKeys, mealNames } from '../domain/model';
 import { commuteErrors, commuteScheduleErrors, defaultCommute } from '../domain/commute';
@@ -281,13 +282,13 @@ export function CommuteSettings({ state, update, onReview }: Props & { onReview:
         value={state.settings.commute}
         draftKey="settings"
         onSave={async (commute) => {
-          await update((s) => {
+          await runBusyTask(() => update((s) => {
             if (s.proposal)
               throw new Error('承認待ちの計画案があります。先に承認または破棄してください。');
             const settings = { ...s.settings, commute };
             const next = s.plan ? proposeSettings(s, settings, today()) : { ...s, settings };
             return { ...next, draft: { ...next.draft, 'commute-settings': undefined } };
-          });
+          }));
           if (state.plan) onReview();
           else setMessage('通学時間を保存しました。');
         }}

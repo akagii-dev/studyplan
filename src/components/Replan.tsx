@@ -32,6 +32,7 @@ import { nonComparisonSessions } from '../domain/planDisplay';
 import { usePlanningClock } from '../hooks/usePlanningClock';
 import { elapsedRemainingTargets, remainingAdjustmentSourceDate, pastRemainingWork } from '../domain/remainingAllocation';
 import { reproposeRemainingAdjustment } from '../domain/planning';
+import { runBusyTask } from '../hooks/busyTask';
 import { check, statusText } from './ui';/** One decision step of the plan review, separated by a rule. */
 const decision =
   'replan-decision border-t border-t-line py-[1.25rem] first-of-type:mt-[1.25rem] [&_h3]:mx-0 [&_h3]:mt-0 [&_h3]:mb-[0.75rem] [&_ul]:mx-0 [&_ul]:my-[0.5rem] [&_ul]:pl-[1.25rem] max-[640px]:[&_.actions]:w-full max-[640px]:[&_.actions_button]:w-full';
@@ -194,7 +195,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
     actingRef.current = true;
     setActing(true);
     try {
-      await update(fn);
+      await runBusyTask(() => update(fn));
       err('');
       setAck(false);
       setResult(success);
@@ -440,7 +441,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
       ) : (
         <>
           <section className="card">
-            <div className="eyebrow">PLAN PREVIEW · 承認待ち</div>
+            <div className="eyebrow">承認待ち</div>
             <h2>計画案</h2>
             <p>{p.reason}</p>
             {balanceFuture && <section aria-label="量をそろえる教材と優先度">

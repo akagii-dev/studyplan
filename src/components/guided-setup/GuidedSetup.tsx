@@ -343,15 +343,11 @@ export function GuidedSetup({
         </div>
       )}
       <section className={`card ${questionCard}`} aria-label={mode ? '追加の質問' : undefined}>
-        <div className="eyebrow">
-          {mode
-            ? w.step === 'addition.saved'
-              ? '登録完了'
-              : '一つずつ、決めていきましょう'
-            : w.editScope
-              ? '選んだ項目だけ修正'
-              : `${phase + 1} / 5 · 一つずつ、決めていきましょう`}
-        </div>
+        {(!mode || w.step === 'addition.saved') && (
+          <div className="eyebrow">
+            {mode ? '登録完了' : w.editScope ? '選んだ項目だけ修正' : `${phase + 1} / 5`}
+          </div>
+        )}
         <h2>{title}</h2>
         {w.step === 'class.times' && <p className="hint">1コマ100分</p>}
         {w.step === 'class.grid' && (

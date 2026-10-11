@@ -6,7 +6,6 @@ export function Buffer({ state, update }: Props) {
   const [other, setOther] = useState(![0.1, 0.2, 0.3].includes(s.buffer));
   return (
     <section className="card max-w-[780px]">
-      <div className="eyebrow">STEP 05 · ROOM TO BREATHE</div>
       <h2>どのくらい余裕を残しますか？</h2>
       <p>
         週全体（月〜日）の学習可能時間から、計画に割り当てずに残す割合です。曜日ごとの余裕時間は予約しません。

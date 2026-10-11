@@ -1660,7 +1660,16 @@ test('実機：予定6への追加4・2・2で数量と変更詳細を保存し�
   const details = page.locator('.daily-record-saved details');
   await details.locator('summary').focus();
   await page.keyboard.press('Enter');
-  await expect(details).toContainText('6 → 4問');
+  // The pulled-forward shape follows the weekly ceiling, so it depends on the weekday.
+  // Check the first changed day against the saved plan instead of a fixed date.
+  const pulled = await storedState();
+  const changed = Array.from({ length: 9 }, (_, index) => addDays(date, index + 1)).map((day) =>
+    activePlanWork(pulled, date)
+      .filter((x) => x.materialId === 'book' && x.date === day)
+      .reduce((n, x) => n + x.count, 0),
+  ).find((count) => count !== 6);
+  expect(changed).toBeDefined();
+  await expect(details).toContainText(`6 → ${changed}問`);
   await expect(details).not.toContainText('時間 ');
   await expect(details).not.toContainText('別問題集');
   await page.screenshot({
@@ -2361,6 +2370,15 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
   };
   seed.plan.progressBaseline = createProgressBaseline(seed.plan, seed.records);
   await seedState(seed, 'native-daily-seed');
+  // The weekly view runs Monday to Sunday; on Sundays tomorrow is in the next week.
+  const tomorrowRow = () =>
+    page.locator('.future-day').filter({ has: page.locator(`h2 time[datetime="${tomorrow}"]`) });
+  const showTomorrow = async () => {
+    await nav('今後の予定');
+    await expect(page.locator(`.future-day h2 time[datetime="${date}"], .future-day h2 time[datetime="${tomorrow}"]`).first()).toBeVisible();
+    if (!(await tomorrowRow().count()))
+      await page.getByRole('button', { name: '次の週', exact: true }).click();
+  };
   const row = page.locator('.daily-record-row').filter({ hasText: '問題集A' });
   await expect(row).toContainText('あと10問');
   await expect(row).toContainText('あと10問');
@@ -2371,12 +2389,8 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
   const recordResult = page.locator('.daily-record-saved');
   await expect(recordResult).toHaveText('5問を記録しました。');
   await expect(recordResult.locator('details')).toHaveCount(0);
-  await nav('今後の予定');
-  await expect(
-    page
-      .locator('.future-day')
-      .filter({ has: page.locator(`h2 time[datetime="${tomorrow}"]`) }),
-  ).toContainText('10問');
+  await showTomorrow();
+  await expect(tomorrowRow()).toContainText('10問');
   let persisted = await storedState();
   expect(persisted.records).toHaveLength(1);
   expect(persisted.records[0]).toMatchObject({
@@ -2415,12 +2429,8 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
       .plan!.sessions.filter((session) => session.date === tomorrow)
       .reduce((sum, session) => sum + session.count, 0),
   ).toBe(10);
-  await nav('今後の予定');
-  await expect(
-    page
-      .locator('.future-day')
-      .filter({ has: page.locator(`h2 time[datetime="${tomorrow}"]`) }),
-  ).toContainText('10問');
+  await showTomorrow();
+  await expect(tomorrowRow()).toContainText('10問');
   await expect(page.locator('.plan-change-history')).toHaveCount(0);
   const futureQuantity = async (materialId = 'book') =>
     (await storedState())
@@ -2456,12 +2466,8 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
     expect((await storedState()).plan!.sessions.filter((session) => session.date === date)).toEqual(
       [originalToday],
     );
-    await nav('今後の予定');
-    await expect(
-      page
-        .locator('.future-day')
-        .filter({ has: page.locator(`h2 time[datetime="${tomorrow}"]`) }),
-    ).toContainText(`${expected}問`);
+    await showTomorrow();
+    await expect(tomorrowRow()).toContainText(`${expected}問`);
   }
   const outsideSeed = structuredClone(seed);
   outsideSeed.settings.block = 60;
@@ -3935,7 +3941,10 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   await calendarSetting('表示期間', 'week');
   await expect(page.locator('.calendar-grid.week')).toBeVisible();
   await expect(page.getByRole('button', { name: '一覧', exact: true })).toHaveCount(0);
-  // The current local time may leave no study session today; open an actual visible plan.
+  // The current local time may leave no study session today, and late on a Sunday none
+  // this week; open an actual visible plan.
+  if (!(await page.locator('.calendar-event').count()))
+    await page.locator('.calendar-toolbar').getByRole('button', { name: '次の期間', exact: true }).click();
   await page.locator('.calendar-event').first().click();
   await expect(page.locator('.day-panel .session-detail').first()).toBeVisible();
   await calendarSetting('表示期間', 'month');
@@ -4113,6 +4122,9 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
       await nav('進捗を記録');
       await expect(page.locator('.progress-summary')).toContainText('完了 37問');
       recordButton = page.getByRole('button', { name: '記録する', exact: true });
+      // An empty form keeps the button disabled, which looks the same in every theme.
+      await page.getByLabel('今回解いた問題数', { exact: true }).fill('0');
+      await expect(recordButton).toBeEnabled();
     }
     actionColors.add(await recordButton.evaluate(button => getComputedStyle(button).backgroundColor));
     await page.screenshot({ path: `test-results/progress-${theme}.png`, fullPage: true });
@@ -4882,10 +4894,10 @@ test('実機：独立したチュートリアルと各画面への移動で、�
   await expect(page.locator('.question-description')).toHaveCount(0);
   await expect(page.locator('.question-card summary')).toHaveCount(0);
   await nav('チュートリアル');
-  await expect(page.getByRole('heading', { name: '質問に答えて、計画の準備' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '初期設定' })).toBeVisible();
   await expect(page.getByRole('button', { name: '前の項目', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: '次の項目', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '空き時間の中に、休憩と余裕を' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '休憩と余裕率' })).toBeVisible();
   await page.getByRole('button', { name: '前の項目', exact: true }).click();
   for (const [topic, action, heading] of [
     ['はじめの設定', '初期設定へ', '初期設定'],

@@ -11,7 +11,7 @@ const navButton = (active: boolean) =>
   `min-h-11 justify-start gap-3 rounded-control px-3 py-2.5 text-[14px] whitespace-nowrap [border:0] [&_svg]:shrink-0 max-[700px]:grid max-[700px]:min-h-12 max-[700px]:w-full max-[700px]:min-w-0 max-[700px]:grid-cols-[minmax(0,1fr)] max-[700px]:place-items-center max-[700px]:justify-center max-[700px]:gap-0.5 max-[700px]:px-px max-[700px]:py-[5px] max-[700px]:text-[11px] max-[700px]:whitespace-normal max-[700px]:focus-visible:outline-offset-[-3px] ${
     active
       ? 'active bg-soft font-bold text-accent [box-shadow:inset_4px_0_var(--accent)] hover:enabled:bg-soft hover:enabled:text-accent max-[700px]:rounded-none max-[700px]:bg-transparent max-[700px]:[box-shadow:inset_0_3px_var(--accent)] max-[700px]:hover:enabled:bg-transparent'
-      : 'bg-transparent font-medium text-muted hover:enabled:bg-page hover:enabled:text-ink'}`;
+      : 'bg-transparent font-medium text-muted hover:enabled:bg-soft/50 hover:enabled:text-ink'}`;
 
 export function AppShell({
   state,

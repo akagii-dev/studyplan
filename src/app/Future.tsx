@@ -39,7 +39,7 @@ function FutureRestart({ onRestart }: {
   useLayoutEffect(() => {
     if (open) input.current?.focus({ preventScroll: true });
   }, [open]);
-  return <details className="future-disclosure my-4 border-b border-line [&>summary]:min-h-11 [&>summary]:cursor-pointer [&>summary]:content-center future-restart-panel" open={open} onKeyDown={(event) => {
+  return <details className="future-disclosure my-4 [&>summary]:min-h-11 [&>summary]:cursor-pointer [&>summary]:content-center future-restart-panel" open={open} onKeyDown={(event) => {
     if (event.key === 'Escape' && !event.defaultPrevented && open) { event.preventDefault(); close(); }
   }}>
     <summary ref={trigger} aria-disabled={sending || undefined}
@@ -250,7 +250,7 @@ export function Future({
               });
             }
             return (
-              <section className="future-day grid grid-cols-[9rem_minmax(0,1fr)] gap-x-4 gap-y-2 border-b border-line py-2 max-[600px]:grid-cols-[minmax(0,1fr)] max-[600px]:gap-0" key={date}>
+              <section className="future-day grid grid-cols-[9rem_minmax(0,1fr)] gap-x-4 gap-y-2 py-2 [.future-day+&]:border-t [.future-day+&]:border-line max-[600px]:grid-cols-[minmax(0,1fr)] max-[600px]:gap-0" key={date}>
                 <h2 className="m-0 mb-1.5 flex flex-wrap content-start items-center gap-x-1.5 text-[17px]">
                   <time dateTime={date}>{shortDayLabel(date)}</time>
                   {date === reference && <span className="future-today ms-0 text-[.875rem] font-medium text-accent">今日</span>}
@@ -313,7 +313,7 @@ export function Future({
           {shortfalls.length ? 'この週に配置済み予定はありません。' : 'この週の予定はありません。'}
         </p>
       )}
-      {onBalanceFuture && state.plan && !state.proposal && <details className="future-disclosure my-4 border-b border-line [&>summary]:min-h-11 [&>summary]:cursor-pointer [&>summary]:content-center future-balance">
+      {onBalanceFuture && state.plan && !state.proposal && <details className="future-disclosure my-4 [&>summary]:min-h-11 [&>summary]:cursor-pointer [&>summary]:content-center future-balance">
         <summary>対象の未来配分を均す</summary>
       {state.settings.exams.length > 0 && <ul className="future-priorities flex list-none flex-wrap gap-x-6 gap-y-2 p-0" aria-label="試験の優先度">
         {state.settings.exams.map((exam) => <li key={exam.id}>{exam.name} · 優先度：{priorityName(exam.priority)}</li>)}

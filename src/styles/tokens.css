@@ -17,7 +17,7 @@
   --error-border: #cc998a;
   --ink: #1a2420;
   --muted: #4d5a54;
-  /* White page (Digital Agency base); the sky/lime themes and dark keep their own page color. */
+  /* The page shares the sidebar surface in every theme and appearance (Digital Agency base). */
   --page: var(--surface);
   --surface: #ffffff;
   --soft: #e6f2ec;
@@ -40,7 +40,6 @@
 :root[data-theme='sky'] {
   --ink: #18222c;
   --muted: #4b5865;
-  --page: #f4f6f8;
   --surface: #ffffff;
   --soft: #e3eef8;
   --border: #d3dbe3;
@@ -53,7 +52,6 @@
 :root[data-theme='lime'] {
   --ink: #222a17;
   --muted: #50593f;
-  --page: #f5f6f2;
   --surface: #ffffff;
   --soft: #eaf2d6;
   --border: #d8ddcd;
@@ -67,7 +65,6 @@
   color-scheme: dark;
   --ink: #e8eeeb;
   --muted: #b4bfba;
-  --page: #121514;
   --surface: #1a1e1c;
   --soft: #233a30;
   --border: #39423e;
@@ -92,7 +89,6 @@
 :root[data-theme='sky'][data-appearance='dark'] {
   --ink: #e6edf5;
   --muted: #b5c1ce;
-  --page: #12161b;
   --surface: #1a2028;
   --soft: #22364a;
   --border: #384350;
@@ -107,7 +103,6 @@
 :root[data-theme='lime'][data-appearance='dark'] {
   --ink: #eef2e4;
   --muted: #c0c8ad;
-  --page: #14170f;
   --surface: #1c2016;
   --soft: #313d22;
   --border: #3f4733;

@@ -124,6 +124,7 @@ test('過去の未消化5問だけを一括調整し、今日の開始済み予�
   expect((await read()).plan).toEqual(source.plan);
   expect((await read()).records).toEqual(source.records);
   await page.getByRole('button', { name: '案を破棄する', exact: true }).click();
+  await expect.poll(async () => (await read()).proposal).toBeNull();
   expect((await read()).plan).toEqual(source.plan);
   await page.getByRole('button', { name: '今後の予定', exact: true }).click();
   await open.click();
@@ -312,8 +313,8 @@ test('未配置を含む残り26問を指定日から組み直し、破棄と承
   expect(stored.proposal?.plan.sessions.filter((s) => s.kind === 'study' && s.date >= from).reduce((sum, s) => sum + s.count, 0)).toBe(26);
   await page.screenshot({ path: info.outputPath('restart-proposal.png'), fullPage: true });
   await page.getByRole('button', { name: '案を破棄する' }).click();
+  await expect.poll(async () => (await read()).proposal).toBeNull();
   stored = await read();
-  expect(stored.proposal).toBeNull();
   expect(stored.plan!.shortfalls[0].count).toBe(6);
   await page.getByRole('button', { name: '今後の予定', exact: true }).click();
   await page.getByText('計画を仕切り直す', { exact: true }).click();

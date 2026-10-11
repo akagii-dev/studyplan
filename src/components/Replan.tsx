@@ -438,7 +438,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
             <div className="eyebrow">PLAN PREVIEW · 承認待ち</div>
             <h2>計画案</h2>
             <p>{p.reason}</p>
-            {balanceFuture && <section aria-label="均等配分と優先度">
+            {balanceFuture && <section aria-label="量をそろえる教材と優先度">
               <h3>対象と保存されている優先度</h3>
               <ul>{state.settings.materials.filter(m => balanceMaterials.has(m.id)).map(m => {
                 const exam = state.settings.exams.find(e => e.id === m.examId)!;

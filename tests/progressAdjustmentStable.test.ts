@@ -227,6 +227,23 @@ it.each([false, true])('明示した可動未来だけを平準化し固定%s・
   expect(reconcilePlanning(restoreAllocation(state), adjustmentContext)).toEqual(state);
 });
 
+it.each([0, 2])('今日を開始日にすると未開始の今日の枠も含めてそろえ、実績%s問を保持する', recorded => {
+  const context = { ...adjustmentContext, minute: 480 };
+  let source = balancedFutureFixture();
+  if (recorded) source = recordAndAdjust(source, adjustmentReport(recorded), context);
+  const candidate = proposeBalancedRemaining(source, ['book'], day, context);
+  validateBalancedRemainingAllocation(candidate, candidate.proposal!.plan, context);
+  const state = approve(candidate, false, context);
+  conservation(state);
+  expect(state.records).toEqual(source.records);
+  expect(state.plan!.shortfalls).toEqual([]);
+  // Completed work stays where it is; only the newly placed outstanding work is leveled.
+  const totals = Array.from({ length: 9 }, (_, index) => state.plan!.adjustmentBasis!.sessions
+    .filter(s => s.materialId === 'book' && s.date === addDays(day, index)).reduce((n, s) => n + s.count, 0));
+  expect(totals[0]).toBeGreaterThan(0);
+  expect(Math.max(...totals) - Math.min(...totals)).toBeLessThanOrEqual(1);
+});
+
 it('均等配分案は前提変更・対象外改ざん・開始時刻経過を承認できない', () => {
   const source = balancedFutureFixture();
   const candidate = proposeBalancedRemaining(source,['book'],addDays(day,1),adjustmentContext);

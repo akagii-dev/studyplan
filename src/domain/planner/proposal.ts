@@ -138,8 +138,8 @@ export function proposeBalancedRemaining(
   return { ...state, proposal: {
     plan: result.plan, basedOn: state.plan?.id ?? null, unreported: [],
     reason: allowLowerPriorityReduction
-      ? '対象教材の期限内配分を均します。空き容量と総量を保つ組替えを先に使い、なお不足する場合だけ低優先度の可動枠を最小限減らします。削減分は未配置として保持します。'
-      : '選択した教材の変更可能な未来量を均等に配分します。固定・開始済み・実績・他教材は保持します。',
+      ? '選んだ教材の期限までの量を日ごとにそろえます。空き容量と総量を保つ組替えを先に使い、なお不足する場合だけ低優先度の可動枠を最小限減らします。削減分は未配置として保持します。'
+      : '選んだ教材の今後の量を日ごとにそろえます。固定・開始済み・実績・他教材はそのまま残します。',
     basis: { kind: 'remaining-adjustment', purpose: 'balance-future', date: context.date,
       sourceFingerprint: restartSourceFingerprint(state), from,
       balanceMaterialIds: [...new Set(materialIds)].sort(), allowLowerPriorityReduction,
@@ -159,7 +159,7 @@ export function reproposeRemainingAdjustment(
   if (basis.sourceFingerprint !== restartSourceFingerprint(state))
     throw new Error('案の作成後に計画・設定・実績が変わりました。元の対象を保持したまま内容を確認してください。');
   if (basis.purpose === 'balance-future') {
-    if (additionalTargets.length) throw new Error('均等配分の教材は元の選択を保持して再生成してください。');
+    if (additionalTargets.length) throw new Error('量をそろえる教材は元の選択のまま作り直してください。');
     return proposeBalancedRemaining({ ...state, proposal: null }, basis.balanceMaterialIds ?? [],
       [from, basis.from, context.date, state.plan?.allocationStart ?? ''].sort().at(-1)!, context,
       !!basis.allowLowerPriorityReduction);

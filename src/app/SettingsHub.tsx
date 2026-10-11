@@ -46,7 +46,6 @@ const settingsRow = (error = false) =>
     error ? 'border-l-[3px] border-l-error pl-2.5 [&_span]:text-error [&_small]:text-error' : '[&_span]:text-muted [&_small]:text-muted'}`;
 const rowLabel = 'grid min-w-0 gap-0.5';
 const rowActions = 'flex gap-1.5 max-[700px]:flex-wrap max-[700px]:[justify-self:start]';
-const rows = 'border-t border-t-line';
 
 export function SettingsHub({
   state,
@@ -117,7 +116,7 @@ export function SettingsHub({
     <div className="max-w-[900px]">
       <section className="card" aria-label="基本設定">
         <h2 className="mb-2">基本設定 <span className="ml-1.5 text-[13px] font-medium text-muted">{readyCount}/3</span></h2>
-        <div className={rows}>
+        <div>
           <div className={settingsRow(!!invalidExam || (attempted && missing.some((issue) => issue.id === 'exams')))}>
             <div className={rowLabel}>
               <b>試験・目標</b>
@@ -178,7 +177,7 @@ export function SettingsHub({
 
       <details className="card settings-extra [&_summary]:cursor-pointer [&_summary]:text-[16px] [&_summary]:font-[650] open:[&_summary]:mb-3">
         <summary>追加の条件{attentionCount ? ` · 要確認 ${attentionCount}件` : ''}</summary>
-        <div className={rows}>
+        <div className="border-t border-t-line">
           <div className={settingsRow()}>
             <div className={rowLabel}>
               <b>食事時間</b>

@@ -104,7 +104,7 @@ export function Future({
   const week = startOfWeek(chosen?.selectedOn === reference ? chosen.from : reference);
   const weekEnd = addDays(week, 6);
   const [balanceMaterials, setBalanceMaterials] = useState<string[]>([]);
-  const [balanceFrom, setBalanceFrom] = useState(addDays(reference, 1));
+  const [balanceFrom, setBalanceFrom] = useState(reference);
   const [balanceError, setBalanceError] = useState('');
   const [balancing, setBalancing] = useState(false);
   const balanceSending = useRef(false);
@@ -314,7 +314,7 @@ export function Future({
         </p>
       )}
       {onBalanceFuture && state.plan && !state.proposal && <details className="future-disclosure my-4 [&>summary]:min-h-11 [&>summary]:cursor-pointer [&>summary]:content-center future-balance">
-        <summary>対象の未来配分を均す</summary>
+        <summary>教材の今後の量を日ごとにそろえる</summary>
       {state.settings.exams.length > 0 && <ul className="future-priorities flex list-none flex-wrap gap-x-6 gap-y-2 p-0" aria-label="試験の優先度">
         {state.settings.exams.map((exam) => <li key={exam.id}>{exam.name} · 優先度：{priorityName(exam.priority)}</li>)}
       </ul>}
@@ -329,7 +329,7 @@ export function Future({
             .finally(() => { balanceSending.current = false; setBalancing(false); });
         }}>
           <fieldset className="min-w-0" disabled={balancing}>
-            <legend>配分を均す教材</legend>
+            <legend>量をそろえる教材</legend>
             {state.settings.materials.map((material) => {
               const exam = state.settings.exams.find((item) => item.id === material.examId);
               return <label className="flex min-h-11 items-center gap-2 wrap-anywhere" key={material.id}>
@@ -338,8 +338,8 @@ export function Future({
                 {material.name}{exam ? ` · ${exam.name}` : ''}
               </label>;
             })}
-            <label className="field">配分を始める日<input type="date" required min={addDays(reference, 1)} value={balanceFrom} onChange={(event) => setBalanceFrom(event.target.value)} /></label>
-            <p>今日の予定・実績と固定予定を残し、選んだ教材を期限まで配分し直します。</p>
+            <label className="field">そろえ始める日<input type="date" required min={reference} value={balanceFrom} onChange={(event) => setBalanceFrom(event.target.value)} /></label>
+            <p>記録済みの分・始まった予定・固定予定はそのまま残し、選んだ教材の残りを期限まで日ごとにそろえ直します。</p>
             <button type="submit" className="primary" disabled={!balanceMaterials.length}>配分案を確認</button>
           </fieldset>
           {balanceError && <p className="error" role="alert">{balanceError}</p>}

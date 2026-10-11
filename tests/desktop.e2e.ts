@@ -5574,7 +5574,7 @@ test('実機：共通進捗と今日への安全な入力引継ぎ', async () =>
   await page.getByRole('button',{name:'計画案を確認',exact:true}).click();
   const approve=page.getByRole('button',{name:'この内容で更新',exact:true});
   await expect(approve).toBeDisabled();
-  await expect(page.getByRole('region',{name:'均等配分と優先度'})).toContainText('1問');
+  await expect(page.getByRole('region',{name:'量をそろえる教材と優先度'})).toContainText('1問');
   expect((await storedState()).plan).toEqual(source.plan);
   await page.getByLabel('削減量と期限への影響を確認した').check();
   await approve.click(); await saved();

@@ -13,7 +13,7 @@ export function calculateFutureBalance(
 ) {
   const primary = new Set(materialIds);
   if (!primary.size || [...primary].some(id => !state.settings.materials.some(m => m.id === id)))
-    throw new Error('均等に配分する教材を選んでください。');
+    throw new Error('量をそろえる教材を選んでください。');
   const active = activePlanWork(state, context.date);
   const movable = active.filter(s => !s.fixed && s.date >= from && !isElapsedRemainingSession(s, context));
   const selected = movable.filter(s => primary.has(s.materialId));

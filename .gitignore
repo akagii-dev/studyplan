@@ -2,7 +2,6 @@ node_modules/
 .pnpm-store/
 dist/
 dist-*/
-.claude/skills/
 docs/calendar-compact-review/
 docs/navigation-result-after/
 docs/navigation-result-baseline/

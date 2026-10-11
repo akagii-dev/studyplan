@@ -1,4 +1,3 @@
-import { runBusyTask } from '../hooks/busyTask';
 import { NumberInput } from './NumberInput';
 import { materialUnit } from '../domain/calendarQuantity';
 import { useState } from 'react';
@@ -92,11 +91,11 @@ export function History({
     err('');
     try {
       let receiptId: string | null = null;
-      await runBusyTask(() => update((s) => {
+      await update((s) => {
         const next = correctAndAdjust(s, r.id, cancelled ? r.count : Number(count), cancelled);
         receiptId = latestReceipt(next, r.id)?.id ?? null;
         return next;
-      }));
+      });
       setEditing(null);
       setCancelId(null);
       err('');

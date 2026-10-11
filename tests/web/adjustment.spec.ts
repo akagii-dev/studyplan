@@ -119,6 +119,8 @@ test('過去の未消化5問だけを一括調整し、今日の開始済み予�
   await expect(open).toHaveText('未消化1件・調整する');
   await open.click();
   await page.getByRole('button', { name: '配置案を確認', exact: true }).click();
+  // The per-session placement is detail behind the end-date summary.
+  await page.locator('.replan-details > summary').click();
   const proposal = page.getByRole('region', { name: '選択した残量の配置案' });
   await expect(proposal).toContainText('対象 5問');
   expect((await read()).plan).toEqual(source.plan);
@@ -173,6 +175,7 @@ test('保存済みの対象5問の部分配置案も実績を作らず承認・�
   await expect(b).not.toContainText('配置先を確認');
   await page.getByRole('button', { name: '今後の予定', exact: true }).click();
   await page.getByRole('button', { name: '計画案を確認', exact: true }).click();
+  await page.locator('.replan-details > summary').click();
   const result = page.getByRole('region', { name: '選択した残量の配置案' });
   await expect(result).toContainText('対象 5問 · 配置 3問 · 未配置 2問');
   await expect(result).toContainText('2030-10-08 09:15〜09:24');

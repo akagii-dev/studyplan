@@ -609,6 +609,7 @@ test('実機：対象5問だけの配置案を保存し、再起動後の承認�
   await saved();
   await nav('今後の予定');
   await page.getByRole('button', { name: '計画案を確認', exact: true }).click();
+  await page.locator('details.replan-details > summary').click();
   await expect(page.getByRole('region', { name: '選択した残量の配置案' })).toContainText('対象 5問 · 配置 5問 · 未配置 0問');
   const pending = await storedState();
   expect(pending.plan).toEqual(source.plan);
@@ -670,6 +671,7 @@ test('実機：狭幅で過去5問だけを一括調整し、今日の開始済�
   await page.getByLabel('配置する開始日').fill(addDays(date, 1));
   await page.getByRole('button', { name: '配置案を確認', exact: true }).click();
   await saved();
+  await page.locator('details.replan-details > summary').click();
   await expect(page.getByRole('region', { name: '選択した残量の配置案' })).toContainText('対象 5問');
   expect((await storedState()).plan).toEqual(source.plan);
   expect((await storedState()).records).toEqual(source.records);
@@ -1728,11 +1730,9 @@ test('実機：周回数の確定場所から変更を保持した案へ進み�
   const status = page.getByRole('region', { name: '登録と計画の状態' });
   await expect(status.getByRole('heading', { name: '計画に未反映' })).toBeVisible();
   await status.getByRole('button', { name: 'この変更を含めて計画を見直す' }).click();
-  await expect(page.getByRole('heading', { name: '変更した条件' })).toBeVisible();
-  await expect(page.getByText(/短答・過去問 \/ 周回数：2 → 3/)).toBeVisible();
-  await expect(page.getByRole('heading', { name: '計画への主な影響' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '対応が必要な問題' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '適用操作' })).toBeVisible();
+  await expect(page.getByRole('list', { name: '教材ごとの終了予定' })).toContainText('短答・過去問');
+  await expect(page.getByText(/設定の変更 \d+件も同時に反映します。/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: '変更した条件' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'この内容で更新' })).toBeVisible();
   const details = page.locator('details.replan-details');
   await expect(details).not.toHaveAttribute('open', '');
@@ -1748,6 +1748,9 @@ test('実機：周回数の確定場所から変更を保持した案へ進み�
   await details.locator('summary').focus();
   await page.keyboard.press('Enter');
   await expect(details).toHaveAttribute('open', '');
+  await expect(details.getByRole('heading', { name: '変更した条件' })).toBeVisible();
+  await expect(details.getByText(/短答・過去問 \/ 周回数：2 → 3/)).toBeVisible();
+  await expect(details.getByRole('heading', { name: '計画への主な影響' })).toBeVisible();
   await expect(details.getByText('バッファーなし（余裕率0%）なら、いつ終わる？')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
     true,
@@ -1765,7 +1768,7 @@ test('実機：周回数の確定場所から変更を保持した案へ進み�
   ).toHaveLength(3);
 });
 
-test('実機：条件変更なし・別教材への影響・未配置を標準表示だけで判断できる', async () => {
+test('実機：未配置は終了予定に示し、条件変更なし・別教材への影響は詳細で確認できる', async () => {
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/replan-impact-'));
   await launch();
@@ -1819,6 +1822,10 @@ test('実機：条件変更なし・別教材への影響・未配置を標準�
   };
   await seedState(seed, 'replan-impact');
   await nav('再計画の確認');
+  // The standard view shows the unplaced amount next to the end date; the rest is in the details.
+  await expect(page.getByRole('list', { name: '教材ごとの終了予定' }).getByRole('listitem').filter({ hasText: '論文演習' }))
+    .toContainText('未配置 5問');
+  await page.locator('details.replan-details > summary').click();
   await expect(page.getByText('条件の変更はありません。', { exact: false })).toBeVisible();
   await expect(page.locator('.impact-list > li').filter({ hasText: '短答・過去問' })).toContainText(
     '予定量 20問 → 30問',
@@ -1833,7 +1840,6 @@ test('実機：条件変更なし・別教材への影響・未配置を標準�
   await expect(shortfall).toContainText('1周目：5問');
   await expect(shortfall).toContainText('2時間 30分');
   await expect(page.getByRole('button', { name: 'この内容で更新' })).toBeEnabled();
-  await expect(page.locator('details.replan-details')).not.toHaveAttribute('open', '');
   await page.screenshot({ path: 'test-results/replan-impact.png', fullPage: true });
 });
 
@@ -3492,8 +3498,9 @@ test('実機：固定エラーの理由・該当設定への修正・固定解�
   const errors = page.getByRole('region', { name: '計画エラーの修正' });
   await expect(errors).toContainText('経済学（09:00〜10:40）と重なっています');
   await expect(page.getByRole('button', { name: 'この内容で更新' })).toBeDisabled();
-  const readiness = page.getByRole('region', { name: '承認前の確認' });
-  await expect(readiness).toContainText('現在は更新できません');
+  // Only conflicts and unreported items remain, so no summary box; the reason stays announced.
+  await expect(page.getByRole('region', { name: '承認前の確認' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'この内容で更新' })).toHaveAccessibleDescription('現在は更新できません。下の問題を解消してください。');
   await expect(page.getByRole('heading', { name: '予定の競合' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '未報告の予定を確認してください' })).toBeVisible();
   await page.screenshot({ path: 'test-results/constraint-repair.png', fullPage: true });
@@ -3525,7 +3532,7 @@ test('実機：固定エラーの理由・該当設定への修正・固定解�
   await page.getByLabel('未報告は記録を保留したまま、現在の残数を今後の枠へ再配置する').check();
   await page.getByRole('button', { name: '承認操作へ戻る' }).click();
   await expect(page.getByRole('button', { name: 'この内容で更新' })).toBeFocused();
-  await expect(readiness).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'この内容で更新' })).toHaveAccessibleDescription('');
   await page.getByRole('button', { name: 'この内容で更新' }).click();
   await saved();
   const approved = await storedState();
@@ -5145,6 +5152,7 @@ test('実機：試験・教材を対話で追加 → 中断再開 → 計画案�
   expect(data.settings.block).toBe(seed.settings.block);
   expect(data.draft.guided).toBeUndefined();
   await page.getByRole('button', { name: 'この変更を含めて計画を見直す', exact: true }).click();
+  await page.locator('details.replan-details > summary').click();
   await expect(page.getByText('教材を追加：追加の問題集', { exact: true })).toBeVisible();
   await expect(page.getByText('試験を追加：新しい資格試験', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: '案を破棄する', exact: true }).click();

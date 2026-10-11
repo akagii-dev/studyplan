@@ -2,6 +2,7 @@ import { Warning } from './Warnings';
 import { useState, useEffect, useMemo, useRef, useId, useLayoutEffect } from 'react';
 import { ArrowRight, RefreshCw, Undo2, CheckCircle2 } from 'lucide-react';
 import { Session, today, clock, priorityName } from '../domain/model';
+import { shortDayLabel } from '../domain/calendar';
 import { approve, propose, proposeSettings, proposeBalancedRemaining, restartProposalStaleReason, undoPlan } from '../domain/planning';
 import { Empty, Props, duration } from './common';
 import { SetupImpact } from './SetupImpact';
@@ -95,6 +96,19 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
     return [{ ...row, count, minutes: count * material.rounds[row.round].minutes, deadline: exam.target, reviewDays: exam.reviewDays }];
   });
   const primaryUnplaced = candidateWork.some(row => balanceMaterials.has(row.materialId) && row.unplaced > 0);
+  // The decision view shows only when each material's current and last round end.
+  const roundEnd = (materialId: string, round: number) => planSessions.reduce((end, s) =>
+    s.kind === 'study' && s.count > 0 && s.materialId === materialId && s.round === round && s.date > end ? s.date : end, '');
+  const finishes = displaySettings.materials.flatMap((m) => {
+    const rows = candidateWork.filter((row) => row.materialId === m.id && (row.allocated > 0 || row.unplaced > 0))
+      .sort((a, b) => a.round - b.round);
+    if (!rows.length) return [];
+    const current = { round: rows[0].round, end: roundEnd(m.id, rows[0].round) };
+    const final = rows.at(-1)!.round;
+    return [{ id: m.id, name: m.name, unit: rows[0].unit, current,
+      last: final === current.round ? null : { round: final, end: roundEnd(m.id, final) },
+      unplaced: rows.reduce((n, row) => n + row.unplaced, 0) }];
+  });
   const extraElapsed = useMemo(() => basis && !balanceFuture ? (basis.purpose === 'past-only'
     ? pastRemainingWork(state, currentTime.date).sessions
     : elapsedRemainingTargets(state, currentTime, remainingAdjustmentSourceDate(state, currentTime.date)))
@@ -441,15 +455,17 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
       ) : (
         <>
           <section className="card">
-            <div className="eyebrow">承認待ち</div>
             <h2>計画案</h2>
-            <p>{p.reason}</p>
-            {balanceFuture && <section aria-label="量をそろえる教材と優先度">
-              <h3>対象と保存されている優先度</h3>
-              <ul>{state.settings.materials.filter(m => balanceMaterials.has(m.id)).map(m => {
-                const exam = state.settings.exams.find(e => e.id === m.examId)!;
-                return <li key={m.id}>{m.name} · {exam.name} · 優先度 {priorityName(exam.priority)}</li>;
-              })}</ul>
+            <ul className="replan-finish m-0 list-none p-0 [&_li]:py-1.5" aria-label="教材ごとの終了予定">
+              {finishes.map((row) => <li key={row.id}>
+                <b>{row.name}</b>{' '}
+                {row.current.end ? `${row.current.round + 1}周目 ${shortDayLabel(row.current.end)}まで` : `${row.current.round + 1}周目`}
+                {row.last && ` · 最終${row.last.round + 1}周目 ${row.last.end ? `${shortDayLabel(row.last.end)}まで` : '未定'}`}
+                {row.unplaced > 0 && <span className="text-error"> · 未配置 {row.unplaced}{row.unit}</span>}
+              </li>)}
+            </ul>
+            {!finishes.length && <p>今後の予定はありません。</p>}
+            {balanceFuture && (primaryUnplaced || losses.length > 0) && <section aria-label="量をそろえる教材と優先度">
               {primaryUnplaced && !basis?.allowLowerPriorityReduction && <button disabled={acting}
                 onClick={() => void act(s => proposeBalancedRemaining({ ...s, proposal: null }, basis?.balanceMaterialIds ?? [], basis!.from, true))}>
                 低優先度の変更可能枠も最小限調整する案を見る
@@ -465,6 +481,151 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                 <label><input id="balance-loss-confirmation" type="checkbox" checked={lossAck} onChange={event => setLossAck(event.target.checked)} />削減量と期限への影響を確認した</label>
                 <button disabled={acting} onClick={() => void act(s => proposeBalancedRemaining({ ...s, proposal: null }, basis!.balanceMaterialIds ?? [], basis!.from))}>削減しない案へ戻す</button>
               </div>}
+            </section>}
+            {(approvalBlocks.length > 0 || conflicts.length > 0 || p.unreported.length > 0) && (
+              <section className={decision} aria-label="対応が必要な問題">
+                {approvalBlocks.length > 0 && !summaryBlocks.length && (
+                  <p id={approvalStatusId} className="sr-only">現在は更新できません。下の問題を解消してください。</p>
+                )}
+                {summaryBlocks.length > 0 && (
+                  <section className="mt-[22px] rounded-[9px] border border-line bg-soft p-[18px] [&_button]:text-[12px] [&_li]:flex [&_li]:flex-wrap [&_li]:items-center [&_li]:justify-between [&_li]:gap-2.5 [&_li]:px-0 [&_li]:py-2 [&_li]:text-[12px] [&_ul]:list-none [&_ul]:p-0" aria-label="承認前の確認">
+                    <p id={approvalStatusId}>現在は更新できません。下の問題を解消してください。</p>
+                    {summaryBlocks.length > 0 && (
+                      <ul>
+                        {summaryBlocks.map((block) => (
+                          <li key={block.action}>
+                            <span>{block.text}</span>
+                            <button onClick={block.run}>{block.action}</button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                )}
+                {conflicts.length > 0 && (
+                  <section className="confirmation-panel" aria-label="計画エラーの修正">
+                    <h3 ref={conflictsHeading} tabIndex={-1} className="scroll-mt-6">
+                      予定の競合
+                    </h3>
+                    {conflicts.map((message) => {
+                      const problem = timeProblems.find(
+                        (x) => x.message === message || x.legacy === message,
+                      );
+                      const historical = plan.sessions.find(
+                        (s) =>
+                          s.date === plan.from &&
+                          s.start < (plan.notBefore ?? 0) &&
+                          message ===
+                            `${s.date} ${s.start / 60}時の固定予定が現在の学習可能枠に収まりません。`,
+                      );
+                      return (
+                        <div className="plan-conflict" key={message}>
+                          <p>
+                            {historical
+                              ? `${historical.date} ${clock(historical.start)}〜${clock(historical.end)}は開始済みの予定です。過去の予定を残して案を更新できます。`
+                              : (problem?.message ?? message)}
+                          </p>
+                          {!historical && (
+                            <div className="actions">
+                              <button onClick={() => void repair(problem?.issue)}>条件を修正</button>
+                              {problem && (
+                                <button
+                                  onClick={() =>
+                                    void act((s) => releaseFixedAndRefresh(s, problem.session.id))
+                                  }
+                                >
+                                  固定を解除して案を更新
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <button onClick={() => void act((s) => refreshProposal(s))}>
+                      今の時刻で案を更新
+                    </button>
+                    {restart && conflicts.some((message) => message.includes('再配分の開始前')) && (
+                      <button disabled={acting} onClick={() => {
+                        if (actingRef.current) return;
+                        actingRef.current = true;
+                        setActing(true);
+                        void update((s) => ({ ...s, proposal: null }))
+                          .then(onFuture)
+                          .catch((error) => err(String(error)))
+                          .finally(() => { actingRef.current = false; setActing(false); });
+                      }}>
+                        案を破棄して開始日を選び直す
+                      </button>
+                    )}
+                  </section>
+                )}
+                {p.unreported.length > 0 && (
+                  <div className="confirmation-panel">
+                    <h3 ref={unreportedHeading} tabIndex={-1} className="scroll-mt-6">
+                      未報告の予定を確認してください
+                    </h3>
+                    <p>
+                      未報告を実績0には変換しません。実際に進めていた場合は先に記録してください。
+                    </p>
+                    <ul>
+                      {p.unreported.map((x) => (
+                        <li key={x}>{x}</li>
+                      ))}
+                    </ul>
+                    <label className={check}>
+                      <input
+                        type="checkbox"
+                        checked={ack}
+                        onChange={(e) => setAck(e.target.checked)}
+                      />
+                      未報告は記録を保留したまま、現在の残数を今後の枠へ再配置する
+                    </label>
+                    {ack && (
+                      <div className="actions">
+                        <button onClick={() => reveal(approveButton.current)}>承認操作へ戻る</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+            )}
+            {conditionChanges?.length ? <p className="hint">設定の変更 {conditionChanges.length}件も同時に反映します。</p> : null}
+              <div className="actions">
+                <button
+                  data-submit
+                  ref={approveButton}
+                  className="primary min-w-[min(100%,14rem)]"
+                  aria-describedby={approvalBlocks.length ? approvalStatusId : undefined}
+                  disabled={acting || approvalBlocks.length > 0}
+                  onClick={() =>
+                    act((s) => approve(s, ack), '計画を更新し、カレンダーに反映しました')
+                  }
+                >
+                  この内容で更新
+                </button>
+                <button
+                  disabled={acting}
+                  onClick={() =>
+                    act(
+                      (s) => ({ ...s, proposal: null }),
+                      '計画案を破棄しました。登録内容と現在の計画はそのままです。',
+                    )
+                  }
+                >
+                  案を破棄する
+                </button>
+              </div>
+          </section>
+          <details className="card replan-details">
+            <summary className="flex min-h-11 cursor-pointer items-center font-[750] focus-visible:[outline:3px_solid_var(--accent)] focus-visible:outline-offset-[3px]">詳細</summary>
+            <p>{p.reason}</p>
+            {balanceFuture && <section aria-label="対象と保存されている優先度">
+              <h3>対象と保存されている優先度</h3>
+              <ul>{state.settings.materials.filter(m => balanceMaterials.has(m.id)).map(m => {
+                const exam = state.settings.exams.find(e => e.id === m.examId)!;
+                return <li key={m.id}>{m.name} · {exam.name} · 優先度 {priorityName(exam.priority)}</li>;
+              })}</ul>
             </section>}
             {partialPreview && <section className="[&_ul]:ps-5" aria-label="選択した残量の配置案">
               <h3>選択した残量の配置案</h3>
@@ -573,84 +734,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                 ))}
               </dl>
             </section>
-            <section className={decision} aria-labelledby="plan-problems-heading">
-              <h3 id="plan-problems-heading">対応が必要な問題</h3>
-              {approvalBlocks.length ? (
-                <section className="mt-[22px] rounded-[9px] border border-line bg-soft p-[18px] [&_button]:text-[12px] [&_li]:flex [&_li]:flex-wrap [&_li]:items-center [&_li]:justify-between [&_li]:gap-2.5 [&_li]:px-0 [&_li]:py-2 [&_li]:text-[12px] [&_ul]:list-none [&_ul]:p-0" aria-label="承認前の確認">
-                  <p id={approvalStatusId}>現在は更新できません。下の問題を解消してください。</p>
-                  {summaryBlocks.length > 0 && (
-                    <ul>
-                      {summaryBlocks.map((block) => (
-                        <li key={block.action}>
-                          <span>{block.text}</span>
-                          <button onClick={block.run}>{block.action}</button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </section>
-              ) : plan.shortfalls.length ? null : (
-                <p>適用を止める問題はありません。</p>
-              )}
-              {conflicts.length > 0 && (
-                <section className="confirmation-panel" aria-label="計画エラーの修正">
-                  <h3 ref={conflictsHeading} tabIndex={-1} className="scroll-mt-6">
-                    予定の競合
-                  </h3>
-                  {conflicts.map((message) => {
-                    const problem = timeProblems.find(
-                      (x) => x.message === message || x.legacy === message,
-                    );
-                    const historical = plan.sessions.find(
-                      (s) =>
-                        s.date === plan.from &&
-                        s.start < (plan.notBefore ?? 0) &&
-                        message ===
-                          `${s.date} ${s.start / 60}時の固定予定が現在の学習可能枠に収まりません。`,
-                    );
-                    return (
-                      <div className="plan-conflict" key={message}>
-                        <p>
-                          {historical
-                            ? `${historical.date} ${clock(historical.start)}〜${clock(historical.end)}は開始済みの予定です。過去の予定を残して案を更新できます。`
-                            : (problem?.message ?? message)}
-                        </p>
-                        {!historical && (
-                          <div className="actions">
-                            <button onClick={() => void repair(problem?.issue)}>条件を修正</button>
-                            {problem && (
-                              <button
-                                onClick={() =>
-                                  void act((s) => releaseFixedAndRefresh(s, problem.session.id))
-                                }
-                              >
-                                固定を解除して案を更新
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                  <button onClick={() => void act((s) => refreshProposal(s))}>
-                    今の時刻で案を更新
-                  </button>
-                  {restart && conflicts.some((message) => message.includes('再配分の開始前')) && (
-                    <button disabled={acting} onClick={() => {
-                      if (actingRef.current) return;
-                      actingRef.current = true;
-                      setActing(true);
-                      void update((s) => ({ ...s, proposal: null }))
-                        .then(onFuture)
-                        .catch((error) => err(String(error)))
-                        .finally(() => { actingRef.current = false; setActing(false); });
-                    }}>
-                      案を破棄して開始日を選び直す
-                    </button>
-                  )}
-                </section>
-              )}
-              {plan.shortfalls.length > 0 && (
+            {plan.shortfalls.length > 0 && (
                 <section className="confirmation-panel" aria-labelledby="shortfall-heading">
                   <h3 id="shortfall-heading">今回の案で未配置の課題</h3>
                   <p className="warning-inline">注意付きで更新できます。</p>
@@ -665,72 +749,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                     期限・学習可能枠・教材の量などを見直すか、不足を残したまま配置できた分を承認できます。
                   </p>
                 </section>
-              )}
-              {p.unreported.length > 0 && (
-                <div className="confirmation-panel">
-                  <h3 ref={unreportedHeading} tabIndex={-1} className="scroll-mt-6">
-                    未報告の予定を確認してください
-                  </h3>
-                  <p>
-                    未報告を実績0には変換しません。実際に進めていた場合は先に記録してください。
-                  </p>
-                  <ul>
-                    {p.unreported.map((x) => (
-                      <li key={x}>{x}</li>
-                    ))}
-                  </ul>
-                  <label className={check}>
-                    <input
-                      type="checkbox"
-                      checked={ack}
-                      onChange={(e) => setAck(e.target.checked)}
-                    />
-                    未報告は記録を保留したまま、現在の残数を今後の枠へ再配置する
-                  </label>
-                  {ack && (
-                    <div className="actions">
-                      <button onClick={() => reveal(approveButton.current)}>承認操作へ戻る</button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </section>
-            <section className={decision} aria-labelledby="apply-plan-heading">
-              <h3 id="apply-plan-heading">適用操作</h3>
-              <p>
-                {conditionChanges?.length
-                  ? '計画と「変更した条件」に示した設定を更新します。実績は変更しません。'
-                  : '承認済みの計画をこの案へ更新します。実績と設定は変更しません。'}
-              </p>
-              <div className="actions">
-                <button
-                  data-submit
-                  ref={approveButton}
-                  className="primary min-w-[min(100%,14rem)]"
-                  aria-describedby={approvalBlocks.length ? approvalStatusId : undefined}
-                  disabled={acting || approvalBlocks.length > 0}
-                  onClick={() =>
-                    act((s) => approve(s, ack), '計画を更新し、カレンダーに反映しました')
-                  }
-                >
-                  この内容で更新
-                </button>
-                <button
-                  disabled={acting}
-                  onClick={() =>
-                    act(
-                      (s) => ({ ...s, proposal: null }),
-                      '計画案を破棄しました。登録内容と現在の計画はそのままです。',
-                    )
-                  }
-                >
-                  案を破棄する
-                </button>
-              </div>
-            </section>
-          </section>
-          <details className="card replan-details">
-            <summary className="flex min-h-11 cursor-pointer items-center font-[750] focus-visible:[outline:3px_solid_var(--accent)] focus-visible:outline-offset-[3px]">計算条件・個別予定・全一覧を確認</summary>
+            )}
             <PlanInsights state={state} plan={plan} preview flat />
             <section className="mt-[1.5rem] min-w-0">
               <h3>日ごとの予定量の差分</h3>

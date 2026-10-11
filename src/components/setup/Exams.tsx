@@ -1,7 +1,7 @@
 import { Check, GraduationCap, Pencil, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { examColors } from '../../domain/appearance';
-import { Exam, addDays, today, uid } from '../../domain/model';
+import { Exam, addDays, priorityName, today, uid } from '../../domain/model';
 import { validateSettings } from '../../domain/planning';
 import { Empty, Field, Props, useDraft } from '../common';
 import { badge, choices, iconButton } from '../ui';
@@ -163,7 +163,7 @@ export function Exams({
                 {e.start} → {e.target}
               </p>
               <div className="flex gap-[9px] [&>span]:rounded-[4px] [&>span]:bg-soft [&>span]:px-[7px] [&>span]:py-[3px] [&>span]:text-[10px] [&>span]:text-muted">
-                <span>優先度：{['', '低い', 'ふつう', '高い'][e.priority]}</span>
+                <span>優先度：{priorityName(e.priority)}</span>
                 <span>復習 {e.reviewDays}日</span>
               </div>
               {!state.plan?.settingsSnapshot?.exams.some((x) => x.id === e.id) && (

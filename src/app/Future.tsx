@@ -6,7 +6,7 @@ import { calendarDisplayQuantity, materialUnit } from '../domain/calendarQuantit
 import { Props, duration } from '../components/common';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { shortDate, shortDayLabel, startOfWeek, weekRangeLabel } from '../domain/calendar';
-import { Session, addDays } from '../domain/model';
+import { Session, addDays, priorityName } from '../domain/model';
 import { ScheduleViewSwitch } from '../components/ScheduleViewSwitch';
 import { ShortfallDetails } from '../components/ShortfallDetails';
 import { visibleProgressReceipts } from '../domain/progressReceiptDisplay';
@@ -19,7 +19,6 @@ import { pastRemainingWork } from '../domain/remainingAllocation';
 import { periodButton } from '../components/ui';
 
 export interface FutureSelection { from: string; selectedOn: string }
-const priorityName = (priority: number) => ['', '低い', 'ふつう', '高い'][priority] ?? String(priority);
 
 function FutureRestart({ onRestart }: {
   onRestart: (from: string) => Promise<void>;
@@ -104,7 +103,8 @@ export function Future({
   const week = startOfWeek(chosen?.selectedOn === reference ? chosen.from : reference);
   const weekEnd = addDays(week, 6);
   const [balanceMaterials, setBalanceMaterials] = useState<string[]>([]);
-  const [balanceFrom, setBalanceFrom] = useState(reference);
+  const lowerDate = [reference, state.plan?.allocationStart ?? ''].sort().at(-1)!;
+  const [balanceFrom, setBalanceFrom] = useState(lowerDate);
   const [balanceError, setBalanceError] = useState('');
   const [balancing, setBalancing] = useState(false);
   const balanceSending = useRef(false);
@@ -129,7 +129,6 @@ export function Future({
     wasPlacementOpen.current = placementOpen;
     return () => clearTimeout(timer);
   }, [placementOpen]);
-  const lowerDate = [reference, state.plan?.allocationStart ?? ''].sort().at(-1)!;
   const past = useMemo(() => pastRemainingWork(state, reference), [state, reference]);
   const pastGroups = state.settings.materials.flatMap((material) => material.rounds.flatMap((_, round) => {
     const count = past.sessions.filter((s) => s.materialId === material.id && s.round === round)
@@ -172,14 +171,14 @@ export function Future({
       continue;
     groups.set(session.date, [...(groups.get(session.date) ?? []), session]);
   }
+  // Days up to today show recorded or unreported quantities too; compute each day once.
+  const quantities = new Map<string, ReturnType<typeof calendarDisplayQuantity>>();
   for (let offset = 0; offset < 7; offset++) {
     const date = addDays(week, offset);
-    if (
-      date <= reference &&
-      calendarDisplayQuantity(state, date, reference).rows.length &&
-      !groups.has(date)
-    )
-      groups.set(date, []);
+    if (date > reference) continue;
+    const quantity = calendarDisplayQuantity(state, date, reference);
+    quantities.set(date, quantity);
+    if (quantity.rows.length && !groups.has(date)) groups.set(date, []);
   }
   const shortfalls = state.plan?.shortfalls ?? [];
   const receipts = visibleProgressReceipts(state);
@@ -231,7 +230,7 @@ export function Future({
         [...groups]
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([date, sessions]) => {
-            const quantity = calendarDisplayQuantity(state, date, reference);
+            const quantity = quantities.get(date) ?? calendarDisplayQuantity(state, date, reference);
             const rows = new Map<string, { session: Session; count: number; minutes: number; needsReview: boolean }>();
             for (const session of sessions) {
               const key = JSON.stringify([
@@ -338,7 +337,7 @@ export function Future({
                 {material.name}{exam ? ` · ${exam.name}` : ''}
               </label>;
             })}
-            <label className="field">そろえ始める日<input type="date" required min={reference} value={balanceFrom} onChange={(event) => setBalanceFrom(event.target.value)} /></label>
+            <label className="field">そろえ始める日<input type="date" required min={lowerDate} value={balanceFrom} onChange={(event) => setBalanceFrom(event.target.value)} /></label>
             <p>記録済みの分・始まった予定・固定予定はそのまま残し、選んだ教材の残りを期限まで日ごとにそろえ直します。</p>
             <button type="submit" className="primary" disabled={!balanceMaterials.length}>配分案を確認</button>
           </fieldset>

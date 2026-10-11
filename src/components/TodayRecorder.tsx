@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ProgressValue } from './ProgressValue';
 import { studyInputLabel } from '../domain/studyProgress';
 import { Props } from './common';
@@ -46,8 +46,8 @@ export interface RecordTarget {
   token: number;
 }
 export function TodayRecorder({ state, update, target }: Props & { target?: RecordTarget | null }) {
-  const rows = todayStudyRows(state);
-  usePlanningClock();
+  const { date: clockDate } = usePlanningClock();
+  const rows = useMemo(() => todayStudyRows(state, clockDate), [state, clockDate]);
   const inputRefs = useRef(new Map<string, HTMLInputElement>());
   const handled = useRef<number | null>(null);
   const outsideRef = useRef<HTMLDetailsElement>(null);

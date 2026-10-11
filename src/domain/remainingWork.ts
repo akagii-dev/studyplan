@@ -38,6 +38,7 @@ export function remainingWork(state: AppState, date: string, minute = 0): Remain
   }
   const basisIssue = remainingBasisIssue(state);
   const status = currentPlanningStatus(state);
+  const stale = !!state.plan && stalePlan(state.plan, state.settings);
   return state.settings.materials.flatMap((m) =>
     m.rounds.map((_, round) => {
       const count = allocated.get(workKey(m.id, round)) ?? 0;
@@ -48,7 +49,7 @@ export function remainingWork(state: AppState, date: string, minute = 0): Remain
       const matching = sessions.filter((s) => s.materialId === m.id && s.round === round);
       const reasons: string[] = [];
       if (basisIssue) reasons.push(basisIssue);
-      if (state.plan && stalePlan(state.plan, state.settings))
+      if (stale)
         reasons.push('確定計画と現在の条件が一致していません。');
       if (status?.status === 'blocked')
         reasons.push(status.detail ?? '予定調整が反映されていません。');

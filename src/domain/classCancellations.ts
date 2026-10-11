@@ -1,4 +1,4 @@
-import { ClassCancellation, Settings, WindowRule, clock, weekday } from './model';
+import { ClassCancellation, Settings, WindowRule, clock, isDateKey, weekday } from './model';
 
 /** The inclusive union of cancellations only removes the named class occurrences. */
 export function classIsCancelled(settings: Settings, classId: string, date: string): boolean {
@@ -16,17 +16,12 @@ export function classesForDate(settings: Settings, date: string): WindowRule[] {
 }
 
 export function classCancellationErrors(settings: Settings): string[] {
-  const validDate = (value: string) => {
-    const date = new Date(`${value}T00:00:00Z`);
-    return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(date.getTime()) &&
-      date.toISOString().slice(0, 10) === value;
-  };
   const items = settings.classCancellations ?? [];
   if (!Array.isArray(items)) return ['休講の一覧を確認してください。'];
   const ids = new Set<string>();
   for (const item of items) {
     if (!item || typeof item.id !== 'string' || !item.id.trim() || ids.has(item.id) ||
-      !validDate(item.from) || !validDate(item.to) || item.to < item.from ||
+      !isDateKey(item.from) || !isDateKey(item.to) || item.to < item.from ||
       (item.classIds !== undefined && (!Array.isArray(item.classIds) || !item.classIds.length ||
         item.classIds.some((id) => typeof id !== 'string' || !id.trim()) ||
         new Set(item.classIds).size !== item.classIds.length)))

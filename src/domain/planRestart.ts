@@ -1,4 +1,4 @@
-import { AppState, Plan, remaining } from './model';
+import { AppState, Plan, isDateKey, remaining } from './model';
 import { activePlanWork, workKey } from './progressAllocation';
 import { PlanningContext } from './planner/context';
 import { generatePlan } from './planner/generate';
@@ -7,11 +7,7 @@ import { validateRevisedSettings } from './revision';
 
 /** Rebuild all remaining work. The caller owns proposal, approval and history. */
 export function calculateRestart(state: AppState, from: string, context: PlanningContext): Plan {
-  if (
-    !/^\d{4}-\d{2}-\d{2}$/.test(from) ||
-    !Number.isFinite(Date.parse(`${from}T12:00:00Z`)) ||
-    new Date(`${from}T12:00:00Z`).toISOString().slice(0, 10) !== from
-  )
+  if (!isDateKey(from))
     throw new Error('開始日を正しい日付で入力してください。');
   if (from < context.date) throw new Error('開始日は今日以降を指定してください。');
   requirePlanningInputs(state.settings, from);

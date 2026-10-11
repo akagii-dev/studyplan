@@ -1,7 +1,7 @@
 import { ArrowRight, Check, Plus } from 'lucide-react';
 import { ReactNode } from 'react';
 import { examColors } from '../../domain/appearance';
-import { addDays, today } from '../../domain/model';
+import { addDays, priorityName, today } from '../../domain/model';
 import { Field } from '../common';
 import { newExam } from './model';
 import { QuestionView, StepContext } from './types';
@@ -138,7 +138,7 @@ export function ExamSteps(ctx: StepContext): QuestionView | undefined {
               {w.exam.start} → {w.exam.target}
             </p>
             <p>
-              優先度：{['', '低い', 'ふつう', '高い'][w.exam.priority]} · 復習 {w.exam.reviewDays}日
+              優先度：{priorityName(w.exam.priority)} · 復習 {w.exam.reviewDays}日
             </p>
           </div>
           <div className={wizardOptions}>

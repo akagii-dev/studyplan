@@ -145,15 +145,14 @@ export function Calendar({
   useEffect(() => {
     onDateChange?.(selected);
   }, [selected, onDateChange]);
-  const anchor = selected;
-  const monthStart = anchor.slice(0, 7) + '-01';
+  const monthStart = selected.slice(0, 7) + '-01';
   const nextMonth = new Date(`${monthStart}T12:00:00Z`);
   nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1);
   const monthEnd = addDays(nextMonth.toISOString().slice(0, 10), -1);
   const weekStart = startOfWeek(selected);
   const from =
     view === 'month'
-      ? addDays(monthStart, -((weekday(monthStart) + 6) % 7))
+      ? startOfWeek(monthStart)
       : weekStart;
   const to = view === 'month' ? addDays(from, 41) : addDays(from, 6);
   const days = datesBetween(from, to);
@@ -178,17 +177,21 @@ export function Calendar({
           state.settings.materials.find((m) => m.id === r.materialId)?.examId === filter),
     );
   const dayRecords = (date: string) =>
-    recordsOn(date).map((r) => (
-      <p className="hint" key={r.id}>
-        {state.settings.materials.find((m) => m.id === r.materialId)?.name} · {r.round + 1}
-        周目：＋{r.count}
-        {materialUnit(state.settings.materials.find((m) => m.id === r.materialId)?.unit)}
-      </p>
-    ));
+    recordsOn(date).map((r) => {
+      const material = state.settings.materials.find((m) => m.id === r.materialId);
+      return (
+        <p className="hint" key={r.id}>
+          {material?.name} · {r.round + 1}
+          周目：＋{r.count}
+          {materialUnit(material?.unit)}
+        </p>
+      );
+    });
   const detail = (s: Session, level: CalendarDensity = 'detailed') => {
     const e = state.settings.exams.find((e) => e.id === s.examId);
     const m = state.settings.materials.find((m) => m.id === s.materialId);
     const progress = calendarDisplayQuantity(state, s.date).rows.find(r => r.materialId === s.materialId && r.round === s.round);
+    const overlaps = overlapsBusy(state.settings, s);
     return (
       <div
         key={s.id}
@@ -206,10 +209,10 @@ export function Calendar({
           </div>
         )}
         <h3 className="mx-0 my-[5px] text-[14px]">{s.kind === 'review' ? 'まとめの復習' : m?.name}</h3>
-        {overlapsBusy(state.settings, s).length > 0 && (
+        {overlaps.length > 0 && (
           <div className="error mt-3 text-[12px] [&_p]:mb-1.5 [&_p]:[color:inherit]" role="status">
             <b>学習予定と授業・予定が重複</b>
-            {overlapsBusy(state.settings, s).map((e) => (
+            {overlaps.map((e) => (
               <p key={e.id}>
                 {e.kind === 'class' ? e.name.trim() || '大学の授業' : e.name} {clock(e.start)}–
                 {clock(e.end)} と重なっています。
@@ -375,7 +378,7 @@ export function Calendar({
             <ChevronLeft size={20} aria-hidden />
           </button>
           <h2 className="m-0 whitespace-nowrap text-[1.125rem]">
-            {Number(anchor.slice(0, 4))}年 {Number(anchor.slice(5, 7))}月
+            {Number(selected.slice(0, 4))}年 {Number(selected.slice(5, 7))}月
           </h2>
           <button aria-label="次の期間" className={`${periodButton} px-2.5 py-[7px] text-[11px]`} onClick={() => jump(1)}>
             <ChevronRight size={20} aria-hidden />
@@ -495,11 +498,11 @@ export function Calendar({
                   {days.filter(d => d >= week && d <= addDays(week, 6)).map((d) => (
                     <div
                       key={d}
-                      className={`day ${d === today() ? 'today' : ''} ${d === selected ? 'chosen shadow-[inset_0_0_0_2px_var(--accent)]' : ''} ${view === 'month' && d.slice(0, 7) !== anchor.slice(0, 7) ? 'muted-day' : ''} min-w-0 cursor-pointer bg-surface px-[5px] py-[7px] outline-1 outline-line @max-[680px]:px-2 @max-[680px]:py-1.5`}
+                      className={`day ${d === today() ? 'today' : ''} ${d === selected ? 'chosen shadow-[inset_0_0_0_2px_var(--accent)]' : ''} ${view === 'month' && d.slice(0, 7) !== selected.slice(0, 7) ? 'muted-day' : ''} min-w-0 cursor-pointer bg-surface px-[5px] py-[7px] outline-1 outline-line @max-[680px]:px-2 @max-[680px]:py-1.5`}
                       onClick={() => selectDay(d)}
                     >
                       <button
-                        className={`date-number mb-0.5 min-h-11 min-w-11 max-w-full border-0 bg-transparent p-1 text-[.875rem] ${d === today() ? 'hover:enabled:bg-transparent' : 'hover:enabled:bg-soft'} ${view === 'month' && d.slice(0, 7) !== anchor.slice(0, 7) ? 'font-medium text-muted' : 'font-[650] text-ink'}`}
+                        className={`date-number mb-0.5 min-h-11 min-w-11 max-w-full border-0 bg-transparent p-1 text-[.875rem] ${d === today() ? 'hover:enabled:bg-transparent' : 'hover:enabled:bg-soft'} ${view === 'month' && d.slice(0, 7) !== selected.slice(0, 7) ? 'font-medium text-muted' : 'font-[650] text-ink'}`}
                         aria-label={`${d}を表示`}
                         aria-pressed={d === selected}
                       >

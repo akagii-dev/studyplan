@@ -1,4 +1,4 @@
-import { AppState, Plan, StudyDayBaseline, today } from './model';
+import { AppState, Plan, StudyDayBaseline, localDateKey, today } from './model';
 import { originalSessionCount, proposalUsesCurrentProgress } from './progressReflection';
 import { activePlanWork, workKey } from './progressAllocation';
 import { displayPlanSessions, isArchivedPlanDate } from './planDisplay';
@@ -10,7 +10,7 @@ export const materialUnit = (unit?: string) => unit?.trim() || '問';
 const localDay = (timestamp: string) => {
   const d = new Date(timestamp);
   if (!Number.isFinite(d.getTime())) return null;
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return localDateKey(d);
 };
 const covers = (plan: Plan, date: string) =>
   plan.from <= date &&

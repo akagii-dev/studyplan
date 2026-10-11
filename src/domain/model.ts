@@ -63,6 +63,8 @@ export const mealNames: Record<MealKey, string> = {
   lunch: '昼食',
   dinner: '夕食',
 };
+const priorityNames = ['', '低い', 'ふつう', '高い'] as const;
+export const priorityName = (priority: number) => priorityNames[priority] ?? String(priority);
 export const defaultMeals: Record<MealKey, Meal> = {
   breakfast: { start: 480, duration: 45 },
   lunch: { start: 720, duration: 45 },
@@ -274,14 +276,20 @@ export const uid = () => {
   const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 };
-export const today = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
+/** The local calendar date of a moment, as YYYY-MM-DD. */
+export const localDateKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+export const today = () => localDateKey(new Date());
 export const addDays = (date: string, days: number) => {
   const d = new Date(`${date}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
+};
+/** A real calendar date written as YYYY-MM-DD. */
+export const isDateKey = (value: unknown): value is string => {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T12:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
 };
 export const weekday = (date: string) => new Date(`${date}T12:00:00Z`).getUTCDay();
 export const clock = (minutes: number) =>

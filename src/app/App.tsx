@@ -225,6 +225,12 @@ export default function App() {
       },
     })).then(() => setPage('progress'));
   };
+  const replanOrFuture = () => {
+    if (!state) return;
+    if (currentProgressAdjustment(state)?.status === 'failed') setPage('future');
+    else if (state.proposal) setPage('replan');
+    else generate();
+  };
   const addItem = (mode: Addition, examId?: string) => {
     void update((s) => beginAddition(s, mode, examId))
       .then(() => setPage(mode))
@@ -449,13 +455,13 @@ export default function App() {
               <Progress
                 {...props}
                 onHistory={() => setPage('history')}
-                onReplan={() => (currentProgressAdjustment(state)?.status === 'failed' ? setPage('future') : state.proposal ? setPage('replan') : generate())}
+                onReplan={replanOrFuture}
               />
             )}{' '}
             {page === 'history' && (
               <div className={pageFade}><History
                 {...props}
-                onReplan={() => (currentProgressAdjustment(state)?.status === 'failed' ? setPage('future') : state.proposal ? setPage('replan') : generate())}
+                onReplan={replanOrFuture}
                 onRecordPast={() => setPage('progress')}
               /></div>
             )}{' '}

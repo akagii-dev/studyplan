@@ -1,5 +1,5 @@
 import { mealEvents } from './mealEvents';
-import { Commute, Settings, addDays, today, weekday, clock } from './model';
+import { Commute, Settings, addDays, today, weekday, clock, isDateKey } from './model';
 import { classesForDate, classCancellationErrors } from './classCancellations';
 
 export const defaultCommute = (): Commute => ({
@@ -15,15 +15,11 @@ export const defaultCommute = (): Commute => ({
 });
 export function commuteErrors(c?: Commute): string[] {
   if (!c) return [];
-  const validDate = (v: string) =>
-    /^\d{4}-\d{2}-\d{2}$/.test(v) &&
-    !Number.isNaN(Date.parse(v)) &&
-    new Date(v).toISOString().slice(0, 10) === v;
   if (
     typeof c.enabled !== 'boolean' ||
     (c.departureTimesConfirmed !== undefined && typeof c.departureTimesConfirmed !== 'boolean') ||
-    !validDate(c.from) ||
-    !validDate(c.to) ||
+    !isDateKey(c.from) ||
+    !isDateKey(c.to) ||
     c.to < c.from ||
     !['classDays', 'weekdays'].includes(c.mode) ||
     !Array.isArray(c.weekdays) ||

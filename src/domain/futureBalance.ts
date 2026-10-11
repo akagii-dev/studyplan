@@ -1,6 +1,6 @@
 import { remaining, type AppState, type RemainingAdjustmentTarget } from './model';
 import { activePlanWork, workKey } from './progressAllocation';
-import { calculateRemainingAdjustment, isElapsedRemainingSession } from './remainingAllocation';
+import { calculateRemainingAdjustment, isMovableFutureSession } from './remainingAllocation';
 import type { PlanningContext } from './planner/context';
 
 const total = (state: AppState, ids: Set<string>) => (state.plan?.shortfalls ?? [])
@@ -15,7 +15,7 @@ export function calculateFutureBalance(
   if (!primary.size || [...primary].some(id => !state.settings.materials.some(m => m.id === id)))
     throw new Error('量をそろえる教材を選んでください。');
   const active = activePlanWork(state, context.date);
-  const movable = active.filter(s => !s.fixed && s.date >= from && !isElapsedRemainingSession(s, context));
+  const movable = active.filter(s => isMovableFutureSession(s, from, context));
   const selected = movable.filter(s => primary.has(s.materialId));
   const targets: RemainingAdjustmentTarget[] = selected.map(s => ({ kind: 'session', sessionId: s.id }));
   for (const short of state.plan?.shortfalls ?? [])

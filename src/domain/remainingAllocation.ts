@@ -1,5 +1,7 @@
 import {
   addDays,
+  clock,
+  isDateKey,
   remaining,
   type AppState,
   type Plan,
@@ -31,6 +33,11 @@ type AdjustmentBasis = Extract<NonNullable<Proposal['basis']>, { kind: 'remainin
 export function isElapsedRemainingSession(session: Session, context: Boundary): boolean {
   return session.date < context.date ||
     (session.date === context.date && session.start < context.minute);
+}
+
+/** A non-fixed slot on or after `from` that has not started yet; the scope of leveling future work. */
+export function isMovableFutureSession(session: Session, from: string, context: Boundary): boolean {
+  return !session.fixed && session.date >= from && !isElapsedRemainingSession(session, context);
 }
 
 /** Explicit bulk selection uses effective outstanding work, never historical comparison slots. */
@@ -74,10 +81,8 @@ export function pastRemainingWork(state: AppState, date: string): { sessions: Se
 }
 
 function sessionLabel(state: AppState, session: Session): string {
-  const time = (minute: number) =>
-    `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(Math.floor(minute % 60)).padStart(2, '0')}`;
   const material = state.settings.materials.find((item) => item.id === session.materialId);
-  return `${session.date} ${time(session.start)}–${time(session.end)} ${material?.name ?? session.materialId} ${session.round + 1}周目`;
+  return `${session.date} ${clock(session.start)}–${clock(session.end)} ${material?.name ?? session.materialId} ${session.round + 1}周目`;
 }
 
 /** Do not turn unreadable reflection provenance into a newly established allocation basis. */
@@ -94,10 +99,7 @@ export function remainingBasisIssue(state: AppState): string | undefined {
         if (
           !Array.isArray(parts) ||
           parts.length !== 3 ||
-          typeof parts[0] !== 'string' ||
-          !/^\d{4}-\d{2}-\d{2}$/.test(parts[0]) ||
-          !Number.isFinite(Date.parse(`${parts[0]}T12:00:00Z`)) ||
-          new Date(`${parts[0]}T12:00:00Z`).toISOString().slice(0, 10) !== parts[0] ||
+          !isDateKey(parts[0]) ||
           typeof parts[1] !== 'string' ||
           !parts[1] ||
           !Number.isSafeInteger(parts[2]) ||
@@ -324,11 +326,7 @@ export function calculateRemainingAdjustment(
 ): { plan: Plan; summary: AdjustmentBasis['summary']; affectedSessionIds: string[] } {
   const source = state.plan;
   if (!source) throw new Error('確定した計画がありません。');
-  if (
-    !/^\d{4}-\d{2}-\d{2}$/.test(from) ||
-    !Number.isFinite(Date.parse(`${from}T12:00:00Z`)) ||
-    new Date(`${from}T12:00:00Z`).toISOString().slice(0, 10) !== from
-  )
+  if (!isDateKey(from))
     throw new Error('開始日を正しい日付で入力してください。');
   if (from < context.date || from < (source.allocationStart ?? ''))
     throw new Error('開始日は今日と再配置の開始日以降を指定してください。');
@@ -370,7 +368,7 @@ export function calculateRemainingAdjustment(
         throw new Error('選択した予定の未消化量が変わりました。対象を選び直してください。');
       if (pastOnly && session.date >= context.date)
         throw new Error('過去分の調整は昨日以前の未消化予定だけを対象にします。');
-      if (balanceFuture && (session.fixed || session.date < from || isElapsedRemainingSession(session, context)))
+      if (balanceFuture && !isMovableFutureSession(session, from, context))
         throw new Error('量をそろえられるのは指定日以降の未開始・変更可能な予定だけです。');
       selected.add(session.id);
       add(session.materialId, session.round, session.count, session.id);
@@ -561,7 +559,7 @@ export function validateBalancedRemainingAllocation(source: AppState, plan: Plan
       continue;
     }
     const session = active.find(s => s.id === target.sessionId);
-    if (!session || session.fixed || session.date < basis.from || isElapsedRemainingSession(session, context))
+    if (!session || !isMovableFutureSession(session, basis.from, context))
       throw new Error('量をそろえる対象が変更可能な今後の予定と一致しません。');
     const priority = source.settings.exams.find(e => e.id === session.examId)!.priority;
     if (!primary.has(session.materialId) && (!basis.allowLowerPriorityReduction || priority >= minimumPriority))
@@ -572,7 +570,7 @@ export function validateBalancedRemainingAllocation(source: AppState, plan: Plan
   const exams = new Set(source.settings.materials.filter(m => selectedMaterials.has(m.id)).map(m => m.examId));
   for (const id of basis.affectedSessionIds) {
     const session = active.find(s => s.id === id);
-    if (!session || session.fixed || session.date < basis.from || isElapsedRemainingSession(session, context) || !exams.has(session.examId))
+    if (!session || !isMovableFutureSession(session, basis.from, context) || !exams.has(session.examId))
       throw new Error('対象外の予定が影響範囲へ含まれています。');
     ids.add(id);
   }

@@ -1,4 +1,4 @@
-import { Plan, Session } from './model';
+import { Plan, Session, clock } from './model';
 import { nonComparisonSessions } from './planDisplay';
 
 export interface ScheduleSummary {
@@ -37,8 +37,7 @@ export function comparePlans(before: Plan | null, after: Plan, comparisonFrom = 
       ...after.shortfalls.map((s) => s.materialId),
     ]),
   ].sort();
-  const position = (s: Session, minute: number) =>
-    `${s.date} ${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(Math.floor(minute % 60)).padStart(2, '0')}`;
+  const position = (s: Session, minute: number) => `${s.date} ${clock(minute)}`;
   const summarize = (plan: Plan | null, sessions: Session[], id: string, round: number | null) => {
     const selected = sessions.filter(
       (s) => s.materialId === id && (round === null || s.round === round),

@@ -1,7 +1,7 @@
 import { Warning } from './Warnings';
 import { useState, useEffect, useRef, useId, useLayoutEffect } from 'react';
 import { ArrowRight, RefreshCw, Undo2, CheckCircle2 } from 'lucide-react';
-import { Session, today, clock } from '../domain/model';
+import { Session, today, clock, priorityName } from '../domain/model';
 import { approve, propose, proposeSettings, proposeBalancedRemaining, restartProposalStaleReason, undoPlan } from '../domain/planning';
 import { Empty, Props, duration } from './common';
 import { SetupImpact } from './SetupImpact';
@@ -135,12 +135,14 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
     (s) => s.date >= comparisonFrom,
   );
   const proposedSessions = planSessions.filter((s) => s.date >= comparisonFrom);
+  const previousSignatures = new Set(previousSessions.map(signature));
+  const proposedSignatures = new Set(proposedSessions.map(signature));
   const detailedChanges = [
     ...previousSessions
-      .filter((s) => !proposedSessions.some((n) => signature(n) === signature(s)))
+      .filter((s) => !proposedSignatures.has(signature(s)))
       .map((s) => ({ s, change: '削除' })),
     ...proposedSessions
-      .filter((s) => !previousSessions.some((n) => signature(n) === signature(s)))
+      .filter((s) => !previousSignatures.has(signature(s)))
       .map((s) => ({ s, change: '追加' })),
   ].sort((a, b) => a.s.date.localeCompare(b.s.date) || a.s.start - b.s.start);
   const keys = [...new Set([...old.keys(), ...next.keys()])]
@@ -442,7 +444,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
               <h3>対象と保存されている優先度</h3>
               <ul>{state.settings.materials.filter(m => balanceMaterials.has(m.id)).map(m => {
                 const exam = state.settings.exams.find(e => e.id === m.examId)!;
-                return <li key={m.id}>{m.name} · {exam.name} · 優先度 {['', '低い', 'ふつう', '高い'][exam.priority]}</li>;
+                return <li key={m.id}>{m.name} · {exam.name} · 優先度 {priorityName(exam.priority)}</li>;
               })}</ul>
               {primaryUnplaced && !basis?.allowLowerPriorityReduction && <button disabled={acting}
                 onClick={() => void act(s => proposeBalancedRemaining({ ...s, proposal: null }, basis?.balanceMaterialIds ?? [], basis!.from, true))}>

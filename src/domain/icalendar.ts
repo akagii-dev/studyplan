@@ -1,4 +1,4 @@
-import { AppState, addDays } from './model';
+import { AppState, addDays, isDateKey } from './model';
 import { classesForDate } from './classCancellations';
 
 export interface CalendarExportOptions {
@@ -40,11 +40,6 @@ function fold(line: string) {
   }
   return result;
 }
-function validDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const parsed = new Date(value + 'T00:00:00Z');
-  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-}
 function utc(date: Date) {
   if (!Number.isFinite(date.getTime()) || date.getUTCFullYear() < 1 || date.getUTCFullYear() > 9999)
     throw new Error('書き出せない日付があります。期間を確認してください。');
@@ -61,7 +56,7 @@ function timestamp(date: string, minutes: number) {
   return utc(local);
 }
 export function calendarEvents(state: AppState, options: CalendarExportOptions): ExportEvent[] {
-  if (!validDate(options.from) || !validDate(options.to) || options.from > options.to)
+  if (!isDateKey(options.from) || !isDateKey(options.to) || options.from > options.to)
     throw new Error('開始日と終了日を確認してください。');
   const days = (Date.parse(options.to) - Date.parse(options.from)) / 86400000;
   if (days > 3660) throw new Error('書き出す期間は10年以内にしてください。');
@@ -116,7 +111,7 @@ export function calendarEvents(state: AppState, options: CalendarExportOptions):
   }
   for (const event of events) {
     if (
-      !validDate(event.date) ||
+      !isDateKey(event.date) ||
       !Number.isFinite(event.start) ||
       !Number.isFinite(event.end) ||
       event.start < 0 ||

@@ -1,4 +1,4 @@
-import { AppState, addDays, weekday, today, completed } from './model';
+import { AppState, addDays, weekday, today, completed, isDateKey, localDateKey } from './model';
 import { startOfWeek } from './calendar';
 import { stalePlan } from './planAudit';
 import { studyCoverageGaps, StudyCoverageGap, isLongTermStudyGap } from './studyCoverage';
@@ -55,11 +55,7 @@ export function dailyReportDetails(state: AppState, date: string, reference = to
 }
 export const reportRate = (value: number, total: number | null) =>
   total !== null && total > 0 ? `${((value / total) * 100).toFixed(1)}%` : '—';
-const validDate = (value: string) => {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith('0000')) return false;
-  const d = new Date(`${value}T00:00:00Z`);
-  return Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === value;
-};
+const validDate = (value: string) => !value.startsWith('0000') && isDateKey(value);
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 const nullableSum = (values: (number | null)[]) =>
   values.some((v) => v === null) ? null : sum(values as number[]);
@@ -90,7 +86,7 @@ export function createWeeklyReport(
   if (!validDate(selectedDate) || !Number.isFinite(now.getTime()))
     throw new Error('レポートの対象日を選んでください。');
   const pad = (n: number) => String(n).padStart(2, '0');
-  const asOf = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const asOf = localDateKey(now);
   if (selectedDate > asOf) throw new Error('今日以前の日付を選んでください。');
   const from = startOfWeek(selectedDate),
     to = addDays(from, 6);

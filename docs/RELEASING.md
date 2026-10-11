@@ -1,10 +1,10 @@
 # リリース手順
 
-版番号は、不具合・不便の修正ではpatch、UI変更ではminorを上げる。0.10に到達した時点で方針を見直す。
+版番号は、不具合・不便の修正ではpatch、UI変更ではminorを上げる。
 
-公開を依頼された場合に実施する。既公開リリースやタグは書き換えない。配布物はWindows用インストーラー`StudyPlan-X.Y.Z-setup.exe`の1点だけとする。
+公開を依頼された場合に実施する。公開済みリリースの内容とタグは書き換えない。古いリリースはユーザーの指示があれば削除してよい（タグは残す）。配布物はWindows用インストーラー`StudyPlan-X.Y.Z-setup.exe`の1点だけとする。
 
-1. `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`のアプリ版を揃え、`CHANGELOG.md`の「## vX.Y.Z の変更」とREADMEの最新版リンクを更新する。検証詳細は`docs/VALIDATION.md`へ記録する。
+1. `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`のアプリ版を揃え、`CHANGELOG.md`の「## vX.Y.Z の変更」とREADMEの最新版リンクを更新する。検証の要点は`docs/VALIDATION.md`へ記録する。
 2. `pnpm verify`と変更に応じた検証を行い、mainへコミットする。
 3. `pnpm release`でインストーラーを作成する。版番号の一致・CHANGELOGの対象版・未コミット変更なしを確認し、`release/StudyPlan-X.Y.Z-setup.exe`と公開文`.test-data/release-notes.md`を作る。
 4. `pnpm release -Publish`でタグ付け・main/タグのpush・GitHub Releasesへの公開・添付の確認まで行う。mainのpushでデモ配信が走るため、その結果も確認する。

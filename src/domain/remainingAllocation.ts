@@ -123,6 +123,10 @@ interface ValidationCache {
   occupied: Session[];
   days: Map<string, ReturnType<typeof capacityForDate>>;
   weeks: Map<string, ReturnType<typeof capacityForWeek>>;
+  /** Occupied minutes per week, summed in one pass over `occupied`. */
+  usedByWeek?: Map<string, number>;
+  /** `occupied` grouped by date, in the original order. */
+  occupiedByDate?: Map<string, Session[]>;
 }
 const validations = new WeakMap<AppState, ValidationCache>();
 function validationCache(state: AppState, sessions: Session[], context: Boundary) {
@@ -225,11 +229,18 @@ export function remainingSourceIssue(
   const invalid = sourceIssue(state, session, cached);
   if (invalid) return invalid;
   const occupied = cached.occupied;
+  if (!cached.occupiedByDate) {
+    cached.occupiedByDate = new Map();
+    for (const s of occupied) {
+      const list = cached.occupiedByDate.get(s.date);
+      if (list) list.push(s);
+      else cached.occupiedByDate.set(s.date, [s]);
+    }
+  }
   if (
-    occupied.some(
+    (cached.occupiedByDate.get(session.date) ?? []).some(
       (s) =>
         s.id !== session.id &&
-        s.date === session.date &&
         s.start < session.end - EPS &&
         session.start < s.end - EPS,
     )
@@ -238,7 +249,17 @@ export function remainingSourceIssue(
   const weekKey = startOfWeek(session.date);
   let week = cached.weeks.get(weekKey);
   if (!week) {
-    week = capacityForWeek(state.settings, session.date, occupied);
+    if (!cached.usedByWeek) {
+      cached.usedByWeek = new Map();
+      for (const s of occupied) {
+        const key = startOfWeek(s.date);
+        cached.usedByWeek.set(key, (cached.usedByWeek.get(key) ?? 0) + s.end - s.start);
+      }
+    }
+    week = capacityForWeek(state.settings, session.date);
+    week.used = cached.usedByWeek.get(weekKey) ?? 0;
+    week.remaining = Math.max(0, week.limit - week.used);
+    week.unallocated = Math.max(0, week.focus - week.used);
     cached.weeks.set(weekKey, week);
   }
   if (week.used > week.limit + EPS) return '週の割当上限を超えています。';

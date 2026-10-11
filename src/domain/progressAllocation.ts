@@ -10,11 +10,21 @@ import { validateRevisedSettings } from './revision';
 export const workKey = (materialId: string, round: number) => JSON.stringify([materialId, round]);
 const bySlot = (a: Session, b: Session) =>
   a.date.localeCompare(b.date) || a.start - b.start || a.id.localeCompare(b.id);
-const totalFor = (records: Record<string, number>, id: string, round: number) =>
-  Object.entries(records).reduce((sum, [key, count]) => {
-    const [, materialId, r] = JSON.parse(key) as [string, string, number];
-    return sum + (materialId === id && r === round ? count : 0);
-  }, 0);
+// Record totals are immutable snapshots; sum each one per material round once.
+const totalsByWork = new WeakMap<Record<string, number>, Map<string, number>>();
+const totalFor = (records: Record<string, number>, id: string, round: number) => {
+  let totals = totalsByWork.get(records);
+  if (!totals) {
+    totals = new Map();
+    for (const [key, count] of Object.entries(records)) {
+      const [, materialId, r] = JSON.parse(key) as [string, string, number];
+      const work = workKey(materialId, r);
+      totals.set(work, (totals.get(work) ?? 0) + count);
+    }
+    totalsByWork.set(records, totals);
+  }
+  return totals.get(workKey(id, round)) ?? 0;
+};
 const resize = (session: Session, count: number): Session => ({
   ...session,
   count,
@@ -292,9 +302,12 @@ export function allocateProgress(
       rebalance.has(s.materialId) && !comparisonIds.has(s.id)),
   ];
   let capacityReleased = false;
+  const currentById = new Map<string, Session>();
+  for (const s of source.sessions)
+    if (!comparisonIds.has(s.id) && !currentById.has(s.id)) currentById.set(s.id, s);
   for (const [index, session] of retained.entries()) {
     if (!unchanged(session) || linked(session)) continue;
-    const current = source.sessions.find((s) => s.id === session.id && !comparisonIds.has(s.id));
+    const current = currentById.get(session.id);
     if (!current) {
       retained[index] = resize(session, 0);
       continue;
@@ -311,8 +324,10 @@ export function allocateProgress(
     if (!overlap) retained[index] = current;
     else capacityReleased = true;
   }
+  const basisById = new Map<string, Session>();
+  for (const x of basis.sessions) if (!basisById.has(x.id)) basisById.set(x.id, x);
   for (const s of retained) {
-    const original = basis.sessions.find((x) => x.id === s.id) ?? s;
+    const original = basisById.get(s.id) ?? s;
     if (s.fixed && s.count !== original.count)
       throw new Error(
         `${s.date}の固定予定（${state.settings.materials.find((m) => m.id === s.materialId)?.name}・${s.round + 1}周目）の残量が変わります。計画全体の見直しで確認してください。`,

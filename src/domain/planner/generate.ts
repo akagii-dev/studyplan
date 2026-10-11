@@ -101,11 +101,23 @@ export function generatePlan(
       latestStudy.set(key, { date: x.date, end: x.end });
   };
   sessions.forEach(noteStudy);
+  // Placement only appends through assign(); later merge passes do not read this index.
+  const byDate = new Map<string, Session[]>();
+  const indexSession = (x: Session) => {
+    const list = byDate.get(x.date);
+    if (list) list.push(x);
+    else byDate.set(x.date, [x]);
+  };
+  sessions.forEach(indexSession);
+  const sessionsOn = (date: string) => byDate.get(date) ?? [];
+  const keptOn = new Map<string, Session[]>();
+  for (const x of kept) keptOn.set(x.date, [...(keptOn.get(x.date) ?? []), x]);
   const weeks = new Map(weeklyCapacities(weekDays, s.buffer, kept).map((w) => [w.from, w]));
   const weekFor = (date: string) => weeks.get(weekStart(date))!;
   const weeklyRoom = (date: string) => Math.max(0, weekFor(date).limit - weekFor(date).used);
   const assign = (session: Session) => {
     sessions.push(session);
+    indexSession(session);
     noteStudy(session);
     weekFor(session.date).used += session.end - session.start;
   };
@@ -203,8 +215,15 @@ export function generatePlan(
     }
   }
   const workPrecedes = workPrecedence(s);
-  const precedes = (a: (typeof tasks)[number], b: (typeof tasks)[number]) =>
-    workPrecedes({ materialId: a.m.id, round: a.round }, { materialId: b.m.id, round: b.round });
+  const precedence = new Map<(typeof tasks)[number], Map<(typeof tasks)[number], boolean>>();
+  const precedes = (a: (typeof tasks)[number], b: (typeof tasks)[number]) => {
+    let row = precedence.get(a);
+    if (!row) precedence.set(a, (row = new Map()));
+    let value = row.get(b);
+    if (value === undefined)
+      row.set(b, (value = workPrecedes({ materialId: a.m.id, round: a.round }, { materialId: b.m.id, round: b.round })));
+    return value;
+  };
   const taskBounds = new Map(tasks.map((task) => {
     let first = { date: from, time: notBefore }, last = { date: deadline(task), time: 1440 };
     if (retention) for (const session of kept) {
@@ -228,12 +247,14 @@ export function generatePlan(
     const end = date === last.date ? Math.min(b, last.time) : b;
     return end - start + EPS >= task.minutes ? [start, end] : null;
   };
+  const retainedUnplaced = new Map(tasks.map((t) =>
+    [t, (retention?.unplaced?.[JSON.stringify([t.m.id, t.round])] ?? 0) > 0]));
   const canStart = (t: (typeof tasks)[number], date: string, time: number) =>
     !tasks.some(
       (p) =>
         precedes(p, t) &&
         (p.left > 0 ||
-          (retention?.unplaced?.[JSON.stringify([p.m.id, p.round])] ?? 0) > 0 ||
+          retainedUnplaced.get(p) ||
           ((latest) => !!latest && (latest.date > date || (latest.date === date && latest.end > time + EPS)))(
             latestStudy.get(`${p.m.id}\u0000${p.round}`),
           )),
@@ -253,11 +274,10 @@ export function generatePlan(
   ) => {
     const neighbour =
       retention && !retention.preserveSessionBoundaries
-        ? sessions.find(
+        ? sessionsOn(cap.date).find(
             (x) =>
               x.kind === 'study' &&
               !x.fixed &&
-              x.date === cap.date &&
               x.materialId === t.m.id &&
               x.round === t.round &&
               Math.abs(x.end - start) < EPS &&
@@ -380,9 +400,10 @@ export function generatePlan(
   // Different retained predecessors only delay the start of later work: they
   // must not give sequential work independent quotas extending to the same end.
   // taskInterval still applies each task's first boundary to physical capacity.
-  const bucketKey = (t: (typeof tasks)[number]) => JSON.stringify([
+  const bucketKeys = new Map(tasks.map((t) => [t, JSON.stringify([
     t.exam.id, retention?.dailyQuantityBalance ? (t.m.unit ?? '問') : '', taskBounds.get(t)!.last,
-  ]);
+  ])]));
+  const bucketKey = (t: (typeof tasks)[number]) => bucketKeys.get(t)!;
   const bucketTasks = new Map<string, typeof tasks>();
   const balancedMaterials = new Set(tasks.filter((t) => t.left > 0).map((t) => t.m.id));
   for (const task of tasks) {
@@ -402,8 +423,8 @@ export function generatePlan(
     return minutes;
   };
   const quotaCarry = new Map<string, number>();
-  for (const cap of capacities) {
-    const fixed = kept.filter((x) => x.date === cap.date);
+  for (const [capIndex, cap] of capacities.entries()) {
+    const fixed = keptOn.get(cap.date) ?? [];
     for (const f of fixed) {
       // Elapsed sessions are historical; revised settings must not invalidate them.
       if (cap.date === from && f.start < notBefore) continue;
@@ -420,8 +441,8 @@ export function generatePlan(
           conflicts.push(`${cap.date} の固定予定が重複しています。`);
     const blocked: Interval[] = [
       ...fixed.map((x) => [x.start, x.end] as Interval),
-      ...sessions
-        .filter((x) => x.date === cap.date && x.kind === 'review')
+      ...sessionsOn(cap.date)
+        .filter((x) => x.kind === 'review')
         .map((x) => [x.start, x.end] as Interval),
       ...(cap.date === from && notBefore > 0 ? [[0, notBefore] as Interval] : []),
     ];
@@ -430,7 +451,7 @@ export function generatePlan(
     // removing any physical slots. Carry whole-unit/minimum-session rounding
     // forward instead of filling the start of the week with preferred blocks.
     const open = tasks.filter((t) => t.left > 0);
-    const futureCaps = capacities.filter((c) => c.date >= cap.date);
+    const futureCaps = capacities.slice(capIndex);
     const weekFree = new Map<string, number>();
     for (const c of futureCaps) {
       const week = weekStart(c.date);
@@ -459,7 +480,7 @@ export function generatePlan(
         const days = futureCaps.map((c) => ({
           date: c.date,
           week: weekStart(c.date),
-          base: kept.filter((s) => s.kind === 'study' && s.date === c.date &&
+          base: (keptOn.get(c.date) ?? []).filter((s) => s.kind === 'study' &&
             balancedMaterials.has(s.materialId) && all.some((t) =>
             t.exam.id === s.examId && (t.m.unit ?? '問') ===
             (tasks.find((other) => other.m.id === s.materialId)?.m.unit ?? '問')))
@@ -563,7 +584,7 @@ export function generatePlan(
     if (reviewExams.length) {
       const rest = subtractIntervals(cap.slots, [
         ...blocked,
-        ...sessions.filter((x) => x.date === cap.date).map((x) => [x.start, x.end] as Interval),
+        ...sessionsOn(cap.date).map((x) => [x.start, x.end] as Interval),
       ]);
       let index = 0;
       for (const [start, end] of rest) {
@@ -588,9 +609,7 @@ export function generatePlan(
   // Exhaust normal-duration opportunities across all dates before allowing short exceptions.
   for (const allowShort of [false, true]) {
     for (const cap of capacities) {
-      const occupied: Interval[] = sessions
-        .filter((x) => x.date === cap.date)
-        .map((x) => [x.start, x.end]);
+      const occupied: Interval[] = sessionsOn(cap.date).map((x) => [x.start, x.end]);
       if (cap.date === from && notBefore > 0) occupied.push([0, notBefore]);
       for (const [start, end] of subtractIntervals(cap.slots, occupied)) {
         let cursor = start;

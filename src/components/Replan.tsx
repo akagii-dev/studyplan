@@ -1,5 +1,5 @@
 import { Warning } from './Warnings';
-import { useState, useEffect, useRef, useId, useLayoutEffect } from 'react';
+import { useState, useEffect, useMemo, useRef, useId, useLayoutEffect } from 'react';
 import { ArrowRight, RefreshCw, Undo2, CheckCircle2 } from 'lucide-react';
 import { Session, today, clock, priorityName } from '../domain/model';
 import { approve, propose, proposeSettings, proposeBalancedRemaining, restartProposalStaleReason, undoPlan } from '../domain/planning';
@@ -67,15 +67,17 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
   const planSessions = nonComparisonSessions(plan);
   const restart = p?.basis?.kind === 'restart';
   const partial = p?.basis?.kind === 'remaining-adjustment';
-  const partialPreview = remainingAdjustmentPreview(state);
+  // Pure derivations of the saved state; checkbox and form state must not recompute them.
+  const partialPreview = useMemo(() => remainingAdjustmentPreview(state), [state, currentTime]);
   const comparisonFrom = p?.basis ? p.basis.date : (plan?.from ?? today());
   const displaySettings = plan?.settingsSnapshot ?? state.settings;
   const unitFor = (id: string) => materialUnit(
     displaySettings.materials.find((m) => m.id === id)?.unit ??
     state.settings.materials.find((m) => m.id === id)?.unit,
   );
-  const previousWork = plan ? remainingWork(state, comparisonFrom) : [];
-  const candidateWork = plan ? remainingWork({ ...state, plan, settings: displaySettings }, comparisonFrom) : [];
+  const previousWork = useMemo(() => plan ? remainingWork(state, comparisonFrom) : [], [state, plan, comparisonFrom]);
+  const candidateWork = useMemo(() => plan ? remainingWork({ ...state, plan, settings: displaySettings }, comparisonFrom) : [],
+    [state, plan, displaySettings, comparisonFrom]);
   const previousUnplaced = new Map(previousWork.map((row) => [`${row.materialId}/${row.round}`, row.unplaced]));
   const stale = !!p?.settingsBase && !sameRevisionBase(p.settingsBase, state.settings);
   const progressStale = !!plan && !proposalUsesCurrentProgress(plan, state.records);
@@ -92,17 +94,18 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
     return [{ ...row, count, minutes: count * material.rounds[row.round].minutes, deadline: exam.target, reviewDays: exam.reviewDays }];
   });
   const primaryUnplaced = candidateWork.some(row => balanceMaterials.has(row.materialId) && row.unplaced > 0);
-  const extraElapsed = basis && !balanceFuture ? (basis.purpose === 'past-only'
+  const extraElapsed = useMemo(() => basis && !balanceFuture ? (basis.purpose === 'past-only'
     ? pastRemainingWork(state, currentTime.date).sessions
     : elapsedRemainingTargets(state, currentTime, remainingAdjustmentSourceDate(state, currentTime.date)))
-    .filter((session) => !basis.targets.some((target) => target.kind === 'session' && target.sessionId === session.id)) : [];
+    .filter((session) => !basis.targets.some((target) => target.kind === 'session' && target.sessionId === session.id)) : [],
+  [state, basis, balanceFuture, currentTime]);
   const extraGroups = state.settings.materials.flatMap((material) => material.rounds.flatMap((_, round) => {
     const count = extraElapsed.filter((s) => s.materialId === material.id && s.round === round).reduce((n, s) => n + s.count, 0);
     return count ? [`${material.name} · ${round + 1}周目 · ${count}${materialUnit(material.unit)}`] : [];
   }));
   const missingSettings = setupIssues(displaySettings).filter((i) => i.severity === 'error');
   useEffect(() => { setAck(false); setLossAck(false); }, [plan?.id]);
-  const impacts = plan ? comparePlans(state.plan, plan, comparisonFrom) : [];
+  const impacts = useMemo(() => plan ? comparePlans(state.plan, plan, comparisonFrom) : [], [state.plan, plan, comparisonFrom]);
   const old = new Map<string, number>();
   const next = new Map<string, number>();
   for (const impact of impacts)

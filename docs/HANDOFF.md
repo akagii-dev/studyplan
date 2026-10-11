@@ -65,7 +65,7 @@
 
 新PCでサブを使う場合はユーザー依頼と実ツールを確認し、上記を参考に担当ファイルを分離する。親が承認・統合・公開を担当し、レビュー担当は既定で読取りのみ。以前の実行環境は親を含め同時4枠だったが、新PCで利用可能な枠・ツールを改めて確認する。
 
-今回の製品修正に専用Skillの適用は不要だった。Skills・プラグインのカタログやローカルファイルはPC依存で、Gitのソースだけでは移らない。新PCの一覧と実在する`SKILL.md`を確認して必要なものだけ使う。同名Skillを無断で上書きしない。製品ビルドにエージェント固有Skillは不要。Claude Code用のUI系Skillは`.claude/skills/`にコミットし、別PC・リモートでも同じものを使う。取得元はjakubkrehel/skills（MIT、`skills-lock.json`に記録、ライセンス文は`.claude/skills/LICENSE-jakubkrehel-skills.txt`）とAnthropic公式のfrontend-design（Apache 2.0、同梱のLICENSE.txt）。更新は取得元から入れ直し、手で書き換えない。
+今回の製品修正に専用Skillの適用は不要だった。Skills・プラグインのカタログやローカルファイルはPC依存で、Gitのソースだけでは移らない。新PCの一覧と実在する`SKILL.md`を確認して必要なものだけ使う。同名Skillを無断で上書きしない。製品ビルドにエージェント固有Skillは不要。Claude Code用のUI系Skillはローカルの`.claude/skills/`に置き、取得元は`skills-lock.json`に記録する。
 
 ## 5. 最初に読む仕様・関連コード
 

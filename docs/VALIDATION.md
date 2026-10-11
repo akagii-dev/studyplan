@@ -70,7 +70,7 @@
 
 ## Claude Codeへの作業環境移行（2026-10-08、B650）
 
-- 製品コード変更なし。AGENTS.mdをCLAUDE.mdへ改名し、README/HANDOFFの参照、新規ブランチ規約（`claude/`）、ARCHITECTUREのエージェント固有設定の記述を更新。作業中ブランチを`claude/parallel-terms`へ改名（未push、リモートの既存`codex/*`は変更なし）。`skills-lock.json`記載のUI系Skill 9種をjakubkrehel/skills（d574cc8）から`.claude/skills/`へMarkdownのみ配置し、Codex専用`agents/openai.yaml`は除外。`.claude/skills/`・`.claude/settings.local.json`・`.claude/worktrees/`を.gitignoreへ追加。pnpm verify成功（lint/型/単体552件/通常build）。UI・保存・Rust変更なしのためverify:ui・test:ui・Cargo未実行。build出力distはごみ箱へ回収。
+- 製品コード変更なし。AGENTS.mdをCLAUDE.mdへ改名し、READMEの参照、新規ブランチ規約（`claude/`）、ARCHITECTUREのエージェント固有設定の記述を更新。作業中ブランチを`claude/parallel-terms`へ改名（未push、リモートの既存`codex/*`は変更なし）。`skills-lock.json`記載のUI系Skill 9種をjakubkrehel/skills（d574cc8）から`.claude/skills/`へMarkdownのみ配置し、Codex専用`agents/openai.yaml`は除外。`.claude/skills/`・`.claude/settings.local.json`・`.claude/worktrees/`を.gitignoreへ追加。pnpm verify成功（lint/型/単体552件/通常build）。UI・保存・Rust変更なしのためverify:ui・test:ui・Cargo未実行。build出力distはごみ箱へ回収。
 
 ## 公開デモの複数科目・ターム例（2026-10-08、B650）
 
@@ -104,11 +104,11 @@
 - pnpm verify成功（lint/型/単体552件・36ファイル/通常build）。pnpm verify:ui成功（Edge wide1280/narrow320の74件＋ICS2件）。最後の記録ボタン操作/タップ同等のpointer outline追加検証は関連2件とも成功。初回全UIは68成功/6失敗：完了後も入力が見えることを前提とした既存追加記録・保存再送テストだった。新仕様に合わせ明示的に開く操作とhidden inputの値確認へ更新し、数量/再送/二重記録防止の基準は維持して再実行成功。
 - 完了成功直後/追加成功後の入力閉、summaryへのfocus、pointer時outlineなし、キーボード展開のfocus表示、初期/再読込一致、下書き保持と再入場で閉、明示展開時の値復元、入力検証失敗時の保持、訂正/取消で未完了入力へ復帰、週間数量/通知/直線表示/axe/横幅を確認。
 - 既存の通知・図・CSS・保存/計算/Rustに変更なし。commit/push/公開は行わず、main eac725172d854f0234a47d9e4f89fe118ac9f599上の未コミット差分とする。公開デモは修正前の同HEADのまま。
-- テスト回収の1件配列への追記が失敗したが、元パス不在・ごみ箱元情報・内容照合は完了していた。配列処理を修正し、特定した対象のごみ箱パスから証拠記録を復旧。保護データへの影響なし。最終回収の結果はWORK-STATUS/HANDOFFに記録。
+- テスト回収の1件配列への追記が失敗したが、元パス不在・ごみ箱元情報・内容照合は完了していた。配列処理を修正し、特定した対象のごみ箱パスから証拠記録を復旧。保護データへの影響なし。最終回収の結果はWORK-STATUSに記録。
 - 未実施：Desktop/SQLite・LAN実行E2E、Cargo、実iOS/WebKit、読み上げ実聴。公開確認・GitHub CIは今回未実施。既存annotation/bundle/NO_COLOR警告あり。
 ## 公開画面の割合文字サイズ補正（2026-10-06 UTC）
 
-公開デモの初期文字サイズ14pxでは1.375remが19.25pxとなることを実画面で確認したため、割合をmax(20px, 1.375rem)へ変更した。文字サイズ設定への追従を保ち、最小20px、標準約20〜22pxとする。8pxバーと完了行の動作は維持。再度pnpm verify:ui成功（Edge74件＋ICS2件）。直前のpnpm verifyはlint/型/単体552件/通常build成功。最終公開CIと公開PC・タッチの確認結果はWORK-STATUS/HANDOFFへ記録する。
+公開デモの初期文字サイズ14pxでは1.375remが19.25pxとなることを実画面で確認したため、割合をmax(20px, 1.375rem)へ変更した。文字サイズ設定への追従を保ち、最小20px、標準約20〜22pxとする。8pxバーと完了行の動作は維持。再度pnpm verify:ui成功（Edge74件＋ICS2件）。直前のpnpm verifyはlint/型/単体552件/通常build成功。最終公開CIと公開PC・タッチの確認結果はWORK-STATUSへ記録する。
 
 ## 今日の進捗を控えめな直線バーへ一本化（2026-10-06 UTC）
 
@@ -117,11 +117,11 @@
 - 正の目標がある場合のみ割合を出す。未完了は切捨て0〜99%、完了100%。予定0・比較不能で割合なし。棒も0〜100%に制限し、超過数値は✅追加N単位で伝える。追加アニメーションなし、既存reduced-motion対応を維持。
 - pnpm verify成功：lint/型/単体552件・36ファイル/通常build。予定199への記録0/198/199/200で割合0/99/100/100%、追加1、予定0で割合なし・NaN/Infinityなしを追加検証。verify:ui成功：Edge74＋ICS2＝76件。1280px／320pxのlight/dark画像自己レビュー、8pxバー、折畳み、円・切替なし、長い教材名、axe、横幅、完了行と追加記録・再読込・訂正取消・週間一致・通知簡潔化を確認。
 - 完了行の薄い背景＋小さいバッジ、追加入力details、フォーカス保持、毎回加算、重要通知を保持。保存／計画計算／DB／Rust／復習に変更なし。未実施：Desktop/SQLite・LAN実行E2E、Cargo、iOS/WebKit実機、読み上げ実聴。既存annotation/bundle/NO_COLOR警告あり。
-- 直前の公開確認はPC両形式を確認した後、タッチ側のCSS遷移finished PromiseがcancelでAbortErrorとなった。製品pageerrorではない。最新直線版では静止画像で遷移を完了し、公開先のPC／タップ／light/dark／追加／週間を確認してWORK-STATUS/HANDOFFへ記録する。一時的なexec-server transport disconnectedでcommit操作が開始されなかったためGit状態を確認、接続復帰後に続行。
+- 直前の公開確認はPC両形式を確認した後、タッチ側のCSS遷移finished PromiseがcancelでAbortErrorとなった。製品pageerrorではない。最新直線版では静止画像で遷移を完了し、公開先のPC／タップ／light/dark／追加／週間を確認してWORK-STATUSへ記録する。一時的なexec-server transport disconnectedでcommit操作が開始されなかったためGit状態を確認、接続復帰後に続行。
 
 ### 公開CIでのスクロール復帰検証の修正
 
-最初の公開CI 37498174463（c5fb255）はverify成功、完了行・復元グラフのwide/narrowテスト成功、既存progress.specの狭幅スクロール復帰確認だけ失敗（期待差3px未満に対し289px）。AppShellはrequestAnimationFrameでスクロール位置を戻すため、DOM表示直後の即時測定をexpect.pollによる復帰待ちに変更した。3px未満の基準、往復導線、データ・数量・アクセシビリティ検証を維持し、画面側の復帰処理は変更していない。全UIを再実行し、Edge74件＋ICS2件＝76件成功。修正後のcommitをデモ配信し、最終CIと公開先の結果はWORK-STATUS/HANDOFFへ記録する。
+最初の公開CI 37498174463（c5fb255）はverify成功、完了行・復元グラフのwide/narrowテスト成功、既存progress.specの狭幅スクロール復帰確認だけ失敗（期待差3px未満に対し289px）。AppShellはrequestAnimationFrameでスクロール位置を戻すため、DOM表示直後の即時測定をexpect.pollによる復帰待ちに変更した。3px未満の基準、往復導線、データ・数量・アクセシビリティ検証を維持し、画面側の復帰処理は変更していない。全UIを再実行し、Edge74件＋ICS2件＝76件成功。修正後のcommitをデモ配信し、最終CIと公開先の結果はWORK-STATUSへ記録する。
 
 ## 進捗表示復元・完了行と追加入力（2026-10-06 UTC）
 
@@ -130,7 +130,7 @@
 - form/inputを同じDOM位置に保持し、記録直後は開いたままにして入力フォーカスを維持。再読込・再入場では完了行は閉じる（未送信入力は保護）。教材指定の記録導線は展開して従来の入力へ誘導。autocompleteをoffにし、summaryのポインター時の強いoutlineを抑え、キーボードのfocus-visibleを保持。入力を勝手に選択する新処理・select部品は追加しない。
 - 最終pnpm verify成功：lint／型／単体547件・36ファイル／通常build。verify:ui成功：Edge広幅1280px・狭幅320pxの74件＋ICS2件＝76件。未達→完了→追加1、通知が記録量のみ、記録直後のフォーカス、再読込時の折畳み、Enterでの展開、ポインター時のoutline、訂正・取消で未完了へ戻る入力、他教材を着色しないこと、週間一致、グラフ復元と表示操作でstate不変を検証。light/dark×円/直線の各表示でaxeの同じWCAG基準・横はみ出し検証と画像自己レビューを実施。
 - 中間の未接続importによるlintエラーはDashboard接続で解消。テーマ復帰の遷移途中を重複測定してcontrast失敗、固定時計でanimation.finished待機が止まる問題があった。固定時計を進め、コントラスト・横幅・画像の検証はlight/dark×各形状の4表示状態へ統合し、同じaxe基準と固有の操作・数量検証を維持して全UI再実行成功。productのテーマやアニメーションを変更して隠していない。
-- 保存／計画計算／Rust／週間の判定／復習は変更なし。未実施：Desktop/SQLite・LAN実行E2E、Cargo、iOS/WebKit実機、読み上げ実聴。既存annotation／bundle／NO_COLOR警告あり。デモCI・公開先のPC/タッチ模擬確認と成果物回収はローカルWORK-STATUS/HANDOFFへ最終記録する。
+- 保存／計画計算／Rust／週間の判定／復習は変更なし。未実施：Desktop/SQLite・LAN実行E2E、Cargo、iOS/WebKit実機、読み上げ実聴。既存annotation／bundle／NO_COLOR警告あり。デモCI・公開先のPC/タッチ模擬確認と成果物回収はローカルWORK-STATUSへ最終記録する。
 
 ## 記録通知の簡潔化・グラフ保留・追加量表示（2026-10-06 UTC）
 
@@ -139,7 +139,7 @@
 - studyProgressViewの共通表示は未達「あとN単位」、予定ちょうど「✅完了」、予定超過「✅追加N単位」。追加は記録の累計と有効な当日目標の差で、今回の入力量ではない。今日・週間の今日の行で共有。予定移動、仕切り直し前記録、予定外だけの主入力行の境界を維持。
 - pnpm verify成功：lint／型／単体547件・36ファイル／通常build。pnpm verify:ui成功：Edgeの広幅1280px・狭幅320pxで74件＋ICS2件＝76件。初回追加、完了、追加1、再読込、週間一致、訂正・取消、異単位、仕切り直し後の追加、要確認の通知・展開理由、保存失敗・応答消失の再送を確認。axeと横はみ出しの確認を維持し、広幅・狭幅の画像を自己レビュー。
 - 中間の型エラーはテスト更新中の旧変数参照を修正。既存fixtureの超過5問期待値を新表示へ更新。週間から今日への追加テストはナビと週の今日ボタンを区別するlocatorへ修正し、全UIを再実行して成功。テストの削除・skipや警告基準の緩和なし。
-- 未実施：Desktop/SQLite・LAN実行E2E、Cargo、iOS/WebKit実機、読み上げ実聴。既存のannotation／bundle／NO_COLOR警告あり。保存形式・DB・Rustは変更なし。配布Release/tag/EXE、Eドライブ、本番DB、個人JSONにアクセスしない。公開先CI・実画面と生成物回収の最終結果はローカルWORK-STATUS/HANDOFFへ記録する。
+- 未実施：Desktop/SQLite・LAN実行E2E、Cargo、iOS/WebKit実機、読み上げ実聴。既存のannotation／bundle／NO_COLOR警告あり。保存形式・DB・Rustは変更なし。配布Release/tag/EXE、Eドライブ、本番DB、個人JSONにアクセスしない。公開先CI・実画面と生成物回収の最終結果はローカルWORK-STATUSへ記録する。
 
 # 動作確認記録
 
@@ -169,7 +169,7 @@
 
 pnpm verifyはlint/型/単体543件・36ファイル/通常build成功。verify:uiはEdgeの画面横断70＋ICS2＝72件成功。pnpm desktop:build成功、LANのallowlist/manifest/ハッシュ検証を通して資材をEXEへ内蔵。FileVersion/ProductVersionは0.7.0。更新ZIPはStudyPlan.exe/Update-StudyPlan.ps1/update.json/README.txtの4件のみで、payloadとmanifestのSHA-256を照合。公開済みv0.6.14 EXEを既知ハッシュと照合し、隔離コピーでロック拒否・破損拒否・原子的置換・旧EXE保全・同版再適用・ダミーデータマーカー不変が成功。
 
-未実施：隔離Windowsアカウントでの配布EXE起動、Desktop/SQLite・LAN統合E2E、OS保存ダイアログ、iOS/Safari実機、読み上げ実聴。Rustはアプリ版番号だけの差分でロジック変更なし、Cargo単体は未実施。既存のZod注釈/bundle容量/NO_COLOR警告あり。配布EXEを起動せず、個人JSON・本番DB・利用中EXE・Eドライブは操作しない。公開結果と生成物回収はローカルWORK-STATUS/HANDOFFに記録する。
+未実施：隔離Windowsアカウントでの配布EXE起動、Desktop/SQLite・LAN統合E2E、OS保存ダイアログ、iOS/Safari実機、読み上げ実聴。Rustはアプリ版番号だけの差分でロジック変更なし、Cargo単体は未実施。既存のZod注釈/bundle容量/NO_COLOR警告あり。配布EXEを起動せず、個人JSON・本番DB・利用中EXE・Eドライブは操作しない。公開結果と生成物回収はローカルWORK-STATUSに記録する。
 
 ## タップ時の不要なフォーカスと候補表示（2026-10-06）
 
@@ -201,7 +201,7 @@ pnpm verifyのlint/型/単体543件・36ファイル/通常build、verify:uiのE
 
 pnpm desktop:build成功。LAN静的資材のallowlist/manifest/ハッシュ検証を通してEXEへ内蔵。EXEのFileVersion/ProductVersionは0.6.14。更新ZIPはStudyPlan.exe/Update-StudyPlan.ps1/update.json/README.txtの4件のみで、payloadとmanifestのSHA-256を照合。公式v0.6.13 EXEの隔離コピーでロック拒否・破損拒否・原子的置換・旧EXE保全・同版再適用・データマーカー不変が成功。利用者のEXE/SQLiteは操作せず、配布EXEも起動していない。
 
-未実施：隔離Windowsアカウントでの配布EXE起動、Desktop/SQLite・LAN統合E2E、OS保存ダイアログ、iOS/Safari、読み上げ実聴。Rustはアプリ版番号だけの差分でロジック変更なし、Cargo単体は未実施。既存のZod注釈/bundle容量/NO_COLOR警告あり。公開結果はGitHub Releasesと対象commitのActionsで照合する。移行に固有の端末記録はローカルHANDOFF/WORK-STATUSへ保管し、今回の公開変更へ混ぜない。
+未実施：隔離Windowsアカウントでの配布EXE起動、Desktop/SQLite・LAN統合E2E、OS保存ダイアログ、iOS/Safari、読み上げ実聴。Rustはアプリ版番号だけの差分でロジック変更なし、Cargo単体は未実施。既存のZod注釈/bundle容量/NO_COLOR警告あり。公開結果はGitHub Releasesと対象commitのActionsで照合する。移行に固有の端末記録はローカルWORK-STATUSへ保管し、今回の公開変更へ混ぜない。
 
 
 ## v0.6.13：学習量表示の廃止と主要画面フェード（2026-10-06）
@@ -293,7 +293,7 @@ Desktop/LANの操作名・管理経由のテストも更新したが、今回の
 
 ## 必要十分な構成への整理（2026-10-04）
 
-基準main/b0336be、fetch後もorigin/mainと一致。追跡差分なしから着手し、未追跡HANDOFF/WORK-STATUS/調査メモは保護。Desktop/LANの共通SQLite、デモの分離localStorage、backup format/version 1・50MiB、SQLite user_version 0/1を確認した。新機能・保存形式の変更・対応範囲の縮小はない。
+基準main/b0336be、fetch後もorigin/mainと一致。追跡差分なしから着手し、未追跡WORK-STATUS/調査メモは保護。Desktop/LANの共通SQLite、デモの分離localStorage、backup format/version 1・50MiB、SQLite user_version 0/1を確認した。新機能・保存形式の変更・対応範囲の縮小はない。
 
 - 呼出元のないTodayStudyList/WorkPlacementsと専用CSS、未使用planner/index、引数を無視して旧処理へ転送するproposalAfterRecordの2入口を削除。残量selector、固定・数量不整合のassertは維持。旧実績反映本体・基準の読取り・互換fixtureは残し、転送入口のテストだけ同じ処理へ直接接続した。
 - 単発のdaily-flow/calendar-quantity/future-progress/navigation-result/progress-consistency/settings-regressionと専用fixtureを削除。部分/超過/訂正/取消/差分・未報告/0・旧比較・戻る/入力/再読込はtests/webのadjustment/progress/recording-and-future、設定/チュートリアル/削除確認/保存障害は既存Desktop E2Eを維持。内部CSS構造の旧チェックは継承しない。Future単独の15ケースはprogressViewの18ケースによる画面横断照合へ統合し、固有の履歴/固定/未配置テスト8件は保持。
@@ -309,7 +309,7 @@ Desktop/LANの操作名・管理経由のテストも更新したが、今回の
 
 ## v0.6.11公開直前の検証（2026-10-03）
 
-ユーザーの統合・リリース依頼に基づき、origin/main 143d2f4を再取得して追加変更がないことを確認し、UI/回帰テスト/AGENTSのd1ecd1cをmainへfast-forward統合。保存・domain・計算版13は変更せず、package.json/tauri.conf/Cargo.toml/Cargo.lockの製品版を0.6.11へ一致させ、READMEとCHANGELOGを更新した。ローカルのHANDOFF/WORK-STATUS/調査メモは保護し公開ソースへ含めない。
+ユーザーの統合・リリース依頼に基づき、origin/main 143d2f4を再取得して追加変更がないことを確認し、UI/回帰テスト/AGENTSのd1ecd1cをmainへfast-forward統合。保存・domain・計算版13は変更せず、package.json/tauri.conf/Cargo.toml/Cargo.lockの製品版を0.6.11へ一致させ、READMEとCHANGELOGを更新した。ローカルのWORK-STATUS/調査メモは保護し公開ソースへ含めない。
 
 - pnpm verify成功：lint・型検査・単体558件/36ファイル・通常build。PLAYWRIGHT_CHANNEL=msedge pnpm verify:uiも全58件成功。1280/320/390pxの通常・空・未配置・競合・長い教材名、キーボード/フォーカス・案確認/承認・全配色/拡大を検証し、生成画像の広幅/狭幅も実ピクセルで再確認。
 - pnpm lan:assets、cargo build --features lan-cli --bins --locked成功。cargo test --lib --lockedは42件成功。pnpm test:uiは初回64件成功/1件失敗（実績や設定を操作する前の起動待ちでrootが空のまま30秒タイムアウト）。traceを確認し、コード・期待値・待ち時間を変えず該当1件の再実行が成功、その後の全65件一括再実行も成功。初回の起動待ち停止の原因は確定していない。
@@ -322,7 +322,7 @@ Desktop/LANの操作名・管理経由のテストも更新したが、今回の
 
 ## 今後の予定の表示再構成（2026-10-03）
 
-UI実装・既存回帰テスト・関連仕様と検証記録、およびリポジトリ全体へ適用するAGENTSの生成物回収方針をコミット・通常pushする依頼を受領。最新版のテスト成果物/キャッシュも原則保持しない方針へ更新。必要なテストのソース/最小fixture/本番データは保持する。以下の検証は同じUIソースについて直前に実行した成功結果であり、今回の文書更新だけを理由に同じ検証や整理を繰り返していない。WORK-STATUS/HANDOFF/調査メモはローカル資料として保護し、コミット対象に含めない。リリース・製品EXE交換は依頼範囲外。
+UI実装・既存回帰テスト・関連仕様と検証記録、およびリポジトリ全体へ適用するAGENTSの生成物回収方針をコミット・通常pushする依頼を受領。最新版のテスト成果物/キャッシュも原則保持しない方針へ更新。必要なテストのソース/最小fixture/本番データは保持する。以下の検証は同じUIソースについて直前に実行した成功結果であり、今回の文書更新だけを理由に同じ検証や整理を繰り返していない。WORK-STATUS/調査メモはローカル資料として保護し、コミット対象に含めない。リリース・製品EXE交換は依頼範囲外。
 
 codex/studyplan-resume / 基準HEAD 143d2f4からのUI変更。Future/専用CSSで「残量の内訳」のDOMを撤去し、remainingWork・未配置・要確認の判定と今日起点/既存の案確認・承認/保存を維持。主要3操作を見出し直下へまとめ、配分補助と優先度を週間一覧の後の展開欄へ移動。日付/教材/量を揃え、狭幅では長い名称を省略せず折り返し、44px操作領域と共通focus-visibleを維持した。
 
@@ -536,7 +536,7 @@ Today/Futureにrole=statusで表示し、実績保存成功と日付越え反映
 
 ローカル実装承認後、ユーザーの帰宅・次PC移行指示を最優先し、親＋既存3担当は保存して新規作業を停止。停止時点のTypeScript型検査と差分検査は成功。担当ごとの計算109件、表示87件、休講/バックアップ/通学/ICS46件は各時点で成功。Web14/16件成功、残2のテスト指定修正後は未再実行。担当UI lint/demo buildも成功。最終コード全体のverify/verify:ui・Desktop/LAN・Cargo・実画面目視は未完了。実装前の510件合格と区別する。
 
-最新本番DBは読み取り専用の論理コピーだけ取得。旧生成器の翌日未報告仮定では保持境界による機会日数の不一致を実入力でも確認。修正中の明示均等案は数量・保持・週容量が成立する一方、日別偏りが残り受入不合格。今日入力の保存失敗時保持、Rust下書き互換、最小削減の結合検証も未完。根拠・変更一覧・再開手順はルートHANDOFFと移送ZIPへ整理。本番変更・commit/push・公開は未実施。
+最新本番DBは読み取り専用の論理コピーだけ取得。旧生成器の翌日未報告仮定では保持境界による機会日数の不一致を実入力でも確認。修正中の明示均等案は数量・保持・週容量が成立する一方、日別偏りが残り受入不合格。今日入力の保存失敗時保持、Rust下書き互換、最小削減の結合検証も未完。本番変更・commit/push・公開は未実施。
 
 過去の個別レビューと版別公開文は[整理前のGit履歴](https://github.com/akagii-dev/studyplan/tree/b45dc8c747cad6ee6ae8d8e0617d9e04accbccfc/docs)に保持する。現行仕様はSPEC／ARCHITECTURE、版別変更はCHANGELOG、本書は検証結果の正本とする。過去の画面評価にはスクリーンリーダー実聴・iPhoneの安全領域・別端末LAN到達性などの未確認範囲があり、axeやエミュレーションだけで確認済みとは扱わない。
 
@@ -587,12 +587,6 @@ Node 22.19.0、pnpm 12.5.1、Rust/Cargo 1.98.1のWindows環境で依存を固定
 製品コードやテストの追加変更は不要だった。通常利用のSQLite・バックアップには触れず、学習データの移行・復元も実施していない。Firewall・portproxy・認証設定は変更していない。試験出力・専用SQLite・資材はignore対象のまま。v0.6.9のタグ・配布物の再公開/上書きは行わない。
 
 未検証：別端末からのLAN到達性、iPhone実機、スクリーンリーダー実聴、隔離Windowsアカウントでの配布EXE起動。依存注釈・バンドル容量警告は既存のまま。保存済みの不均等な計画は統合だけで書き換えず、必要なら「計画を仕切り直す」の案を確認・承認する。
-
-## 別PCへの引き継ぎ文書（2026-09-30）
-
-fetch後のmain/origin/mainとv0.6.9の製品コミットは`f88b30d`。公開ReleaseのEXE/ZIPと同コミットのデモ配信成功を再確認。実ツールのエージェント一覧は親1体・サブ0体。`docs/HANDOFF.md`へv0.6.4側の独自変更を保護する統合手順、過去の担当、最新指示、検証と未検証の境界をまとめた。未追跡`build-temp-lan.ps1`を保持し、実データ・移行先には変更を加えていない。
-
-文書追加後の`pnpm verify`はlint・型検査・単体510件/34ファイル・通常ビルド成功。文書のローカルリンクを確認。UI・domain・Rustは変更しておらず、UI/LAN/Desktop/Cargoの検証は今回再実行せず、下記の既存結果を引き継ぐ。新PCでの統合・ビルド・データ移行は未実施。既存の依存注釈・バンドル容量警告は残る。
 
 ## v0.6.9・調整済み表示と日次配分（2026-09-30）
 

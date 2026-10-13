@@ -146,6 +146,32 @@ export function generatePlan(
         `${x.date} の固定予定の教材・周回が変更されています。固定を解除して再作成してください。`,
       );
   }
+  // Re-planning in the middle of today keeps today's unrecorded work on today, like an
+  // ordinary day: slots before the start minute stay actionable until the day ends,
+  // instead of moving to later days. Records already made today use them up first.
+  const todayReserve = new Map<string, number>();
+  if (!retention && preserve && notBefore > 0 && from === context.date) {
+    const recordedToday = new Map<string, number>();
+    for (const r of state.records)
+      if (!r.cancelled && r.date === from) {
+        const key = JSON.stringify([r.materialId, r.round]);
+        recordedToday.set(key, (recordedToday.get(key) ?? 0) + r.count);
+      }
+    for (const x of kept
+      .filter((x) => x.kind === 'study' && x.date === from && x.start < notBefore && x.count > 0)
+      .sort((a, b) => a.start - b.start)) {
+      const t = tasks.find((t) => t.m.id === x.materialId && t.round === x.round);
+      if (!t) continue;
+      const key = JSON.stringify([x.materialId, x.round]);
+      const recorded = recordedToday.get(key) ?? 0;
+      const consumed = Math.min(recorded, x.count);
+      recordedToday.set(key, recorded - consumed);
+      const take = Math.min(x.count - consumed, Math.max(0, t.left));
+      if (take <= 0) continue;
+      t.left -= take;
+      todayReserve.set(x.id, take);
+    }
+  }
   const deadlines = new Map(
     s.exams.map((exam) => [exam.id, addDays(exam.target, -exam.reviewDays - 1)]),
   );
@@ -882,5 +908,13 @@ export function generatePlan(
       })),
   };
   plan.progressBaseline = createProgressBaseline(plan, state.records);
+  for (const session of plan.sessions) {
+    const take = todayReserve.get(session.id);
+    if (take)
+      plan.progressBaseline.sessions[session.id] = {
+        count: take,
+        end: session.start + ((session.end - session.start) * take) / session.count,
+      };
+  }
   return plan;
 }

@@ -1741,3 +1741,18 @@ it('今日の後続枠が全完了なら未消化前段があっても通常調�
   expect(activePlanWork(result,current).filter(s=>s.materialId==='book'&&s.round===1&&s.date===current)).toEqual([]);
   conservation(result,current);
 });
+
+it.each([0, 2])('今日の途中で計画を作り直しても、未記録の今日の分（記録%s問）は今日に残す', (recorded) => {
+  let state = adjustmentFixture();
+  if (recorded) state = recordAndAdjust(state, adjustmentReport(recorded), adjustmentContext);
+  // Both of today's slots (09:00 and 10:00) are before the 12:00 re-plan.
+  const candidate = propose(state, day, '再計画', adjustmentContext);
+  expect(candidate.proposal!.unreported).toEqual([]);
+  const next = approve(candidate, false, adjustmentContext);
+  conservation(next);
+  const today = (materialId: string) => activePlanWork(next, day)
+    .filter((s) => s.materialId === materialId && s.round === 0 && s.date === day)
+    .reduce((n, s) => n + s.count, 0);
+  expect(today('book')).toBe(6 - recorded);
+  expect(today('other')).toBe(9);
+});

@@ -286,3 +286,26 @@ describe('試験の優先度', () => {
     expect(high.text.reduce((n, x) => n + x, 0)).toBeLessThanOrEqual(same.text.reduce((n, x) => n + x, 0));
   });
 });
+
+it('並行の教材は量の多い順に独占せず、回り持ちでそろって進む', () => {
+  const s = initialState();
+  const from = '2030-10-07';
+  s.settings.parallelMaterials = 1;
+  s.settings.exams = [{ id: 'exam', name: '試験', start: from, target: addDays(from, 200), priority: 2, color: '#287569', reviewDays: 0 }];
+  s.settings.materials = [
+    { id: 'big', examId: 'exam', name: '大きい教材', total: 250, order: 1, outsideTerms: true, rounds: [{ completed: 0, minutes: 25 }] },
+    { id: 'mid', examId: 'exam', name: '中くらいの教材', total: 26, order: 2, outsideTerms: true, rounds: [{ completed: 0, minutes: 45 }] },
+    { id: 'small', examId: 'exam', name: '小さい教材', total: 14, order: 3, outsideTerms: true, rounds: [{ completed: 0, minutes: 45 }] },
+  ];
+  s.settings.windows = [{ id: 'w', name: '学習', kind: 'study', from, to: addDays(from, 200), weekdays: [0, 1, 2, 3, 4, 5, 6], start: 900, end: 1200 }];
+  s.settings.scheduleAnswers = { class: 'none', busy: 'none', exception: 'none' };
+  const plan = generatePlan(s, from, false, 0, 'balanced');
+  // Daily time fits one block here; the blocks of the first days rotate over all three.
+  const order = plan.sessions.filter((x) => x.kind === 'study' && x.date < addDays(from, 5))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start).map((x) => x.materialId);
+  expect(new Set(order.slice(0, 3))).toEqual(new Set(['big', 'mid', 'small']));
+  // Parallel materials finish around the same time instead of one after another.
+  const last = (id: string) => plan.sessions.filter((x) => x.materialId === id).map((x) => x.date).sort().at(-1)!;
+  expect(Math.abs(Date.parse(last('small')) - Date.parse(last('big'))) / 86400000).toBeLessThan(30);
+  expect(plan.shortfalls).toEqual([]);
+});

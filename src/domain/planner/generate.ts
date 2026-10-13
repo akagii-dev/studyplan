@@ -448,6 +448,14 @@ export function generatePlan(
     }
     return minutes;
   };
+  // Within one exam, the next block goes first to the material with the least time today,
+  // then to the material (all rounds) furthest behind in proportion to its own work. Parallel
+  // materials move every day and across days, instead of the largest taking the whole share.
+  const materialNeed = new Map<string, number>();
+  for (const task of tasks) materialNeed.set(task.m.id, (materialNeed.get(task.m.id) ?? 0) + task.left * task.minutes);
+  const materialPlaced = new Map<string, number>();
+  const progress = (task: (typeof tasks)[number]) =>
+    (materialPlaced.get(task.m.id) ?? 0) / Math.max(EPS, materialNeed.get(task.m.id) ?? 0);
   const quotaCarry = new Map<string, number>();
   for (const [capIndex, cap] of capacities.entries()) {
     const fixed = keptOn.get(cap.date) ?? [];
@@ -551,6 +559,13 @@ export function generatePlan(
       ]),
     );
     const used = new Map<string, number>();
+    const todayMinutes = new Map<string, number>();
+    for (const x of sessionsOn(cap.date))
+      if (x.kind === 'study') todayMinutes.set(x.materialId, (todayMinutes.get(x.materialId) ?? 0) + x.end - x.start);
+    const behind = (a: (typeof tasks)[number], b: (typeof tasks)[number]) => {
+      const today = (todayMinutes.get(a.m.id) ?? 0) - (todayMinutes.get(b.m.id) ?? 0);
+      return Math.abs(today) > EPS ? today < 0 : progress(a) < progress(b) - EPS;
+    };
     for (const [start, end] of slots) {
       let cursor = start;
       while (cursor < end - EPS) {
@@ -578,8 +593,11 @@ export function generatePlan(
               pressure(a) * (1 + a.exam.priority * 0.15) || deadline(a).localeCompare(deadline(b))
           );
         });
-        const t = candidates[0];
-        if (!t) break;
+        const head = candidates[0];
+        if (!head) break;
+        const t = candidates
+          .filter((candidate) => candidate.exam.id === head.exam.id)
+          .reduce((best, candidate) => behind(candidate, best) ? candidate : best);
         const count = normalCount(
           t,
           availableRoom(t, cap.date, cursor, end),
@@ -589,6 +607,8 @@ export function generatePlan(
         );
         if (count <= 0) break;
         const length = count * t.minutes;
+        todayMinutes.set(t.m.id, (todayMinutes.get(t.m.id) ?? 0) + length);
+        materialPlaced.set(t.m.id, (materialPlaced.get(t.m.id) ?? 0) + length);
         assign({
           id: nextId(),
           date: cap.date,

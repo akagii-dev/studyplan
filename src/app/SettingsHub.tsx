@@ -42,7 +42,7 @@ const sections: { title: string; pages: { page: Page; label: string }[] }[] = [
 
 /** One row of the settings list; a row that needs fixing is marked in the error color. */
 const settingsRow = (error = false) =>
-  `grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-b-line py-2.5 max-[700px]:grid-cols-[minmax(0,1fr)] max-[700px]:gap-1.5 [&_b]:text-[14px] [&_span]:text-[12px] [&_small]:text-[12px] [&_button]:min-h-11 [&_button:enabled]:border-accent [&_button:enabled]:text-accent max-[700px]:[&>button]:[justify-self:start] [&_details]:text-[12px] [&_details]:text-muted [&_details_summary]:w-fit [&_details_summary]:cursor-pointer [&_details_p]:my-1 [&_details_ul]:my-1 [&_details_ul]:pl-[18px] ${
+  `grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-b-line py-2.5 max-[700px]:grid-cols-[minmax(0,1fr)] max-[700px]:gap-1.5 [&_b]:text-[14px] [&_span]:text-[12px] [&_small]:text-[12px] [&_button]:min-h-11 [&_button:enabled]:border-control [&_button:enabled]:text-ink max-[700px]:[&>button]:[justify-self:start] [&_details]:text-[12px] [&_details]:text-muted [&_details_summary]:w-fit [&_details_summary]:cursor-pointer [&_details_p]:my-1 [&_details_ul]:my-1 [&_details_ul]:pl-[18px] ${
     error ? 'border-l-[3px] border-l-error pl-2.5 [&_span]:text-error [&_small]:text-error' : '[&_span]:text-muted [&_small]:text-muted'}`;
 const rowLabel = 'grid min-w-0 gap-0.5';
 const rowActions = 'flex gap-1.5 max-[700px]:flex-wrap max-[700px]:[justify-self:start]';
@@ -223,7 +223,7 @@ export function SettingsHub({
       {sections.map((section) => (
         <section className="card" key={section.title}>
           <h2>{section.title}</h2>
-          <div className="flex flex-wrap gap-2 [&_button:enabled]:border-accent [&_button:enabled]:text-accent">
+          <div className="flex flex-wrap gap-2 [&_button:enabled]:border-control [&_button:enabled]:text-ink">
             {section.pages
               .filter(({ page }) => !demoMode || page !== 'backup')
               .map(({ page, label }) => (
@@ -263,9 +263,9 @@ export function SettingsHub({
                 }))
               }
             >
-              <option value="mint">ミントグリーン</option>
-              <option value="sky">ペールブルー</option>
-              <option value="lime">ライム</option>
+              <option value="mint">朱</option>
+              <option value="sky">藍</option>
+              <option value="lime">若草</option>
             </select>
           </label>
         </div>

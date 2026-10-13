@@ -342,7 +342,7 @@ export function Calendar({
     calendarRef.current?.querySelector<HTMLButtonElement>('.date-number[aria-pressed="true"]')?.focus({ preventScroll: true });
   };
   const selectedDayPanel = showDay && (
-    <aside className="card day-panel fixed m-0 overflow-auto rounded-card border border-line bg-surface p-4 shadow-[0_6px_24px_#0003] bottom-20 right-4 z-12 h-max max-h-[min(60dvh,calc(100dvh-160px))] w-[min(26rem,calc(100vw-32px))]" aria-label="選択した日の学習詳細" ref={detailRef} onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); closeDay(); } }}>
+    <aside className="card day-panel fixed m-0 overflow-auto rounded-card border border-line bg-surface p-4 shadow-[0_6px_24px_#0003] bottom-20 right-4 z-12 h-max max-h-[min(45dvh,calc(100dvh-160px))] w-[min(26rem,calc(100vw-32px))]" aria-label="選択した日の学習詳細" ref={detailRef} onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); closeDay(); } }}>
       <div className={panelHeading}>
       <button
         className={panelClose}

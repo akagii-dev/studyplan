@@ -10,7 +10,7 @@
 /* Only the app's own components: test and document strings must not create utilities. */
 @source './';
 
-/* The three color themes and light/dark stay in the existing CSS variables. */
+/* Warm grays with one theme accent; light/dark stay in the CSS variables. */
 /* Spacing in px: the base font size is 14px, so rem-based steps would shrink. */
 @theme {
   --spacing: 4px;
@@ -32,6 +32,9 @@
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-on-accent: var(--on-accent);
+  --color-action: var(--action);
+  --color-action-hover: var(--action-hover);
+  --color-on-action: var(--on-action);
   --color-warning: var(--warning-ink);
   --color-warning-bg: var(--warning-bg);
   --color-warning-line: var(--warning-border);

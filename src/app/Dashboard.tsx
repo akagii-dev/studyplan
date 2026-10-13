@@ -52,7 +52,7 @@ export function Dashboard({
       )}
       <section className="card dashboard-today max-w-[900px] pt-3">
         <div className="dashboard-today-actions mb-4">
-          <button type="button" className="border-accent text-accent" onClick={() => navigate('today')}>
+          <button type="button" onClick={() => navigate('today')}>
             今日のスケジュール・時間内訳
           </button>
         </div>

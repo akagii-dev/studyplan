@@ -199,7 +199,7 @@ async function navigate(name: string) {
     '予定外・過去日の記録': '進捗を記録',
   };
   name = aliases[name] ?? name;
-  const main = page.locator('.sidebar nav');
+  const main = page.locator('#app-sidebar');
   if (name === 'ホーム') name = '今日';
   if (name === '今日のスケジュール') {
     await main.getByRole('button', { name: '設定', exact: true }).click();
@@ -964,7 +964,6 @@ test('実機：今日の未設定区間に名前を付け、保存・取消・�
   await card.locator('summary').click();
   row = card.locator('tr[data-kind=outside]').first();
   await expect(row.locator('.time-category')).toHaveText('自由時間 <読書>');
-  await page.getByRole('button', { name: 'サイドバーを折りたたむ', exact: true }).click();
   await page.setViewportSize({ width: 320, height: 800 });
   await row.getByRole('button', { name: /名前を編集/ }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
@@ -1439,8 +1438,8 @@ test('実機：可処分時間の情報階層・全テーマ・キーボード�
     expect(result.pageWidth).toBeLessThanOrEqual(result.width + 1);
   };
   await checkFit();
-  // Narrow layouts now use the persistent bottom navigation rather than a sidebar rail.
-  await expect(page.locator('.sidebar-toggle')).toBeHidden();
+  // The navigation is a top bar (bottom bar on phones); there is no sidebar rail to collapse.
+  await expect(page.locator('.sidebar-toggle')).toHaveCount(0);
   await page.setViewportSize({ width: 320, height: 800 });
   await checkFit();
   await card.screenshot({ path: 'test-results/daily-time-narrow.png' });
@@ -2688,7 +2687,7 @@ test('実機：教材別の今日・周回・記録・訂正・取消・空表�
   );
 });
 
-test('実機：通学の承認・警告の管理・サイドバー保存・可変幅・進捗アニメーション', async () => {
+test('実機：通学の承認・警告の管理・上部タブ・可変幅・進捗アニメーション', async () => {
   test.setTimeout(180000);
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/adaptive-commute-'));
@@ -2766,29 +2765,14 @@ test('実機：通学の承認・警告の管理・サイドバー保存・可�
   await saved();
   await expect(warning).toHaveCount(0);
   expect((await storedState()).plan).toEqual(s.plan);
-  const beforeWidth = (await page.locator('main').boundingBox())!.width;
-  await expect(page.locator('.sidebar-toggle')).toHaveText('◀');
-  const rail = (await page.locator('.sidebar-toggle').boundingBox())!;
-  expect(rail.width).toBe(12);
-  expect(rail.x + rail.width).toBe((await page.locator('main').boundingBox())!.x);
-  expect(rail.height).toBe(await page.evaluate(() => window.innerHeight));
-  await page.getByRole('button', { name: 'サイドバーを折りたたむ' }).click();
-  await saved();
-  await expect(page.locator('.sidebar')).toBeHidden();
-  await expect(page.locator('.sidebar-toggle')).toHaveText('▶');
-  expect((await page.locator('main').boundingBox())!.x).toBe(12);
-  await page.screenshot({ path: 'test-results/sidebar-rail-collapsed.png' });
-  expect((await page.locator('main').boundingBox())!.width).toBeGreaterThan(beforeWidth);
+  // The top tabs keep the full width for the content and survive a restart.
+  const tabs = page.locator('#app-sidebar');
+  await expect(tabs.getByRole('button', { name: '今日', exact: true })).toBeVisible();
+  expect((await page.locator('main').boundingBox())!.x).toBe(0);
   await close();
   await launch();
-  await expect(page.getByRole('button', { name: 'サイドバーを開く' })).toBeVisible();
-  await expect(page.locator('.sidebar')).toBeHidden();
-  await page.getByRole('button', { name: 'サイドバーを開く' }).focus();
-  await page.keyboard.press('Enter');
-  await expect(page.locator('.sidebar')).toBeVisible();
-  await expect(page.locator('.sidebar-toggle')).toHaveText('◀');
-  await saved();
-  await page.screenshot({ path: 'test-results/sidebar-rail-expanded.png' });
+  await expect(page.locator('#app-sidebar').getByRole('button', { name: '設定', exact: true })).toBeVisible();
+  await page.screenshot({ path: 'test-results/top-tabs.png' });
   await expect(
     page.getByRole('region', {
       name: '保存済みの計画と現在の設定が一致していません。',
@@ -4132,11 +4116,15 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
       await page.getByLabel('今回解いた問題数', { exact: true }).fill('0');
       await expect(recordButton).toBeEnabled();
     }
-    actionColors.add(await recordButton.evaluate(button => getComputedStyle(button).backgroundColor));
+    // Wait for the enabled background transition to settle before reading the color.
+    const background = () => recordButton.evaluate(button => getComputedStyle(button).backgroundColor);
+    await expect.poll(async () => { const before = await background(); await page.waitForTimeout(100); return before === await background(); }).toBe(true);
+    actionColors.add(await background());
     await page.screenshot({ path: `test-results/progress-${theme}.png`, fullPage: true });
   }
   expect(accents.size).toBe(3);
-  expect(actionColors.size).toBe(3);
+  // The main action is the same gray in every theme; only the accent changes.
+  expect(actionColors.size).toBe(1);
   expect((await storedState()).settingsUpdatedAt).toBe(beforeTheme.settingsUpdatedAt);
   await close();
   browser = undefined!;
@@ -4883,7 +4871,7 @@ test('実機：独立したチュートリアルと各画面への移動で、�
   await page.screenshot({ path: 'test-results/navigation-arrival.png' });
   await expect(page.getByRole('heading', { name: '今日の詳細', level: 1 })).toBeInViewport();
   await expect(page.getByRole('heading', { name: '今日の詳細', level: 1 })).not.toBeFocused();
-  await page.locator('.sidebar nav').getByRole('button', { name: '設定', exact: true }).focus();
+  await page.locator('#app-sidebar').getByRole('button', { name: '設定', exact: true }).focus();
   await page.keyboard.press('Enter');
   await page.getByRole('button', { name: '使い方', exact: true }).focus();
   await page.keyboard.press('Enter');

@@ -28,7 +28,7 @@ export function CalendarDaySummary({
   return (
     <div className="calendar-day-summary grid min-w-0 gap-[0.35rem] [&_small]:block [&_strong]:block" role="group" aria-label={`${date}の日合計`}>
       {day.classes.length > 0 && (
-        <button className="calendar-busy my-1 block w-full min-w-0 whitespace-normal border-l-[3px] border-l-[var(--busy-border)] bg-[var(--busy-bg)] px-[7px] py-[5px] text-left text-[11px] text-[var(--busy-ink)] wrap-anywhere hover:enabled:border-accent hover:enabled:bg-soft [&_small]:text-[10px] [&_small]:text-[var(--busy-muted)]" onClick={onSelect}>
+        <button className="calendar-busy my-1 block w-full min-w-0 whitespace-normal border-l-[3px] border-l-[var(--busy-border)] bg-[var(--busy-bg)] px-[7px] py-[5px] text-left text-[11px] text-[var(--busy-ink)] wrap-anywhere hover:enabled:border-ink hover:enabled:bg-soft [&_small]:text-[10px] [&_small]:text-[var(--busy-muted)]" onClick={onSelect}>
           <strong>授業</strong>
           <small>
             {duration(day.classMinutes)} · {day.classes.length}件

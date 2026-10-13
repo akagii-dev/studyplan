@@ -213,7 +213,7 @@ test('実機：LAN候補をInterfaceAliasとIPv4で選択し、再確認でも�
       };
     }, candidates);
     await invoke('plugin:window|set_size', { label: 'main', value: { Logical: { width: 1280, height: 800 } } });
-    await page.locator('.sidebar nav').getByRole('button', { name: '設定', exact: true }).click();
+    await page.locator('#app-sidebar').getByRole('button', { name: '設定', exact: true }).click();
     const summary = page.locator('.lan-sharing > summary');
     await summary.focus();
     await page.keyboard.press('Enter');
@@ -300,7 +300,7 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
   const statusBefore = await invoke<HostStatus>('lan_host_status');
   expect(statusBefore.active).toBe(false);
   expect(statusBefore.key).toBeNull();
-  await page.locator('.sidebar nav').getByRole('button', { name: '設定', exact: true }).click();
+  await page.locator('#app-sidebar').getByRole('button', { name: '設定', exact: true }).click();
   await page.locator('.lan-sharing > summary').click();
   await expect(page.locator('.lan-sharing')).toContainText('Test LAN — 127.0.0.1');
 
@@ -435,7 +435,7 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
     expect(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    await page.locator('.sidebar nav').getByRole('button', { name: '今日', exact: true }).click();
+    await page.locator('#app-sidebar').getByRole('button', { name: '今日', exact: true }).click();
     await book(page).getByRole('textbox').fill('2');
     await book(phone).getByRole('textbox').fill('4');
     await book(phone).getByRole('button', { name: '記録', exact: true }).click();
@@ -504,7 +504,7 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
       JSON.stringify((await api<{ data: AppState }>(request, key, 'export_backup')).data),
     ).not.toContain(key);
 
-    await page.locator('.sidebar nav').getByRole('button', { name: '設定', exact: true }).click();
+    await page.locator('#app-sidebar').getByRole('button', { name: '設定', exact: true }).click();
     await page.locator('.lan-sharing > summary').click();
     expect(await readQr()).toBe(`${base}#key=${key}`);
     await page.getByRole('button', { name: '公開を停止', exact: true }).click();

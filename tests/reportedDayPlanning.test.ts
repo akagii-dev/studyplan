@@ -1,3 +1,4 @@
+import { activePlanWork } from '../src/domain/progressAllocation';
 import { expect, it } from 'vitest';
 import { addDays, initialState, remaining, reported } from '../src/domain/model';
 import { correctProgress, recordProgress } from '../src/domain/progress';
@@ -147,7 +148,7 @@ it('報告済みの組だけを翌日に送り、未報告の別問題集は当�
   ).toBe(5);
 });
 
-it('開始済みの当日予定は履歴として保持し、未完了分は後日に置く', () => {
+it('開始済みの当日予定は残し、未記録の分は今日の分として後日へ回さない', () => {
   const state = fixture();
   state.settings.materials[0].total = 20;
   state.plan!.sessions.unshift({
@@ -159,7 +160,11 @@ it('開始済みの当日予定は履歴として保持し、未完了分は後�
   });
   const proposed = propose(recordProgress(state, report(0)), date, '実績から調整', context);
   expect(proposed.proposal!.plan.sessions).toContainEqual(state.plan!.sessions[0]);
-  expect(bookCount(proposed, tomorrow)).toBe(20);
+  // A zero report does not close today: the elapsed slot's 5 stay today's work.
+  expect(bookCount(proposed, tomorrow)).toBe(15);
+  const approved = approve(proposed, false, context);
+  expect(activePlanWork(approved, date).filter((s) => s.materialId === 'book' && s.date === date)
+    .reduce((n, s) => n + s.count, 0)).toBe(5);
 });
 
 it('固定予定は残し、承認と再生成を繰り返しても実績や残量を重複計上しない', () => {

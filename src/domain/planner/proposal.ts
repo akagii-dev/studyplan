@@ -223,7 +223,7 @@ export function propose(
           (x) =>
             x.kind === 'study' &&
             x.date >= (state.plan?.allocationStart ?? '') &&
-            (x.date < effectiveFrom || (x.date === effectiveFrom && x.start < notBefore)) &&
+            x.date < effectiveFrom &&
             !reported(state, x.date, x.materialId, x.round) &&
             // A remainder the calendar shows as 調整済み is already in the current plan.
             !pastWorkAdjustment(state, x.date, x.materialId, x.round),

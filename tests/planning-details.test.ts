@@ -245,3 +245,44 @@ describe('Enter時の数値検証', () => {
     expect(() => parseNumberInput('-1', 0)).toThrow('0以上');
   });
 });
+
+describe('試験の優先度', () => {
+  // A near, high-priority exam and a far, ordinary one share the same evening slot.
+  const build = (highPriority: number) => {
+    const s = initialState();
+    const from = '2030-10-07';
+    s.settings.exams = [
+      { id: 'near', name: '近い試験', start: from, target: addDays(from, 15), priority: highPriority, color: '#287569', reviewDays: 0 },
+      { id: 'far', name: '遠い試験', start: from, target: addDays(from, 200), priority: 2, color: '#356ca1', reviewDays: 0 },
+    ];
+    s.settings.materials = [
+      { id: 'drill', examId: 'near', name: '過去問', total: 300, order: 1, rounds: [{ completed: 0, minutes: 4 }] },
+      { id: 'text', examId: 'far', name: '基本書', total: 400, order: 1, rounds: [{ completed: 0, minutes: 25 }] },
+    ];
+    s.settings.windows = [{ id: 'w', name: '学習', kind: 'study', from, to: addDays(from, 200), weekdays: [0, 1, 2, 3, 4, 5, 6], start: 1080, end: 1320 }];
+    s.settings.scheduleAnswers = { class: 'none', busy: 'none', exception: 'none' };
+    const plan = generatePlan(s, from, false, 0, 'balanced');
+    const perDay = (material: string) => Array.from({ length: 15 }, (_, i) => plan.sessions
+      .filter((x) => x.materialId === material && x.date === addDays(from, i)).reduce((n, x) => n + x.count, 0));
+    return { plan, drill: perDay('drill'), text: perDay('text') };
+  };
+
+  it('優先度の高い試験は期限まで均等な取り分を先に取り、低い試験は残りの時間を使う', () => {
+    const { plan, drill, text } = build(3);
+    expect(plan.shortfalls).toEqual([]);
+    expect(drill.reduce((n, x) => n + x, 0)).toBe(300);
+    // No cramming before the high-priority deadline.
+    expect(Math.max(...drill) - Math.min(...drill)).toBeLessThanOrEqual(6);
+    // The lower-priority exam still progresses with the remaining time.
+    expect(text.reduce((n, x) => n + x, 0)).toBeGreaterThan(0);
+  });
+
+  it('同じ優先度なら、残りの量と時間の割合で分ける従来の配分のまま', () => {
+    const same = build(2);
+    const high = build(3);
+    expect(same.plan.shortfalls).toEqual([]);
+    expect(high.drill.reduce((n, x) => n + x, 0)).toBe(same.drill.reduce((n, x) => n + x, 0));
+    // Priority never gives the lower exam more time than an equal split.
+    expect(high.text.reduce((n, x) => n + x, 0)).toBeLessThanOrEqual(same.text.reduce((n, x) => n + x, 0));
+  });
+});

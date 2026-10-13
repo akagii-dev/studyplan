@@ -531,12 +531,23 @@ export function generatePlan(
       ? Math.min(usable(open, cap), weeklyRoom(cap.date))
       : usable(open, cap) * weight(cap);
     const urgentTotal = shares.reduce((n, x) => n + x.urgent, 0);
-    const flexibleTotal = shares.reduce((n, x) => n + Math.max(0, x.share - x.urgent), 0);
-    const scale = Math.min(1, Math.max(0, target - urgentTotal) / Math.max(EPS, flexibleTotal));
+    // Deadline-critical work comes first. The rest of the day goes to exams by priority:
+    // a higher-priority exam takes its whole even share before a lower one gets the remainder.
+    // Exams of the same priority share what is left in proportion, as before.
+    const flexible = new Map<string, number>();
+    let room = Math.max(0, target - urgentTotal);
+    const priorityOf = (id: string) => bucketTasks.get(id)![0].exam.priority;
+    for (const level of [...new Set(shares.map((x) => priorityOf(x.id)))].sort((a, b) => b - a)) {
+      const group = shares.filter((x) => priorityOf(x.id) === level);
+      const wanted = group.reduce((n, x) => n + Math.max(0, x.share - x.urgent), 0);
+      const scale = Math.min(1, room / Math.max(EPS, wanted));
+      for (const x of group) flexible.set(x.id, Math.max(0, x.share - x.urgent) * scale);
+      room = Math.max(0, room - wanted * scale);
+    }
     const quota = new Map(
       shares.map((x) => [
         x.id,
-        allocation === 'earliest' ? x.need : x.urgent + Math.max(0, x.share - x.urgent) * scale,
+        allocation === 'earliest' ? x.need : x.urgent + (flexible.get(x.id) ?? 0),
       ]),
     );
     const used = new Map<string, number>();

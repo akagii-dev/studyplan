@@ -111,7 +111,10 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
     if (!rows.length) return [];
     const current = { round: rows[0].round, end: roundEnd(m.id, rows[0].round) };
     const final = rows.at(-1)!.round;
-    return [{ id: m.id, name: m.name, unit: rows[0].unit, current,
+    const study = planSessions.filter((x) => x.kind === 'study' && x.count > 0 && x.materialId === m.id && x.date >= comparisonFrom);
+    const days = new Set(study.map((x) => x.date)).size;
+    const average = days ? Math.round(study.reduce((n, x) => n + x.count, 0) / days * 10) / 10 : 0;
+    return [{ id: m.id, name: m.name, unit: rows[0].unit, current, average,
       last: final === current.round ? null : { round: final, end: roundEnd(m.id, final) },
       unplaced: rows.reduce((n, row) => n + row.unplaced, 0) }];
   });
@@ -383,7 +386,8 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
         <GuidedRevision state={state} update={update} onClose={() => setEditing(false)} />
       </div>
     );
-  return (
+  // Auxiliary operations; with a pending proposal they sit in its details.
+  const toolbar = (
     <>
       <div className="row mb-[1rem] flex-wrap items-start [&>p]:mx-0 [&>p]:my-[0.65rem] [&>p]:text-muted max-[640px]:[&_.actions]:w-full max-[640px]:[&_.actions_button]:w-full">
         <p>条件修正・復元・再生成</p>
@@ -415,6 +419,11 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
           <button onClick={onCalendar}>カレンダーへ戻る</button>
         </div>
       </div>
+    </>
+  );
+  return (
+    <>
+      {!plan && toolbar}
       {undo && (
         <div className="note">
           <p>
@@ -480,8 +489,10 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
             <ul className="replan-finish m-0 list-none p-0 [&_li]:py-1.5" aria-label="教材ごとの終了予定">
               {finishes.map((row) => <li key={row.id}>
                 <b>{row.name}</b>{' '}
-                {row.current.end ? `${row.current.round + 1}周目 ${shortDayLabel(row.current.end)}まで` : `${row.current.round + 1}周目`}
-                {row.last && ` · 最終${row.last.round + 1}周目 ${row.last.end ? `${shortDayLabel(row.last.end)}まで` : '未定'}`}
+                {row.last
+                  ? `${row.current.round + 1}周目 ${row.current.end ? `${shortDayLabel(row.current.end)}まで` : '未定'} · 最終${row.last.round + 1}周目 ${row.last.end ? `${shortDayLabel(row.last.end)}まで` : '未定'}`
+                  : row.current.end ? `${shortDayLabel(row.current.end)}まで` : '終了日未定'}
+                {row.average > 0 && ` · 1日平均 ${row.average}${row.unit}`}
                 {row.unplaced > 0 && <span className="text-error"> · 未配置 {row.unplaced}{row.unit}</span>}
               </li>)}
             </ul>
@@ -640,6 +651,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
           </section>
           <details className="card replan-details">
             <summary className="flex min-h-11 cursor-pointer items-center font-[750] focus-visible:[outline:3px_solid_var(--accent)] focus-visible:outline-offset-[3px]">詳細</summary>
+            {toolbar}
             <p>{p.reason}</p>
             {balanceFuture && <section aria-label="対象と保存されている優先度">
               <h3>対象と保存されている優先度</h3>

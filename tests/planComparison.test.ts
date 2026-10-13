@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { Plan, Session } from '../src/domain/model';
-import { comparePlans, mainDailyChanges } from '../src/domain/planComparison';
+import { comparePlans } from '../src/domain/planComparison';
 
 const session = (materialId: string, date: string, count = 20, round = 0): Session => ({
   id: materialId + date,
@@ -69,12 +69,6 @@ it('同じ比較開始時刻を使い、0問と過去の予定を除く', () => 
   const after = plan([]);
   after.notBefore = 700;
   expect(comparePlans(before, after)).toEqual([]);
-});
-
-it('標準表示は変化の大きい3日、詳細用データは全日を保つ', () => {
-  const days = [1, 2, 3, 4].map((n) => ({ date: `2026-10-0${n}`, before: 0, after: n * 10 }));
-  expect(mainDailyChanges(days).map((d) => d.after)).toEqual([20, 30, 40]);
-  expect(days).toHaveLength(4);
 });
 
 it('仕切り直しの操作日から比較し、新開始日前に除外する予定も変更へ含める', () => {

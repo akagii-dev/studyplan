@@ -1,8 +1,8 @@
 import { Warning } from './Warnings';
 import { useState, useEffect, useMemo, useRef, useId, useLayoutEffect } from 'react';
-import { ArrowRight, RefreshCw, Undo2, CheckCircle2 } from 'lucide-react';
+import { RefreshCw, Undo2, CheckCircle2 } from 'lucide-react';
 import { Session, today, clock, priorityName } from '../domain/model';
-import { shortDayLabel } from '../domain/calendar';
+import { shortDate, shortDayLabel } from '../domain/calendar';
 import { approve, propose, proposeSettings, proposeBalancedRemaining, restartProposalStaleReason, undoPlan } from '../domain/planning';
 import { Empty, Props, duration } from './common';
 import { SetupImpact } from './SetupImpact';
@@ -25,7 +25,7 @@ import {
   releaseFixedAndRefresh,
 } from '../domain/repairPlan';
 import { StudyCoverageGap } from '../domain/studyCoverage';
-import { comparePlans, mainDailyChanges, ScheduleChange } from '../domain/planComparison';
+import { comparePlans, ScheduleChange } from '../domain/planComparison';
 import { proposalUsesCurrentProgress } from '../domain/progressReflection';
 import { materialUnit } from '../domain/calendarQuantity';
 import { remainingWork, remainingAdjustmentPreview } from '../domain/remainingWork';
@@ -37,6 +37,12 @@ import { runBusyTask } from '../hooks/busyTask';
 import { check, statusText } from './ui';/** One decision step of the plan review, separated by a rule. */
 const decision =
   'replan-decision border-t border-t-line py-[1.25rem] first-of-type:mt-[1.25rem] [&_h3]:mx-0 [&_h3]:mt-0 [&_h3]:mb-[0.75rem] [&_ul]:mx-0 [&_ul]:my-[0.5rem] [&_ul]:pl-[1.25rem] max-[640px]:[&_.actions]:w-full max-[640px]:[&_.actions_button]:w-full';
+
+const groupBy = <T,>(items: T[], key: (item: T) => string): [string, T[]][] => {
+  const groups = new Map<string, T[]>();
+  for (const item of items) groups.set(key(item), [...(groups.get(key(item)) ?? []), item]);
+  return [...groups];
+};
 
 export function Replan({ state, update, onCalendar, onFuture }: Props & { onCalendar: () => void; onFuture: () => void }) {
   const currentTime = usePlanningClock();
@@ -137,6 +143,21 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
     return `${date}｜${exam?.name} / ${m?.name}｜${Number(round) + 1}周目`;
   };
   const keyUnit = (key: string) => unitFor(key.split('｜')[1]);
+  const sessionName = (x: Session) => x.kind === 'review'
+    ? `${displaySettings.exams.find((e) => e.id === x.examId)?.name ?? '試験'} · 復習`
+    : `${displaySettings.materials.find((m) => m.id === x.materialId)?.name ?? x.materialId} · ${x.round + 1}周目`;
+  // One line for a set of sessions: the exact slot when single, otherwise the span and totals.
+  const spanText = (sessions: Session[], unit: string) => {
+    const sorted = [...sessions].sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
+    const first = sorted[0], last = sorted.at(-1)!;
+    const fixed = sorted.filter((x) => x.fixed).length;
+    if (sorted.length === 1)
+      return `${first.date} ${clock(first.start)}〜${clock(first.end)}${first.kind === 'review' ? '' : ` · ${first.count}${unit}`}${first.fixed ? '（固定）' : ''}`;
+    const total = first.kind === 'review'
+      ? duration(sorted.reduce((n, x) => n + x.end - x.start, 0))
+      : `${sorted.reduce((n, x) => n + x.count, 0)}${unit}`;
+    return `${shortDate(first.date)}〜${shortDate(last.date)} · ${sorted.length}回 · 計 ${total}${fixed ? `（固定 ${fixed}回）` : ''}`;
+  };
   const signature = (s: Session) =>
     JSON.stringify([
       s.date,
@@ -633,23 +654,17 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                 <h4>{row.name} · {row.round + 1}周目</h4>
                 <p>対象 {row.count}{row.unit} · 配置 {row.placed}{row.unit} · 未配置 {row.unplaced}{row.unit}</p>
                 {!row.balanced && <p className="error" role="alert">対象数量と配置の内訳が一致していません。案を作り直してください。</p>}
-                {balanceFuture ? <details><summary>日別の配置案</summary><ul>{row.destinations.map((session) => <li key={session.id}>
-                  {session.date} {clock(session.start)}〜{clock(session.end)} · {session.count}{row.unit}
-                </li>)}</ul></details> : <ul>{row.destinations.map((session) => <li key={session.id}>
-                  {session.date} {clock(session.start)}〜{clock(session.end)} · {session.count}{row.unit}{session.fixed ? '（固定）' : ''}
-                </li>)}</ul>}
+                {row.destinations.length > 0 && <p>{spanText(row.destinations, row.unit)}</p>}
                 {row.unplaced > 0 && row.reasons.map((reason) => <p key={reason}>{reason}</p>)}
                 {row.relatedCount > 0 && <div>
                   <p>同じ教材・周回の関連分 {row.relatedCount}{row.unit} · 未配置 {row.relatedUnplaced}{row.unit}</p>
-                  <ul>{row.relatedDestinations.map((session) => <li key={session.id}>
-                    {session.date} {clock(session.start)}〜{clock(session.end)} · {session.count}{row.unit}
-                  </li>)}</ul>
+                  {row.relatedDestinations.length > 0 && <p>{spanText(row.relatedDestinations, row.unit)}</p>}
                 </div>}
               </div>)}
               {partialPreview.affected.length > 0 && <div>
                 <h4>順序を守るために変更する関連予定</h4>
-                <ul>{partialPreview.affected.map((session) => <li key={session.id}>
-                  {materialLabel(session.materialId)} · {session.round + 1}周目 · {session.date} {clock(session.start)}〜{clock(session.end)} · {session.count}{unitFor(session.materialId)}
+                <ul>{groupBy(partialPreview.affected, (session) => `${session.materialId}|${session.round}`).map(([key, sessions]) => <li key={key}>
+                  {materialLabel(sessions[0].materialId)} · {sessions[0].round + 1}周目 · {spanText(sessions, unitFor(sessions[0].materialId))}
                 </li>)}</ul>
               </div>}
             </section>}
@@ -684,36 +699,17 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                     <li key={impact.materialId}>
                       <b>{materialLabel(impact.materialId)}</b>
                       {impact.total && changeSummary(impact.total, unitFor(impact.materialId))}
-                      {impact.rounds.map((round) => (
-                        <div key={round.round}>
-                          <strong>{round.round! + 1}周目</strong>
-                          {(!impact.total ||
-                            JSON.stringify([round.before, round.after]) !==
-                              JSON.stringify([impact.total.before, impact.total.after])) &&
-                            changeSummary(round, unitFor(impact.materialId))}
-                          {!impact.total &&
-                            mainDailyChanges(round.days).map((day) => (
-                              <div key={day.date}>
-                                {day.date}：{day.before}{unitFor(impact.materialId)} → {day.after}{unitFor(impact.materialId)}
-                              </div>
-                            ))}
-                          {!impact.total && round.days.length > 3 && (
-                            <p className="hint">
-                              ほか{round.days.length - 3}日の変更は詳細で確認できます。
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                      {mainDailyChanges(impact.total?.days ?? []).map((day) => (
-                        <div key={day.date}>
-                          {day.date}：{day.before}{unitFor(impact.materialId)} → {day.after}{unitFor(impact.materialId)}
-                        </div>
-                      ))}
-                      {(impact.total?.days.length ?? 0) > 3 && (
-                        <p className="hint">
-                          ほか{impact.total!.days.length - 3}日の変更は詳細で確認できます。
-                        </p>
-                      )}
+                      {impact.rounds
+                        // A round that only repeats the material total adds nothing; skip its heading.
+                        .filter((round) => !impact.total ||
+                          JSON.stringify([round.before, round.after]) !==
+                            JSON.stringify([impact.total.before, impact.total.after]))
+                        .map((round) => (
+                          <div key={round.round}>
+                            <strong>{round.round! + 1}周目</strong>
+                            {changeSummary(round, unitFor(impact.materialId))}
+                          </div>
+                        ))}
                     </li>
                   ))}
                 </ul>
@@ -755,28 +751,17 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
               <h3>日ごとの予定量の差分</h3>
               <p className="hint">過去の予定と固定した予定を保持し、残りの学習日へ分散します。</p>
               {keys.length ? (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>日付 / 教材 / 周回</th>
-                      <th>承認前</th>
-                      <th></th>
-                      <th>変更案</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {keys.map((k) => (
-                      <tr key={k}>
-                        <td>{label(k)}</td>
-                        <td>{old.get(k) || 0}{keyUnit(k)}</td>
-                        <td>
-                          <ArrowRight size={15} />
-                        </td>
-                        <td>{next.get(k) || 0}{keyUnit(k)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <ul>
+                  {groupBy(keys, (k) => k.split('｜').slice(1).join('｜')).map(([work, dayKeys]) => {
+                    const dates = dayKeys.map((k) => k.split('｜')[0]).sort();
+                    const before = dayKeys.reduce((n, k) => n + (old.get(k) || 0), 0);
+                    const after = dayKeys.reduce((n, k) => n + (next.get(k) || 0), 0);
+                    return <li key={work}>
+                      {label(dayKeys[0]).split('｜').slice(1).join(' · ')}：{dates.length === 1 ? dates[0] : `${shortDate(dates[0])}〜${shortDate(dates.at(-1)!)}（${dates.length}日）`}{' '}
+                      {dates.length === 1 ? '' : '計 '}{before}{keyUnit(dayKeys[0])} → {after}{keyUnit(dayKeys[0])}
+                    </li>;
+                  })}
+                </ul>
               ) : (
                 <p>
                   予定量の変更はありません。設定の変更による時刻・復習枠の差も、以下で確認できます。
@@ -784,65 +769,25 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
               )}
               <section className="mt-[1.5rem] min-w-0">
                 <h4>時刻・復習を含む差分（{detailedChanges.length}件）</h4>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>変更</th>
-                      <th>日付・時刻</th>
-                      <th>内容</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detailedChanges.map(({ s, change }, i) => (
-                      <tr key={`${s.id}-${change}-${i}`}>
-                        <td>{change}</td>
-                        <td>
-                          {s.date} {clock(s.start)}–{clock(s.end)}
-                        </td>
-                        <td>
-                          {displaySettings.exams.find((e) => e.id === s.examId)?.name} /{' '}
-                          {s.kind === 'review'
-                            ? 'まとめの復習'
-                            : `${displaySettings.materials.find((m) => m.id === s.materialId)?.name} ${s.round + 1}周目 ${s.count}${unitFor(s.materialId)}`}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <ul>
+                  {groupBy(detailedChanges, ({ s: x }) => x.kind === 'review' ? `review|${x.examId}` : `${x.materialId}|${x.round}`).map(([key, changes]) => {
+                    const x = changes[0].s;
+                    const dates = changes.map(({ s: c }) => c.date).sort();
+                    const added = changes.filter((c) => c.change === '追加').length;
+                    return <li key={key}>
+                      {sessionName(x)}：{dates.length === 1 ? dates[0] : `${shortDate(dates[0])}〜${shortDate(dates.at(-1)!)}`}{' '}
+                      追加 {added}件・削除 {changes.length - added}件
+                    </li>;
+                  })}
+                </ul>
               </section>
               <section className="mt-[1.5rem] min-w-0">
-                <h4>変更案の時刻・固定・復習枠</h4>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>日付</th>
-                      <th>時間</th>
-                      <th>内容</th>
-                      <th>固定</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {planSessions
-                      .filter((s) => s.date >= plan.from)
-                      .map((s) => (
-                        <tr key={s.id}>
-                          <td>{s.date}</td>
-                          <td>
-                            {Math.floor(s.start / 60)}:
-                            {String(Math.floor(s.start % 60)).padStart(2, '0')}–
-                            {Math.floor(s.end / 60)}:
-                            {String(Math.floor(s.end % 60)).padStart(2, '0')}
-                          </td>
-                          <td>
-                            {s.kind === 'review'
-                              ? `${displaySettings.exams.find((e) => e.id === s.examId)?.name} 復習`
-                              : `${displaySettings.materials.find((m) => m.id === s.materialId)?.name} ${s.count}${unitFor(s.materialId)}`}
-                          </td>
-                          <td>{s.fixed ? '固定' : ''}</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
+                <h4>変更案の予定</h4>
+                <ul>
+                  {groupBy(planSessions.filter((x) => x.date >= plan.from), (x) => x.kind === 'review' ? `review|${x.examId}` : `${x.materialId}|${x.round}`).map(([key, sessions]) => (
+                    <li key={key}>{sessionName(sessions[0])}：{spanText(sessions, sessions[0].kind === 'review' ? '' : unitFor(sessions[0].materialId))}</li>
+                  ))}
+                </ul>
               </section>
             </section>
           </details>

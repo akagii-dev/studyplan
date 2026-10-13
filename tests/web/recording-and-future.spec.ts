@@ -468,10 +468,9 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
           await expect(warning).toContainText('未配置 1件・9分');
           await expect(warning).toContainText('3問');
           expect((await warning.boundingBox())!.y).toBeGreaterThan((await view.locator('.future-week').boundingBox())!.y);
-          const reason = warning.locator('summary');
-          await reason.focus(); await page.keyboard.press('Enter');
+          // The short reason is shown directly, without a disclosure.
+          await expect(warning.locator('summary')).toHaveCount(0);
           await expect(warning.getByText('期限内の学習枠が足りません。', { exact: true })).toBeVisible();
-          await page.keyboard.press('Enter');
         }
         if (scenario === '競合') {
           await expect(view.locator('.future-reconciliation')).toContainText('調整未反映・要確認。現在の計画を保持しています。');

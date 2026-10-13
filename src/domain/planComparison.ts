@@ -86,12 +86,3 @@ export function comparePlans(before: Plan | null, after: Plan, comparisonFrom = 
   });
 }
 
-export function mainDailyChanges(days: DailyChange[], limit = 3) {
-  return [...days]
-    .sort(
-      (a, b) =>
-        Math.abs(b.after - b.before) - Math.abs(a.after - a.before) || a.date.localeCompare(b.date),
-    )
-    .slice(0, limit)
-    .sort((a, b) => a.date.localeCompare(b.date));
-}

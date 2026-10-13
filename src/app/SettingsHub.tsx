@@ -183,7 +183,7 @@ export function SettingsHub({
               <b>食事時間</b>
               <span>{missingMeals.length ? `${missingMeals.map((key) => mealNames[key]).join('・')}が未設定` : '設定済み'}</span>
               {hidden('meals') && <small>通知非表示</small>}
-              {warningFor('meals') && <details><summary>影響</summary><p>{warningFor('meals')?.impact}</p></details>}
+              {warningFor('meals') && <small>{warningFor('meals')?.impact}</small>}
             </div>
             <button onClick={() => openAvailability('meals')}>設定・確認</button>
           </div>
@@ -196,7 +196,7 @@ export function SettingsHub({
                   <b>{scheduleInfo[kind].label}</b>
                   <span>{status === 'registered' ? `${count}件設定済み` : status === 'none' ? '予定なし' : status === 'deferred' ? 'あとで設定' : '未確認'}</span>
                   {hidden(kind) && <small>通知非表示</small>}
-                  {warningFor(kind) && <details><summary>影響</summary><p>{warningFor(kind)?.impact}</p></details>}
+                  {warningFor(kind) && <small>{warningFor(kind)?.impact}</small>}
                 </div>
                 <div className={rowActions}>
                   <button onClick={() => openAvailability(kind)}>設定・確認</button>
@@ -212,10 +212,7 @@ export function SettingsHub({
               <span>{!state.settings.exams.length ? '試験の設定後に確認' : !studyCount ? '学習枠の設定後に確認' : gaps.length ? `未登録 ${gaps.length}期間` : '設定済み'}</span>
               {gaps.some((gap) => hidden(gap.id)) && <small>通知非表示の期間あり</small>}
               {!!gaps.length && (
-                <details>
-                  <summary>期間と影響</summary>
-                  <ul>{gaps.map((gap) => <li key={gap.id}>{gap.studyGap?.examName}：{gap.studyGap?.from}〜{gap.studyGap?.to}。{gap.impact}</li>)}</ul>
-                </details>
+                <ul className="m-0 pl-[18px] text-[12px] text-muted">{gaps.map((gap) => <li key={gap.id}>{gap.studyGap?.examName}：{gap.studyGap?.from}〜{gap.studyGap?.to}。{gap.impact}</li>)}</ul>
               )}
             </div>
             <button onClick={() => openAvailability('study')}>設定・確認</button>

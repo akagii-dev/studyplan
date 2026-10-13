@@ -32,6 +32,7 @@ import { startOfWeek } from '../src/domain/calendar';
 import { studentFixture } from './fixtures/student';
 import { multiDayRolloverFixture, adjustmentFixture, restartFixture, legacyRestartFixture, remainingPlacementFixture, pastPlacementFixture, priorityReductionFixture } from './fixtures/adjustment';
 import { activePlanWork } from '../src/domain/progressAllocation';
+import { progressReceipts } from '../src/domain/progressReceipt';
 import { createProgressBaseline, reflectProgress } from '../src/domain/progressReflection';
 let child: ChildProcess;
 let browser: Browser;
@@ -1663,15 +1664,13 @@ test('実機：予定6への追加4・2・2で数量と変更詳細を保存し�
   await details.locator('summary').focus();
   await page.keyboard.press('Enter');
   // The pulled-forward shape follows the weekly ceiling, so it depends on the weekday.
-  // Check the first changed day against the saved plan instead of a fixed date.
-  const pulled = await storedState();
-  const changed = Array.from({ length: 9 }, (_, index) => addDays(date, index + 1)).map((day) =>
-    activePlanWork(pulled, date)
-      .filter((x) => x.materialId === 'book' && x.date === day)
-      .reduce((n, x) => n + x.count, 0),
-  ).find((count) => count !== 6);
-  expect(changed).toBeDefined();
-  await expect(details).toContainText(`6 → ${changed}問`);
+  // The changes of one material round are one line; derive it from the last change.
+  const receipt = progressReceipts(await storedState()).at(-1)!;
+  const firstRound = receipt.changes.filter((x) => x.kind === 'study' && x.materialId === 'book' && x.round === 0);
+  expect(firstRound.length).toBeGreaterThan(0);
+  await expect(details).toContainText(firstRound.length === 1
+    ? `${firstRound[0].beforeCount} → ${firstRound[0].afterCount}問`
+    : `計 ${firstRound.reduce((n, x) => n + x.beforeCount, 0)} → ${firstRound.reduce((n, x) => n + x.afterCount, 0)}問`);
   await expect(details).not.toContainText('時間 ');
   await expect(details).not.toContainText('別問題集');
   await page.screenshot({

@@ -490,7 +490,11 @@ it('問数が変わる予定の詳細は時刻を列挙せず、配置だけの�
       receipt: { ...quantityReceipt, changes: counted },
     }),
   );
-  expect(quantityHtml).toContain(`${counted[0].beforeCount} → ${counted[0].afterCount}問`);
+  // Several changed days of one material round become one line with the totals.
+  const sameWork = counted.filter((change) => change.materialId === counted[0].materialId && change.round === counted[0].round);
+  expect(quantityHtml).toContain(sameWork.length === 1
+    ? `${counted[0].beforeCount} → ${counted[0].afterCount}問`
+    : `（${sameWork.length}日） 計 ${sameWork.reduce((n, c) => n + c.beforeCount, 0)} → ${sameWork.reduce((n, c) => n + c.afterCount, 0)}問`);
   expect(quantityHtml).not.toContain('時間 ');
 
   const moved = structuredClone(source.plan!);

@@ -23,10 +23,7 @@ export function ShortfallDetails({ state, onReview, inWeek = false }: { state: A
               </span>
               <strong className="whitespace-nowrap">{item.count}{materialUnit(state.settings.materials.find((material) => material.id === item.materialId)?.unit)}</strong>
             </div>
-            <details className="mt-[3px]">
-              <summary className={inWeek ? 'w-fit min-w-[44px]' : undefined}>理由</summary>
-              <p className="mx-0 mt-1 mb-0">{item.reason}</p>
-            </details>
+            <p className="mx-0 mt-1 mb-0 text-[.875rem] text-muted">{item.reason}</p>
           </li>
         ))}
       </ul>

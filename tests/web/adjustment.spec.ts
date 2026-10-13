@@ -240,7 +240,8 @@ test('部分実績から追加・超過・訂正・取消まで、数量と変�
   await result.locator('summary').focus();
   await page.keyboard.press('Enter');
   // Beyond today's plan, the same material's remainder is pulled forward; other work stays.
-  await expect(result).toContainText(/6 → \d+問/);
+  // One line per material round: a single day keeps 6 → n, several days show the totals.
+  await expect(result).toContainText(/6 → \d+問|計 \d+ → \d+問/);
   await expect(result).not.toContainText('時間 ');
   await expect(result).not.toContainText('別問題集');
   await expect(result).toContainText('続きの予定を前倒ししました');
@@ -308,8 +309,9 @@ test('未配置を含む残り26問を指定日から組み直し、破棄と承
   await page.getByRole('button', { name: 'この日から案を作成' }).click();
   await expect(page.getByRole('heading', { name: '計画案', exact: true })).toBeVisible();
   await expect(page.locator('.replan-totals')).toContainText('予定 26問 · 未配置 6問 → 0問');
-  await expect(page.locator('.impact-list')).toContainText(`${addDays(adjustmentContext.date, 1)}：10問 → 0問`);
-  await expect(page.locator('.impact-list')).toContainText(`${addDays(adjustmentContext.date, 2)}：10問 → 0問`);
+  // Day-level changes are summarized per material round in the details.
+  await page.locator('details.replan-details > summary').click();
+  await expect(page.locator('details.replan-details')).toContainText(/10\/8〜\S+（\d+日） 計 20問 → 26問/);
   let stored = await read();
   expect(stored.plan!.sessions.filter((s) => s.kind === 'study').reduce((sum, s) => sum + s.count, 0)).toBe(20);
   expect(stored.plan!.shortfalls[0].count).toBe(6);

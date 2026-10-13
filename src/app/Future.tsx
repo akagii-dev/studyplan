@@ -351,15 +351,15 @@ export function Future({
         <details className="plan-change-history">
           <summary className="mt-4">実績による予定調整の履歴</summary>
           {[...receipts].reverse().map((receipt) => (
-            <details key={receipt.id}>
-              <summary>
+            <section className="mt-3" key={receipt.id}>
+              <h3 className="m-0 text-[1rem]">
                 {receipt.date} ·{' '}
                 {state.settings.materials.find((material) => material.id === receipt.materialId)
                   ?.name ?? receipt.materialId}{' '}
                 · {receiptLabel(receipt)}
-              </summary>
+              </h3>
               <ProgressReceiptView state={state} receipt={receipt} />
-            </details>
+            </section>
           ))}
         </details>
       )}

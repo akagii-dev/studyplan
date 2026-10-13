@@ -219,6 +219,7 @@ test('LAN画面で自動繰越済みを二重配分せず、保存済みの過�
   await page.reload();
   await page.getByRole('button', { name: '今後の予定', exact: true }).click();
   await page.getByRole('button', { name: '計画案を確認', exact: true }).click();
+  await page.locator('details.replan-details > summary').click();
   await expect(page.getByRole('region', { name: '選択した残量の配置案' })).toContainText('対象 5問');
   expect((await http<Envelope>(request, 'load_state')).data.plan).toEqual(source.plan);
   await page.screenshot({ path: info.outputPath('lan-past-proposal.png'), fullPage: true });

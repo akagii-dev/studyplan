@@ -232,10 +232,10 @@ export function History({
                         .filter((receipt) => receipt.recordId === r.id)
                         .reverse()
                         .map((receipt) => (
-                          <details key={receipt.id}>
-                            <summary>{receiptLabel(receipt)}</summary>
+                          <div className="mt-2" key={receipt.id}>
+                            <b>{receiptLabel(receipt)}</b>
                             <ProgressReceiptView state={state} receipt={receipt} />
-                          </details>
+                          </div>
                         ))}
                     </details>
                   )}

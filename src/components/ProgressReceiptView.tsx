@@ -1,6 +1,25 @@
 import { AppState, clock } from '../domain/model';
 import { ProgressReceipt, summarizePlanChanges } from '../domain/progressReceipt';
 import { duration } from './common';
+import { shortDate } from '../domain/calendar';
+import type { PlanChange } from '../domain/progressReceipt';
+
+/** One line per material round (or exam review), so a long reflow stays short. */
+function groupChanges(changes: PlanChange[]) {
+  const groups = new Map<string, { key: string; kind: PlanChange['kind']; materialId: string; round: number; from: string; to: string; items: PlanChange[] }>();
+  for (const item of changes) {
+    const key = JSON.stringify([item.kind, item.materialId, item.kind === 'review' ? 0 : item.round]);
+    const date = item.afterDate ?? item.date;
+    const group = groups.get(key);
+    if (!group) groups.set(key, { key, kind: item.kind, materialId: item.materialId, round: item.round, from: date, to: date, items: [item] });
+    else {
+      group.items.push(item);
+      if (date < group.from) group.from = date;
+      if (date > group.to) group.to = date;
+    }
+  }
+  return [...groups.values()];
+}
 
 const actionNames = { record: '記録', correct: '訂正', cancel: '取消' } as const;
 const statusNames = {
@@ -65,30 +84,33 @@ export function ProgressReceiptView({
       <strong>{receiptLabel(receipt)}</strong>
       {receipt.changes.length > 0 && (
         <ul>
-          {receipt.changes.map((item, index) => (
-            <li
-              key={`${item.date}/${item.materialId}/${item.round}/${item.kind}/${item.fixed}/${index}`}
-            >
-              {item.beforeDate && item.afterDate
-                ? `${item.beforeDate} → ${item.afterDate}`
-                : item.date}{' '}
-              ·{' '}
-              {item.kind === 'review'
-                ? '復習'
-                : `${materialName(item.materialId)} · ${item.round + 1}周目`}{' '}
-              {item.kind === 'review'
-                ? `${duration(item.beforeMinutes)} → ${duration(item.afterMinutes)}`
-                : item.beforeCount !== item.afterCount
-                  ? `${item.beforeCount} → ${item.afterCount}問`
-                  : `${item.afterCount}問 · 配置変更`}
-              {item.fixed ? ' · 固定' : ''}
-              {item.timeChanged && item.beforeCount === item.afterCount && (
-                <small className="block">
-                  時間 {slots(item.beforeSlots)} → {slots(item.afterSlots)}
-                </small>
-              )}
-            </li>
-          ))}
+          {groupChanges(receipt.changes).map((group) => {
+            const label = group.kind === 'review' ? '復習' : `${materialName(group.materialId)} · ${group.round + 1}周目`;
+            if (group.items.length === 1) {
+              const item = group.items[0];
+              return <li key={group.key}>
+                {item.beforeDate && item.afterDate ? `${item.beforeDate} → ${item.afterDate}` : item.date} · {label}{' '}
+                {item.kind === 'review'
+                  ? `${duration(item.beforeMinutes)} → ${duration(item.afterMinutes)}`
+                  : item.beforeCount !== item.afterCount
+                    ? `${item.beforeCount} → ${item.afterCount}問`
+                    : `${item.afterCount}問 · 配置変更`}
+                {item.fixed ? ' · 固定' : ''}
+                {item.timeChanged && item.beforeCount === item.afterCount && (
+                  <small className="block">時間 {slots(item.beforeSlots)} → {slots(item.afterSlots)}</small>
+                )}
+              </li>;
+            }
+            const before = group.items.reduce((n, item) => n + (group.kind === 'review' ? item.beforeMinutes : item.beforeCount), 0);
+            const after = group.items.reduce((n, item) => n + (group.kind === 'review' ? item.afterMinutes : item.afterCount), 0);
+            return <li key={group.key}>
+              {label} {shortDate(group.from)}〜{shortDate(group.to)}（{group.items.length}日）{' '}
+              {group.kind === 'review'
+                ? `計 ${duration(before)} → ${duration(after)}`
+                : before !== after ? `計 ${before} → ${after}問` : '配置変更'}
+              {group.items.some((item) => item.fixed) ? ' · 固定を含む' : ''}
+            </li>;
+          })}
         </ul>
       )}
       {receipt.status === 'unplaced' && (

@@ -29,7 +29,7 @@ function RecordInputDisclosure({ complete, expanded, onExpandedChange, unit, chi
     if (form) form.inert = !open;
   }, [open]);
   return <details ref={detailsRef} open={open}
-    className="daily-record-input relative mt-0 min-w-0 [&:not([open])>form]:pointer-events-none [&:not([open])>form]:absolute [&:not([open])>form]:inset-x-0 [&:not([open])>form]:top-full @max-[700px]:col-start-2 @max-[700px]:row-span-2 @max-[700px]:row-start-1 motion-safe:[&::details-content]:opacity-0 motion-safe:[&::details-content]:[transition:opacity_var(--page-fade-duration)_var(--page-fade-easing),content-visibility_var(--page-fade-duration)_var(--page-fade-easing)_allow-discrete] motion-safe:[&[open]::details-content]:opacity-100">
+    className="daily-record-input mt-0 min-w-0 @max-[700px]:col-start-2 @max-[700px]:row-span-2 @max-[700px]:row-start-1 motion-safe:[&::details-content]:opacity-0 motion-safe:[&::details-content]:[transition:opacity_var(--page-fade-duration)_var(--page-fade-easing),content-visibility_var(--page-fade-duration)_var(--page-fade-easing)_allow-discrete] motion-safe:[&[open]::details-content]:opacity-100">
     <summary className="min-h-11 content-center text-[.875rem] text-ink wrap-anywhere [&[hidden]]:hidden focus:not-focus-visible:[outline:none]" ref={summaryRef} hidden={!complete} onClick={event => {
       event.preventDefault();
       onExpandedChange(!open);

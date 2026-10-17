@@ -17,8 +17,9 @@
   --error-border: #d39a8c;
   --ink: #15130f;
   --muted: #575247;
-  --page: var(--surface);
-  --surface: #f6f3ec;
+  /* The page is the signal red under a halftone; content sits on white paper panels. */
+  --page: #d3170f;
+  --surface: #fbfaf7;
   --soft: #e8e2d5;
   --border: #d6cfc0;
   --control-border: #857e70;
@@ -66,6 +67,7 @@
   color-scheme: dark;
   --ink: #f3efe6;
   --muted: #b3ac9f;
+  --page: #0b0a09;
   --surface: #1f1c18;
   --soft: #2c2822;
   --border: #38342d;

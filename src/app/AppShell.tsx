@@ -9,11 +9,21 @@ import { Page, navigation, pageNames } from './navigation';
  * A tab on the black band. The current page sits on a slanted signal-color plate drawn behind
  * the label, so the label and its focus ring stay upright. On phones the band moves to the bottom.
  */
-const navButton = (active: boolean) =>
-  `relative isolate min-h-11 rounded-none bg-transparent px-4 text-[15px] whitespace-nowrap [border:0] before:absolute before:inset-y-1.5 before:inset-x-0 before:-z-1 before:-skew-x-[16deg] before:transition-[background-color] before:duration-150 hover:enabled:bg-transparent max-[700px]:min-h-14 max-[700px]:w-full max-[700px]:min-w-0 max-[700px]:px-px max-[700px]:text-[13px] max-[700px]:before:inset-x-1 max-[700px]:focus-visible:outline-offset-[-3px] ${
+const tilts = ['-rotate-[4deg]', 'rotate-[3deg]', '-rotate-[2deg]', 'rotate-[5deg]'];
+const navButton = (active: boolean, index: number) =>
+  `relative isolate min-h-11 rounded-none bg-transparent px-4 text-[16px] whitespace-nowrap [border:0] ${tilts[index % tilts.length]} before:absolute before:inset-y-1 before:inset-x-0 before:-z-1 before:-skew-x-[16deg] before:transition-[background-color] before:duration-150 hover:enabled:bg-transparent max-[700px]:min-h-14 max-[700px]:w-full max-[700px]:min-w-0 max-[700px]:px-px max-[700px]:text-[13px] max-[700px]:before:inset-x-1 max-[700px]:focus-visible:outline-offset-[-3px] ${
     active
-      ? 'active font-black text-on-accent before:bg-accent hover:enabled:text-on-accent'
-      : 'font-bold text-band-muted hover:enabled:text-on-band hover:enabled:before:bg-[color-mix(in_oklab,var(--on-band)_14%,transparent)]'}`;
+      ? 'active scale-115 font-black text-band before:bg-surface before:shadow-[4px_4px_0_var(--accent)] hover:enabled:text-band'
+      : 'font-black text-on-band hover:enabled:before:bg-accent'}`;
+
+/** Ransom-note title: each character cut out on its own plate, as in the game's menus. */
+const cutouts = [
+  'bg-band text-on-band -rotate-[5deg] text-[1.1em]',
+  'border-[3px] border-band bg-surface text-band rotate-[4deg]',
+  'bg-accent text-on-accent -rotate-[2deg] text-[1.2em]',
+  'bg-band text-on-band rotate-[6deg] text-[0.95em]',
+  'border-[3px] border-band bg-surface text-band -rotate-[6deg] text-[1.05em]',
+];
 
 export function AppShell({
   state,
@@ -116,10 +126,10 @@ export function AppShell({
           Study<span className="text-accent">/</span>Plan
         </a>
         <nav id="app-sidebar" aria-label="主な画面" className="flex gap-7 max-[700px]:fixed max-[700px]:right-0 max-[700px]:bottom-0 max-[700px]:left-0 max-[700px]:z-4 max-[700px]:grid max-[700px]:grid-cols-[repeat(4,minmax(0,1fr))] max-[700px]:gap-0 max-[700px]:border-t-4 max-[700px]:border-t-accent max-[700px]:bg-band max-[700px]:pb-[env(safe-area-inset-bottom,0px)]">
-          {navigation.map((n) => (
+          {navigation.map((n, index) => (
             <button
               key={n.id}
-              className={navButton(navigationPage === n.id)}
+              className={navButton(navigationPage === n.id, index)}
               aria-current={navigationPage === n.id ? 'page' : undefined}
               onClick={() => setPage(n.id)}
             >
@@ -140,7 +150,8 @@ export function AppShell({
         </span>
       </header>
       <main className="min-w-0 max-[700px]:pb-[calc(64px+env(safe-area-inset-bottom,0px))]">
-        <div className="@container m-auto max-w-[1280px] px-16 pt-12 pb-12 max-[1150px]:px-8 max-[1150px]:pt-8 max-[700px]:px-4 max-[700px]:pt-5 max-[700px]:pb-8">
+        {/* Content sits on a white paper panel with a hard ink shadow over the red page. */}
+        <div className="@container mx-auto mt-10 mb-12 max-w-[1280px] border-4 border-band bg-surface shadow-[12px_12px_0_var(--band)] px-16 pt-12 pb-12 max-[1359px]:mx-8 max-[700px]:mx-2 max-[700px]:mt-4 max-[700px]:shadow-[6px_6px_0_var(--band)] max-[1150px]:px-8 max-[1150px]:pt-8 max-[700px]:px-4 max-[700px]:pt-5 max-[700px]:pb-8">
           {demoMode && (
             <p className="mx-0 mt-0 mb-[1.25rem] border-b border-b-line pb-[0.75rem] text-[14px] text-muted" role="status">
               公開デモです。入力内容はこのブラウザー内だけに保存され、デスクトップ版とは共有されません。
@@ -149,11 +160,11 @@ export function AppShell({
           <div className={`flex items-center justify-between ${(page === 'future' || page === 'calendar') ? 'future-heading mb-2 max-w-[900px] flex-nowrap gap-3 [&>div]:min-w-0' : 'mb-7 max-[700px]:mb-[18px] max-[700px]:flex-wrap max-[700px]:gap-2'}`}>
             <div>
               {onBack && <button className="detail-back mb-[0.5rem]" onClick={onBack}>← {backLabel}へ戻る</button>}
-              <h1 className="mb-0 text-[32px] font-black tracking-[0.04em] max-[700px]:text-[24px]" ref={pageHeading} tabIndex={-1}>
-                {active.name}
+              <h1 className="mt-2 mb-2 text-[42px] font-black max-[700px]:text-[28px]" aria-label={active.name} ref={pageHeading} tabIndex={-1}>
+                {[...active.name].map((char, index) => (
+                  <span key={index} className={`inline-block px-1.5 leading-[1.3] ${index ? '-ms-0.5' : ''} ${cutouts[index % cutouts.length]}`}>{char}</span>
+                ))}
               </h1>
-              {/* The slanted rule under every page title, as in a game menu. */}
-              <span aria-hidden="true" className="mt-1 mb-2 block h-1.5 w-20 -skew-x-[24deg] bg-accent" />
             </div>
             {['dashboard', 'today'].includes(page) && (
               <span className="-skew-x-[12deg] bg-band px-3 py-1 text-[13px] font-bold text-on-band tabular-nums max-[900px]:hidden">

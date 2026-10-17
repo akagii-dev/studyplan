@@ -46,7 +46,7 @@ export function TodayClear({ rows }: { rows: Rows }) {
   return (
     <section
       aria-label="今日のミッション"
-      className="today-clear relative mb-6 bg-band px-6 pt-5 pb-6 text-on-band [clip-path:polygon(0_0,100%_0,calc(100%-24px)_100%,0_100%)] @max-[430px]:px-4"
+      className="today-clear relative mb-8 -rotate-[1.5deg] bg-band px-6 pt-5 pb-6 text-on-band [clip-path:polygon(0_0,100%_0,calc(100%-24px)_100%,0_100%)] @max-[430px]:px-4"
     >
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div className="min-w-0">
@@ -56,7 +56,7 @@ export function TodayClear({ rows }: { rows: Rows }) {
             {all && (
               <span
                 aria-hidden="true"
-                className={`ms-4 inline-block -rotate-[8deg] bg-band-accent px-3 py-0.5 align-middle text-[20px] leading-[1.3] font-black tracking-[0.1em] text-band ${landed ? 'motion-safe:animate-stamp' : ''}`}
+                className={`ms-4 inline-block -rotate-[10deg] -skew-x-[10deg] bg-band-accent px-4 py-0.5 align-middle text-[30px] shadow-[4px_4px_0_var(--on-band)] leading-[1.3] font-black tracking-[0.1em] text-band ${landed ? 'motion-safe:animate-stamp' : ''}`}
               >
                 ALL CLEAR
               </span>
@@ -64,8 +64,8 @@ export function TodayClear({ rows }: { rows: Rows }) {
           </p>
         </div>
         <p className="m-0 leading-none font-black tabular-nums text-on-band">
-          <span aria-hidden="true" className="text-[56px] text-band-accent @max-[430px]:text-[44px]">{cleared}</span>
-          <span aria-hidden="true" className="text-[24px] text-band-muted"> / {total}</span>
+          <span aria-hidden="true" className="text-[76px] text-band-accent @max-[430px]:text-[52px]">{cleared}</span>
+          <span aria-hidden="true" className="text-[28px] text-on-band"> / {total}</span>
           <span className="sr-only">{total}件中{cleared}件クリア</span>
         </p>
       </div>

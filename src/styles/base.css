@@ -2,9 +2,20 @@
 * {
   box-sizing: border-box;
 }
+/* Game UI backdrop: halftone dots and one black slash across the red page. */
 body {
   margin: 0;
-  background: var(--page);
+  background-color: var(--page);
+  background-image:
+    radial-gradient(color-mix(in oklab, var(--band) 24%, transparent) 1.6px, transparent 2px),
+    linear-gradient(112deg, transparent 0 64%, var(--band) 64% 71%, transparent 71% 74%, var(--band) 74% 75%, transparent 75%);
+  background-size: 9px 9px, 100% 100%;
+  background-attachment: fixed;
+}
+:root[data-appearance='dark'] body {
+  background-image:
+    radial-gradient(color-mix(in oklab, var(--accent) 30%, transparent) 1.6px, transparent 2px),
+    linear-gradient(112deg, transparent 0 64%, var(--accent) 64% 71%, transparent 71% 74%, var(--accent) 74% 75%, transparent 75%);
 }
 h1,
 h2,

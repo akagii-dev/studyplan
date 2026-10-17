@@ -6,7 +6,7 @@
 :root button:disabled,
 :root[data-theme] button:disabled {
   cursor: not-allowed;
-  background: var(--page);
+  background: var(--soft);
   color: var(--muted);
   border-color: var(--border);
   opacity: 1;
@@ -41,16 +41,28 @@
 .card h2 {
   padding-bottom: 8px;
 }
-/* Game UI: every section title starts with a slanted signal-color tab. */
-.card h2::before {
-  content: '';
+/* Game UI: a section title is a tilted ink plate with a signal-color shadow. */
+.card h2 {
   display: inline-block;
-  width: 10px;
-  height: 0.95em;
-  margin-inline-end: 10px;
-  vertical-align: -0.1em;
-  background: var(--accent);
-  transform: skewX(-18deg);
+  width: fit-content;
+  max-width: 100%;
+  padding: 2px 16px;
+  color: var(--surface);
+  background: var(--ink);
+  box-shadow: 4px 4px 0 var(--accent);
+  transform: rotate(-1.5deg) skewX(-10deg);
+  transform-origin: left center;
+}
+.card h2 :is(small, span) {
+  color: inherit;
+}
+.card .card h2 {
+  display: block;
+  padding: 0;
+  color: var(--ink);
+  background: none;
+  box-shadow: none;
+  transform: none;
 }
 .card .card h2 {
   border-bottom: 0;
@@ -175,6 +187,7 @@ select:hover:not(:disabled),
   font-weight: 800;
   letter-spacing: 0.04em;
   box-shadow: 4px 4px 0 var(--accent);
+  transform: skewX(-10deg);
   transition-property: background-color, border-color, box-shadow, translate;
   transition-duration: 120ms;
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);

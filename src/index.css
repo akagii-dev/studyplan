@@ -10,7 +10,7 @@
 /* Only the app's own components: test and document strings must not create utilities. */
 @source './';
 
-/* Warm grays with one theme accent; light/dark stay in the CSS variables. */
+/* Paper and ink with one signal color; light/dark stay in the CSS variables. */
 /* Spacing in px: the base font size is 14px, so rem-based steps would shrink. */
 @theme {
   --spacing: 4px;
@@ -19,6 +19,12 @@
   @keyframes schedule-appear {
     from { opacity: 0; }
     to { opacity: 1; }
+  }
+  /* A clear stamp lands once when a row or the whole day is completed. */
+  --animate-stamp: stamp 320ms cubic-bezier(0.2, 0, 0, 1) both;
+  @keyframes stamp {
+    from { opacity: 0; scale: 1.8; }
+    to { opacity: 1; scale: 1; }
   }
 }
 @theme inline {
@@ -30,6 +36,10 @@
   --color-line: var(--border);
   --color-control: var(--control-border);
   --color-accent: var(--accent);
+  --color-band: var(--band);
+  --color-on-band: var(--on-band);
+  --color-band-muted: var(--band-muted);
+  --color-band-accent: var(--band-accent);
   --color-accent-hover: var(--accent-hover);
   --color-on-accent: var(--on-accent);
   --color-action: var(--action);

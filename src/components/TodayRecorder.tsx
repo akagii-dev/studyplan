@@ -9,6 +9,7 @@ import { todayStudyRows } from '../domain/todayProgress';
 import { latestReceipt } from '../domain/progressReceipt';
 import { usePlanningClock } from '../hooks/usePlanningClock';
 import { ProgressReceiptView, receiptDetailLabel, receiptOutcome } from './ProgressReceiptView';
+import { ClearStamp, TodayClear, useNewlyCleared } from './TodayClear';
 
 function RecordInputDisclosure({ complete, expanded, onExpandedChange, unit, children }: {
   complete: boolean;
@@ -60,6 +61,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
   const [outsideRound, setOutsideRound] = useRecordInput('today/round', 0);
   const { busy, save: record } = useStudyRecord(update, `today/${date}`);
   const key = (materialId: string, round: number) => JSON.stringify([materialId, round]);
+  const landed = useNewlyCleared(rows, (row) => key(row.materialId, row.round));
   const savedReceipt = savedRecord ? latestReceipt(state, savedRecord.id) : undefined;
   const needsAttention = savedReceipt && ['unplaced', 'review', 'failed'].includes(savedReceipt.status);
 
@@ -110,15 +112,17 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
 
   return (
     <>
+      <TodayClear rows={rows} />
       {rows.length ? (
         <div className="daily-record-list border-t border-line" role="list">
           {rows.map((row) => {
             const id = key(row.materialId, row.round);
             return (
               <div role="listitem" key={id} className={`daily-record-row${row.progress.complete ? ' is-complete' : ''} grid min-w-0 grid-cols-[minmax(130px,1.3fr)_minmax(160px,1fr)_minmax(185px,auto)] items-center gap-x-4 gap-y-2 border-b border-line py-4 @max-[700px]:grid-cols-[minmax(0,1fr)_auto] @max-[430px]:block`}>
-                <div className="daily-record-name flex min-w-0 flex-wrap gap-x-2.5 gap-y-1 wrap-anywhere @max-[430px]:mb-1.5">
-                  <strong className={`text-[16px] ${row.progress.complete ? 'text-muted' : ''}`}>{row.materialName}</strong>
+                <div className="daily-record-name flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 wrap-anywhere @max-[430px]:mb-1.5">
+                  <strong className={`text-[17px] font-black ${row.progress.complete ? 'text-muted line-through decoration-accent decoration-[3px]' : ''}`}>{row.materialName}</strong>
                   <span className="text-muted">{row.round + 1}周目</span>
+                  {row.progress.complete && <ClearStamp animate={landed.has(id)} />}
                 </div>
                 <div className="daily-record-amounts flex min-w-0 flex-wrap justify-end gap-x-2.5 gap-y-1 text-right @max-[700px]:col-start-1 @max-[430px]:mb-1.5 @max-[430px]:justify-start @max-[430px]:text-left">
                   <ProgressValue value={row.progress}

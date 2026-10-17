@@ -23,7 +23,7 @@
 .card {
   background: transparent;
   border: 0;
-  border-top: 1px solid var(--border);
+  border-top: 2px solid var(--ink);
   border-radius: 0;
   padding: 28px 0 8px;
   margin-bottom: 24px;
@@ -40,6 +40,17 @@
 }
 .card h2 {
   padding-bottom: 8px;
+}
+/* Game UI: every section title starts with a slanted signal-color tab. */
+.card h2::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 0.95em;
+  margin-inline-end: 10px;
+  vertical-align: -0.1em;
+  background: var(--accent);
+  transform: skewX(-18deg);
 }
 .card .card h2 {
   border-bottom: 0;
@@ -155,11 +166,25 @@ select:hover:not(:disabled),
 .study-note textarea:hover:not(:disabled) {
   border-color: var(--ink);
 }
+/* The main action is an ink block with a hard signal-color shadow; pressing sinks it into the shadow. */
 .primary {
   color: var(--on-action);
   background: var(--action);
   border-color: var(--action);
   padding: 11px 19px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  box-shadow: 4px 4px 0 var(--accent);
+  transition-property: background-color, border-color, box-shadow, translate;
+  transition-duration: 120ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+.primary:active:not(:disabled) {
+  translate: 3px 3px;
+  box-shadow: 1px 1px 0 var(--accent);
+}
+.primary:disabled {
+  box-shadow: none;
 }
 .primary:hover:not(:disabled) {
   background: var(--action-hover);

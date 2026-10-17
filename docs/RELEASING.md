@@ -2,7 +2,7 @@
 
 版番号は、不具合・不便の修正ではpatch、UI変更ではminorを上げる。
 
-公開を依頼された場合に実施する。公開済みリリースの内容とタグは書き換えない。古いリリースはユーザーの指示があれば削除してよい（タグは残す）。配布物はWindows用インストーラー`StudyPlan-X.Y.Z-setup.exe`の1点だけとする。
+公開を依頼された場合に実施する。公開済みリリースの内容とタグは書き換えない。古いリリースはユーザーの指示があれば削除してよい（タグは残す）。配布物はWindows用インストーラー`StudyPlan-X.Y.Z-setup.exe`の1点だけとする。ゲームUI版（v1.x、ブランチ`claude/game-ui`）は製品名`StudyPlan Game`・識別子`jp.local.studyplan.game`で、`pnpm release`は`StudyPlanGame-X.Y.Z-setup.exe`を作る。mainからは公開しないため、タグ付け・push・`gh release create --verify-tag --latest=false`を手動で行い、通常版を最新（Latest）のまま保つ。
 
 1. `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`のアプリ版を揃え、`CHANGELOG.md`の「## vX.Y.Z の変更」とREADMEの最新版リンクを更新する。検証の要点は`docs/VALIDATION.md`へ記録する。
 2. `pnpm verify`と変更に応じた検証を行い、mainへコミットする。

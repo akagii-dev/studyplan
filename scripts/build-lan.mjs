@@ -14,7 +14,7 @@ const icons = [
 ];
 for (const [source, target] of icons) await copyFile(resolve(root, source), resolve(output, target));
 await writeFile(resolve(output, 'manifest.webmanifest'), JSON.stringify({
-  id: base, name: 'StudyPlan', short_name: 'StudyPlan', lang: 'ja',
+  id: base, name: 'StudyPlan Game', short_name: 'StudyPlan', lang: 'ja',
   start_url: base, scope: base, display: 'standalone',
   background_color: '#d3170f', theme_color: '#15130f',
   icons: icons.slice(0, 2).map(([, src, sizes]) => ({ src, sizes, type: 'image/png', purpose: 'any' })),

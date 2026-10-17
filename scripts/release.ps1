@@ -35,10 +35,12 @@ if (git status --porcelain --untracked-files=no) { Fail '未コミットの変�
 
 # 4. インストーラーを作成し release/ へ置く。
 Invoke-Checked 'pnpm' @('desktop:build')
-$built = "src-tauri/target/release/bundle/nsis/StudyPlan_${version}_x64-setup.exe"
+# The product name separates the game UI edition (StudyPlan Game) from the regular one.
+$product = (Get-Content -LiteralPath 'src-tauri/tauri.conf.json' -Raw -Encoding UTF8 | ConvertFrom-Json).productName
+$built = "src-tauri/target/release/bundle/nsis/${product}_${version}_x64-setup.exe"
 if (-not (Test-Path -LiteralPath $built)) { Fail "インストーラーが見つかりません: $built" }
 New-Item -ItemType Directory -Path 'release' -Force | Out-Null
-$installer = "release/StudyPlan-$version-setup.exe"
+$installer = "release/$($product -replace ' ', '')-$version-setup.exe"
 Copy-Item -LiteralPath $built -Destination $installer -Force
 Write-Output ("作成しました: $installer  SHA256 " + (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash)
 if (-not $Publish) { Write-Output '公開する場合は pnpm release -Publish を実行してください。'; exit 0 }
@@ -50,5 +52,5 @@ if (git tag --list $tag) { Fail "$tag は既に存在します。" }
 Invoke-Checked 'git' @('merge-base', '--is-ancestor', 'origin/main', 'HEAD')
 Invoke-Checked 'git' @('tag', $tag)
 Invoke-Checked 'git' @('push', 'origin', 'main', $tag)
-Invoke-Checked 'gh' @('release', 'create', $tag, $installer, '--verify-tag', '--title', "StudyPlan $tag", '--notes-file', $notes)
+Invoke-Checked 'gh' @('release', 'create', $tag, $installer, '--verify-tag', '--title', "$product $tag", '--notes-file', $notes)
 Invoke-Checked 'gh' @('release', 'view', $tag, '--json', 'tagName,isDraft,isPrerelease,assets', '--jq', '{tag: .tagName, draft: .isDraft, prerelease: .isPrerelease, assets: [.assets[].name]}')

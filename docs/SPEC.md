@@ -124,7 +124,7 @@ Windowsへの接続が必要で、LAN HTTPのオフライン編集・端末内�
 
 ## 保存
 
-正本はTauriのアプリデータディレクトリにある`studyplan.sqlite3`。Windowsでは通常 `%APPDATA%\jp.local.studyplan\studyplan.sqlite3`。
+正本はTauriのアプリデータディレクトリにある`studyplan.sqlite3`。Windowsでは通常 `%APPDATA%\jp.local.studyplan\studyplan.sqlite3`。ゲームUI版（v1、製品名StudyPlan Game）は識別子`jp.local.studyplan.game`で、`%APPDATA%\jp.local.studyplan.game\studyplan.sqlite3`に別に保存し、通常版と並べてインストールできる。通常版のデータは自動では引き継がず、通常版でバックアップを書き出してゲームUI版で復元する。
 
 SQLite内の構造:
 

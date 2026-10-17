@@ -40,7 +40,6 @@
 }
 .card h2 {
   padding-bottom: 8px;
-  border-bottom: 3px solid var(--accent);
 }
 .card .card h2 {
   border-bottom: 0;
@@ -149,33 +148,25 @@ td .actions {
 }
 button:hover:not(:disabled) {
   background: var(--soft);
-  border-color: var(--accent);
+  border-color: var(--ink);
 }
 input:hover:not(:disabled),
 select:hover:not(:disabled),
 .study-note textarea:hover:not(:disabled) {
-  border-color: var(--accent);
+  border-color: var(--ink);
 }
 .primary {
-  color: var(--on-accent);
-  background: var(--accent);
-  border-color: var(--accent);
+  color: var(--on-action);
+  background: var(--action);
+  border-color: var(--action);
   padding: 11px 19px;
 }
 .primary:hover:not(:disabled) {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
+  background: var(--action-hover);
+  border-color: var(--action-hover);
 }
 .primary.small {
   padding: 7px 12px;
-}
-:root[data-theme='lime'] button.primary:not(:disabled) {
-  background: #b5dc49;
-  border-color: #6e8e29;
-  color: #293a13;
-}
-:root[data-theme='lime'] button.primary:hover:not(:disabled) {
-  background: #a7ce3b;
 }
 .field {
   display: flex;
@@ -196,14 +187,14 @@ select:hover:not(:disabled),
   font-weight: 400;
   line-height: 1.6;
 }
-/* Secondary actions are outlined in the theme color. */
+/* Secondary actions stay neutral; the theme color marks state, not actions. */
 .actions button {
   font-size: 11px;
   padding: 7px 11px;
 }
 .actions button:not(.primary) {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--control-border);
+  color: var(--ink);
 }
 .text-danger {
   color: var(--error-ink);

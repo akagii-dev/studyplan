@@ -1,4 +1,3 @@
-import { CircleCheck } from 'lucide-react';
 import { progressView } from '../domain/progressView';
 
 const warning = 'quantity-warning font-bold text-error';
@@ -17,10 +16,8 @@ export function ProgressValue({ value, layout = 'inline-flex flex-wrap items-bas
   const alert = value.warning && !value.hasReport;
   return (
     <span className={`progress-value ${layout} tabular-nums ${className}`}>
-      <strong className={`${strongClassName} ${alert ? warning : tone}`.trim() || undefined}>
-        {value.complete && (
-          <CircleCheck aria-hidden="true" className="progress-check shrink-0 text-accent" size={16} strokeWidth={2.25} />
-        )}
+      {/* Completion is the accent color of the number itself, not an extra mark. */}
+      <strong className={`${strongClassName} ${alert ? warning : value.complete ? 'text-accent' : tone}`.trim() || undefined}>
         {value.text}
       </strong>
       {value.supplement && <span className={value.warning ? warning : undefined}>{value.supplement}</span>}

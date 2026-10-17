@@ -177,7 +177,7 @@ export function NumberInput({
       )}
       {edit && (
         <button
-          className="p-0 text-[10px] [border:0] enabled:bg-transparent enabled:text-muted hover:enabled:border-accent hover:enabled:bg-soft"
+          className="p-0 text-[10px] [border:0] enabled:bg-transparent enabled:text-muted hover:enabled:border-ink hover:enabled:bg-soft"
           type="button"
           onClick={() => {
             setError('');

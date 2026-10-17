@@ -104,7 +104,7 @@ export function Exams({
                   aria-label={`表示色 ${c}`}
                   title={examColors.find((color) => color.value === c)?.name}
                   aria-pressed={form.color === c}
-                  className={`swatch size-8 min-w-8! rounded-[50%] border-[3px] border-white p-0 text-white! hover:enabled:border-accent ${form.color === c ? 'selected outline-2 outline-accent' : ''}`}
+                  className={`swatch size-8 min-w-8! rounded-[50%] border-[3px] border-white p-0 text-white! hover:enabled:border-ink ${form.color === c ? 'selected outline-2 outline-accent' : ''}`}
                   style={{ background: c }}
                   onClick={() => set({ ...form, color: c })}
                 >

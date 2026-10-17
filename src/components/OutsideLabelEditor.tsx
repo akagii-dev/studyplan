@@ -88,7 +88,7 @@ export function OutsideLabelEditor({
     <button
       ref={button}
       type="button"
-      className="outside-label-edit size-[28px] min-w-[28px] border-transparent bg-transparent p-0 hover:enabled:border-accent hover:enabled:bg-soft"
+      className="outside-label-edit size-[28px] min-w-[28px] border-transparent bg-transparent p-0 hover:enabled:border-ink hover:enabled:bg-soft"
       aria-label={`${range}の「${title ?? '学習対象外・未設定'}」の名前を編集`}
       title="名前を編集"
       onClick={() => {

@@ -1,5 +1,3 @@
-import { CalendarDays, History, Settings2, ListChecks } from 'lucide-react';
-
 export type Page =
   | 'dashboard'
   | 'future'
@@ -23,10 +21,10 @@ export type Page =
   | 'replan';
 
 export const navigation = [
-  { id: 'dashboard', name: '今日', icon: ListChecks },
-  { id: 'future', name: '今後の予定', icon: CalendarDays },
-  { id: 'history', name: '記録履歴', icon: History },
-  { id: 'settings', name: '設定', icon: Settings2 },
+  { id: 'dashboard', name: '今日' },
+  { id: 'future', name: '今後の予定' },
+  { id: 'history', name: '記録履歴' },
+  { id: 'settings', name: '設定' },
 ] as const;
 
 export const pageNames: Record<Page, string> = {

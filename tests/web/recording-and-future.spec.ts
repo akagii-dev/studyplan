@@ -46,23 +46,9 @@ test('今日を含む週・同日の詳細往復・主画面再入場・日跨�
     await expect(arrow).toBeFocused();
     expect(await arrow.evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe('none');
   }
-  if (info.project.name === 'wide') {
-    const toggle = page.getByRole('button', { name: 'サイドバーを折りたたむ', exact: true });
-    await toggle.focus(); await page.keyboard.press('Enter');
-    const open = page.getByRole('button', { name: 'サイドバーを開く', exact: true });
-    await expect(open).toHaveAttribute('aria-expanded', 'false');
-    await expect(open).toBeFocused();
-    await expect(page.locator('#app-sidebar')).toBeHidden();
-    expect((await open.boundingBox())!.x).toBe(0);
-    await page.screenshot({ path: info.outputPath('future-sidebar-collapsed.png'), fullPage: true });
-    await page.keyboard.press('Space');
-    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    await expect(toggle).toBeFocused();
-    await expect(page.locator('#app-sidebar')).toBeVisible();
-  } else {
-    await expect(page.locator('.sidebar-toggle')).toBeHidden();
-    await expect(page.locator('#app-sidebar')).toBeVisible();
-  }
+  // The navigation is a top bar (bottom bar on phones); there is no sidebar to collapse.
+  await expect(page.locator('.sidebar-toggle')).toHaveCount(0);
+  await expect(page.locator('#app-sidebar')).toBeVisible();
   await page.locator('.future-balance > summary').click();
   await expect(page.getByRole('list', { name: '試験の優先度' })).toContainText('検証用試験 · 優先度：ふつう');
   await page.locator('.future-balance > summary').click();
@@ -856,7 +842,9 @@ test('今日の完了行・追加入力を追加・訂正・取消で維持す�
   const otherRow = page.locator('.daily-record-row').filter({ hasText: '別問題集' });
   await expect(otherRow).not.toHaveClass(/is-complete/);
   // Completion is shown by a check icon and the label, not by filling the row.
-  await expect(row.locator('.progress-check')).toBeVisible();
+  // Completion is the accent color of the number itself, with no extra mark.
+  await expect(row.locator('.progress-check')).toHaveCount(0);
+  await expect(row.locator('.progress-value strong')).toHaveClass(/text-accent/);
   await expect(otherRow.locator('.progress-check')).toHaveCount(0);
   for (const appearance of ['light', 'dark']) {
     await page.evaluate(mode => document.documentElement.dataset.appearance = mode, appearance);

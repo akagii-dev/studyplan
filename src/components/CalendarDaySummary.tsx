@@ -45,7 +45,7 @@ export function CalendarDaySummary({
         return (
           <button
             key={id}
-            className={`calendar-event mb-1 block w-full min-w-0 whitespace-normal rounded-[2px] border-0 border-l-4 px-1 text-left text-[11px] text-ink wrap-anywhere bg-[color-mix(in_srgb,var(--exam-color,var(--accent))_12%,var(--surface))] hover:enabled:bg-[color-mix(in_srgb,var(--exam-color,var(--accent))_22%,var(--surface))] [&_small]:text-[10px] [&_small]:text-muted [&_small]:wrap-anywhere ${density === 'standard' ? 'py-1.5' : 'py-[3px]'}`}
+            className={`calendar-event mb-1 block w-full min-w-0 whitespace-normal rounded-none border-0 border-l-4 px-1 text-left text-[11px] text-ink wrap-anywhere bg-[color-mix(in_srgb,var(--exam-color,var(--accent))_12%,var(--surface))] hover:enabled:bg-[color-mix(in_srgb,var(--exam-color,var(--accent))_22%,var(--surface))] [&_small]:text-[10px] [&_small]:text-muted [&_small]:wrap-anywhere ${density === 'standard' ? 'py-1.5' : 'py-[3px]'}`}
             data-exam={id}
             style={{ borderLeftColor: exam?.color, '--exam-color': exam?.color } as CSSProperties}
             onClick={onSelect}

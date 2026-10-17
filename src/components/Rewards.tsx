@@ -60,7 +60,7 @@ export function RewardProgress({ state, date }: { state: AppState; date: string 
   const today = pointsOn(state, date);
   const percent = Math.min(100, (current / cost) * 100);
   return (
-    <section aria-labelledby="reward-title" className={panel}>
+    <section aria-labelledby="reward-title" aria-describedby="reward-detail" tabIndex={0} className={`group ${panel} focus-visible:outline-offset-4`}>
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div className="min-w-0">
           <p className={eyebrow} lang="en">REWARD</p>
@@ -91,7 +91,7 @@ export function RewardProgress({ state, date }: { state: AppState; date: string 
       <p className="mt-1 mb-0 text-[14px] text-on-band">
         Lv{level + 1}の報酬：<strong className="font-display font-black italic">{levelReward(level + 1)}</strong>
       </p>
-      <p className="mt-3 mb-0 text-[12px] text-band-muted tabular-nums">
+      <p id="reward-detail" className="invisible mt-3 mb-0 text-[12px] text-band-muted tabular-nums group-hover:visible group-focus-visible:visible">
         合計 {pt(total)} · 今日 +{pt(today)} · 勉強1時間 {pt(HOURLY_POINTS)}
       </p>
     </section>

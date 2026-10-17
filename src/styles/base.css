@@ -101,11 +101,11 @@ button {
   cursor: pointer;
   color: var(--ink);
   background: var(--surface);
-  border: 1px solid var(--control-border);
+  border: 2px solid var(--ink);
   border-radius: var(--radius-control);
   min-height: 40px;
   padding: 8px 16px;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.4;
   transition:
     background 0.12s,
@@ -168,4 +168,12 @@ h1 {
   letter-spacing: 0.02em;
   margin-bottom: 8px;
   font-weight: 900;
+}
+/* Game UI: a disclosure title reads like a menu item, with a signal-color marker. */
+summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+summary::marker {
+  color: var(--accent);
 }

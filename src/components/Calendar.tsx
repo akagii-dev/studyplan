@@ -195,7 +195,7 @@ export function Calendar({
     return (
       <div
         key={s.id}
-        className={`session-detail density-${level} ${todayOnly ? 'my-[18px]' : 'my-[15px]'} rounded-[3px] border-l-[3px] border-l-[color:var(--ring)] bg-surface px-[11px] py-2.5`}
+        className={`session-detail density-${level} ${todayOnly ? 'my-[18px]' : 'my-[15px]'} border-2 border-ink border-l-8 border-l-accent bg-surface px-[11px] py-2.5 shadow-[4px_4px_0_var(--ink)]`}
         style={{ borderLeftColor: e?.color, '--exam-color': e?.color } as CSSProperties}
       >
         {level !== 'compact' && (
@@ -278,7 +278,7 @@ export function Calendar({
       x.session ? (
         detail(x.session, level)
       ) : (
-        <div className={`busy-event rounded-[6px] bg-[var(--busy-bg)] text-[11px] text-[var(--busy-ink)] ${todayOnly ? 'my-[18px] p-2' : 'mb-4 p-3'}`} key={x.id}>
+        <div className={`busy-event bg-[var(--busy-bg)] text-[11px] text-[var(--busy-ink)] ${todayOnly ? 'my-[18px] p-2' : 'mb-4 p-3'}`} key={x.id}>
           <b>
             {x.busy!.kind === 'class'
               ? '授業：' + (x.busy!.name.trim() || '大学の授業')
@@ -384,9 +384,9 @@ export function Calendar({
             <ChevronRight size={20} aria-hidden />
           </button>
           <div className="calendar-today-actions flex items-center gap-1">
-            <button className={`future-today ${periodButton} px-3.5 py-2.5 text-[.875rem] font-medium`}
+            <button className={`future-today ${periodButton} px-3.5 py-2.5 font-display text-[.875rem] font-black italic`} aria-label="今日"
               onClick={() => { setShowDay(false); setSelected(today()); }}>
-              今日
+              <span lang="en">TODAY</span>
             </button>
             <button ref={settingsButtonRef} className={`calendar-settings-toggle ${periodButton} px-2.5 py-[7px] text-[11px]`}
               aria-label="カレンダーの表示設定" aria-haspopup="dialog"
@@ -483,11 +483,11 @@ export function Calendar({
       <div className="calendar-only-layout grid min-w-0 gap-5" ref={calendarRef} onFocusCapture={(event) => { if (showDay && !detailRef.current?.contains(event.target)) setShowDay(false); }}>
         {selectedDayPanel}
         <div
-          className={`calendar-grid ${view} density-${density} mb-[23px] overflow-hidden rounded-card border border-line bg-surface`}
+          className={`calendar-grid ${view} density-${density} mb-[23px] overflow-hidden border-2 border-ink bg-surface shadow-[8px_8px_0_var(--ink)]`}
         >
-          <div className="calendar-head grid grid-cols-[repeat(7,minmax(0,1fr))] border-b border-line bg-surface @max-[680px]:hidden">
+          <div className="calendar-head grid grid-cols-[repeat(7,minmax(0,1fr))] bg-band text-on-band @max-[680px]:hidden">
             {[1, 2, 3, 4, 5, 6, 0].map((d) => (
-              <span key={d} className="py-3 text-center text-[12px] font-semibold text-muted @max-[430px]:py-2">{weekdays[d]}</span>
+              <span key={d} className="py-2.5 text-center font-display text-[13px] font-black italic text-on-band @max-[430px]:py-2">{weekdays[d]}</span>
             ))}
           </div>
           <div className="calendar-body grid gap-px @max-[680px]:gap-3">
@@ -506,7 +506,7 @@ export function Calendar({
                         aria-label={`${d}を表示`}
                         aria-pressed={d === selected}
                       >
-                        {d === today() ? <span className="today-date-badge mx-auto grid size-[2rem] place-items-center rounded-full bg-accent text-on-accent">{Number(d.slice(8))}</span> : shortDayLabel(d)}
+                        {d === today() ? <span className="today-date-badge mx-auto grid h-[2rem] min-w-[2.5rem] -skew-x-[12deg] place-items-center bg-accent px-1.5 font-display font-black italic text-on-accent shadow-[2px_2px_0_var(--ink)]">{Number(d.slice(8))}</span> : shortDayLabel(d)}
                       </button>
                         <CalendarDaySummary
                           state={state}

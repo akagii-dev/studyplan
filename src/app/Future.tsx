@@ -194,7 +194,7 @@ export function Future({
           </time>
           <button className={`shrink-0 p-3 ${periodButton}`} aria-label="次の週" onClick={() => moveWeek(addDays(week, 7))}><ChevronRight className="shrink-0" size={20} strokeWidth={2.5} aria-hidden="true" /></button>
         </div>
-        <button className={periodButton} onClick={() => moveWeek(currentWeek)}>今日</button>
+        <button className={`${periodButton} font-display font-black italic`} aria-label="今日" onClick={() => moveWeek(currentWeek)}><span lang="en">TODAY</span></button>
         </div>
         <ScheduleViewSwitch calendar={false} onSwitch={() => onCalendar(week, false)} />
       </div>
@@ -250,9 +250,9 @@ export function Future({
             }
             return (
               <section className="future-day grid grid-cols-[9rem_minmax(0,1fr)] gap-x-4 gap-y-2 py-2 [.future-day+&]:border-t [.future-day+&]:border-line max-[600px]:grid-cols-[minmax(0,1fr)] max-[600px]:gap-0" key={date}>
-                <h2 className="m-0 mb-1.5 flex flex-wrap content-start items-center gap-x-1.5 text-[17px]">
+                <h2 className="m-0 mb-1.5 flex flex-wrap content-start items-center gap-x-1.5 font-display text-[18px] font-black italic">
                   <time dateTime={date}>{shortDayLabel(date)}</time>
-                  {date === reference && <span className="future-today ms-0 -skew-x-[12deg] bg-accent px-2 text-[.8125rem] font-display font-black italic text-on-accent">今日</span>}
+                  {date === reference && <span className="future-today ms-0 -skew-x-[12deg] bg-accent px-2 text-[.8125rem] font-display font-black italic text-on-accent"><span aria-hidden="true" lang="en">TODAY</span><span className="sr-only">今日</span></span>}
                 </h2>
                 <ul className="m-0 min-w-0 list-none p-0">
                   {date <= reference && quantity.rows.map((row) => {
@@ -291,7 +291,7 @@ export function Future({
                             ? `${state.settings.exams.find((exam) => exam.id === session.examId)?.name ?? '試験'} · 復習`
                             : `${state.settings.materials.find((material) => material.id === session.materialId)?.name ?? session.materialId} · ${session.round + 1}周目`}
                         </span>
-                        <span className={quantityText}><strong className="text-[1.125rem] tabular-nums">
+                        <span className={quantityText}><strong className="font-display text-[1.125rem] font-black italic tabular-nums">
                           {session.kind === 'review' ? duration(minutes) : progressView({
                             planned: count, actual: 0, reported: false,
                             unit: quantity.rows.find(row => row.materialId === session.materialId && row.round === session.round)?.unit ??

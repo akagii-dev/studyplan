@@ -180,9 +180,11 @@ td .actions {
   min-height: 44px;
   padding: 10px 12px;
 }
+/* A secondary button inverts to an ink plate on hover, like a highlighted menu entry. */
 button:hover:not(:disabled) {
-  background: var(--soft);
+  background: var(--ink);
   border-color: var(--ink);
+  color: var(--surface);
 }
 input:hover:not(:disabled),
 select:hover:not(:disabled),

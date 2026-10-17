@@ -158,7 +158,7 @@ it('標準表示は今日を含む週で、前日に選んだ手動範囲は復�
   const selected = addDays(today(), 7);
   const html = renderToStaticMarkup(createElement(Future, { ...props, selection: { from: selected, selectedOn: today() } }));
   expect(html).toContain(`dateTime="${startOfWeek(selected)}"`);
-  expect(html).toContain('今日</button>');
+  expect(html).toContain('aria-label="今日"');
 });
 
 it('残量の内訳表示を廃止しても未配置量・理由と要確認を保持し、表示で状態を変えない', () => {

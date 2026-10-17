@@ -120,7 +120,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
             return (
               <div role="listitem" key={id} className={`daily-record-row${row.progress.complete ? ' is-complete' : ''} grid min-w-0 grid-cols-[minmax(130px,1.3fr)_minmax(160px,1fr)_minmax(185px,auto)] items-center gap-x-4 gap-y-2 border-b border-line py-4 @max-[700px]:grid-cols-[minmax(0,1fr)_auto] @max-[430px]:block`}>
                 <div className="daily-record-name flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 wrap-anywhere @max-[430px]:mb-1.5">
-                  <strong className={`text-[17px] font-black ${row.progress.complete ? 'text-muted line-through decoration-accent decoration-[3px]' : ''}`}>{row.materialName}</strong>
+                  <strong className={`text-[17px] font-black ${row.progress.complete ? '-rotate-[1.5deg] -skew-x-[10deg] bg-ink px-2.5 text-surface shadow-[3px_3px_0_var(--accent)]' : ''}`}>{row.materialName}</strong>
                   <span className="text-muted">{row.round + 1}周目</span>
                   {row.progress.complete && <ClearStamp animate={landed.has(id)} />}
                 </div>

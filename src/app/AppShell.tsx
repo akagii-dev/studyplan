@@ -18,11 +18,11 @@ const navButton = (active: boolean, index: number) =>
 
 /** Ransom-note title: each character cut out on its own plate, as in the game's menus. */
 const cutouts = [
-  'bg-band text-on-band -rotate-[5deg] text-[1.1em]',
-  'border-[3px] border-band bg-surface text-band rotate-[4deg]',
+  'bg-ink text-surface -rotate-[5deg] text-[1.1em]',
+  'border-[3px] border-ink bg-surface text-ink rotate-[4deg]',
   'bg-accent text-on-accent -rotate-[2deg] text-[1.2em]',
-  'bg-band text-on-band rotate-[6deg] text-[0.95em]',
-  'border-[3px] border-band bg-surface text-band -rotate-[6deg] text-[1.05em]',
+  'bg-ink text-surface rotate-[6deg] text-[0.95em]',
+  'border-[3px] border-ink bg-surface text-ink -rotate-[6deg] text-[1.05em]',
 ];
 
 export function AppShell({

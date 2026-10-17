@@ -22,7 +22,7 @@
 
 「バックアップ」から設定・計画・実績・入力途中を `.studyplan.json` に保存できます。復元は内容の確認後に全体を置き換え、直前の状態に1回分戻せます。
 
-[最新版 v0.17.0](https://github.com/akagii-dev/studyplan/releases/tag/v0.17.0)のインストーラー `StudyPlan-0.17.0-setup.exe` をダウンロードして実行し、画面の案内に沿ってインストールしてください。管理者権限は不要で、スタートメニューから起動できます。Windows + Microsoft Edge WebView2 Runtimeが必要です。外部アカウントは不要です。
+[最新版 v1.0.0](https://github.com/akagii-dev/studyplan/releases/tag/v1.0.0)のインストーラー `StudyPlan-1.0.0-setup.exe` をダウンロードして実行し、画面の案内に沿ってインストールしてください。管理者権限は不要で、スタートメニューから起動できます。Windows + Microsoft Edge WebView2 Runtimeが必要です。外部アカウントは不要です。
 
 データの保存先は通常 `%APPDATA%\jp.local.studyplan\studyplan.sqlite3`。開発用テストデータは別フォルダーに分離します。保存中にウィンドウを閉じた場合は、最後の入力の保存を待ってから終了します。保存に失敗した場合は終了を中止して知らせます。強制終了や電源断はこの待機の対象外です。
 
@@ -114,3 +114,7 @@ SQLiteの保存データ、`.studyplan.json` バックアップ、`.env`、実�
 ## 変更履歴
 
 過去の変更は[CHANGELOG.md](CHANGELOG.md)にまとめています。開発時の方針は[CLAUDE.md](CLAUDE.md)を参照してください。
+
+## 使用している書体
+
+見出しなどの表示用に [Montserrat](https://github.com/JulietaUla/Montserrat)（Copyright 2011 The Montserrat Project Authors）と [Zen Kaku Gothic New](https://github.com/googlefonts/zen-kakugothic)（Copyright 2022 The Zen Project Authors）をアプリに同梱しています。どちらも SIL Open Font License 1.1 です。

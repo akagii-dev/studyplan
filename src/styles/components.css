@@ -45,20 +45,29 @@
 .card h2 {
   display: inline-block;
   width: fit-content;
-  max-width: 100%;
+  max-width: calc(100% - 16px);
   padding: 2px 16px;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-style: italic;
   color: var(--surface);
   background: var(--ink);
   box-shadow: 4px 4px 0 var(--accent);
-  transform: rotate(-1.5deg) skewX(-10deg);
+  /* Shifted inward so the slant stays inside its card even where a utility clears the margin. */
+  transform: translateX(8px) rotate(-1.5deg) skewX(-10deg);
   transform-origin: left center;
 }
 .card h2 :is(small, span) {
-  color: inherit;
+  /* Outranks the muted utility on counts such as 3/3, which would vanish on the ink plate. */
+  color: inherit !important;
 }
 .card .card h2 {
   display: block;
+  max-width: 100%;
   padding: 0;
+  font-family: inherit;
+  font-weight: 700;
+  font-style: normal;
   color: var(--ink);
   background: none;
   box-shadow: none;
@@ -150,10 +159,12 @@ td .actions {
   margin-bottom: 14px;
 }
 .error {
-  color: var(--error-ink);
+  color: var(--error-on-bg);
   background: var(--error-bg);
-  border: 1px solid var(--error-border);
-  border-radius: 7px;
+  border: 0;
+  border-inline-start: 8px solid var(--error-border);
+  border-radius: 0;
+  font-weight: 700;
   padding: 12px;
   font-size: 12px;
   white-space: pre-line;
@@ -184,7 +195,9 @@ select:hover:not(:disabled),
   background: var(--action);
   border-color: var(--action);
   padding: 11px 19px;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-style: italic;
   letter-spacing: 0.04em;
   box-shadow: 4px 4px 0 var(--accent);
   transform: skewX(-10deg);
@@ -247,8 +260,9 @@ select:hover:not(:disabled),
 .confirmation-panel {
   padding: 20px 24px;
   background: var(--warning-bg);
-  border: 1px solid var(--warning-border);
-  border-radius: 9px;
+  border: 2px solid var(--warning-border);
+  border-radius: 0;
+  box-shadow: 6px 6px 0 var(--accent);
   margin: 20px 0;
   color: var(--warning-ink);
 }

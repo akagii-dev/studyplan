@@ -252,7 +252,7 @@ export function Future({
               <section className="future-day grid grid-cols-[9rem_minmax(0,1fr)] gap-x-4 gap-y-2 py-2 [.future-day+&]:border-t [.future-day+&]:border-line max-[600px]:grid-cols-[minmax(0,1fr)] max-[600px]:gap-0" key={date}>
                 <h2 className="m-0 mb-1.5 flex flex-wrap content-start items-center gap-x-1.5 text-[17px]">
                   <time dateTime={date}>{shortDayLabel(date)}</time>
-                  {date === reference && <span className="future-today ms-0 -skew-x-[12deg] bg-accent px-2 text-[.8125rem] font-black text-on-accent">今日</span>}
+                  {date === reference && <span className="future-today ms-0 -skew-x-[12deg] bg-accent px-2 text-[.8125rem] font-display font-black italic text-on-accent">今日</span>}
                 </h2>
                 <ul className="m-0 min-w-0 list-none p-0">
                   {date <= reference && quantity.rows.map((row) => {

@@ -2,6 +2,7 @@ import { ChevronRight } from 'lucide-react';
 import { Props, duration } from '../components/common';
 import { ShortfallDetails } from '../components/ShortfallDetails';
 import { StudyNote } from '../components/StudyNote';
+import { LoginBonus, RewardProgress } from '../components/Rewards';
 import { TodayRecorder, RecordTarget } from '../components/TodayRecorder';
 import { today } from '../domain/model';
 import { currentPlanReconciliation, currentProgressAdjustment } from '../domain/progressAdjustment';
@@ -68,6 +69,8 @@ export function Dashboard({
           </div>
         )}
       </section>
+      <LoginBonus state={state} date={today()} />
+      <RewardProgress state={state} date={today()} />
       <ShortfallDetails state={state} onReview={onReview} />
       <StudyNote state={state} update={update} />
     </div>

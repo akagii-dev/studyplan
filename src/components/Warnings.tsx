@@ -32,7 +32,7 @@ export function Warning({
   if (context?.state.ignoredWarnings?.[id]?.version === stamp) return null;
   const expanded = context?.state.warningExpanded?.[id] ?? true;
   return (
-    <section className={`warning dismissible-warning my-5 rounded-[9px] border border-warning-line bg-warning-bg px-6 py-5 text-warning wrap-anywhere [&_h3]:[color:inherit] [&_li]:text-[11px] [&_p]:text-[12px] [&_p]:[color:inherit] [&_small]:[color:inherit] ${className}`} aria-label={label ?? title}>
+    <section className={`warning dismissible-warning my-5 border-2 border-warning-line bg-warning-bg shadow-[6px_6px_0_var(--accent)] px-6 py-5 text-warning wrap-anywhere [&_h3]:[color:inherit] [&_li]:text-[11px] [&_p]:text-[12px] [&_p]:[color:inherit] [&_small]:[color:inherit] ${className}`} aria-label={label ?? title}>
       <div className="flex justify-between gap-3 [align-items:start] @max-[430px]:flex-wrap">
         <button
           className="bg-transparent px-0 py-1 text-left font-[650] [border:0] [color:inherit] [justify-content:start] wrap-anywhere hover:enabled:bg-soft"

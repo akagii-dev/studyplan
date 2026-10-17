@@ -41,6 +41,10 @@ function RecordInputDisclosure({ complete, expanded, onExpandedChange, unit, chi
   </details>;
 }
 
+/** The material name and its round share one title style; a cleared row puts both on ink plates. */
+const rowTitle = (complete: boolean) =>
+  `text-[17px] font-display font-black italic ${complete ? '-rotate-[1.5deg] -skew-x-[10deg] bg-ink px-2.5 text-surface shadow-[3px_3px_0_var(--accent)]' : ''}`;
+
 export interface RecordTarget {
   materialId: string;
   round: number;
@@ -64,6 +68,14 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
   const landed = useNewlyCleared(rows, (row) => key(row.materialId, row.round));
   const savedReceipt = savedRecord ? latestReceipt(state, savedRecord.id) : undefined;
   const needsAttention = savedReceipt && ['unplaced', 'review', 'failed'].includes(savedReceipt.status);
+  // Points of this record, plus the login bonus when it was the day's first counted record.
+  const earned = savedRecord ? (() => {
+    const entries = state.rewards?.entries ?? [];
+    const own = entries.find((e) => e.recordId === savedRecord.id);
+    const first = state.records.find((r) => r.date === date && !r.cancelled && r.count > 0);
+    const login = first?.id === savedRecord.id ? entries.find((e) => e.kind === 'login' && e.date === date)?.points ?? 0 : 0;
+    return (own?.points ?? 0) + login;
+  })() : 0;
 
   useEffect(() => {
     if (!target || handled.current === target.token) return;
@@ -120,8 +132,8 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
             return (
               <div role="listitem" key={id} className={`daily-record-row${row.progress.complete ? ' is-complete' : ''} grid min-w-0 grid-cols-[minmax(130px,1.3fr)_minmax(160px,1fr)_minmax(185px,auto)] items-center gap-x-4 gap-y-2 border-b border-line py-4 @max-[700px]:grid-cols-[minmax(0,1fr)_auto] @max-[430px]:block`}>
                 <div className="daily-record-name flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 wrap-anywhere @max-[430px]:mb-1.5">
-                  <strong className={`text-[17px] font-black ${row.progress.complete ? '-rotate-[1.5deg] -skew-x-[10deg] bg-ink px-2.5 text-surface shadow-[3px_3px_0_var(--accent)]' : ''}`}>{row.materialName}</strong>
-                  <span className="text-muted">{row.round + 1}周目</span>
+                  <strong className={rowTitle(row.progress.complete)}>{row.materialName}</strong>
+                  <span className={rowTitle(row.progress.complete)}>{row.round + 1}周目</span>
                   {row.progress.complete && <ClearStamp animate={landed.has(id)} />}
                 </div>
                 <div className="daily-record-amounts flex min-w-0 flex-wrap justify-end gap-x-2.5 gap-y-1 text-right @max-[700px]:col-start-1 @max-[430px]:mb-1.5 @max-[430px]:justify-start @max-[430px]:text-left">
@@ -194,6 +206,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
         <div className="daily-record-saved mt-3 text-ink" role="status">
           <p>
             {savedRecord.count}{savedRecord.unit}を記録しました。
+            {earned > 0 && <strong className="ms-2 font-display font-black italic text-accent">+{earned.toLocaleString('ja-JP')}pt</strong>}
           </p>
           {needsAttention && <p>{receiptOutcome(savedReceipt)}</p>}
           {savedReceipt && (needsAttention || savedReceipt.changes.length > 0) && (

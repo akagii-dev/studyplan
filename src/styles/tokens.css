@@ -9,12 +9,15 @@
   --busy-ink: #15130f;
   --busy-muted: #4f4a40;
   --busy-border: #857e70;
-  --warning-bg: #f8f3e7;
-  --warning-ink: #6a4c17;
-  --warning-border: #c9b27c;
-  --error-bg: #fbefeb;
-  --error-ink: #93291a;
-  --error-border: #d39a8c;
+  /* Status colors follow the game palette: warnings are paper framed in ink, errors are
+   * signal red on paper (an error banner is an ink plate with a signal stripe). */
+  --warning-bg: #ebe4d4;
+  --warning-ink: #15130f;
+  --warning-border: #15130f;
+  --error-bg: #15130f;
+  --error-ink: #b3150c;
+  --error-border: #c8231a;
+  --error-on-bg: #f6f3ec;
   --ink: #15130f;
   --muted: #575247;
   /* The page is the signal red under a halftone; content sits on white paper panels. */
@@ -50,6 +53,7 @@
   line-height: 1.7;
 }
 :root[data-theme='sky'] {
+  --page: #1c4fb0;
   --band-accent: #6aa6ff;
   --accent: #1d5bb0;
   --accent-hover: #164a91;
@@ -57,6 +61,7 @@
   --art: #d2e0f5;
 }
 :root[data-theme='lime'] {
+  --page: #3a7012;
   --band-accent: #9fd65a;
   --accent: #3d7012;
   --accent-hover: #2f580d;
@@ -88,12 +93,13 @@
   --busy-ink: #f3efe6;
   --busy-muted: #cbc4b7;
   --busy-border: #756e62;
-  --warning-bg: #38311f;
-  --warning-ink: #ecd294;
-  --warning-border: #9e8550;
-  --error-bg: #3c2723;
-  --error-ink: #ffb7a3;
-  --error-border: #b67a6b;
+  --warning-bg: #2c2822;
+  --warning-ink: #f3efe6;
+  --warning-border: #f3efe6;
+  --error-bg: #000000;
+  --error-ink: #ff8a7a;
+  --error-border: #ff5a46;
+  --error-on-bg: #f3efe6;
 }
 :root[data-theme='sky'][data-appearance='dark'] {
   --accent: #6aa6ff;

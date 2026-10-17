@@ -815,7 +815,8 @@ test('今日の完了行・追加入力を追加・訂正・取消で維持す�
   await seed(page, state, 2);
   const row = page.locator('.daily-record-row').filter({ hasText: state.settings.materials[0].name });
   const input = row.getByRole('textbox', { name: /今回解いた問題数/, includeHidden: true });
-  await expect(page.getByRole('progressbar')).toHaveCount(0);
+  // Only the reward level meter is a progress bar; today's rows show amounts as text.
+  await expect(page.locator('[role=progressbar]:not([aria-label*="レベル"])')).toHaveCount(0);
   await expect(row.locator('.progress-value')).toHaveText('あと15問');
   await expect(page.locator('.daily-record-row').filter({ hasText: '別問題集' })).toContainText('あと9ページ');
   for (const [count, expected] of [[6, 'あと9問'], [4, 'あと5問'], [5, '完了']] as const) {
@@ -823,7 +824,7 @@ test('今日の完了行・追加入力を追加・訂正・取消で維持す�
     if (count === 5) await row.getByRole('button', { name: '記録', exact: true }).click();
     else await input.press('Enter');
     await expect(row.locator('.progress-value')).toHaveText(expected);
-    await expect(page.locator('.daily-record-saved > p').first()).toHaveText(count + '問を記録しました。');
+    await expect(page.locator('.daily-record-saved > p').first()).toHaveText(new RegExp(`^${count}問を記録しました。\\+[\\d,]+pt$`));
     await expect(page.locator('.daily-record-saved')).not.toContainText(/あと\d+問|完了|予定の変更なし/);
     await expect(page.locator('.daily-record-saved details')).toHaveCount(0);
     await expect(input).toHaveValue('');
@@ -873,7 +874,7 @@ test('今日の完了行・追加入力を追加・訂正・取消で維持す�
   await expect(row.locator('.progress-value')).toHaveText('完了');
   await input.fill('1'); await input.press('Enter');
   await expect(row.locator('.progress-value')).toHaveText('追加1問');
-  await expect(page.locator('.daily-record-saved > p').first()).toHaveText('1問を記録しました。');
+  await expect(page.locator('.daily-record-saved > p').first()).toHaveText(/^1問を記録しました。\+[\d,]+pt$/);
   await expect(input).toBeHidden();
   await expect(row.locator('summary')).toBeFocused();
   await page.reload(); await expect(row.locator('.progress-value')).toHaveText('追加1問');
@@ -970,7 +971,7 @@ test('記録成功を簡潔にしても計画の確認が必要な通知と理�
   const row = page.locator('.daily-record-row').filter({ hasText: '対象問題集' });
   await row.getByRole('textbox').fill('2'); await row.getByRole('textbox').press('Enter');
   const result = page.locator('.daily-record-saved');
-  await expect(result.locator(':scope > p').first()).toHaveText('2問を記録しました。');
+  await expect(result.locator(':scope > p').first()).toHaveText(/^2問を記録しました。\+[\d,]+pt$/);
   await expect(result.locator(':scope > p').nth(1)).toHaveText('計画案の確認が必要');
   await result.getByText('確認内容を見る', { exact: true }).click();
   await expect(result).toContainText('計画と現在の設定が一致していません。');
@@ -983,7 +984,7 @@ test('ターム・メモは日付跨ぎ・再読込で保持し、保存失敗�
   const before = await read(page);
   const form = page.getByRole('form', { name: 'ターム・メモ' });
   const memo = form.getByLabel('メモ', { exact: true });
-  await expect(page.getByRole('progressbar')).toHaveCount(0);
+  await expect(page.locator('[role=progressbar]:not([aria-label*="レベル"])')).toHaveCount(0);
   // The free-text term is replaced by the automatic display; its saved value is kept.
   await expect(form.getByRole('textbox')).toHaveCount(1);
   await expect(form.getByRole('group', { name: 'ターム' })).toContainText('同時に進める教材数');

@@ -259,7 +259,8 @@ async function nav(name: string) {
     Promise.allSettled(elements.flatMap(element => element.getAnimations().map(animation => animation.finished))));
 }
 async function displaySettings(appearance?: string, theme?: string) {
-  const previous = await page.locator('h1').innerText();
+  // The page title is drawn as cut-out letters (TODAY on 今日); its accessible name is the page name.
+  const previous = (await page.locator('h1').getAttribute('aria-label'))!;
   await nav('設定');
   if (appearance) await page.getByLabel('表示モード').selectOption(appearance);
   if (theme) await page.getByLabel('カラーテーマ').selectOption(theme);
@@ -1657,7 +1658,7 @@ test('実機：予定6への追加4・2・2で数量と変更詳細を保存し�
         .reduce((n, x) => n + x.count, 0),
     ).toBe(left);
     expect(stored.plan!.shortfalls).toEqual([]);
-    await expect(page.locator('.daily-record-saved > p').first()).toHaveText(add + '問を記録しました。');
+    await expect(page.locator('.daily-record-saved > p').first()).toHaveText(new RegExp(`^${add}問を記録しました。\\+[\\d,]+pt$`));
   }
   const details = page.locator('.daily-record-saved details');
   await details.locator('summary').focus();
@@ -2391,7 +2392,7 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
   await saved();
   await expect(row).toContainText('あと5問');
   const recordResult = page.locator('.daily-record-saved');
-  await expect(recordResult).toHaveText('5問を記録しました。');
+  await expect(recordResult).toHaveText(/^5問を記録しました。\+[\d,]+pt$/);
   await expect(recordResult.locator('details')).toHaveCount(0);
   await showTomorrow();
   await expect(tomorrowRow()).toContainText('10問');

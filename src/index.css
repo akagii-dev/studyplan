@@ -14,6 +14,8 @@
 /* Spacing in px: the base font size is 14px, so rem-based steps would shrink. */
 @theme {
   --spacing: 4px;
+  /* Display face for titles, tabs, plates and stamps; body text keeps the OS fonts. */
+  --font-display: 'Montserrat', 'Zen Kaku Gothic New', system-ui, 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', sans-serif;
   /* Page change: a short fade that reuses the details fade timing. */
   --animate-page-fade: schedule-appear var(--page-fade-duration) var(--page-fade-easing);
   @keyframes schedule-appear {
@@ -50,6 +52,7 @@
   --color-warning-line: var(--warning-border);
   --color-error: var(--error-ink);
   --color-error-bg: var(--error-bg);
+  --color-on-error-bg: var(--error-on-bg);
   --color-error-line: var(--error-border);
   --radius-control: var(--radius-control);
   --radius-card: var(--radius);

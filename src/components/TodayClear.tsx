@@ -22,7 +22,7 @@ export function useNewlyCleared(rows: Rows, key: (row: Rows[number]) => string) 
 /** A filled stamp beside a cleared row. The visible word is decoration; screen readers hear 完了. */
 export function ClearStamp({ animate }: { animate: boolean }) {
   return (
-    <span className={`inline-block -rotate-6 bg-accent px-2.5 py-0.5 text-[15px] leading-[1.4] font-black tracking-[0.14em] text-on-accent shadow-[3px_3px_0_var(--ink)] ${animate ? 'motion-safe:animate-stamp' : ''}`}>
+    <span className={`inline-block -rotate-6 bg-accent px-2.5 py-0.5 text-[15px] leading-[1.4] font-display font-black italic tracking-[0.14em] text-on-accent shadow-[3px_3px_0_var(--ink)] ${animate ? 'motion-safe:animate-stamp' : ''}`}>
       <span aria-hidden="true">CLEAR</span>
       <span className="sr-only">完了</span>
     </span>
@@ -51,19 +51,19 @@ export function TodayClear({ rows }: { rows: Rows }) {
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div className="min-w-0">
           <p className="m-0 text-[12px] font-bold tracking-[0.18em] text-band-muted">今日のミッション</p>
-          <p className="m-0 text-[22px] leading-[1.4] font-black text-on-band @max-[430px]:text-[18px]">
-            {all ? 'すべてクリア' : `あと${total - cleared}件でクリア`}
+          <p className="m-0 text-[22px] leading-[1.4] font-display font-black italic text-on-band @max-[430px]:text-[18px]">
+            {all ? <span className="sr-only">すべてクリア</span> : `あと${total - cleared}件でクリア`}
             {all && (
               <span
                 aria-hidden="true"
-                className={`ms-4 inline-block -rotate-[10deg] -skew-x-[10deg] bg-band-accent px-4 py-0.5 align-middle text-[30px] shadow-[4px_4px_0_var(--on-band)] leading-[1.3] font-black tracking-[0.1em] text-band ${landed ? 'motion-safe:animate-stamp' : ''}`}
+                className={`inline-block -rotate-[10deg] -skew-x-[10deg] bg-band-accent px-4 py-0.5 align-middle text-[30px] shadow-[4px_4px_0_var(--on-band)] leading-[1.3] font-display font-black italic tracking-[0.1em] text-band ${landed ? 'motion-safe:animate-stamp' : ''}`}
               >
                 ALL CLEAR
               </span>
             )}
           </p>
         </div>
-        <p className="m-0 leading-none font-black tabular-nums text-on-band">
+        <p className="m-0 leading-none font-display font-black italic tabular-nums text-on-band">
           <span aria-hidden="true" className="text-[76px] text-band-accent @max-[430px]:text-[52px]">{cleared}</span>
           <span aria-hidden="true" className="text-[28px] text-on-band"> / {total}</span>
           <span className="sr-only">{total}件中{cleared}件クリア</span>

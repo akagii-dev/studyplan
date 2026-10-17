@@ -230,6 +230,8 @@ export interface WindowSize {
   height: number;
 }
 export interface AppState {
+  /** Login bonus and study points; absent until the first record after the feature arrived. */
+  rewards?: import('./rewards').Rewards;
   studyNote?: { nextTerm: string; memo: string };
   studyDayBaselines?: Record<string, StudyDayBaseline>;
   outsideLabels?: Record<string, OutsideLabel[]>;

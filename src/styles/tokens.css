@@ -52,6 +52,10 @@
   font-size: 14px;
   line-height: 1.7;
 }
+:root[data-enhanced='on'] {
+  /* UI boost: all text in the title faces; the OS fonts stay as fallback and as the opt-out. */
+  font-family: 'Montserrat', 'Zen Kaku Gothic New', system-ui, -apple-system, 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', sans-serif;
+}
 :root[data-theme='sky'] {
   --page: #1c4fb0;
   --band-accent: #6aa6ff;

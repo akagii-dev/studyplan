@@ -269,6 +269,16 @@ export function SettingsHub({
             </select>
           </label>
         </div>
+        <label className="mt-4 flex! items-center gap-2.5 [&_input]:w-auto">
+          <input
+            type="checkbox"
+            checked={state.enhancedUi !== false}
+            onChange={(event) =>
+              void update((current) => ({ ...current, enhancedUi: event.target.checked }))
+            }
+          />
+          UI強化（すべての文字をタイトルと同じ書体にし、カレンダーなどの色を絞る）
+        </label>
       </section>
     </div>
   );

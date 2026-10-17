@@ -240,6 +240,8 @@ export interface AppState {
   settingsUpdatedAt?: string;
   theme?: 'mint' | 'sky' | 'lime';
   appearance?: 'light' | 'dark' | 'system';
+  /** UI boost (on unless false): all text in the title faces and a reduced, monotone palette. Display only. */
+  enhancedUi?: boolean;
   sidebarCollapsed?: boolean;
   windowSize?: WindowSize;
   calendarDensity?: Partial<Record<CalendarView, CalendarDensity>>;

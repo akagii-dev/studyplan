@@ -2007,7 +2007,12 @@ test('実機：ホームの導線・表示別のカレンダー密度・再起�
       if (level !== 'compact') await expect(first).toContainText('分野別の長い教材名');
       await expect(first).toContainText('0/10問'); await expect(first).toContainText('行政書士');
       await expect(first).not.toContainText('1周目');
-      expect(await first.evaluate(e => getComputedStyle(e).borderLeftColor)).toBe('rgb(40, 117, 105)');
+      // The UI boost (default) draws entries in the signal color; without it the exam color shows.
+      await expect(first).not.toHaveCSS('border-left-color', 'rgb(40, 117, 105)');
+      await first.evaluate(e => { e.ownerDocument.documentElement.dataset.enhanced = 'off'; });
+      // The border color eases over 120ms, so wait for the settled value.
+      await expect(first).toHaveCSS('border-left-color', 'rgb(40, 117, 105)');
+      await first.evaluate(e => { e.ownerDocument.documentElement.dataset.enhanced = 'on'; });
       await popup.getByLabel('対象の試験', { exact: true }).selectOption('e2');
       await expect(events).toHaveCount(1); await expect(events).toContainText('予備試験');
       await expect(page.locator('.calendar-grid .calendar-busy')).toHaveCount(1);
@@ -2228,10 +2233,13 @@ test('実機：3テーマの読みやすさ・入力ラベル・小さい画面�
   await saved();
   expect((await storedState()).settings.exams[0].color).toBe('#329ca2');
   await nav('学習カレンダー');
+  // The exam color reaches the calendar when the UI boost's monotone palette is off.
+  await page.evaluate(() => { document.documentElement.dataset.enhanced = 'off'; });
   await expect(page.locator('.calendar-event').first()).toHaveCSS(
     'border-left-color',
     'rgb(50, 156, 162)',
   );
+  await page.evaluate(() => { document.documentElement.dataset.enhanced = 'on'; });
   await page.emulateMedia({ colorScheme: 'dark' });
   await displaySettings('system');
   await saved();

@@ -277,3 +277,12 @@ select:hover:not(:disabled),
     padding: 14px;
   }
 }
+/* UI boost: a monotone palette. Exam colors give way to ink, paper and the signal color;
+ * the exam name stays on every entry, so no meaning is lost. Outranks the inline exam color. */
+:root[data-enhanced='on'] :is(.calendar-event, .session-detail) {
+  --exam-color: var(--ink) !important;
+  border-left-color: var(--accent) !important;
+}
+:root[data-enhanced='on'] .legend i {
+  background: var(--ink) !important;
+}

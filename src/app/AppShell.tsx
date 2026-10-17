@@ -68,6 +68,7 @@ export function AppShell({
   const active = { name: pageNames[page] };
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = state?.theme ?? 'mint';
+    document.documentElement.dataset.enhanced = state?.enhancedUi === false ? 'off' : 'on';
     const preference = state?.appearance ?? 'light';
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const apply = () => {
@@ -83,7 +84,7 @@ export function AppShell({
     apply();
     media.addEventListener('change', apply);
     return () => media.removeEventListener('change', apply);
-  }, [state?.theme, state?.appearance]);
+  }, [state?.theme, state?.appearance, state?.enhancedUi]);
   useLayoutEffect(() => {
     // Pointer navigation keeps focus in place; keyboard navigation restores its destination.
     const focusNavigation = keyboardInput.current;

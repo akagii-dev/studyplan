@@ -6788,6 +6788,9 @@
             "system"
           ]
         },
+        "enhancedUi": {
+          "type": "boolean"
+        },
         "sidebarCollapsed": {
           "type": "boolean"
         },
@@ -13728,6 +13731,9 @@
                 "dark",
                 "system"
               ]
+            },
+            "enhancedUi": {
+              "type": "boolean"
             },
             "sidebarCollapsed": {
               "type": "boolean"

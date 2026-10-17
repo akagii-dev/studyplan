@@ -358,6 +358,7 @@ const state = z.looseObject({
     .nullable(),
   theme: z.enum(['mint', 'sky', 'lime']).optional(),
   appearance: z.enum(['light', 'dark', 'system']).optional(),
+  enhancedUi: z.boolean().optional(),
   sidebarCollapsed: z.boolean().optional(),
   windowSize: z
     .object({

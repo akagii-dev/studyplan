@@ -280,6 +280,25 @@ export function SettingsHub({
           UI強化（すべての文字をタイトルと同じ書体にし、カレンダーなどの色を絞る）
         </label>
       </section>
+      <section className="card">
+        <h2>スクリーンタイム</h2>
+        <label className="flex! items-center gap-2.5 [&_input]:w-auto">
+          <input
+            type="checkbox"
+            checked={!!state.screenTime?.enabled}
+            onChange={(event) =>
+              void update((current) => ({
+                ...current,
+                screenTime: { ...current.screenTime, enabled: event.target.checked },
+              }))
+            }
+          />
+          スマホのスクリーンタイムのパスコードをこのアプリで預かる
+        </label>
+        <p className="hint">
+          今日の画面で4桁のパスコードを発行し、スマホに設定します。月〜土をすべてクリアした週の日曜だけ表示し、翌週は新しいパスコードに替えられます。パスコードは保存データに残るため、自分との約束として使ってください。忘れた時は、スマホ側のApple IDなどによる再設定の手順で戻せます。
+        </p>
+      </section>
     </div>
   );
 }

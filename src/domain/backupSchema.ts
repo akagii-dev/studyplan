@@ -359,6 +359,16 @@ const state = z.looseObject({
   theme: z.enum(['mint', 'sky', 'lime']).optional(),
   appearance: z.enum(['light', 'dark', 'system']).optional(),
   enhancedUi: z.boolean().optional(),
+  screenTime: z
+    .object({
+      enabled: z.boolean(),
+      code: z.string().regex(/^\d{4}$/).optional(),
+      previous: z.string().regex(/^\d{4}$/).optional(),
+      issuedOn: date.optional(),
+      pending: z.boolean().optional(),
+      setOn: date.optional(),
+    })
+    .optional(),
   sidebarCollapsed: z.boolean().optional(),
   windowSize: z
     .object({

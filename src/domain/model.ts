@@ -232,6 +232,8 @@ export interface WindowSize {
 export interface AppState {
   /** Login bonus and study points; absent until the first record after the feature arrived. */
   rewards?: import('./rewards').Rewards;
+  /** Screen Time passcode kept hidden until an unlocked Sunday (game UI, opt-in). */
+  screenTime?: import('./screenTime').ScreenTimeLock;
   studyNote?: { nextTerm: string; memo: string };
   studyDayBaselines?: Record<string, StudyDayBaseline>;
   outsideLabels?: Record<string, OutsideLabel[]>;

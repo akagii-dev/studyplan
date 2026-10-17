@@ -3,6 +3,7 @@ import { Props, duration } from '../components/common';
 import { ShortfallDetails } from '../components/ShortfallDetails';
 import { StudyNote } from '../components/StudyNote';
 import { LoginBonus, RewardProgress } from '../components/Rewards';
+import { ScreenTimePanel } from '../components/ScreenTimePanel';
 import { TodayRecorder, RecordTarget } from '../components/TodayRecorder';
 import { today } from '../domain/model';
 import { currentPlanReconciliation, currentProgressAdjustment } from '../domain/progressAdjustment';
@@ -71,6 +72,7 @@ export function Dashboard({
       </section>
       <LoginBonus state={state} date={today()} />
       <RewardProgress state={state} date={today()} />
+      <ScreenTimePanel state={state} update={update} date={today()} />
       <ShortfallDetails state={state} onReview={onReview} />
       <StudyNote state={state} update={update} />
     </div>

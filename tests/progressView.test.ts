@@ -377,11 +377,37 @@ it('仕切り直し後の追加・訂正・取消は今日の有効量へ反映�
   check(0, 6);
 });
 
-for (const offset of [0, 1]) {
+it.each(['unreported', 'zero', 'recorded', 'cancelled'] as const)(
+  '今日から仕切り直しても、経過済みの今日の予定（%s）は今日の予定として残す',
+  (report) => {
+    // A restart from today behaves like an ordinary re-plan for today (issue #12):
+    // the 09:00–11:00 slots already passed stay today, minus what was recorded.
+    const context = adjustmentContext;
+    let source = adjustmentFixture();
+    if (report !== 'unreported') {
+      source = recordAndAdjust(source, adjustmentReport(report === 'zero' ? 0 : 4), context);
+      if (report === 'cancelled') source = correctAndAdjust(source, 'record', 4, true, context);
+    }
+    const state = approve(proposeRestart(source, context.date, context), false, context);
+    const actual = report === 'recorded' ? 4 : 0;
+    expect(state.plan!.keepsTodayBeforeStart).toBe(true);
+    const today = (materialId: string) => activePlanWork(state, context.date)
+      .filter((s) => s.date === context.date && s.materialId === materialId && s.round === 0)
+      .reduce((n, s) => n + s.count, 0);
+    expect(today('book')).toBe(6 - actual);
+    expect(today('other')).toBe(9);
+    expect(remainingWork(state, context.date).every((r) => r.balanced)).toBe(true);
+    expect(todayStudyRows(state, context.date).map((r) => [r.materialId, r.planned, r.actual]))
+      .toEqual([['book', 6, actual], ['other', 9, 0]]);
+    expect(state.history.at(-1)).toEqual(source.plan);
+  },
+);
+
+for (const offset of [1]) {
   it.each(['unreported', 'zero', 'recorded', 'cancelled'] as const)(
     `${offset}日後から仕切り直した当日の%sは有効な予定・実績だけを全予定画面に表示する`,
     (report) => {
-      // At noon today's 09:00–11:00 slot has elapsed. Both starts move all
+      // At noon today's 09:00–11:00 slot has elapsed. A start from tomorrow moves all
       // outstanding work forward, without inventing a report for the old day.
       const context = adjustmentContext;
       let source = adjustmentFixture();

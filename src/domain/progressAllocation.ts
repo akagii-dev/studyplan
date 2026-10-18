@@ -443,6 +443,7 @@ export function allocateProgress(
   plan.from = source.from;
   plan.notBefore = source.notBefore;
   plan.allocationStart = source.allocationStart;
+  if (source.keepsTodayBeforeStart) plan.keepsTodayBeforeStart = true;
   if (source.dailyBalanceMaterialIds) plan.dailyBalanceMaterialIds = [...source.dailyBalanceMaterialIds];
   plan.adjustmentBasis = basis;
   plan.progressBaseline = createProgressBaseline(plan, state.records, from);

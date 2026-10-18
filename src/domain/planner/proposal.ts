@@ -240,6 +240,7 @@ export function propose(
       plan: {
         ...generatePlan(state, effectiveFrom, true, notBefore, 'balanced', context),
         allocationStart: state.plan?.allocationStart,
+        ...(state.plan?.keepsTodayBeforeStart ? { keepsTodayBeforeStart: true as const } : {}),
       },
       basedOn: state.plan?.id ?? null,
       reason,

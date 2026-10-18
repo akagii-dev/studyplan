@@ -1,7 +1,7 @@
 import { AppState, Plan, StudyDayBaseline, localDateKey, today } from './model';
 import { originalSessionCount, proposalUsesCurrentProgress } from './progressReflection';
 import { activePlanWork, workKey } from './progressAllocation';
-import { displayPlanSessions, isArchivedPlanDate } from './planDisplay';
+import { displayPlanSessions, isArchivedPlanDate, restartKeepsToday } from './planDisplay';
 import { samePlanningSettings } from './planAudit';
 import { assertRemainingBalance, remainingBasisIssue } from './remainingAllocation';
 
@@ -195,7 +195,7 @@ export function calendarQuantity(
     });
   }
   const currentRemaining =
-    date === reference && state.plan?.allocationStart !== undefined
+    date === reference && state.plan?.allocationStart !== undefined && !restartKeepsToday(state)
       ? new Map<string, number>()
       : undefined;
   if (currentRemaining) {
@@ -315,7 +315,7 @@ export function calendarDisplayQuantity(
       .map((row) => ({ ...row, planned: null, remainder: null }));
     return { ...quantity, known: false, rows, totals: quantityTotals(rows) };
   }
-  if (date < reference && date === state.plan?.allocationStart) {
+  if (date < reference && date === state.plan?.allocationStart && !restartKeepsToday(state)) {
     // The old daily baseline describes work before the restart. Keep all valid
     // records, but show the approved replacement slots as a separate quantity.
     const adjustments = historicalAdjustments(state, date);

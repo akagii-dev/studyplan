@@ -105,6 +105,7 @@ const plan = z.looseObject({
   dailyBalanceMaterialIds: z.array(id.min(1)).optional(),
   comparisonSessionIds: z.array(id).optional(),
   allocationStart: date.optional(),
+  keepsTodayBeforeStart: z.literal(true).optional(),
   approvedAt: z.iso.datetime().optional(),
   createdAt: text,
   from: date,

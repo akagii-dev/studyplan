@@ -28,6 +28,8 @@ export interface RetainedAllocation {
   unplaced?: Record<string, number>;
   /** Explicit restart rebuilds review slots as well as unfinished study work. */
   rebuildReviews?: boolean;
+  /** A restart from today keeps today's earlier slots and their unrecorded work on today. */
+  keepTodayBeforeStart?: boolean;
   /** An explicit restart may use the remainder of a reported, but unfinished day. */
   allowReportedDay?: boolean;
   /** Targeted adjustment keeps unrelated retained sessions separate from new work. */
@@ -150,7 +152,7 @@ export function generatePlan(
   // ordinary day: slots before the start minute stay actionable until the day ends,
   // instead of moving to later days. Records already made today use them up first.
   const todayReserve = new Map<string, number>();
-  if (!retention && preserve && notBefore > 0 && from === context.date) {
+  if ((!retention || retention.keepTodayBeforeStart) && preserve && notBefore > 0 && from === context.date) {
     const recordedToday = new Map<string, number>();
     for (const r of state.records)
       if (!r.cancelled && r.date === from) {

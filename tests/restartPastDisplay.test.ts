@@ -62,13 +62,13 @@ it('未承認・破棄・旧形式・計画を戻した状態では過去の予�
     expect(calendarDisplayQuantity(state,date,context.date)).toEqual(calendarQuantity(state,date,context.date));
 });
 
-it('当日開始の仕切り直しで旧未報告項目は翌日に復活しない', () => {
+it('当日開始の仕切り直しは経過済みの今日の予定を今日に残し、翌日は通常の日として示す', () => {
   const context=adjustmentContext;
   const approved=approve(proposeRestart(adjustmentFixture(),context.date,context),false,context);
-  expect(calendarDisplayQuantity(approved,context.date,context.date).rows).toEqual([]);
+  expect(calendarDisplayQuantity(approved,context.date,context.date).rows.map((r)=>[r.materialId,r.planned])).toEqual([['book',6],['other',9]]);
   const next={...context,date:addDays(context.date,1),timestamp:`${addDays(context.date,1)}T03:00:00Z`};
   const state=reconcilePlanning(approved,next);
-  expect(calendarDisplayQuantity(state,context.date,next.date).rows).toEqual([]);
+  expect(calendarDisplayQuantity(state,context.date,next.date).rows.map((r)=>[r.materialId,r.planned,r.reported])).toEqual([['book',6,false],['other',9,false]]);
   expect(calendarQuantity(state,context.date,next.date).rows.map((r)=>r.planned)).toEqual([6,9]);
   expect(remainingWork(state,next.date).every((r)=>r.balanced)).toBe(true);
 });
@@ -87,7 +87,7 @@ it('開始日へ新配置した6問は翌日も残し、仕切り直し前実績
   expect(remainingWork(state,next.date).every((r)=>r.balanced)).toBe(true);
 });
 
-it('開始時刻より前の完了fixedは保存し、翌日の通常表示へ復活させない', () => {
+it('開始時刻より前の完了fixedは保存し、翌日は予定どおり完了した日として示す', () => {
   const context=adjustmentContext;
   const source=adjustmentFixture();
   source.plan!.sessions[0].fixed=true;
@@ -97,7 +97,8 @@ it('開始時刻より前の完了fixedは保存し、翌日の通常表示へ�
   const state=reconcilePlanning(approved,next);
   expect(state.plan!.sessions.some((s)=>s.id==='book-0' && s.fixed)).toBe(true);
   const row=calendarDisplayQuantity(state,context.date,next.date).rows.find((r)=>r.materialId==='book')!;
-  expect(row).toMatchObject({actual:6,planned:null,remainder:null});
+  // A restart from today keeps today as an ordinary day (issue #12): planned 6, done 6.
+  expect(row).toMatchObject({actual:6,planned:6,remainder:0});
   expect(row.restartPlanned).toBeUndefined();
   expect(remainingWork(state,next.date).every((r)=>r.balanced)).toBe(true);
 });

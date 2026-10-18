@@ -180,11 +180,11 @@ td .actions {
   min-height: 44px;
   padding: 10px 12px;
 }
-/* A secondary button inverts to an ink plate on hover, like a highlighted menu entry. */
-button:hover:not(:disabled) {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--surface);
+/* A secondary button highlights its outline on hover; the fill and label keep their colors,
+ * so a label colored by a utility never ends up on a same-colored fill (issue #13). */
+button:not(.primary, #app-sidebar button):hover:not(:disabled) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
 }
 input:hover:not(:disabled),
 select:hover:not(:disabled),

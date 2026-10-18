@@ -13,14 +13,14 @@ public static class WindowTestControl {
   [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowCallback callback, IntPtr parameter);
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr window, System.Text.StringBuilder text, int maximum);
-  public static IntPtr StudyPlanWindow(int processId) {
+  public static IntPtr StudyPlanWindow(int processId, string expected) {
     IntPtr found = IntPtr.Zero;
     EnumWindows((window, parameter) => {
       uint owner; GetWindowThreadProcessId(window, out owner);
       if (owner != processId) return true;
       var title = new System.Text.StringBuilder(256);
       GetWindowText(window, title, title.Capacity);
-      if (title.ToString() != "StudyPlan") return true;
+      if (title.ToString() != expected) return true;
       found = window;
       return false;
     }, IntPtr.Zero);
@@ -40,8 +40,10 @@ public static class WindowTestControl {
 '@
 $null = [WindowTestControl]::SetThreadDpiAwarenessContext([IntPtr](-4))
 # MainWindowHandle can select WebView2's untitled helper after the app is minimized.
-# Resolve the app window by both owner PID and its native title.
-$window = [WindowTestControl]::StudyPlanWindow($ProcessId)
+# Resolve the app window by both owner PID and its native title, read from the Tauri config
+# (the game UI edition is titled "StudyPlan Game").
+$config = Get-Content -LiteralPath (Join-Path $PSScriptRoot '../src-tauri/tauri.conf.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+$window = [WindowTestControl]::StudyPlanWindow($ProcessId, $config.app.windows[0].title)
 if ($window -eq [IntPtr]::Zero) { throw 'The test process has no visible window.' }
 $client = New-Object WindowTestControl+Rect
 $outer = New-Object WindowTestControl+Rect

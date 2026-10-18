@@ -149,6 +149,8 @@ export interface Plan {
   comparisonSessionIds?: string[];
   /** Explicit restart boundary; ordinary adjustment must not allocate before it. */
   allocationStart?: DateKey;
+  /** A restart from today that kept today's passed slots as today's work (not a boundary day). */
+  keepsTodayBeforeStart?: true;
   approvedAt?: string;
   calculationVersion?: number;
   notBefore?: number;

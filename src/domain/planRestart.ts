@@ -15,8 +15,13 @@ export function calculateRestart(state: AppState, from: string, context: Plannin
   const notBefore = from === context.date ? context.minute : 0;
   // Keep actual historical slots; upcoming non-fixed slots before the new start
   // belong only in the caller's archived plan, never in both active allocations.
+  // A restart from today is like an ordinary replan for today: the slots already
+  // passed today stay, and their unrecorded work remains today's work.
   const comparisonIds = new Set(state.plan?.comparisonSessionIds ?? []);
-  const sessions = (state.plan?.sessions ?? []).filter((s) => s.date < context.date || s.fixed);
+  const keepToday = from === context.date && notBefore > 0;
+  const sessions = (state.plan?.sessions ?? []).filter((s) =>
+    s.date < context.date || s.fixed ||
+    (keepToday && s.date === context.date && s.start < notBefore && (s.kind === 'review' || s.count > 0)));
   const budgets = Object.fromEntries(
     state.settings.materials.flatMap((m) =>
       m.rounds.map((_, round) => [workKey(m.id, round), remaining(state, m.id, round)]),
@@ -27,8 +32,10 @@ export function calculateRestart(state: AppState, from: string, context: Plannin
     remaining: budgets,
     rebuildReviews: true,
     allowReportedDay: true,
+    keepTodayBeforeStart: keepToday,
   });
   plan.allocationStart = from;
+  if (keepToday) plan.keepsTodayBeforeStart = true;
   const active = new Map(activePlanWork(state, context.date).map((s) => [s.id, s.count]));
   for (const fixed of sessions.filter(
     (s) =>
@@ -69,7 +76,13 @@ export function calculateRestart(state: AppState, from: string, context: Plannin
       const unplaced = plan.shortfalls
         .filter((s) => workKey(s.materialId, s.round) === key)
         .reduce((sum, s) => sum + s.count, 0);
-      if (allocated + unplaced !== budget)
+      // Today's passed slots kept by a restart from today still hold their unrecorded work.
+      const keptToday = keepToday
+        ? plan.sessions
+          .filter((s) => s.kind === 'study' && s.date === from && s.start < notBefore && workKey(s.materialId, s.round) === key)
+          .reduce((sum, s) => sum + (plan.progressBaseline?.sessions[s.id]?.count ?? 0), 0)
+        : 0;
+      if (allocated + unplaced + keptToday !== budget)
         throw new Error('予定量と現在残量が一致しません。計画を確定できません。');
     }
   }

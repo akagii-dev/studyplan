@@ -52,6 +52,7 @@ function compactPlan(plan: Plan, days: Set<string>): Plan {
     ...(plan.approvedAt ? { approvedAt: plan.approvedAt } : {}),
     from: plan.from,
     ...(plan.allocationStart ? { allocationStart: plan.allocationStart } : {}),
+    ...(plan.keepsTodayBeforeStart ? { keepsTodayBeforeStart: true as const } : {}),
     ...(plan.notBefore !== undefined ? { notBefore: plan.notBefore } : {}),
     ...(plan.calculationVersion !== undefined ? { calculationVersion: plan.calculationVersion } : {}),
     ...(plan.settingsSnapshot ? { settingsSnapshot: plan.settingsSnapshot } : {}),

@@ -525,6 +525,7 @@ export function calculateRemainingAdjustment(
   plan.from = source.from;
   plan.notBefore = source.notBefore;
   plan.allocationStart = source.allocationStart;
+  if (source.keepsTodayBeforeStart) plan.keepsTodayBeforeStart = true;
   plan = restoreComparisonSessions(plan, [...historical.values()], [
     ...(source.comparisonSessionIds ?? []),
     ...[...historical.values()].filter((s) => s.kind === 'study' && !occupiedIds.has(s.id)).map((s) => s.id),

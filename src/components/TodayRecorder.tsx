@@ -5,7 +5,7 @@ import { Props } from './common';
 import { remaining, today } from '../domain/model';
 import { StudyRecordForm, StudyCountInput } from './StudyRecordForm';
 import { useRecordInput, useStudyRecord } from '../hooks/useStudyRecord';
-import { todayStudyRows } from '../domain/todayProgress';
+import { setDayOffset, todayStudyRows } from '../domain/todayProgress';
 import { latestReceipt } from '../domain/progressReceipt';
 import { usePlanningClock } from '../hooks/usePlanningClock';
 import { ProgressReceiptView, receiptDetailLabel, receiptOutcome } from './ProgressReceiptView';
@@ -105,6 +105,18 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
     return () => window.clearTimeout(timer);
   }, [target, state]);
 
+  const [offsetBusy, setOffsetBusy] = useState(false);
+  /** Covers (or stops covering) a row's shortfall with today's extra work; records and the plan stay as they are. */
+  async function offset(row: { materialId: string; round: number }, on: boolean) {
+    if (offsetBusy) return;
+    setOffsetBusy(true);
+    try {
+      await update((current) => setDayOffset(current, clockDate, row, on));
+    } finally {
+      setOffsetBusy(false);
+    }
+  }
+
   async function save(event: FormEvent | undefined, materialId: string, round: number) {
     event?.preventDefault();
     const id = key(materialId, round);
@@ -174,6 +186,16 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
                     </button>
                   </form>
                 </RecordInputDisclosure>
+                {(row.offsetAvailable || row.offsetChosen) && (
+                  <div className="col-span-full flex flex-wrap items-center gap-x-3 gap-y-1 text-[.875rem] @max-[430px]:mt-1.5">
+                    {row.offsetChosen && !row.offset && <span className="text-muted">ほかの追加分が足りないため、相殺していません。</span>}
+                    <button type="button" className="min-h-11" disabled={busy || offsetBusy}
+                      aria-label={`${row.materialName} ${row.round + 1}周目の${row.offsetChosen ? '相殺を取り消す' : `残り${row.progress.left}${row.unit}を、ほかの教材の追加分で相殺する`}`}
+                      onClick={() => void offset(row, !row.offsetChosen)}>
+                      {row.offsetChosen ? '相殺を取り消す' : `ほかの追加分で相殺（${row.progress.left}${row.unit}）`}
+                    </button>
+                  </div>
+                )}
                 {errors[id] && (
                   <p className="daily-record-error col-span-full m-0 text-error @max-[430px]:mt-1.5" role="alert">
                     {errors[id]}

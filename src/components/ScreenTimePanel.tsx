@@ -12,7 +12,7 @@ const digits = 'font-display text-[48px] leading-none font-black italic tracking
 /** A button on the band: paper plate, inverted on hover. */
 const bandButton = 'mt-4 border-on-band bg-on-band text-band hover:enabled:border-band-accent hover:enabled:bg-band-accent hover:enabled:text-band';
 
-/** The Screen Time lock on today: issue, confirm, the week toward Sunday, and the Sunday reveal. */
+/** The Screen Time lock on today: issue, confirm, the week toward Sunday (from the set day), and the Sunday reveal. */
 export function ScreenTimePanel({ state, update, date }: Props & { date: string }) {
   const view = lockView(state, date);
   const [busy, setBusy] = useState(false);
@@ -69,7 +69,7 @@ export function ScreenTimePanel({ state, update, date }: Props & { date: string 
       {view.kind === 'unlocked' && (
         <>
           <p className="mt-2 mb-1 font-display text-[22px] font-black italic text-band-accent" lang="en">UNLOCKED</p>
-          <p className="m-0 text-[14px] text-on-band">月〜土をすべてクリアしました。今日だけパスコードを表示します。</p>
+          <p className="m-0 text-[14px] text-on-band">{weekdays[view.from]}〜土をすべてクリアしました。今日だけパスコードを表示します。</p>
           <p className={`mt-3 mb-0 ${digits}`}>{view.code}</p>
           <p className="mt-2 mb-0 text-[12px] text-band-muted">月曜に新しいパスコードを発行できます。</p>
         </>
@@ -78,24 +78,27 @@ export function ScreenTimePanel({ state, update, date }: Props & { date: string 
         <>
           <p className="mt-2 mb-0 text-[14px] text-on-band">
             <span className="font-display font-black italic text-band-accent" lang="en">LOCKED</span>
-            {' '}月〜土をすべてクリアすると、日曜にパスコードを表示します。
+            {' '}{view.startsNextWeek ? '月' : weekdays[view.from]}〜土をすべてクリアすると、日曜にパスコードを表示します。
           </p>
           <ol className="m-0 mt-3 grid list-none grid-cols-6 gap-1.5 p-0 pe-6">
             {view.week.map((day) => (
               <li
                 key={day.date}
-                className={`flex -skew-x-[8deg] flex-col items-center py-1.5 text-[12px] ${day.status === 'cleared' ? 'bg-band-accent text-band' : day.status === 'missed' ? 'bg-[color-mix(in_oklab,var(--on-band)_12%,transparent)] text-band-muted line-through' : day.status === 'open' ? 'border-2 border-dashed border-band-accent text-on-band' : 'bg-[color-mix(in_oklab,var(--on-band)_12%,transparent)] text-band-muted'}`}
+                className={`flex -skew-x-[8deg] flex-col items-center py-1.5 text-[12px] ${day.status === 'cleared' ? 'bg-band-accent text-band' : day.status === 'missed' ? 'bg-[color-mix(in_oklab,var(--on-band)_12%,transparent)] text-band-muted line-through' : day.status === 'open' ? 'border-2 border-dashed border-band-accent text-on-band' : day.status === 'before' ? 'border-2 border-[color-mix(in_oklab,var(--on-band)_20%,transparent)] text-band-muted' : 'bg-[color-mix(in_oklab,var(--on-band)_12%,transparent)] text-band-muted'}`}
               >
                 <span>{weekdays[weekday(day.date)]}</span>
                 <span className="font-display font-black italic">
-                  {{ cleared: 'CLEAR', missed: 'MISS', open: 'TODAY', upcoming: '·' }[day.status]}
+                  {{ cleared: 'CLEAR', missed: 'MISS', open: 'TODAY', upcoming: '·', before: '—' }[day.status]}
                 </span>
-                <span className="sr-only">{{ cleared: 'クリア', missed: '未達成', open: '今日・未達成', upcoming: 'これから' }[day.status]}</span>
+                <span className="sr-only">{{ cleared: 'クリア', missed: '未達成', open: '今日・未達成', upcoming: 'これから', before: '設定前のため数えない' }[day.status]}</span>
               </li>
             ))}
           </ol>
           {view.startsNextWeek && (
-            <p className="mt-2 mb-0 text-[12px] text-band-muted">今週の途中で設定したため、日曜の表示は来週から数えます。</p>
+            <p className="mt-2 mb-0 text-[12px] text-band-muted">日曜に設定したため、明日の月曜から数えます。</p>
+          )}
+          {!view.startsNextWeek && view.from !== 1 && (
+            <p className="mt-2 mb-0 text-[12px] text-band-muted">今週は設定した{weekdays[view.from]}曜から数えます。</p>
           )}
           {!view.startsNextWeek && view.week.some((day) => day.status === 'missed') && (
             <p className="mt-2 mb-0 text-[12px] text-band-muted">今週は達成できなかった日があるため、日曜は表示しません。来週もこのパスコードのまま続きます。</p>

@@ -3,7 +3,7 @@ import { todayStudyRows } from './todayProgress';
 
 /**
  * A Screen Time passcode kept by the app: the user enters it on their phone without learning it,
- * and the app shows it only on a Sunday after six cleared days (Monday to Saturday).
+ * and the app shows it only on a Sunday after a cleared week (Monday, or the day it was set, to Saturday).
  */
 export interface ScreenTimeLock {
   enabled: boolean;
@@ -14,7 +14,7 @@ export interface ScreenTimeLock {
   issuedOn?: DateKey;
   /** Shown until the user confirms they entered it on the phone; hidden from then on. */
   pending?: boolean;
-  /** The day the user confirmed; a week counts when it was set by that week's Monday. */
+  /** The day the user confirmed; that week counts from this day to Saturday. */
   setOn?: DateKey;
 }
 
@@ -49,22 +49,33 @@ export const dayCleared = (state: AppState, date: DateKey) =>
 
 export const mondayOf = (date: DateKey) => addDays(date, -((weekday(date) + 6) % 7));
 
+/**
+ * The first day that counts toward the Sunday of `date`'s week: Monday, or the day the code was set
+ * when that was later in the week. A code set on Sunday counts from the next Monday (after Saturday).
+ */
+export function countsFrom(lock: ScreenTimeLock, date: DateKey) {
+  const monday = mondayOf(date);
+  return lock.setOn && lock.setOn > monday ? lock.setOn : monday;
+}
+
 /** Monday to Saturday of the week containing `date`, with each day's state as of `today`. */
 export function weekProgress(state: AppState, date: DateKey, today: DateKey) {
   const monday = mondayOf(date);
+  const from = state.screenTime ? countsFrom(state.screenTime, date) : monday;
   return Array.from({ length: 6 }, (_, i) => {
     const day = addDays(monday, i);
-    return { date: day, status: day > today ? 'upcoming' as const : dayCleared(state, day) ? 'cleared' as const : day === today ? 'open' as const : 'missed' as const };
+    return { date: day, status: day < from ? 'before' as const : day > today ? 'upcoming' as const : dayCleared(state, day) ? 'cleared' as const : day === today ? 'open' as const : 'missed' as const };
   });
 }
 
-/** Whether the Sunday `sunday` unlocks: the code was set by that week's Monday and all six days are cleared. */
+/** Whether the Sunday `sunday` unlocks: every day from the set day (Monday at the earliest) to Saturday is cleared. */
 export function sundayUnlocks(state: AppState, sunday: DateKey) {
   const lock = state.screenTime;
   if (!lock?.enabled || !lock.code || lock.pending || !lock.setOn || weekday(sunday) !== 0) return false;
-  const monday = addDays(sunday, -6);
-  if (lock.setOn > monday) return false;
-  return Array.from({ length: 6 }, (_, i) => addDays(monday, i)).every((day) => dayCleared(state, day));
+  const from = countsFrom(lock, sunday);
+  if (from >= sunday) return false;
+  const days = Array.from({ length: 6 }, (_, i) => addDays(sunday, i - 6)).filter((day) => day >= from);
+  return days.every((day) => dayCleared(state, day));
 }
 
 /** What the lock panel shows on `today`. */
@@ -73,14 +84,15 @@ export function lockView(state: AppState, today: DateKey) {
   if (!lock?.enabled) return { kind: 'off' as const };
   if (!lock.code) return { kind: 'unissued' as const };
   if (lock.pending) return { kind: 'pending' as const, code: lock.code, previous: lock.previous };
-  if (sundayUnlocks(state, today)) return { kind: 'unlocked' as const, code: lock.code };
+  if (sundayUnlocks(state, today)) return { kind: 'unlocked' as const, code: lock.code, from: weekday(countsFrom(lock, today)) };
   // After a Sunday that revealed the code, a new one can be issued from Monday on.
   const lastSunday = addDays(today, -((weekday(today) + 7) % 7 || 7));
   if (lock.issuedOn && lock.issuedOn <= lastSunday && sundayUnlocks(state, lastSunday))
     return { kind: 'renew' as const };
-  // A code set after this week's Monday starts counting next week.
-  const startsNextWeek = !!lock.setOn && lock.setOn > mondayOf(today);
-  return { kind: 'locked' as const, week: weekProgress(state, today, today), startsNextWeek };
+  // A code set mid-week counts from that day to Saturday; one set on Sunday starts next week.
+  const from = countsFrom(lock, today);
+  const startsNextWeek = weekday(from) === 0;
+  return { kind: 'locked' as const, week: weekProgress(state, today, today), startsNextWeek, from: weekday(from) };
 }
 
 /** Issues a passcode (the first one, or a new one after an unlocked Sunday); it stays shown until confirmed. */

@@ -236,6 +236,8 @@ export interface AppState {
   rewards?: import('./rewards').Rewards;
   /** Screen Time passcode kept hidden until an unlocked Sunday (game UI, opt-in). */
   screenTime?: import('./screenTime').ScreenTimeLock;
+  /** Per day, the planned rows the user chose to cover with that day's extra work (counts for the day's clear only). */
+  dayOffsets?: Record<string, import('./todayProgress').DayOffset[]>;
   studyNote?: { nextTerm: string; memo: string };
   studyDayBaselines?: Record<string, StudyDayBaseline>;
   outsideLabels?: Record<string, OutsideLabel[]>;

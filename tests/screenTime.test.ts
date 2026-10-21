@@ -33,7 +33,7 @@ it('同じ数字・連番・2桁の繰り返し・西暦らしい番号は使わ
 it('月〜土をすべてクリアした週の日曜だけ表示し、月曜以降は隠す', () => {
   const state = locked();
   expect(sundayUnlocks(state, SUNDAY)).toBe(true);
-  expect(lockView(state, SUNDAY)).toEqual({ kind: 'unlocked', code: '5830' });
+  expect(lockView(state, SUNDAY)).toEqual({ kind: 'unlocked', code: '5830', from: 1 });
   expect(lockView(state, '2026-10-17').kind).toBe('locked');
   // The Monday after a revealed Sunday offers a new code instead of showing the old one.
   expect(lockView(state, NEXT_MONDAY).kind).toBe('renew');
@@ -48,10 +48,23 @@ it('1日でも未達成の週は日曜も表示せず、同じパスコードの
   expect(state.screenTime?.code).toBe('5830');
 });
 
-it('週の途中で設定したパスコードはその週の日曜には表示しない', () => {
-  expect(sundayUnlocks(locked('2026-10-14'), SUNDAY)).toBe(false);
-  expect(lockView(locked('2026-10-14'), SUNDAY)).toMatchObject({ kind: 'locked', startsNextWeek: true });
-  expect(sundayUnlocks(locked(MONDAY), SUNDAY)).toBe(true);
+it('週の途中で設定したパスコードは、設定した日から土曜までをクリアすればその週の日曜に表示する', () => {
+  // Set on Tuesday: Monday is not counted, Tuesday to Saturday are.
+  missed.add(MONDAY);
+  expect(sundayUnlocks(locked('2026-10-13'), SUNDAY)).toBe(true);
+  expect(lockView(locked('2026-10-13'), SUNDAY)).toEqual({ kind: 'unlocked', code: '5830', from: 2 });
+  const week = lockView(locked('2026-10-13'), '2026-10-15');
+  expect(week).toMatchObject({ kind: 'locked', startsNextWeek: false, from: 2 });
+  expect(week.kind === 'locked' && week.week.map((day) => day.status)).toEqual(['before', 'cleared', 'cleared', 'cleared', 'upcoming', 'upcoming']);
+  // A missed day after setting still keeps the Sunday locked.
+  missed.add('2026-10-16');
+  expect(sundayUnlocks(locked('2026-10-13'), SUNDAY)).toBe(false);
+});
+
+it('日曜に設定したパスコードは翌週から数える', () => {
+  expect(sundayUnlocks(locked(SUNDAY), SUNDAY)).toBe(false);
+  expect(lockView(locked(SUNDAY), SUNDAY)).toMatchObject({ kind: 'locked', startsNextWeek: true });
+  expect(sundayUnlocks(locked(SUNDAY), '2026-10-25')).toBe(true);
 });
 
 it('発行した番号は「設定した」まで表示し、再発行では旧パスコードも並べる', () => {

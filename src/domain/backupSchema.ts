@@ -370,6 +370,7 @@ const state = z.looseObject({
       setOn: date.optional(),
     })
     .optional(),
+  dayOffsets: z.record(date, z.array(z.object({ materialId: id.min(1), round: count }))).optional(),
   sidebarCollapsed: z.boolean().optional(),
   windowSize: z
     .object({

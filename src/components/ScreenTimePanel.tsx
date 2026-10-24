@@ -34,23 +34,16 @@ export function ScreenTimePanel({ state, update, date }: Props & { date: string 
       </h2>
       {view.kind === 'unissued' && (
         <>
-          <p className="mt-2 mb-0 text-[14px] text-on-band">
-            4桁のパスコードを作ります。表示された番号をスマホのスクリーンタイムに設定すると、月〜土をすべてクリアした週の日曜だけ、ここに表示されます。
-          </p>
           <button className={bandButton} disabled={busy} onClick={() => void act(issueCode)}>パスコードを発行する</button>
         </>
       )}
       {view.kind === 'renew' && (
         <>
-          <p className="mt-2 mb-0 text-[14px] text-on-band">先週はすべてクリアしました。新しいパスコードに替えて、また1週間がんばりましょう。</p>
           <button className={bandButton} disabled={busy} onClick={() => void act(issueCode)}>新しいパスコードを発行する</button>
         </>
       )}
       {view.kind === 'pending' && (
         <>
-          <p className="mt-2 mb-0 text-[14px] text-on-band">
-            スマホの「設定」→「スクリーンタイム」でパスコードをこの番号に変えてください。設定したら下のボタンを押すと、番号は隠れます。
-          </p>
           <dl className="m-0 mt-3 flex flex-wrap gap-x-10 gap-y-2">
             {view.previous && (
               <div>
@@ -69,17 +62,12 @@ export function ScreenTimePanel({ state, update, date }: Props & { date: string 
       {view.kind === 'unlocked' && (
         <>
           <p className="mt-2 mb-1 font-display text-[22px] font-black italic text-band-accent" lang="en">UNLOCKED</p>
-          <p className="m-0 text-[14px] text-on-band">{weekdays[view.from]}〜土をすべてクリアしました。今日だけパスコードを表示します。</p>
           <p className={`mt-3 mb-0 ${digits}`}>{view.code}</p>
-          <p className="mt-2 mb-0 text-[12px] text-band-muted">月曜に新しいパスコードを発行できます。</p>
         </>
       )}
       {view.kind === 'locked' && (
         <>
-          <p className="mt-2 mb-0 text-[14px] text-on-band">
-            <span className="font-display font-black italic text-band-accent" lang="en">LOCKED</span>
-            {' '}{view.startsNextWeek ? '月' : weekdays[view.from]}〜土をすべてクリアすると、日曜にパスコードを表示します。
-          </p>
+          <p className="mt-2 mb-0 font-display text-[22px] font-black italic text-band-accent" lang="en">LOCKED</p>
           <ol className="m-0 mt-3 grid list-none grid-cols-6 gap-1.5 p-0 pe-6">
             {view.week.map((day) => (
               <li
@@ -95,13 +83,7 @@ export function ScreenTimePanel({ state, update, date }: Props & { date: string 
             ))}
           </ol>
           {view.startsNextWeek && (
-            <p className="mt-2 mb-0 text-[12px] text-band-muted">日曜に設定したため、明日の月曜から数えます。</p>
-          )}
-          {!view.startsNextWeek && view.from !== 1 && (
-            <p className="mt-2 mb-0 text-[12px] text-band-muted">今週は設定した{weekdays[view.from]}曜から数えます。</p>
-          )}
-          {!view.startsNextWeek && view.week.some((day) => day.status === 'missed') && (
-            <p className="mt-2 mb-0 text-[12px] text-band-muted">今週は達成できなかった日があるため、日曜は表示しません。来週もこのパスコードのまま続きます。</p>
+            <p className="mt-2 mb-0 text-[12px] text-band-muted">月曜から数えます。</p>
           )}
         </>
       )}

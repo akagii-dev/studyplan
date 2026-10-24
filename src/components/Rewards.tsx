@@ -27,7 +27,7 @@ export function LoginBonus({ state, date }: { state: AppState; date: string }) {
           </h2>
         </div>
         <p className="m-0 text-[13px] text-band-muted">
-          <span className="font-display font-black italic text-[28px] text-band-accent tabular-nums">{streak}</span>日連続 · 毎日の最初の記録で +{LOGIN_POINTS}pt
+          <span className="font-display font-black italic text-[28px] text-band-accent tabular-nums">{streak}</span>日連続
         </p>
       </div>
       <ol className="m-0 mt-4 grid list-none grid-cols-7 gap-1.5 p-0 pe-6 @max-[430px]:pe-3">

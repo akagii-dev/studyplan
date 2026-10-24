@@ -390,7 +390,6 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
   const toolbar = (
     <>
       <div className="row mb-[1rem] flex-wrap items-start [&>p]:mx-0 [&>p]:my-[0.65rem] [&>p]:text-muted max-[640px]:[&_.actions]:w-full max-[640px]:[&_.actions_button]:w-full">
-        <p>条件修正・復元・再生成</p>
         <div className="actions">
           <button
             onClick={() => {
@@ -426,9 +425,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
       {!plan && toolbar}
       {undo && (
         <div className="note">
-          <p>
-            前の計画に戻します。進捗記録と設定は現在の状態を保ちます。過去の計画は現在の設定と一致しない場合があります。
-          </p>
+          <p>前の計画に戻します。</p>
           <div className="actions">
             <button
               onClick={() => {
@@ -509,7 +506,6 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                   {row.name} · {row.round + 1}周目 · {row.count}{row.unit}（{duration(row.minutes)}）を未配置へ。
                   試験日 {row.deadline}、復習 {row.reviewDays}日。期限内の配置が不足します。
                 </li>)}</ul>
-                <p>削減しない案へ戻ることもできます。実績や問題数は削除しません。</p>
                 <label><input id="balance-loss-confirmation" type="checkbox" checked={lossAck} onChange={event => setLossAck(event.target.checked)} />削減量と期限への影響を確認した</label>
                 <button disabled={acting} onClick={() => void act(s => proposeBalancedRemaining({ ...s, proposal: null }, basis!.balanceMaterialIds ?? [], basis!.from))}>削減しない案へ戻す</button>
               </div>}
@@ -682,7 +678,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
             </section>}
             {restart && (
               <p className="replan-restart-note">
-                開始日：<time dateTime={plan.allocationStart ?? plan.from}>{plan.allocationStart ?? plan.from}</time>。実績・履歴と固定予定を残し、未配置も再評価しました。
+                開始日：<time dateTime={plan.allocationStart ?? plan.from}>{plan.allocationStart ?? plan.from}</time>
               </p>
             )}
             <section className={decision} aria-labelledby="changed-settings-heading">
@@ -696,7 +692,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                   ))}
                 </ul>
               ) : (
-                <p>条件の変更はありません。現在の残数と日時で再計算した案です。</p>
+                <p>条件の変更はありません。</p>
               )}
               {conditionChanges?.length ? (
                 <p className="hint">この内容で更新すると、上記の設定も計画と同時に反映します。</p>
@@ -704,7 +700,6 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
             </section>
             <section className={decision} aria-labelledby="plan-impact-heading">
               <h3 id="plan-impact-heading">計画への主な影響</h3>
-              <p className="hint">現在の承認済み計画 → 新しい候補計画</p>
               {impacts.length ? (
                 <ul className="impact-list [&_li+li]:mt-[0.55rem]">
                   {impacts.map((impact) => (
@@ -727,7 +722,7 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
                 </ul>
               ) : state.plan ? (
                 <p>
-                  今後の教材・周回の予定量、開始・終了、学習日、未配置に変更はありません。個別時刻の変更は詳細で確認できます。
+                  予定量・開始・終了・学習日・未配置に変更はありません。
                 </p>
               ) : (
                 <p>最初の統合計画を作成します。</p>
@@ -761,7 +756,6 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
             <PlanInsights state={state} plan={plan} preview flat />
             <section className="mt-[1.5rem] min-w-0">
               <h3>日ごとの予定量の差分</h3>
-              <p className="hint">過去の予定と固定した予定を保持し、残りの学習日へ分散します。</p>
               {keys.length ? (
                 <ul>
                   {groupBy(keys, (k) => k.split('｜').slice(1).join('｜')).map(([work, dayKeys]) => {

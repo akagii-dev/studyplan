@@ -51,7 +51,6 @@ function FutureRestart({ onRestart }: {
         void onRestart(date).catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)))
           .finally(() => setSending(false));
       }}>
-        <p>実績・履歴と固定予定を残し、未配置も含めて組み直します。</p>
         <label htmlFor="restart-date" className="font-[650]">開始日</label>
         <input ref={input} id="restart-date" className="min-h-11 appearance-none" type="date" required min={reference} value={date}
           onChange={(event) => setDate(event.target.value)} />
@@ -204,7 +203,6 @@ export function Future({
             <button ref={placementTrigger} onClick={openPlacement}>未消化{past.sessions.length}件・調整する</button>
           </> : <form className="grid gap-3 rounded-[8px] border border-line p-4" onSubmit={(event) => { event.preventDefault(); void adjustPlacement(); }}>
             <h2>経過済みの未消化分をまとめて調整</h2>
-            <p>昨日以前の未消化分が対象です。今日と未来の予定・実績は維持します。</p>
             <ul aria-label="調整する対象">{pastGroups.map(({ material, round, count }) => <li key={`${material.id}/${round}`}>
               {material.name} · {round + 1}周目 · {count}{materialUnit(material.unit)}
             </li>)}</ul>
@@ -338,7 +336,6 @@ export function Future({
               </label>;
             })}
             <label className="field">そろえ始める日<input type="date" required min={lowerDate} value={balanceFrom} onChange={(event) => setBalanceFrom(event.target.value)} /></label>
-            <p>記録済みの分・始まった予定・固定予定はそのまま残し、選んだ教材の残りを期限まで日ごとにそろえ直します。</p>
             <button type="submit" className="primary" disabled={!balanceMaterials.length}>配分案を確認</button>
           </fieldset>
           {balanceError && <p className="error" role="alert">{balanceError}</p>}

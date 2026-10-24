@@ -34,13 +34,11 @@ export function StudyNote({ state, update }: Props) {
   }
   return <form className="card study-note grid gap-2.5 [&_.field]:m-0" onSubmit={event => void save(event)} aria-label="ターム・メモ">
     <h2 className="mb-1">次のターム</h2>
-    <div className="study-term grid gap-1.5 border-b border-line pb-3 [&_p]:m-0 [&_p]:wrap-anywhere [&_span]:text-muted" role="group" aria-label="ターム">
-      {limit ? <>
-        {current && <p><span>現在のターム：</span><b>{current.items.map(termItemLabel).join('、')}</b></p>}
-        <p><span>次のターム：</span><b>{next ? next.items.map(termItemLabel).join('、') : current ? 'なし（最後のターム）' : 'なし'}</b></p>
-        {parallel.length > 0 && <p><span>並行：</span><b>{parallel.map(termItemLabel).join('、')}</b></p>}
-      </> : <p className="hint">「設定」→教材の「同時に進める教材数」を指定すると、次のタームを表示します。</p>}
-    </div>
+    {limit && <div className="study-term grid gap-1.5 border-b border-line pb-3 [&_p]:m-0 [&_p]:wrap-anywhere [&_span]:text-muted" role="group" aria-label="ターム">
+      {current && <p><span>現在のターム：</span><b>{current.items.map(termItemLabel).join('、')}</b></p>}
+      <p><span>次のターム：</span><b>{next ? next.items.map(termItemLabel).join('、') : current ? 'なし（最後のターム）' : 'なし'}</b></p>
+      {parallel.length > 0 && <p><span>並行：</span><b>{parallel.map(termItemLabel).join('、')}</b></p>}
+    </div>}
     <textarea name="studyMemo" aria-label="メモ" placeholder="メモ" rows={2} maxLength={4000} className="resize-y"
       value={memo} onChange={event => setMemo(event.target.value)} />
     <div className="actions"><button type="submit" disabled={busy}>{busy ? '保存中…' : '保存'}</button>

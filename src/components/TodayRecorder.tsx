@@ -133,7 +133,6 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
                     onSubmit={(event) => void save(event, row.materialId, row.round)}
                   >
                     <label className="grid min-w-0 gap-[3px] text-[.875rem]">
-                      {studyInputLabel(row.unit)}
                       <StudyCountInput
                         ref={(node) => {
                           if (node) inputRefs.current.set(id, node);

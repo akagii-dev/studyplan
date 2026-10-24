@@ -229,7 +229,9 @@ describe('1日の時間内訳表示', () => {
     const before = structuredClone(settings);
     const html = renderToStaticMarkup(createElement(DailyTime, { settings, date }));
     expect(html).toMatch(/<dt[^>]*>学習可能<\/dt><dd[^>]*>0分<\/dd>/);
-    expect(html).toMatch(/<details class="daily-time-details[ "]/);
+    // 時刻・通学の内訳（details）は一時的に外している。復活時は次の行に戻す:
+    // expect(html).toMatch(/<details class="daily-time-details[ "]/);
+    expect(html).not.toContain('daily-time-details');
     expect(html).not.toContain(' open=');
     expect(html).not.toContain('role="img"');
     expect(html.match(/<circle /g)).toHaveLength(1);

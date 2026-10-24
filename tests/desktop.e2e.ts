@@ -1171,7 +1171,8 @@ test('実機：睡眠・風呂を任意設定し、日またぎ・中断再開�
   expect(removed.records).toEqual(seed.records);
 });
 
-test('実機：可処分時間の情報階層・全テーマ・キーボード・拡大と文字間隔', async () => {
+// 「時刻・通学の内訳を見る」を一時的に外しているため、この試験はスキップする（復活時に test.skip を test に戻す）。
+test.skip('実機：可処分時間の情報階層・全テーマ・キーボード・拡大と文字間隔', async () => {
   test.setTimeout(180000);
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/daily-time-a11y-'));
@@ -2903,7 +2904,8 @@ test('実機：通学の承認・警告の管理・上部タブ・可変幅・�
   expect((await storedState()).settings.commute).toEqual(approved.settings.commute);
 });
 
-test('実機：時間内訳で指定時刻の往復100分と移動しない昼食を表示する', async () => {
+// 「時刻・通学の内訳を見る」を一時的に外しているため、この試験はスキップする（復活時に test.skip を test に戻す）。
+test.skip('実機：時間内訳で指定時刻の往復100分と移動しない昼食を表示する', async () => {
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/commute-meal-overlap-'));
   await launch();

@@ -1,11 +1,11 @@
 import { useId } from 'react';
 import { Warning } from './Warnings';
-import { Settings, OutsideTime, OutsideLabel, clock } from '../domain/model';
+import { Settings, OutsideTime, OutsideLabel } from '../domain/model'; // 復活時: clock も import する
 import { dailyTime } from '../domain/dailyTime';
 import { dailyTimeDisplay, DisplayTimeKind } from '../domain/dailyTimeDisplay';
 import { duration } from './common';
 import { DailyTimeChart, timeColorStyle } from './DailyTimeChart';
-import { OutsideLabelEditor } from './OutsideLabelEditor';
+// 復活時: import { OutsideLabelEditor } from './OutsideLabelEditor';
 
 const labels: Record<DisplayTimeKind, string> = {
   available: '学習可能',
@@ -18,16 +18,17 @@ const labels: Record<DisplayTimeKind, string> = {
   bath: '風呂',
   outside: '学習対象外・未設定',
 };
-/** A note under a category, aligned with its name. */
+/* 復活時: A note under a category, aligned with its name.
 const note =
   'daily-time-note ms-[calc(28px+0.35rem)] block text-muted';
+*/
 
 export function DailyTime({
   settings,
   date,
   outsideTime,
   outsideLabels,
-  onRenameOutside,
+  // 復活時: onRenameOutside,
 }: {
   settings: Settings;
   date: string;
@@ -125,6 +126,10 @@ export function DailyTime({
           <p className="daily-time-support mx-0 mt-[0.75rem] mb-0 text-muted">休憩を含む空き枠 {duration(day.capacity.free)}</p>
         </div>
       </div>
+      {/* 「時刻・通学の内訳を見る」は一時的にコメントアウトしている（ユーザー指示）。
+          復活するには、この囲みを外し、下の3か所（import の clock・OutsideLabelEditor、定数 note、
+          引数の onRenameOutside）のコメントも外す。対応する試験は tests/desktop.e2e.ts の test.skip と
+          tests/dailyTime.test.ts の「復活時」の行を戻す。
       <details className="daily-time-details mt-[1rem] [&_h3]:mx-0 [&_h3]:mt-[1rem] [&_h3]:mb-[0.5rem] [&_h3]:text-[1.1rem] [&_p]:mx-0 [&_p]:my-[0.5rem]">
         <summary className="min-h-11 scroll-my-[1rem] px-[0.25rem] py-[0.65rem] text-[1rem] text-ink focus-visible:rounded-[2px] focus-visible:[outline:3px_solid_var(--accent)] focus-visible:outline-offset-2">時刻・通学の内訳を見る</summary>
         {day.commutes.length > 0 && (
@@ -192,6 +197,7 @@ export function DailyTime({
           </tbody>
         </table>
       </details>
+      */}
     </section>
   );
 }

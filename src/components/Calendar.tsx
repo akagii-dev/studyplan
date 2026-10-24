@@ -191,6 +191,8 @@ export function Calendar({
     const m = state.settings.materials.find((m) => m.id === s.materialId);
     const progress = calendarDisplayQuantity(state, s.date).rows.find(r => r.materialId === s.materialId && r.round === s.round);
     const overlaps = overlapsBusy(state.settings, s);
+    // With the planned time shown, the quantity ("未報告 · 6問" etc.) sits right under it.
+    const quantityUnderTime = level === 'detailed' && s.kind === 'study' && !!progress;
     return (
       <div
         key={s.id}
@@ -201,9 +203,12 @@ export function Calendar({
           <div className={detailRow}>
             <span className="eyebrow text-[11px] tracking-[.6px]">{e?.name}</span>
             {level === 'detailed' && (
-              <span className="planned-time block text-[12px] tabular-nums">
-                学習予定 {clock(s.start)}–{clock(s.end)}
-              </span>
+              <div className="grid justify-items-end gap-0.5 text-right">
+                <span className="planned-time block text-[12px] tabular-nums">
+                  学習予定 {clock(s.start)}–{clock(s.end)}
+                </span>
+                {quantityUnderTime && <ProgressValue value={progressView(progress, s.date, today())} />}
+              </div>
             )}
           </div>
         )}
@@ -220,9 +225,11 @@ export function Calendar({
             <button onClick={onReplan}>対話で見直す</button>
           </div>
         )}
-        <div className={detailRow}>
-          {s.kind === 'study' && progress ? <ProgressValue value={progressView(progress, s.date, today())} /> : <span>{duration(s.end - s.start)}</span>}
-        </div>
+        {!quantityUnderTime && (
+          <div className={detailRow}>
+            {s.kind === 'study' && progress ? <ProgressValue value={progressView(progress, s.date, today())} /> : <span>{duration(s.end - s.start)}</span>}
+          </div>
+        )}
         {level === 'detailed' &&
           s.kind === 'study' &&
           m &&

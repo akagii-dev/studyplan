@@ -23,7 +23,6 @@ import { CalendarDaySummary } from './CalendarDaySummary';
 import { renameOutsideRange } from '../domain/dailyTimeDisplay';
 import { Empty, Field, Props, duration, weekdays } from './common';
 import { CalendarExport } from './CalendarExport';
-import { sessionPolicy } from '../domain/sessionPolicy';
 import { StudyCoverageNotice } from './SetupImpact';
 import { displayPlanSessions } from '../domain/planDisplay';
 import { periodButton } from './ui';/** Floating panel heading with its close button at the end. */
@@ -234,16 +233,6 @@ export function Calendar({
               {duration(s.end - s.start - s.count * m.rounds[s.round].minutes)}
             </p>
           )}
-        {level === 'detailed' &&
-          s.allocationReason &&
-          s.end - s.start <
-            sessionPolicy(state.plan?.settingsSnapshot ?? state.settings).minimum - 1e-7 && (
-            <p className="hint">
-              {s.allocationReason === 'final-remainder'
-                ? '教材・周回を完了するため、設定した下限より短い予定です。'
-                : '期限内に配置するため、設定した下限より短い予定です。'}
-            </p>
-          )}
         <div className="actions mt-2.5">
           {s.kind === 'study' && s.date <= today() && (
             <button className="primary small px-[7px] py-[5px] text-[9px]" onClick={() => onRecord(s)}>
@@ -322,7 +311,7 @@ export function Calendar({
               </p>
             ))}
           {!state.records.some((r) => !r.cancelled && r.date === date) && (
-            <p className="hint">まだ報告はありません。0問としては扱いません。</p>
+            <p className="hint">まだ報告はありません。</p>
           )}
         </section>
         <DailyTime

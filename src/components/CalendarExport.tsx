@@ -142,7 +142,6 @@ function DesktopCalendarExport({ state, from, to, examId = 'all' }: CalendarExpo
             承認済みの学習予定・現在の時間割 ／ 時刻：
             {Intl.DateTimeFormat().resolvedOptions().timeZone}
           </p>
-          <p className="hint">書き出したファイルは、再計画しても自動更新されません。</p>
           {error && (
             <p className="error" role="alert">
               {error}

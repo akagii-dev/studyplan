@@ -53,9 +53,6 @@ export function CalendarQuantityDetails({
         </section>
       ))}
       {!quantity.rows.length && <p>予定なし</p>}
-      {quantity.past && quantity.rows.some((row) => row.planned !== null) && (
-        <p className="hint">その日の不足は現在の残量とは別です。</p>
-      )}
     </div>
   );
 }

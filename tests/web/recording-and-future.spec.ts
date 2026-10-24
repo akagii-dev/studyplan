@@ -986,7 +986,8 @@ test('ターム・メモは日付跨ぎ・再読込で保持し、保存失敗�
   await expect(page.getByRole('progressbar')).toHaveCount(0);
   // The free-text term is replaced by the automatic display; its saved value is kept.
   await expect(form.getByRole('textbox')).toHaveCount(1);
-  await expect(form.getByRole('group', { name: 'ターム' })).toContainText('同時に進める教材数');
+  // Without a parallel-material limit there is no term block at all.
+  await expect(form.getByRole('group', { name: 'ターム' })).toHaveCount(0);
   await memo.focus(); await page.keyboard.type('判例を確認');
   await page.keyboard.press('Shift+Enter'); await page.keyboard.type('次は錯誤');
   await page.keyboard.press('Tab'); await expect(form.getByRole('button', { name: '保存', exact: true })).toBeFocused();

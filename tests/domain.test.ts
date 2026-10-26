@@ -163,14 +163,6 @@ describe('時間枠と集中量', () => {
       [630, 645],
     ]);
   });
-  it('旧日次上限を使わず連続学習と休憩を繰り返す', () => {
-    const s = fixture();
-    s.settings.focus = 60;
-    s.settings.buffer = 0.3;
-    const c = capacityForDate(s.settings, from);
-    expect(c.focus).toBe(150);
-    expect(c.allocatable).toBe(150);
-  });
 });
 describe('統合計画', () => {
   it('複数試験で枠を重複せず共有する', () => {

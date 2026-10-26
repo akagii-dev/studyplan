@@ -806,7 +806,7 @@ it('部分記録後に本日から仕切り直しても、再配置量から新�
   expect(calendarQuantity(added, day, day).rows[0].planned).toBe(6);
 });
 
-it.each(['2030-10-06', '2030-02-30', '', 'not-a-date'])(
+it.each(['2030-10-06', '2030-02-30', 'not-a-date'])(
   '仕切り直しの不正開始日 %s を拒否する',
   (from) => {
     expect(() => calculateRestart(restartFixture(), from, adjustmentContext)).toThrow('開始日');

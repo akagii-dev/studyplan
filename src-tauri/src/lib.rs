@@ -1,11 +1,9 @@
 mod backup;
-mod calendar_file;
 mod database;
 mod db;
 pub mod lan_bridge;
 mod lan_host;
 mod lan_interfaces;
-mod report_file;
 mod window_state;
 use database::Database;
 use tauri::Manager;
@@ -63,14 +61,6 @@ async fn export_backup(db: tauri::State<'_, Database>, path: String) -> Result<(
 #[tauri::command]
 async fn validate_backup(text: String) -> Result<(), String> {
     backup::parse(&text).map(|_| ())
-}
-#[tauri::command]
-async fn export_calendar(path: String, text: String) -> Result<(), String> {
-    calendar_file::write(std::path::Path::new(&path), &text)
-}
-#[tauri::command]
-async fn export_markdown(path: String, text: String) -> Result<(), String> {
-    report_file::write(std::path::Path::new(&path), &text)
 }
 #[tauri::command]
 async fn restore_backup(
@@ -140,8 +130,6 @@ pub fn run() {
             save_window_state,
             commit_state,
             export_backup,
-            export_calendar,
-            export_markdown,
             validate_backup,
             restore_backup,
             load_restore_point,

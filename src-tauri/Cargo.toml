@@ -5,14 +5,6 @@ description = "ローカル学習計画アプリ"
 edition = "2021"
 default-run = "studyplan"
 
-[features]
-lan-cli = []
-
-[[bin]]
-name = "studyplan_lan_bridge"
-path = "src/bin/studyplan_lan_bridge.rs"
-required-features = ["lan-cli"]
-
 [lib]
 name = "studyplan_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]

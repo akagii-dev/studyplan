@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Props } from '../components/common';
-import { warningVersion } from '../components/Warnings';
 import { AppState, mealKeys, mealNames } from '../domain/model';
 import { validateSettings } from '../domain/planning';
 import {
@@ -32,9 +31,6 @@ const sections: { title: string; pages: { page: Page; label: string }[] }[] = [
     pages: [
       { page: 'today', label: '今日の時間内訳' },
       { page: 'replan', label: '計画案の確認' },
-      { page: 'report', label: '週間レポート' },
-      { page: 'warnings', label: '通知の管理' },
-      { page: 'tutorial', label: '使い方' },
       { page: 'backup', label: 'バックアップ' },
     ],
   },
@@ -71,10 +67,6 @@ export function SettingsHub({
   const missingMeals = mealKeys.filter((key) => !state.settings.meals?.[key]);
   const gaps = issues.filter((issue) => issue.studyGap);
   const warningFor = (id: string) => issues.find((entry) => entry.id === id);
-  const hidden = (id: string) => {
-    const issue = warningFor(id);
-    return !!issue && state.ignoredWarnings?.[`setup-${id}`]?.version === warningVersion(issue);
-  };
   const checkAndGenerate = () => {
     setAttempted(true);
     if (missing.length || validationErrors.length) {
@@ -182,7 +174,6 @@ export function SettingsHub({
             <div className={rowLabel}>
               <b>食事時間</b>
               <span>{missingMeals.length ? `${missingMeals.map((key) => mealNames[key]).join('・')}が未設定` : '設定済み'}</span>
-              {hidden('meals') && <small>通知非表示</small>}
               {warningFor('meals') && <small>{warningFor('meals')?.impact}</small>}
             </div>
             <button onClick={() => openAvailability('meals')}>設定・確認</button>
@@ -195,7 +186,6 @@ export function SettingsHub({
                 <div className={rowLabel}>
                   <b>{scheduleInfo[kind].label}</b>
                   <span>{status === 'registered' ? `${count}件設定済み` : status === 'none' ? '予定なし' : status === 'deferred' ? 'あとで設定' : '未確認'}</span>
-                  {hidden(kind) && <small>通知非表示</small>}
                   {warningFor(kind) && <small>{warningFor(kind)?.impact}</small>}
                 </div>
                 <div className={rowActions}>
@@ -210,7 +200,6 @@ export function SettingsHub({
             <div className={rowLabel}>
               <b>学習枠の期間</b>
               <span>{!state.settings.exams.length ? '試験の設定後に確認' : !studyCount ? '学習枠の設定後に確認' : gaps.length ? `未登録 ${gaps.length}期間` : '設定済み'}</span>
-              {gaps.some((gap) => hidden(gap.id)) && <small>通知非表示の期間あり</small>}
               {!!gaps.length && (
                 <ul className="m-0 pl-[18px] text-[12px] text-muted">{gaps.map((gap) => <li key={gap.id}>{gap.studyGap?.examName}：{gap.studyGap?.from}〜{gap.studyGap?.to}。{gap.impact}</li>)}</ul>
               )}

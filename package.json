@@ -21,13 +21,7 @@
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "test:calendar-ui": "playwright test --config tests/calendar-ui/playwright.config.ts",
     "verify:ui": "pnpm demo:build && pnpm test:contracts && pnpm test:calendar-ui",
-    "lan:assets": "tsc -b && vite build --mode lan && node scripts/build-lan.mjs",
-    "lan:build": "pnpm lan:assets && cargo build --manifest-path src-tauri/Cargo.toml --release --features lan-cli --bin studyplan_lan_bridge --locked",
-    "lan:start": "node scripts/lan-host.mjs start",
-    "lan:status": "node scripts/lan-host.mjs status",
-    "lan:stop": "node scripts/lan-host.mjs stop",
-    "test:lan": "playwright test --config playwright.lan.config.ts",
-    "verify:lan": "tsc -b && vite build --mode lan && node scripts/build-lan.mjs && cargo build --manifest-path src-tauri/Cargo.toml --features lan-cli --bin studyplan_lan_bridge --locked && node --test tests/lanHost.test.mjs && pnpm test:lan"
+    "lan:assets": "tsc -b && vite build --mode lan && node scripts/build-lan.mjs"
   },
   "dependencies": {
     "@fontsource/montserrat": "^5.3.0",

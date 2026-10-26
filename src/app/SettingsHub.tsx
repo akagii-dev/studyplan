@@ -14,6 +14,7 @@ import { demoMode } from '../demo';
 import { desktopLanAvailable } from '../desktopLan';
 import { LanSharing } from '../components/LanSharing';
 import { Page } from './navigation';
+import { useUiSwitch } from './uiStyle';
 
 export type AvailabilityTarget = 'study' | 'busy' | 'class' | 'exception' | 'meals';
 
@@ -60,6 +61,7 @@ export function SettingsHub({
   openAvailability: (target: AvailabilityTarget, windowId?: string) => void;
   generate: () => void;
 }) {
+  const ui = useUiSwitch();
   const [attempted, setAttempted] = useState(false);
   const issues = setupIssues(state.settings);
   const missing = issues.filter((issue) => issue.severity === 'error');
@@ -226,6 +228,16 @@ export function SettingsHub({
         <h2>表示</h2>
         <div className="flex flex-wrap gap-4 [&_label]:grid [&_label]:gap-[5px]">
           <label>
+            画面のスタイル
+            <select
+              value={ui.game ? 'game' : 'fresh'}
+              onChange={(event) => void ui.switchUi(event.target.value as 'fresh' | 'game').catch(() => {})}
+            >
+              <option value="fresh">Fresh-UI</option>
+              <option value="game">ゲームUI</option>
+            </select>
+          </label>
+          <label>
             表示モード
             <select
               value={state.appearance ?? 'light'}
@@ -259,6 +271,24 @@ export function SettingsHub({
           </label>
         </div>
       </section>
+      {ui.game && (
+        <section className="card">
+          <h2>スクリーンタイム</h2>
+          <label className="flex! items-center gap-2.5 [&_input]:w-auto">
+            <input
+              type="checkbox"
+              checked={!!state.screenTime?.enabled}
+              onChange={(event) =>
+                void update((current) => ({
+                  ...current,
+                  screenTime: { ...current.screenTime, enabled: event.target.checked },
+                }))
+              }
+            />
+            スマホのスクリーンタイムのパスコードをこのアプリで預かる
+          </label>
+        </section>
+      )}
     </div>
   );
 }

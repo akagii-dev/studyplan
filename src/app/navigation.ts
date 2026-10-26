@@ -17,12 +17,34 @@ export type Page =
   | 'backup'
   | 'replan';
 
+/** `label` is the English word shown on the game UI tab; `name` stays the page's accessible name. */
 export const navigation = [
-  { id: 'dashboard', name: '今日' },
-  { id: 'future', name: '今後の予定' },
-  { id: 'history', name: '記録履歴' },
-  { id: 'settings', name: '設定' },
+  { id: 'dashboard', name: '今日', label: 'TODAY' },
+  { id: 'future', name: '今後の予定', label: 'SCHEDULE' },
+  { id: 'history', name: '記録履歴', label: 'LOG' },
+  { id: 'settings', name: '設定', label: 'CONFIG' },
 ] as const;
+
+/** English titles drawn on the game UI; `pageNames` stays the accessible name. */
+export const pageTitles: Record<Page, string> = {
+  dashboard: 'TODAY',
+  future: 'SCHEDULE',
+  history: 'LOG',
+  settings: 'CONFIG',
+  commute: 'COMMUTE',
+  today: 'TODAY DETAIL',
+  setup: 'SETUP',
+  addExam: 'NEW EXAM',
+  addMaterial: 'NEW BOOK',
+  exams: 'EXAMS',
+  materials: 'BOOKS',
+  availability: 'TIME SLOTS',
+  focus: 'FOCUS',
+  calendar: 'CALENDAR',
+  progress: 'EXTRA LOG',
+  backup: 'BACKUP',
+  replan: 'NEW PLAN',
+};
 
 export const pageNames: Record<Page, string> = {
   dashboard: '今日',

@@ -359,6 +359,18 @@ const state = z.looseObject({
     .nullable(),
   theme: z.enum(['mint', 'sky', 'lime']).optional(),
   appearance: z.enum(['light', 'dark', 'system']).optional(),
+  uiStyle: z.enum(['fresh', 'game']).optional(),
+  screenTime: z
+    .object({
+      enabled: z.boolean(),
+      code: z.string().regex(/^\d{4}$/).optional(),
+      previous: z.string().regex(/^\d{4}$/).optional(),
+      issuedOn: date.optional(),
+      pending: z.boolean().optional(),
+      setOn: date.optional(),
+    })
+    .optional(),
+  dayOffsets: z.record(date, z.array(z.object({ materialId: id.min(1), round: count }))).optional(),
   sidebarCollapsed: z.boolean().optional(),
   windowSize: z
     .object({
@@ -379,6 +391,20 @@ const state = z.looseObject({
   warningExpanded: z.record(id, z.boolean()).optional(),
   studyNote: z.object({ nextTerm: z.string().max(200), memo: z.string().max(4000) }).optional(),
   settingsUpdatedAt: text.optional(),
+  rewards: z
+    .object({
+      since: date,
+      entries: z.array(
+        z.object({
+          kind: z.enum(['login', 'study']),
+          date,
+          points: z.number().int().min(0).max(100_000_000),
+          recordId: id.optional(),
+          minutesPerUnit: z.number().min(0).max(100_000).optional(),
+        }),
+      ).max(200_000),
+    })
+    .optional(),
 });
 export const backupSchema = z.object({
   format: z.literal('StudyPlanBackup'),

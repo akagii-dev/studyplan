@@ -36,7 +36,7 @@ export function AnimatedProgress({
   return (
     <div
       ref={ref}
-      className="mx-0 my-3 h-2 w-full overflow-hidden rounded-[8px] bg-soft"
+      className="mx-0 my-3 h-2 w-full overflow-hidden rounded-[8px] bg-soft game:h-3 game:rounded-none game:[clip-path:polygon(6px_0,100%_0,calc(100%-6px)_100%,0_100%)]"
       role="progressbar"
       aria-label={label}
       aria-valuemin={0}

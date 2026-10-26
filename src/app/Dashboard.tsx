@@ -2,10 +2,13 @@ import { ChevronRight } from 'lucide-react';
 import { Props, duration } from '../components/common';
 import { ShortfallDetails } from '../components/ShortfallDetails';
 import { StudyNote } from '../components/StudyNote';
+import { LoginBonus, RewardProgress } from '../components/Rewards';
+import { ScreenTimePanel } from '../components/ScreenTimePanel';
 import { TodayRecorder, RecordTarget } from '../components/TodayRecorder';
 import { today } from '../domain/model';
 import { currentPlanReconciliation, currentProgressAdjustment } from '../domain/progressAdjustment';
 import { Page } from './navigation';
+import { useGameUi } from './uiStyle';
 /** Status of the adjustment after a record. */
 const adjustmentNote =
   'daily-adjustment mb-4 rounded-[8px] bg-soft px-3.5 py-2.5';
@@ -17,6 +20,7 @@ export function Dashboard({
   onReview,
   recordTarget,
 }: Props & { navigate: (page: Page) => void; onReview: () => void; recordTarget?: RecordTarget | null }) {
+  const game = useGameUi();
   if (!state.plan)
     return (
       <div className="daily-page max-w-[900px]"><section className="card">
@@ -68,6 +72,11 @@ export function Dashboard({
           </div>
         )}
       </section>
+      {game && <>
+        <LoginBonus state={state} date={today()} />
+        <RewardProgress state={state} date={today()} />
+        <ScreenTimePanel state={state} update={update} date={today()} />
+      </>}
       <ShortfallDetails state={state} onReview={onReview} />
       <StudyNote state={state} update={update} />
     </div>

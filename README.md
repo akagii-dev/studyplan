@@ -112,3 +112,7 @@ SQLiteの保存データ、`.studyplan.json` バックアップ、`.env`、実�
 ## 変更履歴
 
 過去の変更は[CHANGELOG.md](CHANGELOG.md)にまとめています。開発時の方針は[CLAUDE.md](CLAUDE.md)を参照してください。
+
+## 使用している書体
+
+見出しなどの表示用に [Montserrat](https://github.com/JulietaUla/Montserrat)（Copyright 2011 The Montserrat Project Authors）と [Zen Kaku Gothic New](https://github.com/googlefonts/zen-kakugothic)（Copyright 2022 The Zen Project Authors）をアプリに同梱しています。どちらも SIL Open Font License 1.1 です。

@@ -93,3 +93,108 @@
   --ring: #87a65a;
   --art: #353f27;
 }
+
+/* Game UI: paper, ink and one signal color. The black band frames the screen; the theme color
+ * marks what is current or cleared (today, done, the active tab). Same keys as the Fresh UI above. */
+:root[data-ui='game'] {
+  --busy-bg: #e6e0d3;
+  --busy-ink: #15130f;
+  --busy-muted: #4f4a40;
+  --busy-border: #857e70;
+  /* Status colors follow the game palette: warnings are paper framed in ink, errors are
+   * signal red on paper (an error banner is an ink plate with a signal stripe). */
+  --warning-bg: #ebe4d4;
+  --warning-ink: #15130f;
+  --warning-border: #15130f;
+  --error-bg: #15130f;
+  --error-ink: #b3150c;
+  --error-border: #c8231a;
+  --error-on-bg: #f6f3ec;
+  --ink: #15130f;
+  --muted: #575247;
+  /* The page is the signal red under a halftone; content sits on white paper panels. */
+  --page: #d3170f;
+  --surface: #fbfaf7;
+  --soft: #e8e2d5;
+  --border: #d6cfc0;
+  --control-border: #857e70;
+  /* The main action is a gray surface; the accent is never a button fill. */
+  --action: #15130f;
+  --action-hover: #2e2a23;
+  --on-action: #f6f3ec;
+  --accent: #c8231a;
+  --accent-hover: #a11b13;
+  --on-accent: #f6f3ec;
+  --on-ink: #f6f3ec;
+  --ring: #e07a70;
+  --art: #f2cdc7;
+  /* The frame around every screen stays black in both appearances. */
+  --band: #15130f;
+  --on-band: #f6f3ec;
+  --band-muted: #bdb5a6;
+  /* The theme color as it reads on the band: always the lighter step. */
+  --band-accent: #ff5a46;
+  --radius: 0px;
+  --radius-control: 0px;
+}
+:root[data-ui='game'][data-theme='sky'] {
+  --page: #1c4fb0;
+  --band-accent: #6aa6ff;
+  --accent: #1d5bb0;
+  --accent-hover: #164a91;
+  --ring: #6f9be0;
+  --art: #d2e0f5;
+}
+:root[data-ui='game'][data-theme='lime'] {
+  --page: #3a7012;
+  --band-accent: #9fd65a;
+  --accent: #3d7012;
+  --accent-hover: #2f580d;
+  --ring: #8fb860;
+  --art: #dbe9c8;
+}
+:root[data-ui='game'][data-appearance='dark'] {
+  color-scheme: dark;
+  --ink: #f3efe6;
+  --muted: #b3ac9f;
+  --page: #0b0a09;
+  --surface: #1f1c18;
+  --soft: #2c2822;
+  --border: #38342d;
+  --control-border: #756e62;
+  --action: #f3efe6;
+  --action-hover: #ffffff;
+  --on-action: #15130f;
+  --accent: #ff5a46;
+  --accent-hover: #ff7d6c;
+  --on-accent: #15130f;
+  --on-ink: #15130f;
+  --ring: #c9473a;
+  --art: #4d211b;
+  --band: #000000;
+  --on-band: #f3efe6;
+  --band-muted: #b3ac9f;
+  --busy-bg: #2c2822;
+  --busy-ink: #f3efe6;
+  --busy-muted: #cbc4b7;
+  --busy-border: #756e62;
+  --warning-bg: #2c2822;
+  --warning-ink: #f3efe6;
+  --warning-border: #f3efe6;
+  --error-bg: #000000;
+  --error-ink: #ff8a7a;
+  --error-border: #ff5a46;
+  --error-on-bg: #f3efe6;
+}
+:root[data-ui='game'][data-theme='sky'][data-appearance='dark'] {
+  --accent: #6aa6ff;
+  --accent-hover: #93bfff;
+  --ring: #4f82cf;
+  --art: #1d2c45;
+}
+:root[data-ui='game'][data-theme='lime'][data-appearance='dark'] {
+  --accent: #9fd65a;
+  --accent-hover: #b9e483;
+  --ring: #7aa846;
+  --art: #2a3a1a;
+}

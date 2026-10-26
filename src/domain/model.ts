@@ -232,6 +232,12 @@ export interface WindowSize {
   height: number;
 }
 export interface AppState {
+  /** Login bonus and study points; absent until the first record after the feature arrived. */
+  rewards?: import('./rewards').Rewards;
+  /** Screen Time passcode kept hidden until an unlocked Sunday (game UI only, opt-in). */
+  screenTime?: import('./screenTime').ScreenTimeLock;
+  /** Per day, the planned rows the user chose to cover with that day's extra work (counts for the day's clear only). */
+  dayOffsets?: Record<string, import('./todayProgress').DayOffset[]>;
   studyNote?: { nextTerm: string; memo: string };
   studyDayBaselines?: Record<string, StudyDayBaseline>;
   outsideLabels?: Record<string, OutsideLabel[]>;
@@ -240,6 +246,8 @@ export interface AppState {
   settingsUpdatedAt?: string;
   theme?: 'mint' | 'sky' | 'lime';
   appearance?: 'light' | 'dark' | 'system';
+  /** Look of the app: the plain Fresh UI (default) or the game UI with its rewards. Display only. */
+  uiStyle?: 'fresh' | 'game';
   sidebarCollapsed?: boolean;
   windowSize?: WindowSize;
   calendarDensity?: Partial<Record<CalendarView, CalendarDensity>>;

@@ -223,3 +223,80 @@ select:hover:not(:disabled),
     padding: 14px;
   }
 }
+/* Game UI parts, layered over the Fresh UI parts above. */
+:root[data-ui='game'] button:disabled {
+  background: var(--soft);
+}
+:where([data-ui='game']) .card {
+  border-top: 2px solid var(--ink);
+}
+/* A section title is a tilted ink plate with a signal-color shadow. */
+:where([data-ui='game']) .card h2 {
+  display: inline-block;
+  width: fit-content;
+  max-width: calc(100% - 16px);
+  padding: 2px 16px;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-style: italic;
+  color: var(--surface);
+  background: var(--ink);
+  box-shadow: 4px 4px 0 var(--accent);
+  /* Shifted inward so the slant stays inside its card even where a utility clears the margin. */
+  transform: translateX(8px) rotate(-1.5deg) skewX(-10deg);
+  transform-origin: left center;
+}
+:where([data-ui='game']) .card h2 :is(small, span) {
+  /* Outranks the muted utility on counts such as 3/3, which would vanish on the ink plate. */
+  color: inherit !important;
+}
+:where([data-ui='game']) .card .card h2 {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  font-family: inherit;
+  font-weight: 700;
+  font-style: normal;
+  color: var(--ink);
+  background: none;
+  box-shadow: none;
+  transform: none;
+}
+:where([data-ui='game']) .error {
+  color: var(--error-on-bg);
+  border: 0;
+  border-inline-start: 8px solid var(--error-border);
+  border-radius: 0;
+  font-weight: 700;
+}
+/* A secondary button highlights its outline on hover; the fill and label keep their colors,
+ * so a label colored by a utility never ends up on a same-colored fill (issue #13). */
+:where([data-ui='game']) button:not(.primary, #app-sidebar button):hover:not(:disabled) {
+  background: var(--surface);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+/* The main action is an ink block with a hard signal-color shadow; pressing sinks it into the shadow. */
+:where([data-ui='game']) .primary {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 0.04em;
+  box-shadow: 4px 4px 0 var(--accent);
+  transform: skewX(-10deg);
+  transition-property: background-color, border-color, box-shadow, translate;
+  transition-duration: 120ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+:where([data-ui='game']) .primary:active:not(:disabled) {
+  translate: 3px 3px;
+  box-shadow: 1px 1px 0 var(--accent);
+}
+:where([data-ui='game']) .primary:disabled {
+  box-shadow: none;
+}
+:where([data-ui='game']) .confirmation-panel {
+  border: 2px solid var(--warning-border);
+  border-radius: 0;
+  box-shadow: 6px 6px 0 var(--accent);
+}

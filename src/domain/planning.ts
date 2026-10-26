@@ -7,6 +7,7 @@ import {
 import { PlanningContext } from './planner/context';
 import { generatePlan as generate } from './planner/generate';
 import * as proposals from './planner/proposal';
+import { settleRewards } from './rewards';
 
 export * from './planner/intervals';
 export * from './planner/capacity';
@@ -52,9 +53,14 @@ export function proposeSettings(state: AppState, settings: Settings, from: strin
 export function approve(state: AppState, acknowledge = false) {
   return proposals.approve(state, acknowledge, context());
 }
+/** Records and corrections also settle the reward points in the same saved state. */
 export function recordAndAdjust(state: AppState, entry: Progress) {
-  return recordAndAdjustWithContext(state, entry, context());
+  const ctx = context();
+  const next = recordAndAdjustWithContext(state, entry, ctx);
+  return next === state ? state : settleRewards(next, ctx.date);
 }
 export function correctAndAdjust(state: AppState, id: string, count: number, cancelled = false) {
-  return correctAndAdjustWithContext(state, id, count, cancelled, context());
+  const ctx = context();
+  const next = correctAndAdjustWithContext(state, id, count, cancelled, ctx);
+  return next === state ? state : settleRewards(next, ctx.date);
 }

@@ -5,10 +5,12 @@ import { Props } from './common';
 import { remaining, today } from '../domain/model';
 import { StudyRecordForm, StudyCountInput } from './StudyRecordForm';
 import { useRecordInput, useStudyRecord } from '../hooks/useStudyRecord';
-import { todayStudyRows } from '../domain/todayProgress';
+import { setDayOffset, todayStudyRows } from '../domain/todayProgress';
 import { latestReceipt } from '../domain/progressReceipt';
 import { usePlanningClock } from '../hooks/usePlanningClock';
 import { ProgressReceiptView, receiptDetailLabel, receiptOutcome } from './ProgressReceiptView';
+import { ClearStamp, TodayClear, useNewlyCleared } from './TodayClear';
+import { useGameUi } from '../app/uiStyle';
 
 function RecordInputDisclosure({ complete, expanded, onExpandedChange, unit, children }: {
   complete: boolean;
@@ -40,6 +42,10 @@ function RecordInputDisclosure({ complete, expanded, onExpandedChange, unit, chi
   </details>;
 }
 
+/** Game UI: the material name and its round share one title style; a cleared row puts both on ink plates. */
+const rowTitle = (complete: boolean) =>
+  `text-[17px] font-display font-black italic ${complete ? '-rotate-[1.5deg] -skew-x-[10deg] bg-ink px-2.5 text-surface shadow-[3px_3px_0_var(--accent)]' : ''}`;
+
 export interface RecordTarget {
   materialId: string;
   round: number;
@@ -47,7 +53,8 @@ export interface RecordTarget {
 }
 export function TodayRecorder({ state, update, target }: Props & { target?: RecordTarget | null }) {
   const { date: clockDate } = usePlanningClock();
-  const rows = useMemo(() => todayStudyRows(state, clockDate), [state, clockDate]);
+  const game = useGameUi();
+  const rows = useMemo(() => todayStudyRows(state, clockDate, game), [state, clockDate, game]);
   const inputRefs = useRef(new Map<string, HTMLInputElement>());
   const handled = useRef<number | null>(null);
   const outsideRef = useRef<HTMLDetailsElement>(null);
@@ -60,8 +67,17 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
   const [outsideRound, setOutsideRound] = useRecordInput('today/round', 0);
   const { busy, save: record } = useStudyRecord(update, `today/${date}`);
   const key = (materialId: string, round: number) => JSON.stringify([materialId, round]);
+  const landed = useNewlyCleared(rows, (row) => key(row.materialId, row.round));
   const savedReceipt = savedRecord ? latestReceipt(state, savedRecord.id) : undefined;
   const needsAttention = savedReceipt && ['unplaced', 'review', 'failed'].includes(savedReceipt.status);
+  // Game UI: points of this record, plus the login bonus when it was the day's first counted record.
+  const earned = game && savedRecord ? (() => {
+    const entries = state.rewards?.entries ?? [];
+    const own = entries.find((e) => e.recordId === savedRecord.id);
+    const first = state.records.find((r) => r.date === date && !r.cancelled && r.count > 0);
+    const login = first?.id === savedRecord.id ? entries.find((e) => e.kind === 'login' && e.date === date)?.points ?? 0 : 0;
+    return (own?.points ?? 0) + login;
+  })() : 0;
 
   useEffect(() => {
     if (!target || handled.current === target.token) return;
@@ -91,6 +107,18 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
     return () => window.clearTimeout(timer);
   }, [target, state]);
 
+  const [offsetBusy, setOffsetBusy] = useState(false);
+  /** Game UI: covers (or stops covering) a row's shortfall with today's extra work; records and the plan stay as they are. */
+  async function offset(row: { materialId: string; round: number }, on: boolean) {
+    if (offsetBusy) return;
+    setOffsetBusy(true);
+    try {
+      await update((current) => setDayOffset(current, clockDate, row, on));
+    } finally {
+      setOffsetBusy(false);
+    }
+  }
+
   async function save(event: FormEvent | undefined, materialId: string, round: number) {
     event?.preventDefault();
     const id = key(materialId, round);
@@ -110,16 +138,25 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
 
   return (
     <>
+      {game && <TodayClear rows={rows} />}
       {rows.length ? (
         <div className="daily-record-list border-t border-line" role="list">
           {rows.map((row) => {
             const id = key(row.materialId, row.round);
             return (
               <div role="listitem" key={id} className={`daily-record-row${row.progress.complete ? ' is-complete' : ''} grid min-w-0 grid-cols-[minmax(130px,1.3fr)_minmax(160px,1fr)_minmax(185px,auto)] items-center gap-x-4 gap-y-2 border-b border-line py-4 @max-[700px]:grid-cols-[minmax(0,1fr)_auto] @max-[430px]:block`}>
-                <div className="daily-record-name flex min-w-0 flex-wrap gap-x-2.5 gap-y-1 wrap-anywhere @max-[430px]:mb-1.5">
-                  <strong className={`text-[16px] ${row.progress.complete ? 'text-muted' : ''}`}>{row.materialName}</strong>
-                  <span className="text-muted">{row.round + 1}周目</span>
-                </div>
+                {game ? (
+                  <div className="daily-record-name flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 wrap-anywhere @max-[430px]:mb-1.5">
+                    <strong className={rowTitle(row.progress.complete)}>{row.materialName}</strong>
+                    <span className={rowTitle(row.progress.complete)}>{row.round + 1}周目</span>
+                    {row.progress.complete && <ClearStamp animate={landed.has(id)} />}
+                  </div>
+                ) : (
+                  <div className="daily-record-name flex min-w-0 flex-wrap gap-x-2.5 gap-y-1 wrap-anywhere @max-[430px]:mb-1.5">
+                    <strong className={`text-[16px] ${row.progress.complete ? 'text-muted' : ''}`}>{row.materialName}</strong>
+                    <span className="text-muted">{row.round + 1}周目</span>
+                  </div>
+                )}
                 <div className="daily-record-amounts flex min-w-0 flex-wrap justify-end gap-x-2.5 gap-y-1 text-right @max-[700px]:col-start-1 @max-[430px]:mb-1.5 @max-[430px]:justify-start @max-[430px]:text-left">
                   <ProgressValue value={row.progress}
                     className="justify-end @max-[430px]:justify-start [&>span]:text-muted"
@@ -157,6 +194,16 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
                     </button>
                   </form>
                 </RecordInputDisclosure>
+                {game && (row.offsetAvailable || row.offsetChosen) && (
+                  <div className="col-span-full flex flex-wrap items-center gap-x-3 gap-y-1 text-[.875rem] @max-[430px]:mt-1.5">
+                    {row.offsetChosen && !row.offset && <span className="text-muted">ほかの追加分が足りないため、相殺していません。</span>}
+                    <button type="button" className="min-h-11" disabled={busy || offsetBusy}
+                      aria-label={`${row.materialName} ${row.round + 1}周目の${row.offsetChosen ? '相殺を取り消す' : `残り${row.progress.left}${row.unit}を、ほかの教材の追加分で相殺する`}`}
+                      onClick={() => void offset(row, !row.offsetChosen)}>
+                      {row.offsetChosen ? '相殺を取り消す' : `ほかの追加分で相殺（${row.progress.left}${row.unit}）`}
+                    </button>
+                  </div>
+                )}
                 {errors[id] && (
                   <p className="daily-record-error col-span-full m-0 text-error @max-[430px]:mt-1.5" role="alert">
                     {errors[id]}
@@ -189,6 +236,7 @@ export function TodayRecorder({ state, update, target }: Props & { target?: Reco
         <div className="daily-record-saved mt-3 text-ink" role="status">
           <p>
             {savedRecord.count}{savedRecord.unit}を記録しました。
+            {earned > 0 && <strong className="ms-2 font-display font-black italic text-accent">+{earned.toLocaleString('ja-JP')}pt</strong>}
           </p>
           {needsAttention && <p>{receiptOutcome(savedReceipt)}</p>}
           {savedReceipt && (needsAttention || savedReceipt.changes.length > 0) && (

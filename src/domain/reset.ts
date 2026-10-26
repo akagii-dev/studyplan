@@ -24,6 +24,9 @@ export function resetSetup(state: AppState, all = false): AppState {
     ...initialState(),
     theme: state.theme,
     appearance: state.appearance,
+    uiStyle: state.uiStyle,
+    // The phone keeps its passcode across a reset, so the app must keep it too.
+    screenTime: state.screenTime,
     sidebarCollapsed: state.sidebarCollapsed,
     windowSize: state.windowSize,
     calendarDensity: state.calendarDensity,

@@ -1,3 +1,4 @@
+import { useGameUi } from '../app/uiStyle';
 import { ScheduleViewSwitch } from './ScheduleViewSwitch';
 import { progressView } from '../domain/progressView';
 import { ProgressValue } from './ProgressValue';
@@ -63,6 +64,7 @@ export function Calendar({
   initialFilter?: string;
   onFilterChange?: (filter: string) => void;
 }) {
+  const game = useGameUi();
   const [, tick] = useState(0);
   useEffect(() => {
     if (!todayOnly) return;
@@ -192,7 +194,7 @@ export function Calendar({
     return (
       <div
         key={s.id}
-        className={`session-detail density-${level} ${todayOnly ? 'my-[18px]' : 'my-[15px]'} rounded-[3px] border-l-[3px] border-l-[color:var(--ring)] bg-surface px-[11px] py-2.5`}
+        className={`session-detail density-${level} ${todayOnly ? 'my-[18px]' : 'my-[15px]'} ${game ? 'border-2 border-ink border-l-8 border-l-accent shadow-[4px_4px_0_var(--ink)]' : 'rounded-[3px] border-l-[3px] border-l-[color:var(--ring)]'} bg-surface px-[11px] py-2.5`}
         style={{ borderLeftColor: e?.color, '--exam-color': e?.color } as CSSProperties}
       >
         {level !== 'compact' && (
@@ -270,7 +272,7 @@ export function Calendar({
       x.session ? (
         detail(x.session, level)
       ) : (
-        <div className={`busy-event rounded-[6px] bg-[var(--busy-bg)] text-[11px] text-[var(--busy-ink)] ${todayOnly ? 'my-[18px] p-2' : 'mb-4 p-3'}`} key={x.id}>
+        <div className={`busy-event rounded-[6px] game:rounded-none bg-[var(--busy-bg)] text-[11px] text-[var(--busy-ink)] ${todayOnly ? 'my-[18px] p-2' : 'mb-4 p-3'}`} key={x.id}>
           <b>
             {x.busy!.kind === 'class'
               ? '授業：' + (x.busy!.name.trim() || '大学の授業')
@@ -376,9 +378,10 @@ export function Calendar({
             <ChevronRight size={20} aria-hidden />
           </button>
           <div className="calendar-today-actions flex items-center gap-1">
-            <button className={`future-today ${periodButton} px-3.5 py-2.5 text-[.875rem] font-medium`}
+            <button className={`future-today ${periodButton} px-3.5 py-2.5 text-[.875rem] ${game ? 'font-display font-black italic' : 'font-medium'}`}
+              aria-label={game ? '今日' : undefined}
               onClick={() => { setShowDay(false); setSelected(today()); }}>
-              今日
+              {game ? <span lang="en">TODAY</span> : '今日'}
             </button>
             <button ref={settingsButtonRef} className={`calendar-settings-toggle ${periodButton} px-2.5 py-[7px] text-[11px]`}
               aria-label="カレンダーの表示設定" aria-haspopup="dialog"
@@ -467,11 +470,11 @@ export function Calendar({
       <div className="calendar-only-layout grid min-w-0 gap-5" ref={calendarRef} onFocusCapture={(event) => { if (showDay && !detailRef.current?.contains(event.target)) setShowDay(false); }}>
         {selectedDayPanel}
         <div
-          className={`calendar-grid ${view} density-${density} mb-[23px] overflow-hidden rounded-card border border-line bg-surface`}
+          className={`calendar-grid ${view} density-${density} mb-[23px] overflow-hidden bg-surface ${game ? 'border-2 border-ink shadow-[8px_8px_0_var(--ink)]' : 'rounded-card border border-line'}`}
         >
-          <div className="calendar-head grid grid-cols-[repeat(7,minmax(0,1fr))] border-b border-line bg-surface @max-[680px]:hidden">
+          <div className={`calendar-head grid grid-cols-[repeat(7,minmax(0,1fr))] @max-[680px]:hidden ${game ? 'bg-band text-on-band' : 'border-b border-line bg-surface'}`}>
             {[1, 2, 3, 4, 5, 6, 0].map((d) => (
-              <span key={d} className="py-3 text-center text-[12px] font-semibold text-muted @max-[430px]:py-2">{weekdays[d]}</span>
+              <span key={d} className={`text-center @max-[430px]:py-2 ${game ? 'py-2.5 font-display text-[13px] font-black italic text-on-band' : 'py-3 text-[12px] font-semibold text-muted'}`}>{weekdays[d]}</span>
             ))}
           </div>
           <div className="calendar-body grid gap-px @max-[680px]:gap-3">
@@ -490,7 +493,7 @@ export function Calendar({
                         aria-label={`${d}を表示`}
                         aria-pressed={d === selected}
                       >
-                        {d === today() ? <span className="today-date-badge mx-auto grid size-[2rem] place-items-center rounded-full bg-accent text-on-accent">{Number(d.slice(8))}</span> : shortDayLabel(d)}
+                        {d === today() ? <span className={`today-date-badge mx-auto grid place-items-center bg-accent text-on-accent ${game ? 'h-[2rem] min-w-[2.5rem] -skew-x-[12deg] px-1.5 font-display font-black italic shadow-[2px_2px_0_var(--ink)]' : 'size-[2rem] rounded-full'}`}>{Number(d.slice(8))}</span> : shortDayLabel(d)}
                       </button>
                         <CalendarDaySummary
                           state={state}

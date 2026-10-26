@@ -16,7 +16,7 @@ export function Warning({
   label?: string;
 }) {
   return (
-    <section className={`warning my-5 rounded-[9px] border border-warning-line bg-warning-bg px-6 py-5 text-warning wrap-anywhere [&_h3]:[color:inherit] [&_li]:text-[11px] [&_p]:text-[12px] [&_p]:[color:inherit] [&_small]:[color:inherit] ${className}`} aria-label={label ?? title}>
+    <section className={`warning my-5 rounded-[9px] border border-warning-line bg-warning-bg game:rounded-none game:border-2 game:shadow-[6px_6px_0_var(--accent)] px-6 py-5 text-warning wrap-anywhere [&_h3]:[color:inherit] [&_li]:text-[11px] [&_p]:text-[12px] [&_p]:[color:inherit] [&_small]:[color:inherit] ${className}`} aria-label={label ?? title}>
       <h3 className="m-0 font-[650]">{title}</h3>
       <div className="warning-content mt-3">{children}</div>
     </section>

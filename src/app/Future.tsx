@@ -1,3 +1,4 @@
+import { useGameUi } from './uiStyle';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { progressView } from '../domain/progressView';
 import { studyProgressView } from '../domain/studyProgress';
@@ -89,6 +90,7 @@ export function Future({
   onWeekChange?: (date: string) => void;
 }) {
   const { date: reference, minute } = usePlanningClock();
+  const game = useGameUi();
   const [localSelection, setLocalSelection] = useState<FutureSelection | null>(() => initialWeek ? { from: initialWeek, selectedOn: reference } : null);
   const chosen = selection === undefined ? localSelection : selection;
   const currentWeek = startOfWeek(reference);
@@ -136,7 +138,9 @@ export function Future({
           </time>
           <button className={`shrink-0 p-3 ${periodButton}`} aria-label="次の週" onClick={() => moveWeek(addDays(week, 7))}><ChevronRight className="shrink-0" size={20} strokeWidth={2.5} aria-hidden="true" /></button>
         </div>
-        <button className={periodButton} onClick={() => moveWeek(currentWeek)}>今日</button>
+        {game
+          ? <button className={`${periodButton} font-display font-black italic`} aria-label="今日" onClick={() => moveWeek(currentWeek)}><span lang="en">TODAY</span></button>
+          : <button className={periodButton} onClick={() => moveWeek(currentWeek)}>今日</button>}
         </div>
         <ScheduleViewSwitch calendar={false} onSwitch={() => onCalendar(week, false)} />
       </div>
@@ -170,9 +174,11 @@ export function Future({
             }
             return (
               <section className="future-day grid grid-cols-[9rem_minmax(0,1fr)] gap-x-4 gap-y-2 py-2 [.future-day+&]:border-t [.future-day+&]:border-line max-[600px]:grid-cols-[minmax(0,1fr)] max-[600px]:gap-0" key={date}>
-                <h2 className="m-0 mb-1.5 flex flex-wrap content-start items-center gap-x-1.5 text-[17px]">
+                <h2 className="m-0 mb-1.5 flex flex-wrap content-start items-center gap-x-1.5 text-[17px] game:font-display game:text-[18px] game:font-black game:italic">
                   <time dateTime={date}>{shortDayLabel(date)}</time>
-                  {date === reference && <span className="future-today ms-0 text-[.875rem] font-medium text-accent">今日</span>}
+                  {date === reference && (game
+                    ? <span className="future-today ms-0 -skew-x-[12deg] bg-accent px-2 text-[.8125rem] font-display font-black italic text-on-accent"><span aria-hidden="true" lang="en">TODAY</span><span className="sr-only">今日</span></span>
+                    : <span className="future-today ms-0 text-[.875rem] font-medium text-accent">今日</span>)}
                 </h2>
                 <ul className="m-0 min-w-0 list-none p-0">
                   {date <= reference && quantity.rows.map((row) => {
@@ -211,7 +217,7 @@ export function Future({
                             ? `${state.settings.exams.find((exam) => exam.id === session.examId)?.name ?? '試験'} · 復習`
                             : `${state.settings.materials.find((material) => material.id === session.materialId)?.name ?? session.materialId} · ${session.round + 1}周目`}
                         </span>
-                        <span className={quantityText}><strong className="text-[1.125rem] tabular-nums">
+                        <span className={quantityText}><strong className="text-[1.125rem] tabular-nums game:font-display game:font-black game:italic">
                           {session.kind === 'review' ? duration(minutes) : progressView({
                             planned: count, actual: 0, reported: false,
                             unit: quantity.rows.find(row => row.materialId === session.materialId && row.round === session.round)?.unit ??

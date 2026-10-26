@@ -156,3 +156,37 @@ h1 {
   margin-bottom: 8px;
   font-weight: 700;
 }
+/* Game UI element defaults, layered over the Fresh UI defaults above. */
+/* Backdrop: halftone dots and one black slash across the signal-color page. */
+:where([data-ui='game']) body {
+  background-color: var(--page);
+  background-image:
+    radial-gradient(color-mix(in oklab, var(--band) 24%, transparent) 1.6px, transparent 2px),
+    linear-gradient(112deg, transparent 0 64%, var(--band) 64% 71%, transparent 71% 74%, var(--band) 74% 75%, transparent 75%);
+  background-size: 9px 9px, 100% 100%;
+  background-attachment: fixed;
+}
+:where([data-ui='game'][data-appearance='dark']) body {
+  background-image:
+    radial-gradient(color-mix(in oklab, var(--accent) 30%, transparent) 1.6px, transparent 2px),
+    linear-gradient(112deg, transparent 0 64%, var(--accent) 64% 71%, transparent 71% 74%, var(--accent) 74% 75%, transparent 75%);
+}
+:where([data-ui='game']) h2 {
+  font-weight: 800;
+}
+:where([data-ui='game']) button {
+  border: 2px solid var(--ink);
+  font-weight: 800;
+}
+:where([data-ui='game']) h1 {
+  font-family: var(--font-display);
+  font-weight: 900;
+}
+/* A disclosure title reads like a menu item, with a signal-color marker. */
+:where([data-ui='game']) summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+:where([data-ui='game']) summary::marker {
+  color: var(--accent);
+}

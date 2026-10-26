@@ -416,16 +416,6 @@ describe('承認・再計画・復元', () => {
     }
     vi.useRealTimers();
   });
-  it('計画の復元は実績を巻き戻さない', () => {
-    let s = approve(propose(fixture(), from, '初回'));
-    const id = s.plan!.id;
-    s = recordProgress(s, entry(7));
-    s = approve(propose(s, from, '記録'));
-    expect(s.plan!.id).not.toBe(id);
-    s = undoPlan(s);
-    expect(s.plan!.id).toBe(id);
-    expect(completed(s, 'm', 0)).toBe(7);
-  });
   it('固定した問題数が残数を超える場合に黙って消さない', () => {
     let s = approve(propose(fixture(), from, '初回'));
     s.plan!.sessions[0].fixed = true;

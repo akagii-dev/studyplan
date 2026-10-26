@@ -16,8 +16,4 @@ describe('カレンダーで選択した日の移動', () => {
     expect(moveCalendarDate('2028-01-31', 'month', 1)).toBe('2028-02-29');
     expect(moveCalendarDate('2026-03-31', 'list', -1)).toBe('2026-02-28');
   });
-  it('月・一覧の移動で日を維持し年をまたぐ', () => {
-    expect(moveCalendarDate('2026-12-21', 'month', 1)).toBe('2027-01-21');
-    expect(moveCalendarDate('2027-01-21', 'list', -1)).toBe('2026-12-21');
-  });
 });

@@ -50,7 +50,7 @@ test('調整成功は保存後だけ短く通知し、再表示では復活さ�
 
 });
 
-test('部分実績から追加・超過・訂正・取消まで、数量と変更詳細を維持する', async ({ page }, info) => {
+test('部分実績から追加・超過・訂正・取消まで、数量と変更詳細を維持する', async ({ page }) => {
   await page.clock.install({ time: new Date(adjustmentContext.timestamp) });
   await page.addInitScript((state) => {
     if (!localStorage.getItem('studyplan-demo-state-v1'))
@@ -106,7 +106,6 @@ test('部分実績から追加・超過・訂正・取消まで、数量と変�
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
     true,
   );
-  await page.screenshot({ path: info.outputPath('adjustment-details.png'), fullPage: true });
   const beforeReload = await read();
   await page.reload();
   expect((await read()).plan).toEqual(beforeReload.plan);
@@ -130,7 +129,6 @@ test('部分実績から追加・超過・訂正・取消まで、数量と変�
   expect(await quantity()).toBe(26);
   await page.getByRole('button', { name: '今日', exact: true }).click();
   await expect(row).toContainText('あと2問');
-  await page.screenshot({ path: info.outputPath('adjustment-corrected.png'), fullPage: true });
 });
 
 test('未配置を含む残り26問を指定日から組み直し、破棄と承認を区別する', async ({ page }, info) => {
@@ -166,7 +164,6 @@ test('未配置を含む残り26問を指定日から組み直し、破棄と承
   expect(stored.plan!.sessions.filter((s) => s.kind === 'study').reduce((sum, s) => sum + s.count, 0)).toBe(20);
   expect(stored.plan!.shortfalls[0].count).toBe(6);
   expect(stored.proposal?.plan.sessions.filter((s) => s.kind === 'study' && s.date >= from).reduce((sum, s) => sum + s.count, 0)).toBe(26);
-  await page.screenshot({ path: info.outputPath('restart-proposal.png'), fullPage: true });
   await page.getByRole('button', { name: '案を破棄する' }).click();
   await expect.poll(async () => (await read()).proposal).toBeNull();
   stored = await read();
@@ -286,7 +283,6 @@ for (const { offset, expected } of [{ offset: 0, expected: 6 }, { offset: 1, exp
     await expect(row.getByRole('textbox')).toHaveValue(String(expected));
     expect((await read()).records).toEqual(approved.records);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-    await page.screenshot({ path: info.outputPath('restart-today.png'), fullPage: true });
     await page.reload();
     await expect(row).toContainText(expected > 0 ? `あと${expected}問` : '4問を記録');
     expect((await read()).records).toEqual(approved.records);
@@ -318,14 +314,12 @@ test('仕切り直し後の旧未報告教材が今後の予定とカレンダ�
   expect(approved.studyDayBaselines?.[date].rows.map((r) => r.count)).toEqual([6, 9]);
   expect(approved.records).toEqual([]);
   await page.getByRole('button', { name: '今後の予定', exact: true }).click();
-  await page.screenshot({ path: info.outputPath('restart-future.png'), fullPage: true });
   const oldFutureRows = await page.locator('.future-day').filter({ hasText: '今日' }).locator('li').count();
   await page.getByRole('button', { name: 'カレンダー表示', exact: true }).focus();
   await page.keyboard.press('Enter');
   await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).click();
   await page.locator('.day.today .date-number').click();
   const panel = page.getByRole('complementary', { name: '選択した日の学習詳細' });
-  await page.screenshot({ path: info.outputPath('restart-calendar-content.png'), fullPage: true });
   const oldContentRows = await panel.locator('.quantity-breakdown section').count();
   const oldSummary = await page.locator('.day.today .calendar-event').count();
   expect.soft(oldFutureRows).toBe(0);
@@ -381,14 +375,12 @@ test('旧形式の過去予定は仕切り直し後に非表示となり、4問�
   for(let i=0;i<3 && (await page.locator('.future-week time').getAttribute('datetime'))! > past;i++)
     await page.getByRole('button',{name:'前の週',exact:true}).click();
   await expect(page.locator('.future-day').filter({has:page.locator(`h2 time[datetime="${past}"]`)})).toHaveCount(0);
-  await page.screenshot({path:info.outputPath('restart-past-future.png'),fullPage:true});
   await page.getByRole('button',{name:'カレンダー表示',exact:true}).click();
   await page.getByRole('button',{name:`${past}を表示`,exact:true}).click();
   const panel=page.getByRole('complementary',{name:'選択した日の学習詳細'});
   await expect(panel.locator('.session-detail')).toHaveCount(0);
   await expect(panel.locator('.quantity-breakdown section')).toHaveCount(0);
   await expect(panel).toContainText('学習予定はありません');
-  await page.screenshot({path:info.outputPath('restart-past-content.png'),fullPage:true});
   await expect(panel).toContainText('学習予定はありません');
   await page.getByRole('button',{name:new RegExp(`^${recorded}を表示`)}).click();
   await expect(panel.locator('.quantity-breakdown section')).toHaveCount(2);
@@ -396,7 +388,6 @@ test('旧形式の過去予定は仕切り直し後に非表示となり、4問�
   await expect(panel.locator('.quantity-breakdown section').filter({hasText:'別問題集'})).toContainText('0問');
   await expect(panel).not.toContainText('不足');
   await expect(panel).not.toContainText('/6問');
-  await page.screenshot({path:info.outputPath('restart-past-records.png'),fullPage:true});
   await expect(page.getByRole('button',{name:'一覧',exact:true})).toHaveCount(0);
   expect((await new AxeBuilder({page}).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);

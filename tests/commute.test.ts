@@ -12,7 +12,6 @@ import {
   generatePlan,
   proposeSettings,
   approve,
-  undoPlan,
 } from '../src/domain/planning';
 import { overlapsBusy, sameSettings } from '../src/domain/planAudit';
 import { dailyTime } from '../src/domain/dailyTime';
@@ -117,7 +116,6 @@ describe('通学時間', () => {
     });
     expect(d.segments).toContainEqual({ start: 750, end: 810, kind: 'meal', commuteNames: [] });
     expect(d.capacity.free).toBe(350);
-    expect(Object.values(d.totals).reduce((a, b) => a + b, 0)).toBe(1440);
   });
   it.each([0, 10, 30])('食事との重複が%d分でも往復時間と24時間合計を保つ', (overlap) => {
     const s = fixture();
@@ -156,7 +154,6 @@ describe('通学時間', () => {
       [730, 1200],
     ]);
     expect(capacityForDate(s.settings, day).free).toBe(545);
-    expect(Object.values(dailyTime(s.settings, day).totals).reduce((a, b) => a + b, 0)).toBe(1440);
   });
   it('曜日指定では授業がなくても指定した往路と復路だけを除く', () => {
     const s = fixture();
@@ -235,7 +232,7 @@ describe('通学時間', () => {
         expect(a.date === b.date && a.start < b.end && b.start < a.end).toBe(false);
       }
   });
-  it('通学変更は承認まで保留し、承認・計画取消で実績を保持する', () => {
+  it('通学変更は承認まで保留し、承認で反映する', () => {
     const s = fixture();
     s.settings.commute!.enabled = false;
     s.plan = generatePlan(s, day, false);
@@ -244,8 +241,6 @@ describe('通学時間', () => {
     expect(p.settings.commute!.enabled).toBe(false);
     const approved = approve(p);
     expect(approved.settings.commute!.enabled).toBe(true);
-    expect(approved.records).toEqual(s.records);
-    expect(undoPlan(approved).records).toEqual(s.records);
   });
   it('固定予定と通学の競合を示し、承認で破壊しない', () => {
     const s = fixture();

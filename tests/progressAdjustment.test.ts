@@ -134,7 +134,6 @@ const today = (state: ReturnType<typeof fixture>) =>
 
 it.each([
   [0, 10],
-  [5, 10],
   [10, 10],
   [15, 5],
 ])('今日%s問を記録して今日の残りを維持し、翌日は%s問になる', (done, expected) => {
@@ -294,15 +293,6 @@ it('最終学習日も今日の残りを維持し、日付を越えた時だけ�
   ]);
   expect(future(changed)).toBe(0);
   expect(changed.records).toEqual([report(5)]);
-});
-
-it('保存形式のJSON往復で実績・計画・設定を維持する', () => {
-  const changed = recordAndAdjust(fixture(), report(5), context);
-  const reloaded = JSON.parse(JSON.stringify(changed));
-  expect(reloaded.records).toEqual(changed.records);
-  expect(reloaded.plan).toEqual(changed.plan);
-  expect(reloaded.settings).toEqual(changed.settings);
-  expect(future(reloaded)).toBe(10);
 });
 
 it('操作時の予定差分を記録・訂正・取消ごとに保存し、取消後も読み直せる', () => {

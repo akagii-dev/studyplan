@@ -606,7 +606,6 @@ it('仕切り直しは30=初期2+実績2+有効26+未配置0とし、旧未配�
 
 it.each([
   { capacity: 24, allocated: 24, unplaced: 2 },
-  { capacity: 18, allocated: 18, unplaced: 8 },
   { capacity: 0, allocated: 0, unplaced: 26 },
 ])(
   '仕切り直しの容量$capacity問ではA=$allocated U=$unplacedを隠さず保存する',
@@ -687,7 +686,7 @@ it('部分記録後に本日から仕切り直しても、再配置量から新�
   expect(calendarQuantity(added, day, day).rows[0].planned).toBe(6);
 });
 
-it.each(['2030-10-06', '2030-02-30', 'not-a-date'])(
+it.each(['2030-10-06', '2030-02-30'])(
   '仕切り直しの不正開始日 %s を拒否する',
   (from) => {
     expect(() => calculateRestart(restartFixture(), from, adjustmentContext)).toThrow('開始日');

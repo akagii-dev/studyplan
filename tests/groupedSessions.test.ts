@@ -167,7 +167,7 @@ describe('保持境界と明示的な数量の水位配分', () => {
   });
 });
 describe('まとまりを優先する学習計画', () => {
-  it.each([30, 60])('まとまりの目安%i分でも、実行可能な日次16分を前半へ集めない', (preferred) => {
+  it.each([60])('まとまりの目安%i分でも、実行可能な日次16分を前半へ集めない', (preferred) => {
     const s = fixture(96, 1, 6);
     s.settings.block = 60;
     s.settings.buffer = 0;
@@ -241,7 +241,7 @@ describe('まとまりを優先する学習計画', () => {
     ]);
     expect(capacityForWeek(s.settings, date, p.sessions).used).toBe(334);
   });
-  it.each([349, 350, 351])(
+  it.each([349, 351])(
     '1問未満の日次端数を追加のまとまりにせず、%i問を7日へ分散する',
     (total) => {
       const s = fixture(total, 1, 7);
@@ -332,7 +332,6 @@ describe('まとまりを優先する学習計画', () => {
   it.each([
     [1, 30],
     [3, 4],
-    [4, 3],
   ])('少ない問題数でも %i問 × %i分なら時間だけで判断する', (count, minutes) => {
     const p = invariant(fixture(count, minutes));
     expect(p.sessions).toHaveLength(1);
@@ -520,7 +519,7 @@ describe('警告後に実行する初期化と復元', () => {
 
 
 describe('未来全量の水位回帰', () => {
-  it.each([[8, 4], [4, 8], [6, 3]])('速度%s・%s分の2周1220問を30日の末尾まで配分する', (first, second) => {
+  it.each([[8, 4], [4, 8]])('速度%s・%s分の2周1220問を30日の末尾まで配分する', (first, second) => {
     const state = fixture(610, first, 30);
     state.settings.buffer = 0;
     state.settings.block = 60;

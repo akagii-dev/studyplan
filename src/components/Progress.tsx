@@ -1,7 +1,7 @@
 import { NumberInput } from './NumberInput';
 import { materialUnit } from '../domain/calendarQuantity';
 import { useState } from 'react';
-import { Progress as ProgressRecord, remaining } from '../domain/model';
+import { Progress as ProgressRecord } from '../domain/model';
 import { correctAndAdjust } from '../domain/planning';
 import { currentProgressAdjustment } from '../domain/progressAdjustment';
 import { latestReceipt, progressReceipts } from '../domain/progressReceipt';
@@ -25,25 +25,17 @@ export function Progress({ state, update, onHistory, onReplan }: Props & { onHis
   const [error, setError] = useState('');
   const [savedRecordId, setSavedRecordId] = useState<string | null>(null);
   const { busy, save: record } = useStudyRecord(update, 'progress');
-  const numberEdits = (state.draft.numberEdits ?? {}) as Record<string, { text: string; base: string }>;
-  const legacyKeys = Object.keys(numberEdits).filter((key) => key.startsWith('progress/') && key.endsWith('/追加問題数（1問単位）'));
-  const legacyEdit = legacyKeys.map((key) => numberEdits[key]).find((edit) => edit.base === form.custom);
-  const rest = state.settings.materials.some((item) => item.id === form.materialId && item.rounds[form.round]) ? remaining(state, form.materialId, form.round) : 0;
-  const value = local ?? { date: form.date, materialId: form.materialId, round: form.round,
-    text: form.choice === 'all' ? String(rest) : form.choice && form.choice !== 'other' ? form.choice : legacyEdit?.text ?? form.custom };
-  const clearLegacy = (draft: typeof state.draft) => ({ ...draft, numberEdits: Object.fromEntries(
-    Object.entries((draft.numberEdits ?? {}) as Record<string, unknown>).filter(([key]) => !legacyKeys.includes(key)),
-  ) });
+  const value = local ?? { date: form.date, materialId: form.materialId, round: form.round, text: form.custom };
   const change = (next: StudyRecordFields) => {
     setLocal(next); setError(''); setMessage(''); setSavedRecordId(null);
-    void update((current) => ({ ...current, draft: { ...clearLegacy(current.draft), progress: {
+    void update((current) => ({ ...current, draft: { ...current.draft, progress: {
       date: next.date, materialId: next.materialId, round: next.round, choice: 'other', custom: next.text,
     } } })).catch(() => {});
   };
   async function save() {
     setError(''); setMessage(''); setSavedRecordId(null);
     try {
-      const result = await record(value, (next) => ({ ...next, draft: { ...clearLegacy(next.draft), progress: {
+      const result = await record(value, (next) => ({ ...next, draft: { ...next.draft, progress: {
         date: value.date, materialId: value.materialId, round: value.round, choice: '', custom: '',
       } } }));
       if (!result) return;

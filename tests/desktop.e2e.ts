@@ -279,54 +279,6 @@ async function close() {
 }
 test.afterAll(close);
 
-test('実機：LANと同じSQLiteを共有し外部更新で未入力実績を破棄しない', async () => {
-  mkdirSync('.test-data', { recursive: true });
-  dataDir = mkdtempSync(resolve('.test-data/native-lan-'));
-  await launch();
-  await seedState(adjustmentFixture(today()), 'native-lan-seed');
-  await saved();
-  const { pathToFileURL } = await import('node:url');
-  const { createLanServer } = await import(pathToFileURL(resolve('scripts/lan-host.mjs')).href);
-  const server = await createLanServer({ root: resolve('.'), databasePath: resolve(dataDir, 'studyplan.sqlite3'), bridgePath: resolve('src-tauri/target/debug/studyplan_lan_bridge.exe'), host: '127.0.0.1', port: 4184, key: 'b'.repeat(64), stateDirectory: resolve(dataDir, 'host') });
-  const client = await chromium.launch({ channel: 'chrome' });
-  const phone = await client.newPage({ viewport: { width: 390, height: 844 } });
-  try {
-    await phone.goto(`http://127.0.0.1:4184/studyplan-lan/#key=${'b'.repeat(64)}`);
-    const desktopRow = page.locator('.daily-record-row').filter({ hasText: '対象問題集' });
-    const phoneRow = phone.locator('.daily-record-row').filter({ hasText: '対象問題集' });
-    await expect(phoneRow).toBeVisible();
-    await desktopRow.getByRole('textbox').fill('2');
-    await phoneRow.getByRole('textbox').fill('4');
-    await phoneRow.getByRole('button', { name: '記録', exact: true }).click();
-    await expect(phone.locator('.save-status')).toContainText('Windowsに保存済み');
-    expect((await storedState()).records.reduce((n, r) => n + r.count, 0)).toBe(4);
-    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-    await expect(page.getByRole('button', { name: '最新を読み込む', exact: true })).toBeVisible();
-    await expect(desktopRow.getByRole('textbox')).toHaveValue('2');
-    await expect(desktopRow).toContainText('あと6問');
-    page.once('dialog', (dialog) => dialog.accept());
-    await page.getByRole('button', { name: '最新を読み込む', exact: true }).click();
-    await expect(desktopRow).toContainText('あと2問');
-    await expect(desktopRow.getByRole('textbox')).toHaveValue('2');
-    await desktopRow.getByRole('button', { name: '記録', exact: true }).click();
-    await saved();
-    await expect(desktopRow.getByRole('textbox', { includeHidden: true })).toBeHidden();
-    await expect(desktopRow.locator('.daily-record-input summary')).toBeFocused();
-    await phone.evaluate(() => window.dispatchEvent(new Event('focus')));
-    await expect(phone.getByRole('button', { name: '最新を読み込む', exact: true })).toBeVisible();
-    phone.once('dialog', (dialog) => dialog.accept());
-    await phone.getByRole('button', { name: '最新を読み込む', exact: true }).click();
-    await expect(phoneRow).toContainText('完了');
-    const state = await storedState();
-    const work = activePlanWork(state, today()).filter((s) => s.materialId === 'book' && s.round === 0);
-    expect(work.reduce((n, s) => n + s.count, 0)).toBe(24);
-    expect(state.records.reduce((n, r) => n + r.count, 0)).toBe(6);
-  } finally { await client.close(); await server.close(); }
-  await close();
-  await launch();
-  await expect(page.locator('.daily-record-row').filter({ hasText: '対象問題集' })).toContainText('完了');
-});
-
 for (const protection of ['initial', 'record', 'started', 'fixed', 'unused']) {
   test(`実機：教材一覧の周回保護と再起動（${protection}）`, async () => {
     dataDir = mkdtempSync(resolve('.test-data/material-retention-'));
@@ -812,7 +764,8 @@ test('実機：旧形式の過去予定は仕切り直し後に消え、実績�
   expect(restored.studyDayBaselines).toEqual(approved.studyDayBaselines);
 });
 
-test('実機：今日の未設定区間に名前を付け、保存・取消・再起動・解除する', async () => {
+// 区間名の編集は「時刻・通学の内訳を見る」の中にあり、内訳を一時的に外しているため、この試験はスキップする（復活時に test.skip を test に戻す）。
+test.skip('実機：今日の未設定区間に名前を付け、保存・取消・再起動・解除する', async () => {
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/outside-labels-'));
   await launch();

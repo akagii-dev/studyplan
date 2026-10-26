@@ -55,7 +55,7 @@ pnpm exec playwright install chromium
 pnpm verify:ui
 pnpm lan:assets
 cargo test --manifest-path src-tauri/Cargo.toml
-cargo build --manifest-path src-tauri/Cargo.toml --features lan-cli --bins
+cargo build --manifest-path src-tauri/Cargo.toml
 pnpm test:ui
 pnpm desktop:build
 ```

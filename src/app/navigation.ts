@@ -32,7 +32,6 @@ export const pageTitles: Record<Page, string> = {
   history: 'LOG',
   settings: 'CONFIG',
   commute: 'COMMUTE',
-  warnings: 'NOTICES',
   today: 'TODAY DETAIL',
   setup: 'SETUP',
   addExam: 'NEW EXAM',
@@ -43,9 +42,7 @@ export const pageTitles: Record<Page, string> = {
   focus: 'FOCUS',
   calendar: 'CALENDAR',
   progress: 'EXTRA LOG',
-  report: 'WEEKLY REPORT',
   backup: 'BACKUP',
-  tutorial: 'TUTORIAL',
   replan: 'NEW PLAN',
 };
 

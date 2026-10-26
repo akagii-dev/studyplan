@@ -1,5 +1,5 @@
 import { AppState, today, uid } from './model';
-import { propose, proposeRestart, proposeSettings, reproposeRemainingAdjustment } from './planning';
+import { propose, proposeRestart, proposeSettings } from './planning';
 import { beginRevision, RevisionDraft, sameRevisionBase } from './revision';
 import type { ConstraintIssue } from './planConstraints';
 import { studyCoverageGaps, StudyCoverageGap } from './studyCoverage';
@@ -54,9 +54,9 @@ export function beginStudyCoverageRepair(
 }
 
 export function refreshProposal(state: AppState, from = today()): AppState {
-  if (state.proposal?.basis?.kind === 'remaining-adjustment') {
-    return reproposeRemainingAdjustment(state, [], from);
-  }
+  // A saved remaining-adjustment proposal (a removed feature) is rebuilt as an ordinary proposal.
+  if (state.proposal?.basis?.kind === 'remaining-adjustment')
+    return propose({ ...state, proposal: null }, from, '現在の設定・残数で案を作り直しました。');
   if (state.proposal?.basis?.kind === 'restart') {
     const start = [from, state.proposal.plan.allocationStart ?? state.proposal.plan.from].sort().at(-1)!;
     return proposeRestart({ ...state, proposal: null }, start);

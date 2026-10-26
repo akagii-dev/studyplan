@@ -225,20 +225,6 @@ export function History({
                       </button>
                     </div>
                   )}
-                  {receipts.some((receipt) => receipt.recordId === r.id) && (
-                    <details className="record-receipts">
-                      <summary>予定調整の履歴</summary>
-                      {[...receipts]
-                        .filter((receipt) => receipt.recordId === r.id)
-                        .reverse()
-                        .map((receipt) => (
-                          <div className="mt-2" key={receipt.id}>
-                            <b>{receiptLabel(receipt)}</b>
-                            <ProgressReceiptView state={state} receipt={receipt} />
-                          </div>
-                        ))}
-                    </details>
-                  )}
                 </td>
               </tr>
             ))}

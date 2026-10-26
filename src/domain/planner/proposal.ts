@@ -1,6 +1,6 @@
 import { validateSettings } from './validation';
 import { startOfWeek } from '../calendar';
-import { AppState, reported, Settings, type RemainingAdjustmentTarget } from '../model';
+import { AppState, reported, Settings } from '../model';
 import { overlapsBusy, sameSettings } from '../planAudit';
 import { fixedIssueMessage, fixedOrderIssue, fixedTimeIssue } from '../planConstraints';
 import { sameRevisionBase, validateRevisedSettings } from '../revision';
@@ -13,17 +13,6 @@ import { proposalUsesCurrentProgress } from '../progressReflection';
 import { pastWorkAdjustment, retainStudyDayBaselines } from '../calendarQuantity';
 import { calculateRestart } from '../planRestart';
 import { compactHistory } from '../planHistory';
-import {
-  calculateRemainingAdjustment,
-  remainingAdjustmentSourceDate,
-  pastRemainingSourceDate,
-  pastRemainingWork,
-  validatePastRemainingAllocation,
-  validateRemainingAllocation,
-  validateBalancedRemainingAllocation,
-} from '../remainingAllocation';
-import { calculateFutureBalance } from '../futureBalance';
-import { activePlanWork, remainingOccupiedSessions, workKey } from '../progressAllocation';
 import { nonComparisonSessions } from '../planDisplay';
 const EPS = 1e-7;
 
@@ -69,23 +58,9 @@ export function restartProposalStaleReason(
     )
   )
     return '案の作成後に当日の予定時刻が過ぎました。案を作り直してください。';
-  if (proposal.basis.kind === 'remaining-adjustment') {
-    try {
-      if (proposal.basis.purpose === 'past-only') {
-        const past = pastRemainingWork(state, context.date);
-        if (past.issue) throw new Error(past.issue);
-        const ids = new Set(past.sessions.map((session) => session.id));
-        const targets = proposal.basis.targets;
-        if (!ids.size || targets.some((target) => target.kind !== 'session' || !ids.has(target.sessionId)) ||
-          [...ids].some((id) => !targets.some((target) => target.kind === 'session' && target.sessionId === id)))
-          throw new Error('過去分の調整対象が昨日以前の未消化予定と一致しません。今日以降の予定や既存の未配置分は対象にできません。');
-        validatePastRemainingAllocation(state, proposal.plan, context);
-      } else if (proposal.basis.purpose === 'balance-future') validateBalancedRemainingAllocation(state, proposal.plan, context);
-      else validateRemainingAllocation({ ...state, plan: proposal.plan }, context);
-    } catch (error) {
-      return `${error instanceof Error ? error.message : String(error)} 案を作り直してください。`;
-    }
-  }
+  // Past-only and balancing adjustments were removed; such a saved proposal is only discarded.
+  if (proposal.basis.kind === 'remaining-adjustment')
+    return '古い調整案です。破棄して作り直してください。';
   return undefined;
 }
 
@@ -104,106 +79,6 @@ export function proposeRestart(state: AppState, from: string, context: PlanningC
         kind: 'restart',
         date: context.date,
         sourceFingerprint: restartSourceFingerprint(state),
-      },
-    },
-  };
-}
-export function proposeRemainingAdjustment(
-  state: AppState,
-  targets: RemainingAdjustmentTarget[],
-  from: string,
-  context: PlanningContext,
-): AppState {
-  if (state.proposal)
-    throw new Error('確認待ちの計画案があります。先にその案を確認または破棄してください。');
-  return buildRemainingProposal(state, targets, from, context, context.date);
-}
-
-export function proposePastRemainingAdjustment(state: AppState, from: string, context: PlanningContext): AppState {
-  if (state.proposal) throw new Error('確認待ちの計画案があります。先にその案を確認または破棄してください。');
-  const past = pastRemainingWork(state, context.date);
-  if (past.issue) throw new Error(past.issue);
-  if (!past.sessions.length) return state;
-  return buildRemainingProposal(state,
-    past.sessions.map((session) => ({ kind: 'session', sessionId: session.id })),
-    from, context, pastRemainingSourceDate(state, context.date), true);
-}
-
-export function proposeBalancedRemaining(
-  state: AppState, materialIds: string[], from: string, context: PlanningContext,
-  allowLowerPriorityReduction = false,
-): AppState {
-  if (state.proposal) throw new Error('確認待ちの計画案があります。先に確認または破棄してください。');
-  const result = calculateFutureBalance(state, materialIds, from, context, allowLowerPriorityReduction);
-  return { ...state, proposal: {
-    plan: result.plan, basedOn: state.plan?.id ?? null, unreported: [],
-    reason: allowLowerPriorityReduction
-      ? '選んだ教材の期限までの量を日ごとにそろえます。空き容量と総量を保つ組替えを先に使い、なお不足する場合だけ低優先度の可動枠を最小限減らします。削減分は未配置として保持します。'
-      : '選んだ教材の今後の量を日ごとにそろえます。固定・開始済み・実績・他教材はそのまま残します。',
-    basis: { kind: 'remaining-adjustment', purpose: 'balance-future', date: context.date,
-      sourceFingerprint: restartSourceFingerprint(state), from,
-      balanceMaterialIds: [...new Set(materialIds)].sort(), allowLowerPriorityReduction,
-      targets: result.targets, summary: result.summary, affectedSessionIds: result.affectedSessionIds },
-  } };
-}
-
-/** Refresh the pending selection without changing the committed plan or silently adding work. */
-export function reproposeRemainingAdjustment(
-  state: AppState,
-  additionalTargets: RemainingAdjustmentTarget[],
-  from: string,
-  context: PlanningContext,
-): AppState {
-  const basis = state.proposal?.basis;
-  if (basis?.kind !== 'remaining-adjustment') throw new Error('残りの配置の確認待ちの案がありません。');
-  if (basis.sourceFingerprint !== restartSourceFingerprint(state))
-    throw new Error('案の作成後に計画・設定・実績が変わりました。元の対象を保持したまま内容を確認してください。');
-  if (basis.purpose === 'balance-future') {
-    if (additionalTargets.length) throw new Error('量をそろえる教材は元の選択のまま作り直してください。');
-    return proposeBalancedRemaining({ ...state, proposal: null }, basis.balanceMaterialIds ?? [],
-      [from, basis.from, context.date, state.plan?.allocationStart ?? ''].sort().at(-1)!, context,
-      !!basis.allowLowerPriorityReduction);
-  }
-  const pastOnly = basis.purpose === 'past-only';
-  const sourceDate = pastOnly ? pastRemainingSourceDate(state, context.date) : remainingAdjustmentSourceDate(state, context.date);
-  return buildRemainingProposal(
-    { ...state, proposal: null },
-    [...basis.targets, ...additionalTargets],
-    [from, basis.from, context.date, state.plan?.allocationStart ?? ''].sort().at(-1)!,
-    context,
-    sourceDate,
-    pastOnly,
-  );
-}
-
-function buildRemainingProposal(
-  state: AppState,
-  targets: RemainingAdjustmentTarget[],
-  from: string,
-  context: PlanningContext,
-  sourceDate: string,
-  pastOnly = false,
-): AppState {
-  const result = calculateRemainingAdjustment(state, targets, from, context, sourceDate, pastOnly);
-  if (result.plan === state.plan) return state;
-  return {
-    ...state,
-    proposal: {
-      plan: result.plan,
-      basedOn: state.plan?.id ?? null,
-      reason: pastOnly ? '昨日以前の未消化分だけを配置します。今日以降の予定と実績は維持します。' : result.affectedSessionIds.length
-        ? '選択した残量と、順序を守るために必要な後続の予定だけを調整します。'
-        : '選択した残量だけを、実行可能な空き枠へ調整します。',
-      unreported: [],
-      basis: {
-        kind: 'remaining-adjustment',
-        ...(pastOnly ? { purpose: 'past-only' as const } : {}),
-        date: context.date,
-        sourceFingerprint: restartSourceFingerprint(state),
-        from,
-        targets: structuredClone(targets),
-        summary: result.summary,
-        affectedSessionIds: result.affectedSessionIds,
       },
     },
   };
@@ -268,37 +143,6 @@ export function proposeSettings(
   };
 }
 /** Recalculate only on approval: rendering stale status must not repeat the bounded search. */
-function validateBalancedProposalQuantities(state: AppState, context: PlanningContext): void {
-  const proposal = state.proposal!;
-  const basis = proposal.basis;
-  if (basis?.kind !== 'remaining-adjustment' || basis.purpose !== 'balance-future') return;
-  const expected = calculateFutureBalance(state, basis.balanceMaterialIds ?? [], basis.from,
-    context, !!basis.allowLowerPriorityReduction);
-  const scope = (targets: RemainingAdjustmentTarget[]) => JSON.stringify([...new Set(targets.map(target =>
-    JSON.stringify(target.kind === 'session' ? ['session', target.sessionId] :
-      ['shortfall', target.materialId, target.round])))].sort());
-  const affected = (ids: string[]) => JSON.stringify([...new Set(ids)].sort());
-  const quantities = (plan: typeof proposal.plan) => {
-    const totals = new Map<string, { placed: number; unplaced: number }>();
-    const row = (materialId: string, round: number) => {
-      const key = workKey(materialId, round);
-      if (!totals.has(key)) totals.set(key, { placed: 0, unplaced: 0 });
-      return totals.get(key)!;
-    };
-    for (const session of activePlanWork({ ...state, plan }, context.date))
-      row(session.materialId, session.round).placed += session.count;
-    for (const short of plan.shortfalls) {
-      const total = row(short.materialId, short.round);
-      total.unplaced += short.count;
-    }
-    return JSON.stringify([...totals].sort(([a], [b]) => a.localeCompare(b)));
-  };
-  if (scope(basis.targets) !== scope(expected.targets) ||
-      affected(basis.affectedSessionIds) !== affected(expected.affectedSessionIds) ||
-      quantities(proposal.plan) !== quantities(expected.plan))
-    throw new Error('必要最小の削減量または配分対象が案作成時と一致しません。案を作り直してください。');
-}
-
 export function approve(state: AppState, acknowledge: boolean, context: PlanningContext): AppState {
   const p = state.proposal;
   if (!p) throw new Error('再計画案がありません。');
@@ -324,15 +168,11 @@ export function approve(state: AppState, acknowledge: boolean, context: Planning
   if (errors.length) throw new Error(errors.join(' '));
   requirePlanningInputs(settings, context.date);
   validateRevisedSettings(state, settings, context.date, context.minute);
-  validateBalancedProposalQuantities(state, context);
   // An automatic progress proposal starts tomorrow. Earlier sessions are archived
   // verbatim and must not be revalidated or rewritten as future work.
   const validationFrom = p.plan.from > context.date ? p.plan.from : context.date;
   const minute = validationFrom === context.date ? context.minute : 0;
-  const validationSessions =
-    p.basis?.kind === 'remaining-adjustment'
-      ? remainingOccupiedSessions({ ...state, plan: p.plan, settings }, context)
-      : nonComparisonSessions(p.plan);
+  const validationSessions = nonComparisonSessions(p.plan);
   for (const x of validationSessions.filter(
     (x) => x.fixed && (x.date > validationFrom || (x.date === validationFrom && x.start >= minute)),
   )) {

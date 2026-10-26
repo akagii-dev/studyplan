@@ -17,7 +17,7 @@ import { Warning, WarningSettings, WarningsProvider } from '../components/Warnin
 import { WeeklyReport } from '../components/WeeklyReport';
 import { CalendarView, Session, addDays, today } from '../domain/model';
 import { dateTime, stalePlan } from '../domain/planAudit';
-import { propose, proposeRestart, proposePastRemainingAdjustment, proposeBalancedRemaining } from '../domain/planning';
+import { propose, proposeRestart } from '../domain/planning';
 import { currentPlanReconciliation, currentProgressAdjustment } from '../domain/progressAdjustment';
 import { requirePlanningInputs } from '../domain/setupIssues';
 import { usePersistentAppState } from '../hooks/usePersistentAppState';
@@ -188,24 +188,6 @@ export default function App() {
     await runBusyTask(() => update((current) => proposeRestart(current, from)));
     setPage('replan');
   };
-  const adjustRemaining = async (from: string) => {
-    let created = false;
-    await runBusyTask(() => update((current) => {
-      const next = proposePastRemainingAdjustment(current, from);
-      created = next !== current;
-      return next;
-    }));
-    return created;
-  };
-  const balanceFuture = async (materialIds: string[], from: string, allowReduction: boolean) => {
-    let created = false;
-    await runBusyTask(() => update((current) => {
-      const next = proposeBalancedRemaining(current, materialIds, from, allowReduction);
-      created = next !== current;
-      return next;
-    }));
-    return created;
-  };
   const onRecord = (session: Pick<Session, 'date' | 'materialId' | 'round'>) => {
     if (session.date === today()) {
       setRecordTarget({ materialId: session.materialId, round: session.round, token: Date.now() });
@@ -360,7 +342,7 @@ export default function App() {
             )}{' '}
             {page === 'future' && (
               <div className={pageFade}>
-              <Future {...props} onRestart={restartPlan} adjustmentNotice={!!reconciliationNotice && reconciliation?.status === 'applied' && !saving && !error && !recovery} selection={futureSelection} onWeekChange={(from) => setFutureSelection({ from, selectedOn: today() })} onCalendar={(date, revealDay = !!date) => { if (revealDay || !calendarVisited.current) setCalendarDate(date ?? today()); calendarVisited.current = true; if (revealDay) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} onAdjustRemaining={adjustRemaining} onBalanceFuture={balanceFuture} />
+              <Future {...props} onRestart={restartPlan} adjustmentNotice={!!reconciliationNotice && reconciliation?.status === 'applied' && !saving && !error && !recovery} selection={futureSelection} onWeekChange={(from) => setFutureSelection({ from, selectedOn: today() })} onCalendar={(date, revealDay = !!date) => { if (revealDay || !calendarVisited.current) setCalendarDate(date ?? today()); calendarVisited.current = true; if (revealDay) { setCalendarView('month'); setCalendarFilter('all'); } setCalendarRevealDay(revealDay); setPage('calendar'); }} onProposal={() => setPage('replan')} />
               </div>
             )}
             {(page === 'settings' || originStack.current.some((entry) => entry.page === 'settings')) && (

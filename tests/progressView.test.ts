@@ -19,13 +19,9 @@ import {
   elapsedPlacementFixture,
 } from './fixtures/adjustment';
 import { recordAndAdjust, correctAndAdjust, reconcilePlanning } from '../src/domain/progressAdjustment';
-import {
-  approve,
-  proposeRestart,
-  proposeRemainingAdjustment,
-} from '../src/domain/planner/proposal';
+import { approve, proposeRestart } from '../src/domain/planner/proposal';
 import { activePlanWork } from '../src/domain/progressAllocation';
-import { remainingWork, remainingAdjustmentPreview } from '../src/domain/remainingWork';
+import { remainingWork } from '../src/domain/remainingWork';
 import { createProgressBaseline } from '../src/domain/progressReflection';
 
 it.each([undefined, 0, 2])(
@@ -80,93 +76,6 @@ it('160問の残量を保持し、固定や数量不整合を検出する', () =
   expect(broken.reasons.join(' ')).toContain('一致していません');
   expect(broken.unavailable.every((item) => !item.clockOnly)).toBe(true);
 });
-
-it('部分案の表示はB全体10問と対象5問を混同せず、非対象の5問を結果へ加算しない', () => {
-  const state = remainingPlacementFixture();
-  const proposed = proposeRemainingAdjustment(
-    state,
-    [{ kind: 'session', sessionId: 'b-target' }],
-    adjustmentContext.date,
-    adjustmentContext,
-  );
-  const preview = remainingAdjustmentPreview(proposed)!;
-  expect(preview.rows[0]).toMatchObject({ count: 5, placed: 5, unplaced: 0, balanced: true });
-  expect(preview.rows[0].destinations.some((s) => s.id === 'b-keep')).toBe(false);
-  expect(preview.affected).toEqual([]);
-});
-
-it.each(['kept', 'moved', 'unplaced'] as const)(
-  '同じ教材の選択2問と順序で動く関連3問を分離する（%s）',
-  (mode) => {
-    const day = adjustmentContext.date;
-    const state = remainingPlacementFixture();
-    state.settings.materials.push({
-      id: 'c',
-      examId: 'a',
-      name: '後続C',
-      total: 5,
-      order: 3,
-      rounds: [{ completed: 0, minutes: 3 }],
-    });
-    state.plan!.sessions.push({
-      ...state.plan!.sessions[2],
-      id: 'c-other',
-      materialId: 'c',
-      count: 3,
-      start: 555,
-      end: 564,
-    });
-    state.plan!.sessions.push({
-      ...state.plan!.sessions[2],
-      id: 'c-target',
-      materialId: 'c',
-      date: addDays(day, mode === 'kept' ? 3 : 2),
-      count: 2,
-      start: 570,
-      end: 576,
-    });
-    state.plan!.settingsSnapshot = structuredClone(state.settings);
-    state.plan!.progressBaseline = createProgressBaseline(state.plan!, []);
-    const proposed = proposeRemainingAdjustment(
-      state,
-      [
-        { kind: 'session', sessionId: 'b-target' },
-        { kind: 'session', sessionId: 'c-target' },
-      ],
-      addDays(day, mode === 'kept' ? 2 : mode === 'moved' ? 3 : 4),
-      adjustmentContext,
-    );
-    const preview = remainingAdjustmentPreview(proposed)!;
-    const row = preview.rows.find((r) => r.materialId === 'c')!;
-    expect(preview.affected.filter((s) => s.materialId === 'c').reduce((sum, s) => sum + s.count, 0)).toBe(3);
-    expect(row).toMatchObject({
-      count: 2,
-      placed: mode === 'unplaced' ? 0 : 2,
-      unplaced: mode === 'unplaced' ? 2 : 0,
-      relatedCount: 3,
-      relatedUnplaced: mode === 'unplaced' ? 3 : 0,
-      balanced: true,
-    });
-    expect(row.destinations.reduce((sum, s) => sum + s.count, 0)).toBe(row.placed);
-    expect(row.relatedDestinations.reduce((sum, s) => sum + s.count, 0) + row.relatedUnplaced).toBe(
-      3,
-    );
-    if (mode === 'kept') expect(row.destinations.map((s) => s.id)).toEqual(['c-target']);
-    if (mode === 'moved') {
-      expect(row.destinations).toHaveLength(1);
-      expect(row.destinations[0].end - row.destinations[0].start).toBe(6);
-      expect(row.relatedDestinations[0].start).toBe(row.destinations[0].end);
-      expect(row.relatedDestinations[0].end - row.relatedDestinations[0].start).toBe(9);
-    }
-    const broken = structuredClone(proposed);
-    const shortfall = broken.proposal!.plan.shortfalls.find((s) => s.materialId === 'c');
-    if (shortfall) shortfall.count -= 1;
-    else broken.proposal!.plan.sessions.find((s) => s.materialId === 'c')!.count -= 1;
-    expect(
-      remainingAdjustmentPreview(broken)!.rows.find((r) => r.materialId === 'c')!.balanced,
-    ).toBe(false);
-  },
-);
 
 for (const offset of [-1, 0, 1]) {
   it.each([undefined, 0, 3, 6, 10, 12])(`日区分${offset}の実績%sを画面間で統一する`, (count) => {

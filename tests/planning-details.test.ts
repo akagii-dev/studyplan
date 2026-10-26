@@ -59,6 +59,17 @@ describe('計画の仕切り直しと案の事前条件', () => {
     expect(approveWithContext(loaded, false, restartContext).plan?.allocationStart).toBe(addDays(restartDay, 3));
   });
 
+  it('廃止した調整機能の保存済み案は承認できず、作り直すと通常の再計画になる', () => {
+    const state = proposeWithContext(restartFixture(restartDay), restartDay, '旧い調整案', restartContext);
+    state.proposal!.basis = {
+      kind: 'remaining-adjustment', purpose: 'balance-future', date: restartContext.date,
+      sourceFingerprint: restartSourceFingerprint(state), from: restartDay,
+      targets: [{ kind: 'shortfall', materialId: 'book', round: 0 }], summary: [], affectedSessionIds: [],
+    };
+    expect(() => approveWithContext(state, true, restartContext)).toThrow('古い調整案');
+    expect(refreshProposal(state, restartDay).proposal?.basis).toBeUndefined();
+  });
+
   it('仕切り直し後の通常再計画は新しいfromでも元のallocationStartを保存できる', () => {
     const from = addDays(restartDay, 3);
     const restarted = approveWithContext(

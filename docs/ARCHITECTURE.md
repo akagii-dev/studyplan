@@ -84,7 +84,7 @@ LAN APIと起動手順は[配信手順](RELEASING.md#lan版のローカル配信
 
 `remainingWork()` は数量の整合性に加え、共通の `remainingSessionIssue()` による実行可能な配置先・無効枠・未配置理由を返す。時刻以外の条件は `remainingSourceIssue()` で同じ重複・週上限・順序検証を使い、経過だけが理由の非固定残量を `pendingPlacements` / `pending` へ分離する。これは保存項目ではなく、実行可能量・未配置量と重複しない計算上の分類。固定当日枠の純粋な時刻経過は `clockOnly` で識別し、配置調整を促す警告にしない。`usePlanningClock()` は分境界・復帰で表示だけを更新する。今後の予定は残量の内訳セクションを表示せず、`remainingWork()`の数量・配置検証を要確認判定に使う。未配置は共通の`ShortfallDetails`、無効枠は週間行と要確認表示で案内する。対象量の案は `remainingAdjustmentPreview()` で無関係な保持量と分離する。基準不明・破損・計算失敗・数量不整合を未配置へ変換しない。承認でも同じ枠検証と数量保存則を確認し、移動元や完了済み比較枠を新しい実績反映基準に混ぜない。容量の参照は `remainingOccupiedSessions()` で共有し、将来の完了済み比較枠を空き時間・週容量へ二重計上せず、過去・開始済み枠の既存の週占有は維持する。
 
-UIからの調整は `pastRemainingWork()` → `proposePastRemainingAdjustment()` を使い、反映基準に残る昨日以前の未消化分だけを選ぶ。通常繰越後は過去比較枠を選び直さない。今日・未来・未配置分の個別選択と配置先確認欄は撤去し、警告表示には共通の残量・配置判定を使う。保存済み部分案には任意の `purpose: 'past-only'` を付け、従来案の互換を維持する。`validatePastRemainingAllocation()` は今日以降の保持量・日時の不変を検査し、時刻経過だけの保持枠には共通の時刻以外の検証を適用する。新しい配置先には通常の現在時刻検証を適用する。`reproposeRemainingAdjustment()` は元計画・設定・実績のfingerprintを照合し、明示された昨日以前の追加対象と既存対象から案を更新する。別の残量台帳は追加しない。
+経過済みの未消化分を手動でまとめて再配置する操作と、教材の量をそろえる操作（`futureBalance`・最小削減の探索）は廃止した。昨日以前の未消化は自動の反映（下記）で扱い、全体の組み直しは仕切り直しで行う。保存済みの旧い調整案は承認せず、破棄または通常の再計画で作り直す。
 
 未消化分の反映も `usePersistentAppState` の読込・復帰・日付更新境界から `planning.reconcilePlanning()` → `progressAdjustment.reconcilePlanning()` → `prepareAdjustment()` / `allocateProgress()` を通す。表示やselectorには副作用を置かない。実績を生成せず、意味のある配置変更だけ履歴へ残し、同じ条件の再実行では同じstateを返す。計算保留の理由とSQLiteの保存未確認は別責務とし、保存キュー・競合復旧を共用する。`Dashboard`は日付越えの`currentPlanReconciliation()`も参照し、実績登録を伴わない保留を「実績保存成功」と表示しない。`Future`と同じ保存済みの保留理由を使い、確定計画保持と確認先を知らせる。`allocateProgress()` は `activePlanWork()` で求めた当日の未消化枠を共通 `fixedOrderIssue()` で照合し、当日保持と順序を両立できなければ原計画を保つ既存の未反映経路へ戻す。`generatePlan()` の日次目安は同一試験・同一終了境界で共有し、開始境界は `taskInterval` / `canStart` の実配置制約として適用する。
 
@@ -186,9 +186,9 @@ SQLiteのテーブル・保存キーは維持する。任意項目 departureTime
 計算の再現性・非破壊性と質問遷移、指定出発時刻、食事との重複、日またぎ、旧設定の再確認、承認時の再検証を単体テストで確認する。SQLiteを使った実機テストで保存・再起動・質問操作・既存機能を確認する。リリース時の要点は [VALIDATION.md](VALIDATION.md) に記録する。
 
 
-### 量をそろえる配分・記録フォーム・休講の境界
+### 記録フォーム・休講の境界
 
-`dailyWaterfill`と`generatePlan`は実枠・保持境界・週予算・周回順序を共有し、現在計算版は13。`calculateFutureBalance`は明示対象を案へまとめ、空き容量→数量保持の組替え→必要最小削減の順で探索する。`validateBalancedRemainingAllocation`は未配置だけの教材も順序依存の保持/影響試験へ含める。`approve`で再算定した対象と数量を照合し、画面stale判定に探索を入れない。
+`dailyWaterfill`と`generatePlan`は実枠・保持境界・週予算・周回順序を共有する。
 
 記録フォームは`StudyRecordForm`・`useStudyRecord`を共用する。`StudyRecordMemory`はAppのreloadEpochより上で、入力・記録ID・送信ロックと入力世代を共有する。`useSyncExternalStore`で再mount後もbusyと入力変更を通知し、旧フォーム完了が新対象を上書きしない。Appの対象変更・明示復元も共通通知APIを使う。保存キューとrevisionは`usePersistentAppState`が所有し、対応する記録の保存確認だけで旧保存失敗通知を解除する。
 

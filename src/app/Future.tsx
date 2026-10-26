@@ -6,16 +6,13 @@ import { calendarDisplayQuantity, materialUnit } from '../domain/calendarQuantit
 import { Props, duration } from '../components/common';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { shortDate, shortDayLabel, startOfWeek, weekRangeLabel } from '../domain/calendar';
-import { Session, addDays, priorityName } from '../domain/model';
+import { Session, addDays } from '../domain/model';
 import { ScheduleViewSwitch } from '../components/ScheduleViewSwitch';
 import { ShortfallDetails } from '../components/ShortfallDetails';
-import { visibleProgressReceipts } from '../domain/progressReceiptDisplay';
-import { ProgressReceiptView, receiptLabel } from '../components/ProgressReceiptView';
 import { remainingWork } from '../domain/remainingWork';
 import { currentPlanningStatus } from '../domain/progressAdjustment';
 import { displayPlanSessions } from '../domain/planDisplay';
 import { usePlanningClock } from '../hooks/usePlanningClock';
-import { pastRemainingWork } from '../domain/remainingAllocation';
 import { periodButton } from '../components/ui';
 
 export interface FutureSelection { from: string; selectedOn: string }
@@ -77,8 +74,6 @@ export function Future({
   state,
   onCalendar,
   onProposal,
-  onAdjustRemaining,
-  onBalanceFuture,
   onRestart,
   selection,
   initialWeek,
@@ -87,8 +82,6 @@ export function Future({
 }: Props & {
   onCalendar: (date?: string, revealDay?: boolean) => void;
   onProposal: () => void;
-  onAdjustRemaining?: (from: string) => Promise<boolean>;
-  onBalanceFuture?: (materialIds: string[], from: string, allowReduction: boolean) => Promise<boolean>;
   onRestart?: (from: string) => Promise<void>;
   adjustmentNotice?: boolean;
   selection?: FutureSelection | null;
@@ -101,57 +94,8 @@ export function Future({
   const currentWeek = startOfWeek(reference);
   const week = startOfWeek(chosen?.selectedOn === reference ? chosen.from : reference);
   const weekEnd = addDays(week, 6);
-  const [balanceMaterials, setBalanceMaterials] = useState<string[]>([]);
-  const lowerDate = [reference, state.plan?.allocationStart ?? ''].sort().at(-1)!;
-  const [balanceFrom, setBalanceFrom] = useState(lowerDate);
-  const [balanceError, setBalanceError] = useState('');
-  const [balancing, setBalancing] = useState(false);
-  const balanceSending = useRef(false);
   const work = useMemo(() => remainingWork(state, reference, minute), [state, reference, minute]);
   const unavailableIds = new Set(work.flatMap((row) => row.unavailable.filter((item) => !item.clockOnly).map(({ session }) => session.id)));
-  const [placementOpen, setPlacementOpen] = useState(false);
-  const [placementDate, setPlacementDate] = useState(reference);
-  const [placementMessage, setPlacementMessage] = useState('');
-  const [placementError, setPlacementError] = useState('');
-  const [placing, setPlacing] = useState(false);
-  const placingRef = useRef(false);
-  const placementTrigger = useRef<HTMLButtonElement>(null);
-  const placementField = useRef<HTMLInputElement>(null);
-  const wasPlacementOpen = useRef(false);
-  useLayoutEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    if (placementOpen) {
-      placementField.current?.focus();
-      timer = setTimeout(() => { if (document.activeElement === placementField.current) placementField.current?.scrollIntoView({ block: 'center' }); }, 50);
-    }
-    else if (wasPlacementOpen.current) placementTrigger.current?.focus();
-    wasPlacementOpen.current = placementOpen;
-    return () => clearTimeout(timer);
-  }, [placementOpen]);
-  const past = useMemo(() => pastRemainingWork(state, reference), [state, reference]);
-  const pastGroups = state.settings.materials.flatMap((material) => material.rounds.flatMap((_, round) => {
-    const count = past.sessions.filter((s) => s.materialId === material.id && s.round === round)
-      .reduce((sum, session) => sum + session.count, 0);
-    return count ? [{ material, round, count }] : [];
-  }));
-  const openPlacement = () => {
-    setPlacementDate(lowerDate); setPlacementError(''); setPlacementMessage('');
-    setPlacementOpen(true);
-  };
-  async function adjustPlacement() {
-    if (placingRef.current) return;
-    setPlacementError('');
-    setPlacementMessage('');
-    if (past.issue || !past.sessions.length) return;
-    placingRef.current = true;
-    setPlacing(true);
-    try {
-      const created = await onAdjustRemaining!(placementDate);
-      if (created) onProposal();
-      else setPlacementMessage('配置の変更はありません。現在の配置・未配置理由を確認してください。');
-    } catch (error) { setPlacementError(error instanceof Error ? error.message : String(error)); }
-    finally { placingRef.current = false; setPlacing(false); }
-  }
   const planningStatus = currentPlanningStatus(state);
   const needsReview = !!state.plan && (planningStatus?.status === 'blocked' || work.some((row) => !row.balanced || row.reasons.length > 0 || row.unavailable.some((item) => !item.clockOnly)));
   const reviewReason = planningStatus?.status === 'blocked' ? planningStatus.detail :
@@ -180,7 +124,6 @@ export function Future({
     if (quantity.rows.length && !groups.has(date)) groups.set(date, []);
   }
   const shortfalls = state.plan?.shortfalls ?? [];
-  const receipts = visibleProgressReceipts(state);
   return (
     <div className="future-page max-w-[900px] [:where(&)_button]:min-h-11 [:where(&)_button]:max-w-full [:where(&)_button]:whitespace-normal [:where(&)_button]:wrap-anywhere [:where(&)_summary]:min-h-11 [:where(&)_summary]:cursor-pointer [:where(&)_summary]:py-2 [:where(&)_form]:scroll-my-3">
       <div className="future-week mb-1 flex flex-wrap items-center gap-x-2 gap-y-1" role="group" aria-label="週間予定の表示範囲">
@@ -198,31 +141,10 @@ export function Future({
         <ScheduleViewSwitch calendar={false} onSwitch={() => onCalendar(week, false)} />
       </div>
       {state.proposal && <button className="primary" onClick={onProposal}>計画案を確認</button>}
-        {onAdjustRemaining && state.plan && !state.proposal && (past.sessions.length > 0 || placementOpen) && <section className="remaining-adjustment min-w-0" aria-label="経過済みの未消化分をまとめて調整">
-          {!placementOpen ? <>
-            <button ref={placementTrigger} onClick={openPlacement}>未消化{past.sessions.length}件・調整する</button>
-          </> : <form className="grid gap-3 rounded-[8px] border border-line p-4" onSubmit={(event) => { event.preventDefault(); void adjustPlacement(); }}>
-            <h2>経過済みの未消化分をまとめて調整</h2>
-            <ul aria-label="調整する対象">{pastGroups.map(({ material, round, count }) => <li key={`${material.id}/${round}`}>
-              {material.name} · {round + 1}周目 · {count}{materialUnit(material.unit)}
-            </li>)}</ul>
-            {past.issue && <p className="error" role="alert">{past.issue}</p>}
-            <label htmlFor="remaining-from">配置する開始日</label>
-            <input className="min-h-11 w-fit max-w-full" id="remaining-from" ref={placementField} type="date" required min={lowerDate}
-              value={placementDate} onChange={(event) => setPlacementDate(event.target.value)} />
-            <div className="actions">
-              <button type="submit" className="primary" disabled={placing || !!past.issue || !past.sessions.length}>配置案を確認</button>
-              <button type="button" disabled={placing} onClick={() => setPlacementOpen(false)}>やめる</button>
-            </div>
-            {placementError && <p className="error" role="alert">{placementError}</p>}
-            {placementMessage && <p role="status">{placementMessage}</p>}
-          </form>}
-        </section>}
       <div role="status" aria-live="polite" aria-atomic="true" className="future-notice [&:not(:empty)]:my-2">{adjustmentNotice && !needsReview ? '未消化分を調整しました' : ''}</div>
       {needsReview && <p className="future-reconciliation my-3 border-s-[3px] border-s-warning ps-3 wrap-anywhere" role="status">
         調整未反映・要確認。現在の計画を保持しています。{reviewReason ? ` ${reviewReason}` : ''}
       </p>}
-      {past.issue && past.issue !== reviewReason && !placementOpen && <p className="error" role="alert">{past.issue}</p>}
       <ShortfallDetails state={state} inWeek />
       {groups.size ? (
         [...groups]
@@ -310,56 +232,8 @@ export function Future({
           {shortfalls.length ? 'この週に配置済み予定はありません。' : 'この週の予定はありません。'}
         </p>
       )}
-      {onBalanceFuture && state.plan && !state.proposal && <details className="future-disclosure my-4 [&>summary]:min-h-11 [&>summary]:cursor-pointer [&>summary]:content-center future-balance">
-        <summary>教材の今後の量を日ごとにそろえる</summary>
-      {state.settings.exams.length > 0 && <ul className="future-priorities flex list-none flex-wrap gap-x-6 gap-y-2 p-0" aria-label="試験の優先度">
-        {state.settings.exams.map((exam) => <li key={exam.id}>{exam.name} · 優先度：{priorityName(exam.priority)}</li>)}
-      </ul>}
-        <form className="mt-3 grid gap-3" onSubmit={(event) => {
-          event.preventDefault();
-          if (balanceSending.current) return;
-          balanceSending.current = true; setBalancing(true); setBalanceError('');
-          void onBalanceFuture(balanceMaterials, balanceFrom, false).then((created) => {
-            if (created) onProposal();
-            else setBalanceError('変更できる未来の予定がありません。');
-          }).catch((error) => setBalanceError(error instanceof Error ? error.message : String(error)))
-            .finally(() => { balanceSending.current = false; setBalancing(false); });
-        }}>
-          <fieldset className="min-w-0" disabled={balancing}>
-            <legend>量をそろえる教材</legend>
-            {state.settings.materials.map((material) => {
-              const exam = state.settings.exams.find((item) => item.id === material.examId);
-              return <label className="flex min-h-11 items-center gap-2 wrap-anywhere" key={material.id}>
-                <input className="flex-none" type="checkbox" checked={balanceMaterials.includes(material.id)} onChange={(event) =>
-                  setBalanceMaterials((current) => event.target.checked ? [...current, material.id] : current.filter((id) => id !== material.id))} />
-                {material.name}{exam ? ` · ${exam.name}` : ''}
-              </label>;
-            })}
-            <label className="field">そろえ始める日<input type="date" required min={lowerDate} value={balanceFrom} onChange={(event) => setBalanceFrom(event.target.value)} /></label>
-            <button type="submit" className="primary" disabled={!balanceMaterials.length}>配分案を確認</button>
-          </fieldset>
-          {balanceError && <p className="error" role="alert">{balanceError}</p>}
-        </form>
-      </details>}
-
       {onRestart && !state.proposal && <FutureRestart onRestart={onRestart} />}
 
-      {receipts.length > 0 && (
-        <details className="plan-change-history">
-          <summary className="mt-4">実績による予定調整の履歴</summary>
-          {[...receipts].reverse().map((receipt) => (
-            <section className="mt-3" key={receipt.id}>
-              <h3 className="m-0 text-[1rem]">
-                {receipt.date} ·{' '}
-                {state.settings.materials.find((material) => material.id === receipt.materialId)
-                  ?.name ?? receipt.materialId}{' '}
-                · {receiptLabel(receipt)}
-              </h3>
-              <ProgressReceiptView state={state} receipt={receipt} />
-            </section>
-          ))}
-        </details>
-      )}
     </div>
   );
 }

@@ -49,9 +49,6 @@ test('今日を含む週・同日の詳細往復・主画面再入場・日跨�
   // The navigation is a top bar (bottom bar on phones); there is no sidebar to collapse.
   await expect(page.locator('.sidebar-toggle')).toHaveCount(0);
   await expect(page.locator('#app-sidebar')).toBeVisible();
-  await page.locator('.future-balance > summary').click();
-  await expect(page.getByRole('list', { name: '試験の優先度' })).toContainText('検証用試験 · 優先度：ふつう');
-  await page.locator('.future-balance > summary').click();
   await nav(page, '次の週');
   await expect(range).toHaveAttribute('datetime', startOfWeek(addDays(contractDay, 7)));
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
@@ -437,18 +434,10 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
         expect(box.width).toBeGreaterThanOrEqual(44);
       }
       await expect(restart).toBeVisible();
-      const balanceToggle = view.locator('.future-balance > summary');
-      if (await balanceToggle.count()) {
-        expect((await restart.boundingBox())!.y).toBeGreaterThan((await balanceToggle.boundingBox())!.y);
-      }
       if (scenario === '空') {
         await expect(view.getByText('この週の予定はありません。', { exact: true })).toBeVisible();
         await expect(view.getByRole('region', { name: '未配置の学習' })).toHaveCount(0);
       } else {
-        await expect(view.getByRole('button', { name: /^未消化\d+件・調整する$/ })).toHaveCount(0);
-        await expect(view.getByText('昨日以前の未消化分なし', { exact: true })).toHaveCount(0);
-        await expect(view.locator('.future-balance')).not.toHaveAttribute('open');
-        await expect(view.getByRole('list', { name: '試験の優先度' })).toBeHidden();
         if (scenario === '未配置') {
           const warning = view.getByRole('region', { name: '未配置の学習' });
           await expect(warning).toContainText('未配置 1件・9分');
@@ -502,19 +491,6 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
         await expect(menu).toBeHidden();
         await expect(management).toBeFocused();
         expect(await headerPositions(page)).toEqual(positions);
-      }
-      if (scenario !== '空') {
-        const summary = view.locator('.future-balance > summary');
-        await summary.focus(); await page.keyboard.press('Enter');
-        await expect(view.getByRole('list', { name: '試験の優先度' })).toBeVisible();
-        const first = view.getByRole('checkbox').first();
-        await first.check();
-        await expect(view.getByRole('button', { name: '配分案を確認', exact: true })).toBeEnabled();
-        await summary.focus(); await page.keyboard.press('Enter');
-        await page.keyboard.press('Enter');
-        await expect(first).toBeChecked();
-        await page.keyboard.press('Enter');
-        expect(committed(await read(page))).toEqual(committed(state));
       }
       await view.scrollIntoViewIfNeeded();
       await page.screenshot({ path: info.outputPath('future-' + scenario + '-' + width + '.png'), fullPage: true });
@@ -596,8 +572,6 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
   await expect(page.getByRole('heading', { name: '詳細カレンダー', level: 1 })).toBeFocused();
   await page.getByRole('button', { name: '週間予定', exact: true }).press('Enter');
   await expect(calendar).toBeFocused();
-  await view.locator('.future-balance > summary').click();
-  await expect(view.getByRole('checkbox').first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await page.screenshot({ path: info.outputPath('future-text-spacing.png'), fullPage: true });
 });

@@ -12,9 +12,7 @@ import { Replan } from '../components/Replan';
 import { SaveRecovery, saveOverlay } from '../components/SaveRecovery';
 import { Availability, Buffer, Exams, Focus, Materials } from '../components/setup';
 import { Startup } from '../components/Startup';
-import { Tutorial } from '../components/Tutorial';
-import { Warning, WarningSettings, WarningsProvider } from '../components/Warnings';
-import { WeeklyReport } from '../components/WeeklyReport';
+import { Warning } from '../components/Warnings';
 import { CalendarView, Session, addDays, today } from '../domain/model';
 import { dateTime, stalePlan } from '../domain/planAudit';
 import { propose, proposeRestart } from '../domain/planning';
@@ -32,7 +30,7 @@ const Backup = lazy(() =>
   import('../components/Backup').then((module) => ({ default: module.Backup })),
 );
 const mainPages = new Set<Page>(['dashboard', 'future', 'history', 'settings']);
-const directDetails = new Set<Page>(['calendar', 'report', 'tutorial', 'progress', 'replan', 'today']);
+const directDetails = new Set<Page>(['calendar', 'progress', 'replan', 'today']);
 const directPage = (): Page => {
   const hash = window.location.hash.slice(1) as Page;
   return directDetails.has(hash) ? hash : 'dashboard';
@@ -57,14 +55,11 @@ export default function App() {
   const [calendarRevealDay, setCalendarRevealDay] = useState(false);
   const [calendarView, setCalendarView] = useState<CalendarView>('month');
   const [calendarFilter, setCalendarFilter] = useState('all');
-  const [tutorialStep, setTutorialStep] = useState(0);
-  const [reportDayOpen, setReportDayOpen] = useState(false);
   const [availabilityTarget, setAvailabilityTarget] = useState<AvailabilityTarget | null>(null);
   const setPage = (destination: Page, keepAvailability = false) => {
     if (destination === 'future') setFutureSelection(null);
     if (destination === page) return;
     if (destination !== 'dashboard') setRecordTarget(null);
-    if (page === 'report') setReportDayOpen(false);
     if (destination === 'calendar' && page !== 'future') setCalendarRevealDay(false);
     if (mainPages.has(destination)) originStack.current = [];
     else {
@@ -133,7 +128,6 @@ export default function App() {
     closeWithoutSaving,
     readSavedState,
     restore,
-    readSaved,
     exportSaved,
     externalRevision,
     connectionError,
@@ -290,12 +284,11 @@ export default function App() {
           </section>
         </div>
       )}
-      <WarningsProvider {...props}>
         <AppShell
           {...props}
           page={page}
           setPage={setPage}
-          onBack={page !== 'calendar' && !mainPages.has(page) && !(page === 'report' && reportDayOpen) ? goBack : undefined}
+          onBack={page !== 'calendar' && !mainPages.has(page) ? goBack : undefined}
           backLabel={origin ? pageNames[origin.page] : pageNames[fallbackFor(page)]}
           restorePosition={restorePosition?.page === page ? restorePosition : null}
           blocked={closing || restoring || !!recovery}
@@ -434,7 +427,6 @@ export default function App() {
             {page === 'commute' && (
               <CommuteSettings {...props} onReview={() => setPage('replan')} />
             )}
-            {page === 'warnings' && <WarningSettings {...props} />}
             {page === 'progress' && (
               <Progress
                 {...props}
@@ -449,10 +441,6 @@ export default function App() {
                 onRecordPast={() => setPage('progress')}
               /></div>
             )}{' '}
-            {page === 'report' && (
-              <WeeklyReport state={state} saving={saving > 0} readSaved={readSaved} onDetailChange={setReportDayOpen} />
-            )}
-            {page === 'tutorial' && <Tutorial navigate={setPage} step={tutorialStep} onStepChange={setTutorialStep} onClose={goBack} />}
             {page === 'backup' && (
               <Suspense fallback={<p>読み込んでいます…</p>}>
                 <Backup
@@ -480,7 +468,6 @@ export default function App() {
           </StudyRecordMemory.Provider>
         </AppShell>
         <BusyIndicator />
-      </WarningsProvider>
     </>
   );
 }

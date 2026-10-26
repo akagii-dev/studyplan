@@ -22,7 +22,6 @@ import { calendarDisplayQuantity, materialUnit } from '../domain/calendarQuantit
 import { CalendarDaySummary } from './CalendarDaySummary';
 import { renameOutsideRange } from '../domain/dailyTimeDisplay';
 import { Empty, Field, Props, duration, weekdays } from './common';
-import { CalendarExport } from './CalendarExport';
 import { StudyCoverageNotice } from './SetupImpact';
 import { displayPlanSessions } from '../domain/planDisplay';
 import { periodButton } from './ui';/** Floating panel heading with its close button at the end. */
@@ -145,9 +144,6 @@ export function Calendar({
     onDateChange?.(selected);
   }, [selected, onDateChange]);
   const monthStart = selected.slice(0, 7) + '-01';
-  const nextMonth = new Date(`${monthStart}T12:00:00Z`);
-  nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1);
-  const monthEnd = addDays(nextMonth.toISOString().slice(0, 10), -1);
   const weekStart = startOfWeek(selected);
   const from =
     view === 'month'
@@ -520,12 +516,6 @@ export function Calendar({
           </div>
         </div>
       </div>
-      <CalendarExport
-        state={state}
-        from={view === 'week' ? from : monthStart}
-        to={view === 'week' ? to : monthEnd}
-        examId={filter}
-      />
     </>
   );
 }

@@ -4,7 +4,6 @@ export type Page =
   | 'history'
   | 'settings'
   | 'commute'
-  | 'warnings'
   | 'today'
   | 'setup'
   | 'addExam'
@@ -15,9 +14,7 @@ export type Page =
   | 'focus'
   | 'calendar'
   | 'progress'
-  | 'report'
   | 'backup'
-  | 'tutorial'
   | 'replan';
 
 export const navigation = [
@@ -33,7 +30,6 @@ export const pageNames: Record<Page, string> = {
   history: '記録履歴',
   settings: '設定',
   commute: '通学時間',
-  warnings: '通知の管理',
   today: '今日の詳細',
   setup: '初期設定',
   addExam: '試験を追加',
@@ -44,8 +40,6 @@ export const pageNames: Record<Page, string> = {
   focus: '連続時間・余裕率',
   calendar: '詳細カレンダー',
   progress: '予定外・過去日の記録',
-  report: '週間レポート',
   backup: 'バックアップ',
-  tutorial: 'チュートリアル',
   replan: '計画案の確認',
 };

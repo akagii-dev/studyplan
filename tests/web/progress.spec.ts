@@ -95,14 +95,12 @@ test.beforeEach(async ({ page }) => {
   await page.goto('./');
 });
 
-test('同一fixtureを各画面で照合し、履歴の訂正・取消・再読込を反映する', async ({ page }, info) => {
+test('同一fixtureを各画面で照合し、履歴の訂正・取消・再読込を反映する', async ({ page }) => {
   await expect(page.locator('.daily-record-row')).toHaveCount(6);
-  await page.screenshot({ path: info.outputPath('today-initial.png'), fullPage: true });
   await inspectScreens(page, 6);
   await futureWeek(page);
   await navigate(page, 'カレンダー表示');
   await page.getByRole('button', { name: `${contractPast}を表示`, exact: true }).click();
-  await page.screenshot({ path: info.outputPath('calendar.png'), fullPage: true });
   await navigate(page, '記録履歴');
   const history = page
     .getByRole('row')
@@ -133,10 +131,9 @@ test('同一fixtureを各画面で照合し、履歴の訂正・取消・再読�
   await page.reload();
   await inspectScreens(page, null, null);
   await navigate(page, '今日');
-  await page.screenshot({ path: info.outputPath('today.png'), fullPage: true });
 });
 
-test('入力の中心へ誘導し、確認前に保存せず、キーボードで安全に追加する', async ({ page }, info) => {
+test('入力の中心へ誘導し、確認前に保存せず、キーボードで安全に追加する', async ({ page }) => {
   await futureWeek(page);
   await navigate(page, 'カレンダー表示');
   await page.getByRole('button', { name: `${contractDay}を表示`, exact: true }).click();
@@ -193,10 +190,9 @@ test('入力の中心へ誘導し、確認前に保存せず、キーボード�
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
     true,
   );
-  await page.screenshot({ path: info.outputPath('text-spacing.png'), fullPage: true });
 });
 
-test('再配分後も履歴の不足を残し、取得不能な旧データは比較しない', async ({ page }, info) => {
+test('再配分後も履歴の不足を残し、取得不能な旧データは比較しない', async ({ page }) => {
   const state = progressContractFixture();
   state.history.push(structuredClone(state.plan!));
   state.plan = {
@@ -242,5 +238,4 @@ test('再配分後も履歴の不足を残し、取得不能な旧データは�
   await expect(
     page.locator('.day-panel .progress-value').filter({ hasText: '不足' }),
   ).toHaveCount(0);
-  await page.screenshot({ path: info.outputPath('legacy-calendar.png'), fullPage: true });
 });

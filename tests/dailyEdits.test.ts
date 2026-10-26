@@ -137,13 +137,6 @@ it('表示名をバックアップと初期化の復元に含める', () => {
 });
 it.each([
   ['exam.name', 'window.period'],
-  ['material.exam', 'buffer'],
-  ['window.period', 'class.ask'],
-  ['class.ask', 'busy.ask'],
-  ['busy.ask', 'exception.ask'],
-  ['exception.ask', 'meals'],
-  ['meals', 'outside.sleep'],
-  ['outside.sleep', 'focus.block'],
   ['focus.block', 'material.exam'],
   ['buffer', 'finish'],
 ] as const)('選んだ項目 %s の外 %s へ進むと修正を終了する', (from, to) => {

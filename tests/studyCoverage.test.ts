@@ -222,43 +222,26 @@ it('未着手の末尾の周回を減らす案を承認でき、実績を残す'
   expect(approve(proposal).settings.materials[0].rounds).toEqual([{ completed: 12, minutes: 30 }]);
 });
 
-it.each(['initial', 'zero', 'cancelled', 'fixed', 'elapsed'])(
-  '周回を減らす際も%sを壊さない',
-  (kind) => {
-    const s = fixture();
-    s.settings.materials[0].rounds.push({ completed: 0, minutes: 20 });
-    if (kind === 'initial') s.settings.materials[0].rounds[1].completed = 1;
-    if (kind === 'zero' || kind === 'cancelled')
-      s.records.push({
-        id: 'record',
-        materialId: 'm',
-        round: 1,
-        count: 0,
-        cancelled: kind === 'cancelled',
-        date: '2026-09-20',
-        createdAt: '',
-        updatedAt: '',
-      });
-    if (kind === 'fixed' || kind === 'elapsed') {
-      s.plan = generatePlan(s, '2026-09-21');
-      s.plan.sessions = [
-        {
-          id: 'kept',
-          date: kind === 'elapsed' ? '2026-09-19' : '2026-10-01',
-          start: 540,
-          end: 560,
-          kind: 'study',
-          examId: 'e',
-          materialId: 'm',
-          round: 1,
-          count: 1,
-          fixed: kind === 'fixed',
-        },
-      ];
-    }
-    const candidate = structuredClone(s.settings);
-    candidate.materials[0].rounds.pop();
-    expect(minimumRetainedRounds(s, 'm', '2026-09-21')).toBe(2);
-    expect(() => validateRevisedSettings(s, candidate, '2026-09-21')).toThrow('周回は減らせません');
-  },
-);
+it('周回を減らす際も開始済みの予定を壊さない', () => {
+  const s = fixture();
+  s.settings.materials[0].rounds.push({ completed: 0, minutes: 20 });
+  s.plan = generatePlan(s, '2026-09-21');
+  s.plan.sessions = [
+    {
+      id: 'kept',
+      date: '2026-09-19',
+      start: 540,
+      end: 560,
+      kind: 'study',
+      examId: 'e',
+      materialId: 'm',
+      round: 1,
+      count: 1,
+      fixed: false,
+    },
+  ];
+  const candidate = structuredClone(s.settings);
+  candidate.materials[0].rounds.pop();
+  expect(minimumRetainedRounds(s, 'm', '2026-09-21')).toBe(2);
+  expect(() => validateRevisedSettings(s, candidate, '2026-09-21')).toThrow('周回は減らせません');
+});

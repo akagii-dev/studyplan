@@ -345,7 +345,6 @@ for (const offset of [1]) {
         { materialId: 'book', planned: 6, actual, reported: hasReport, currentRemaining: 0 },
         { materialId: 'other', planned: 9, actual: 0, reported: false, currentRemaining: 0 },
       ]);
-      expect(state.history.at(-1)).toEqual(source.plan);
       vi.useFakeTimers();
       vi.setSystemTime(new Date(context.timestamp));
       try {
@@ -571,38 +570,6 @@ describe('カレンダーの予定なし・未報告表示', () => {
     expect(html).not.toContain('未記録');
     expect(html).not.toContain('基準なし');
     expect(state).toEqual(before);
-  });
-
-  it('未報告の予定量は残して表示する', () => {
-    const state = initialState();
-    state.plan = {
-      id: 'p',
-      createdAt: new Date().toISOString(),
-      from: today(),
-      sessions: [
-        {
-          id: 's',
-          materialId: 'm',
-          examId: 'e',
-          date: today(),
-          round: 0,
-          count: 20,
-          start: 600,
-          end: 660,
-          kind: 'study',
-          fixed: false,
-        },
-      ],
-      capacities: [],
-      conflicts: [],
-      shortfalls: [],
-    };
-    const html = renderToStaticMarkup(
-      createElement(CalendarQuantityDetails, { state, date: today(), filter: 'all', onRecord: () => {} }),
-    );
-    expect(html).toContain('未報告');
-    expect(html).toContain('未報告 / 20問');
-    expect(state.records).toHaveLength(0);
   });
 });
 

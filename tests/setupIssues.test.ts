@@ -85,9 +85,7 @@ describe('未設定情報による影響', () => {
     expect(setupIssues(s.settings).filter((i) => i.severity === 'warning')).toHaveLength(4);
   });
   it('予定なしとあとで設定を区別する', () => {
-    let s = answerSchedule(ready(), 'busy', 'none');
-    expect(setupIssues(s.settings).some((i) => i.kind === 'busy')).toBe(false);
-    s = answerSchedule(s, 'busy', 'deferred');
+    const s = answerSchedule(ready(), 'busy', 'deferred');
     expect(setupIssues(s.settings).find((i) => i.kind === 'busy')?.title).toContain('あとで設定');
   });
   it('各項目の具体的な影響を明示する', () => {

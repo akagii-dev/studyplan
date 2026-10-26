@@ -156,7 +156,7 @@ async function normalClose() {
 }
 test.afterAll(close);
 
-test('実機：LAN候補をInterfaceAliasとIPv4で選択し、再確認でも選択を保持する', async ({ request }, testInfo) => {
+test('実機：LAN候補をInterfaceAliasとIPv4で選択し、再確認でも選択を保持する', async ({ request }) => {
   mkdirSync('.test-data', { recursive: true });
   dataDir = mkdtempSync(resolve('.test-data/native-lan-candidates-'));
   await launch();
@@ -239,7 +239,6 @@ test('実機：LAN候補をInterfaceAliasとIPv4で選択し、再確認でも�
     await refresh.click();
     await expect(choices).toHaveValue('133.26.237.171');
     await expect(selection).toBeHidden();
-    await panel.screenshot({ path: testInfo.outputPath('lan-candidates-wide.png') });
     await choices.focus();
     await page.keyboard.press('End');
     await expect(choices).toHaveValue('10.20.30.40');
@@ -261,7 +260,6 @@ test('実機：LAN候補をInterfaceAliasとIPv4で選択し、再確認でも�
     );
     expect(await selection.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-    await panel.screenshot({ path: testInfo.outputPath('lan-candidates-narrow.png') });
     expect((await new AxeBuilder({ page }).include('.lan-sharing').analyze()).violations).toEqual([]);
     // A removed adapter must not remain selected or be silently replaced by another NIC.
     await page.evaluate(() => {
@@ -342,12 +340,10 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
   };
   await expect(qr).toBeVisible();
   expect(await readQr()).toBe(`${base}#key=${key}`);
-  await page.screenshot({ path: testInfo.outputPath('lan-qr-wide.png') });
   await invoke('plugin:window|set_size', { label: 'main', value: { Logical: { width: 390, height: 844 } } });
   await expect.poll(() => page.evaluate(() => innerWidth)).toBeLessThan(600);
   expect(await readQr()).toBe(`${base}#key=${key}`);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath('lan-qr-narrow.png') });
   await invoke('plugin:window|set_size', { label: 'main', value: { Logical: { width: 1280, height: 800 } } });
   await expect(page.getByLabel('接続先URL', { exact: true })).toHaveValue(base);
   await expect(page.getByLabel('APIキー', { exact: true })).toHaveValue(key);
@@ -424,10 +420,6 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
   const phoneContext = await client.newContext({ viewport: { width: 390, height: 844 } });
   const phone = await phoneContext.newPage();
   try {
-    await page.screenshot({
-      path: testInfo.outputPath('desktop-lan-settings.png'),
-      fullPage: true,
-    });
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
     await phone.goto(`${base}#key=${key}`);
     await expect(book(phone)).toBeVisible();
@@ -452,7 +444,6 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: '最新を読み込む', exact: true }).click();
     await expect(book(page)).toContainText('あと2問');
-    await page.screenshot({ path: testInfo.outputPath('desktop-reload-notice.png') });
     await book(page).getByRole('textbox').fill('2');
     await book(page).getByRole('button', { name: '記録', exact: true }).click();
     await expect(page.locator('.save-status')).toContainText('保存済み');
@@ -468,7 +459,6 @@ test('実機：設定からLAN公開・キー確認・共有保存・安全な�
         .filter((session) => session.materialId === 'book' && session.round === 0)
         .reduce((n, session) => n + session.count, 0),
     ).toBe(24);
-    await phone.screenshot({ path: testInfo.outputPath('phone-lan-recorded.png') });
     await phone.locator('.page-transition').evaluateAll(elements =>
       Promise.allSettled(elements.flatMap(element => element.getAnimations().map(animation => animation.finished))));
     expect((await new AxeBuilder({ page: phone }).analyze()).violations).toEqual([]);

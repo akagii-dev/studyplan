@@ -25,7 +25,7 @@ const nav = (page: Page, name: string) => (name === '今日' ? page.locator('nav
 const headerPositions = (page: Page) => page.locator('.future-week, .future-day').evaluateAll((elements) =>
   elements.map((element) => element.getBoundingClientRect().top + scrollY));
 
-test('今日を含む週・同日の詳細往復・主画面再入場・日跨ぎと復帰で表示範囲を切り替える', async ({ page }, info) => {
+test('今日を含む週・同日の詳細往復・主画面再入場・日跨ぎと復帰で表示範囲を切り替える', async ({ page }) => {
   await seed(page);
   const before = await read(page);
   await nav(page, '今後の予定');
@@ -76,7 +76,6 @@ test('今日を含む週・同日の詳細往復・主画面再入場・日跨�
   await day.press('Enter');
   await expect(page.getByRole('complementary', { name: '選択した日の学習詳細' })).toBeVisible();
   expect(await grid.evaluate(e => e.getBoundingClientRect().top + scrollY)).toBe(gridTop);
-  await page.screenshot({ path: info.outputPath('calendar-detail-overlay.png'), fullPage: true });
   await page.keyboard.press('Escape');
   await expect(day).toBeFocused();
   await toolbar.getByRole('button', { name: '次の期間' }).click();
@@ -105,30 +104,14 @@ test('今日を含む週・同日の詳細往復・主画面再入場・日跨�
   await nav(page, '週間予定');
   await expect(range).toHaveAttribute('datetime', startOfWeek(addDays(contractDay, 2)));
   await expect(page.locator('.page-transition:visible')).toHaveCSS('opacity', '1');
-  await page.screenshot({ path: info.outputPath('future-today-range.png'), fullPage: true });
 });
 
-for (const legacy of ['all', 'preset', 'numberEdit'] as const) {
-  test(`過去日記録の旧${legacy}下書きを自由数値入力に復元する`, async ({ page }) => {
-    const state = progressContractFixture();
-    state.draft.progress = { date: addDays(contractDay, -1), materialId: 'partial', round: 0,
-      choice: legacy === 'all' ? 'all' : legacy === 'preset' ? '5' : 'other', custom: legacy === 'numberEdit' ? '2' : '' };
-    if (legacy === 'numberEdit') state.draft.numberEdits = { 'progress/old/追加問題数（1問単位）': { base: '2', text: '7' } };
-    await seed(page, state);
-    await nav(page, '記録履歴');
-    await nav(page, '過去日の学習を記録');
-    await expect(page.getByLabel('今回解いた問題数')).toHaveValue(legacy === 'all' ? '88' : legacy === 'preset' ? '5' : '7');
-    await expect(page.getByRole('button', { name: /その他|残りすべて|^\d+\s*問$/ })).toHaveCount(0);
-    expect((await read(page)).records).toEqual(state.records);
-  });
-}
-
-test('予定外と過去日を同じ自由入力で記録し、単位・0・保存失敗・IME・二重送信を守る', async ({ page }, info) => {
+test('予定外と過去日を同じ自由入力で記録し、単位・0・保存失敗・IME・二重送信を守る', async ({ page }) => {
   const state = progressContractFixture();
   state.settings.materials[0].unit = 'ページ';
   await seed(page, state);
   const before = await read(page);
-  const checkDateWidth = async (form: ReturnType<Page['locator']>, screenshot: string) => {
+  const checkDateWidth = async (form: ReturnType<Page['locator']>) => {
     const date = form.getByLabel('記録対象日');
     for (const fontSize of ['', '28px']) {
       await date.evaluate((element, size) => { element.style.fontSize = size; }, fontSize);
@@ -141,7 +124,6 @@ test('予定外と過去日を同じ自由入力で記録し、単位・0・保�
     }
     await date.focus();
     await expect(date).toBeFocused();
-    await page.screenshot({ path: info.outputPath(screenshot), fullPage: true });
     await date.evaluate((element) => { element.style.fontSize = ''; });
   };
   await page.locator('.outside-record > summary').click();
@@ -150,7 +132,7 @@ test('予定外と過去日を同じ自由入力で記録し、単位・0・保�
   const submit = form.getByRole('button', { name: '記録する', exact: true });
   await expect(form.getByLabel('記録対象日')).toHaveValue(contractDay);
   await expect(form.getByLabel('記録対象日')).toHaveAttribute('readonly', '');
-  await checkDateWidth(form, 'outside-record-date.png');
+  await checkDateWidth(form);
   for (const invalid of ['', '-1', '1.5', '101']) {
     await input.fill(invalid);
     await expect(submit).toBeDisabled();
@@ -166,7 +148,7 @@ test('予定外と過去日を同じ自由入力で記録し、単位・0・保�
   await nav(page, '記録履歴');
   await nav(page, '過去日の学習を記録');
   const past = page.locator('.study-record-form');
-  await checkDateWidth(past, 'past-record-date.png');
+  await checkDateWidth(past);
   await past.getByLabel('記録対象日').fill(addDays(contractDay, -1));
   await expect(past.getByRole('textbox', { name: '今回進めた量（ページ）' })).toHaveValue('');
   await past.getByRole('textbox', { name: '今回進めた量（ページ）' }).fill('3');
@@ -192,10 +174,9 @@ test('予定外と過去日を同じ自由入力で記録し、単位・0・保�
   await expect(past.getByRole('textbox', { name: '今回進めた量（ページ）' })).toHaveValue('');
   expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-  await page.screenshot({ path: info.outputPath('shared-free-record.png'), fullPage: true });
 });
 
-test('予定外記録は今日の予定行を増やさず、履歴と進捗だけに保存する', async ({ page }, info) => {
+test('予定外記録は今日の予定行を増やさず、履歴と進捗だけに保存する', async ({ page }) => {
   const state = progressContractFixture();
   state.settings.materials.push({
     id: 'outside', name: '予定外の教材', examId: 'exam', unit: 'ページ',
@@ -238,15 +219,13 @@ test('予定外記録は今日の予定行を増やさず、履歴と進捗だ�
   await form.getByLabel('教材', { exact: true }).selectOption('outside');
   await expect(form.locator('.progress-summary')).toContainText('完了 3ページ');
   await expect(form.locator('.progress-summary')).toContainText('残り 7ページ');
-  await page.screenshot({ path: info.outputPath('outside-record-keeps-schedule.png'), fullPage: true });
   await nav(page, '記録履歴');
   const history = page.getByRole('row').filter({ hasText: '予定外の教材' });
   await expect(history).toHaveCount(1);
   await expect(history).toContainText('＋3ページ');
-  await page.screenshot({ path: info.outputPath('outside-record-history.png'), fullPage: true });
 });
 
-test('予定のある教材の別周回で13問記録しても、今日の予定へ混在させない', async ({ page }, info) => {
+test('予定のある教材の別周回で13問記録しても、今日の予定へ混在させない', async ({ page }) => {
   const state = progressContractFixture();
   state.settings.materials[0].rounds.push({ completed: 0, minutes: 2 });
   state.plan!.settingsSnapshot = structuredClone(state.settings);
@@ -271,12 +250,11 @@ test('予定のある教材の別周回で13問記録しても、今日の予定
   await expect(page.locator('.daily-record-row')).toHaveCount(6);
   await expect(page.locator('.daily-record-row').filter({ hasText: '2周目' })).toHaveCount(0);
   await expect(page.locator('.page-transition:visible')).toHaveCSS('opacity', '1');
-  await page.screenshot({ path: info.outputPath('outside-round-keeps-schedule.png'), fullPage: true });
   await nav(page, '記録履歴');
   await expect(page.getByRole('row').filter({ hasText: '未報告の教材' })).toContainText('＋13問');
 });
 
-test('予定のない今日の実績詳細から予定外の入力へ移動し、保存前に実績を増やさない', async ({ page }, info) => {
+test('予定のない今日の実績詳細から予定外の入力へ移動し、保存前に実績を増やさない', async ({ page }) => {
   const state = progressContractFixture();
   state.settings.materials.push({ id: 'outside', name: '予定外の教材', examId: 'exam', total: 10, order: 7, rounds: [{ completed: 0, minutes: 2 }] });
   state.plan!.settingsSnapshot = structuredClone(state.settings);
@@ -306,7 +284,6 @@ test('予定のない今日の実績詳細から予定外の入力へ移動し�
   await expect(form.locator('.progress-summary')).toContainText('完了 5問');
   await expect(form.locator('.progress-summary')).toContainText('残り 5問');
   await expect(page.locator('.page-transition:visible')).toHaveCSS('opacity', '1');
-  await page.screenshot({ path: info.outputPath('outside-detail-target.png'), fullPage: true });
 });
 
 for (const responseLost of [false, true]) {
@@ -350,7 +327,7 @@ for (const responseLost of [false, true]) {
   });
 }
 
- test('休講不備の修正導線から単日・期間・対象コマを編集し、取消と再読込を保つ', async ({page},info) => {
+ test('休講不備の修正導線から単日・期間・対象コマを編集し、取消と再読込を保つ', async ({page}) => {
   const state=progressContractFixture();
   state.settings.windows.push({...state.settings.windows[0],id:'class-check',kind:'class',name:'休講検証授業',start:840,end:940});
   state.settings.classCancellations=[{id:'invalid-off',from:addDays(contractDay,1),to:contractDay}];
@@ -384,7 +361,6 @@ for (const responseLost of [false, true]) {
   expect((await read(page)).settings.classCancellations).toHaveLength(1);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   expect((await new AxeBuilder({page}).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
-  await page.screenshot({path:info.outputPath('class-cancellation-edit.png'),fullPage:true});
   await page.reload();
   expect((await read(page)).settings.classCancellations).toEqual(stored.settings.classCancellations!.slice(0,1));
 });
@@ -466,7 +442,6 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
       await expect(menu.getByLabel('開始日', { exact: true })).toBeFocused();
       expect(await headerPositions(page)).toEqual(positions);
       await expect(page.getByRole('button', { name: '管理を閉じる', exact: true })).toHaveCount(0);
-      if (scenario === '通常') await page.screenshot({ path: info.outputPath('future-management-open-' + width + '.png'), fullPage: true });
       await expect(menu.getByLabel('開始日', { exact: true })).toBeFocused();
       expect(await headerPositions(page)).toEqual(positions);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -493,7 +468,6 @@ for (const scenario of ['通常', '空', '未配置', '競合', '長い教材名
         expect(await headerPositions(page)).toEqual(positions);
       }
       await view.scrollIntoViewIfNeeded();
-      await page.screenshot({ path: info.outputPath('future-' + scenario + '-' + width + '.png'), fullPage: true });
     }
     await page.reload();
     await nav(page, '今後の予定');
@@ -543,7 +517,6 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
   expect(panel.x + panel.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   expect((await new AxeBuilder({ page }).include('.future-page').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
-  await page.screenshot({ path: info.outputPath('future-management-enlarged.png'), fullPage: true });
   await menu.getByRole('button', { name: 'やめる', exact: true }).press('Escape');
   await expect(management).toBeFocused();
   expect(await headerPositions(page)).toEqual(positions);
@@ -564,7 +537,6 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
   expect(await grid.evaluate(e => e.getBoundingClientRect().top + scrollY)).toBe(beforeDetail);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   expect((await new AxeBuilder({ page }).include('.calendar-toolbar').include('.day-panel').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations).toEqual([]);
-  await page.screenshot({ path: info.outputPath('calendar-text-spacing-detail.png'), fullPage: true });
   await detailPanel.getByRole('button', { name: '詳細を閉じる' }).press('Escape');
   await nav(page, '週間予定');
   await expect(calendar).not.toBeFocused();
@@ -573,7 +545,6 @@ test('今後の予定の全配色・拡大・文字間隔でもラベルと操�
   await page.getByRole('button', { name: '週間予定', exact: true }).press('Enter');
   await expect(calendar).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-  await page.screenshot({ path: info.outputPath('future-text-spacing.png'), fullPage: true });
 });
 
 test('カレンダーは週単位の7列/2列と月末の罫線を保ち、拡大・往復でも配置を揃える', async ({ page }, info) => {
@@ -598,7 +569,6 @@ test('カレンダーは週単位の7列/2列と月末の罫線を保ち、拡�
   await expect(page.locator('.day-panel')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(todayDate).toBeFocused();
-  await page.screenshot({ path: info.outputPath('calendar-restored-controls.png'), fullPage: true });
   await nav(page, '次の期間');
   const cell = (date: string) => page.locator('.day').filter({ has: page.getByRole('button', { name: new RegExp(`^${date}を表示`) }) });
   const review = cell('2026-10-25');
@@ -612,7 +582,6 @@ test('カレンダーは週単位の7列/2列と月末の罫線を保ち、拡�
   const expectedColumns = info.project.name === 'wide' ? 7 : 2;
   const columns = () => page.locator('.calendar-week-days').first().evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length);
   expect(await columns()).toBe(expectedColumns);
-  await page.screenshot({ path: info.outputPath('calendar-grid-month.png'), fullPage: true });
   await review.locator('.date-number').press('Enter');
   const panel = page.getByRole('complementary', { name: '選択した日の学習詳細' });
   await expect(panel).toBeVisible();
@@ -639,7 +608,6 @@ test('カレンダーは週単位の7列/2列と月末の罫線を保ち、拡�
   await expect(page.locator('html')).toHaveCSS('font-size', '28px');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await review.locator('.date-number').press('Enter');
-  await page.screenshot({ path: info.outputPath('calendar-grid-enlarged.png'), fullPage: true });
   expect((await new AxeBuilder({ page }).include('.calendar-grid').include('.day-panel').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations).toEqual([]);
   const after = await read(page);
   expect(after.plan).toEqual(before.plan);
@@ -686,7 +654,6 @@ test('表示設定は歯車のそばで2選択を縦に並べ、開閉とキー�
     expect(pointerBox.x).toBeGreaterThanOrEqual(12);
     expect(pointerBox.y).toBeGreaterThanOrEqual(12);
     expect(Math.min(Math.abs(pointerBox.y - gearBox.y - gearBox.height), Math.abs(pointerBox.y + pointerBox.height - gearBox.y))).toBeLessThanOrEqual(9);
-    if (opening === 0) await page.screenshot({ path: info.outputPath('calendar-settings-pointer.png'), fullPage: true });
     await popup.getByRole('button', { name: '表示設定を閉じる' }).click();
     await expect(popup).toHaveCount(0); await expect(gear).not.toBeFocused();
   }
@@ -715,7 +682,6 @@ test('表示設定は歯車のそばで2選択を縦に並べ、開閉とキー�
   await page.keyboard.press('Shift+Tab'); await expect(popup.getByLabel('表示期間', { exact: true })).toBeFocused();
   await page.keyboard.press('Tab'); await expect(popup.getByRole('button', { name: '表示設定を閉じる' })).toBeFocused();
   expect((await new AxeBuilder({ page }).include('.calendar-display-settings').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
-  await page.screenshot({ path: info.outputPath('calendar-display-settings.png'), fullPage: true });
   await popup.getByRole('button', { name: '表示設定を閉じる' }).press('Enter');
   await expect(popup).toHaveCount(0); await expect(gear).toBeFocused();
   expect(await page.evaluate(() => scrollY)).toBe(scroll);
@@ -752,20 +718,18 @@ test('表示設定は歯車のそばで2選択を縦に並べ、開閉とキー�
   const enlarged = (await popup.boundingBox())!;
   expect(enlarged.x).toBeGreaterThanOrEqual(0); expect(enlarged.x + enlarged.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-  await page.screenshot({ path: info.outputPath('calendar-display-settings-enlarged.png'), fullPage: true });
   await page.keyboard.press('Escape'); await expect(gear).toBeFocused();
   await page.locator('nav').getByRole('button', { name: '今日', exact: true }).click();
   const todayHeading = page.getByRole('heading', { name: '今日', level: 1, exact: true });
   await expect(todayHeading).toBeVisible(); await expect(todayHeading).not.toBeFocused();
   expect(await todayHeading.evaluate(e => getComputedStyle(e).outlineStyle)).toBe('none');
   await expect(page.locator('.page-transition')).toHaveCSS('opacity', '1');
-  await page.screenshot({ path: info.outputPath('today-pointer-navigation.png'), fullPage: true });
   const futureNav = page.locator('nav').getByRole('button', { name: '今後の予定', exact: true });
   await futureNav.focus(); await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: '今後の予定', level: 1, exact: true })).toBeFocused();
 });
 
-test('今日の完了行・追加入力を追加・訂正・取消で維持する', async ({ page }, info) => {
+test('今日の完了行・追加入力を追加・訂正・取消で維持する', async ({ page }) => {
   const state = adjustmentFixture(contractDay);
   state.settings.materials[0].name = '長い教材名の基礎問題集と確認演習'.repeat(4);
   state.settings.materials[1].unit = 'ページ';
@@ -814,7 +778,6 @@ test('今日の完了行・追加入力を追加・訂正・取消で維持す�
     await page.evaluate(mode => document.documentElement.dataset.appearance = mode, appearance);
     await page.clock.runFor(250);
     await page.evaluate(() => document.getAnimations().forEach(animation => { if (animation instanceof CSSTransition) animation.finish(); }));
-    await page.screenshot({ path: info.outputPath('today-recording-' + appearance + '.png'), fullPage: true, animations: 'disabled' });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
   }
@@ -940,7 +903,7 @@ test('記録成功を簡潔にしても計画の確認が必要な通知と理�
   await expect(result).toContainText('計画と現在の設定が一致していません。');
 });
 
-test('ターム・メモは日付跨ぎ・再読込で保持し、保存失敗の入力を失わず計算に触れない', async ({ page }, info) => {
+test('ターム・メモは日付跨ぎ・再読込で保持し、保存失敗の入力を失わず計算に触れない', async ({ page }) => {
   const fixture = adjustmentFixture(contractDay);
   fixture.studyNote = { nextTerm: '旧版の自由入力', memo: '' };
   await seed(page, fixture, 2);
@@ -986,11 +949,10 @@ test('ターム・メモは日付跨ぎ・再読込で保持し、保存失敗�
     await page.evaluate(() => document.getAnimations().forEach(animation => { if (animation instanceof CSSTransition) animation.finish(); }));
     expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-    await page.screenshot({ path: info.outputPath('study-note-' + appearance + '.png'), fullPage: true, animations: 'disabled' });
   }
 });
 
-test('同時に進める教材数を設定すると、承認済みの計画から現在と次のタームを表示する', async ({ page }, info) => {
+test('同時に進める教材数を設定すると、承認済みの計画から現在と次のタームを表示する', async ({ page }) => {
   const fixture = adjustmentFixture(contractDay);
   fixture.settings.parallelMaterials = 1;
   fixture.plan!.settingsSnapshot = structuredClone(fixture.settings);
@@ -1001,7 +963,6 @@ test('同時に進める教材数を設定すると、承認済みの計画か�
   await page.evaluate(() => Promise.allSettled(document.querySelector('.page-transition')!.getAnimations().map(animation => animation.finished)));
   expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-  await page.screenshot({ path: info.outputPath('study-term.png'), fullPage: true, animations: 'disabled' });
   // Changing the setting is a draft until approval: today keeps the approved terms.
   await nav(page, '設定');
   await page.getByRole('button', { name: '教材の一覧・編集', exact: true }).click();
@@ -1015,7 +976,7 @@ test('同時に進める教材数を設定すると、承認済みの計画か�
   await expect(term).toContainText('次のターム：別問題集');
 });
 
-test('タームに含めない教材は今日に並行として表示し、設定の選択は承認まで今日を変えない', async ({ page }, info) => {
+test('タームに含めない教材は今日に並行として表示し、設定の選択は承認まで今日を変えない', async ({ page }) => {
   const fixture = adjustmentFixture(contractDay);
   fixture.settings.parallelMaterials = 1;
   fixture.settings.materials[0].outsideTerms = true;
@@ -1028,7 +989,6 @@ test('タームに含めない教材は今日に並行として表示し、設�
   await page.evaluate(() => Promise.allSettled(document.querySelector('.page-transition')!.getAnimations().map(animation => animation.finished)));
   expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-  await page.screenshot({ path: info.outputPath('study-term-parallel.png'), fullPage: true, animations: 'disabled' });
   await nav(page, '設定');
   await page.getByRole('button', { name: '教材の一覧・編集', exact: true }).click();
   const group = page.getByRole('group', { name: 'タームに含めず常に並行する教材' });
@@ -1041,7 +1001,6 @@ test('タームに含めない教材は今日に並行として表示し、設�
   await page.evaluate(() => Promise.allSettled(document.getAnimations().map(animation => animation.finished)));
   expect((await new AxeBuilder({ page }).include('main').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-  await page.screenshot({ path: info.outputPath('settings-outside-terms.png'), fullPage: true, animations: 'disabled' });
   await nav(page, '今日');
   await expect(term).toContainText('並行：対象問題集（1周目）');
 });

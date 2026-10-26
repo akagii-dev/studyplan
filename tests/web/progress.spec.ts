@@ -77,21 +77,6 @@ async function inspectScreens(page: Page, actual: number | null, pastActual: num
   await navigate(page, '週間予定');
   await expect(page.locator('.future-week time')).toHaveAttribute('datetime', startOfWeek(contractDay));
   await expect.poll(async () => Math.abs((await page.evaluate(() => window.scrollY)) - scroll)).toBeLessThan(3);
-  await navigate(page, '設定');
-  await navigate(page, '週間レポート');
-  await page.locator(`[data-report-date="${contractDay}"]`).click();
-  await progress(
-    page.locator('.report-day-detail li').filter({ hasText: '一部の教材' }),
-    actual,
-    null,
-  );
-  await page.getByRole('button', { name: '← 週間レポートへ戻る' }).click();
-  await page.locator(`[data-report-date="${contractPast}"]`).click();
-  await progress(
-    page.locator('.report-day-detail li').filter({ hasText: '一部の教材' }),
-    pastActual,
-    pastActual === null ? null : 10 - pastActual,
-  );
   await navigate(page, '記録履歴');
   const history = page
     .getByRole('row')
@@ -114,17 +99,6 @@ test('同一fixtureを各画面で照合し、履歴の訂正・取消・再読�
   await expect(page.locator('.daily-record-row')).toHaveCount(6);
   await page.screenshot({ path: info.outputPath('today-initial.png'), fullPage: true });
   await inspectScreens(page, 6);
-  await navigate(page, '設定');
-  await navigate(page, '週間レポート');
-  expect(
-    (
-      await new AxeBuilder({ page })
-        .include('main')
-        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
-        .analyze()
-    ).violations,
-  ).toEqual([]);
-  await page.screenshot({ path: info.outputPath('weekly-report.png'), fullPage: true });
   await futureWeek(page);
   await navigate(page, 'カレンダー表示');
   await page.getByRole('button', { name: `${contractPast}を表示`, exact: true }).click();

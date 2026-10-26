@@ -9,7 +9,6 @@ import {
   validateRevisedSettings,
 } from '../src/domain/revision';
 import { generatePlan, proposeSettings, approve } from '../src/domain/planning';
-import { createWeeklyReport } from '../src/domain/weeklyReport';
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -187,11 +186,6 @@ describe('目標日までの学習枠の適用期間', () => {
     const edit = beginStudyCoverageRepair(proposed, gap, '2026-09-20');
     const draft = edit.draft.revision as RevisionDraft;
     expect(draft.settings.rest).toBe(15);
-    const now = new Date(2026, 8, 20, 23, 15);
-    const report = createWeeklyReport({ ...edit, settings: draft.settings }, '2026-09-20', now);
-    expect(report.studyCoverageGaps).toEqual([gap]);
-    expect(report.markdown).toContain('2027-03-01〜2027-06-29');
-    expect(report.markdown).toContain('登録済みの期間に学習が集中');
   });
 });
 

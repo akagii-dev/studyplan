@@ -73,8 +73,8 @@ export function Calendar({
   useEffect(() => {
     onViewChange?.(view);
   }, [view, onViewChange]);
-  const savedDensity = state.calendarDensity?.[view];
-  const density = savedDensity === 'detailed' ? 'standard' : savedDensity ?? (view === 'month' ? 'compact' : 'standard');
+  // Fixed per view (the density setting was removed): month cells are compact, week cells standard.
+  const density = view === 'month' ? 'compact' : 'standard';
   const [filter, setFilter] = useState(initialFilter);
   useEffect(() => {
     onFilterChange?.(filter);
@@ -425,14 +425,6 @@ export function Calendar({
             <Field label="表示期間">
               <select value={view} onChange={event => setView(event.target.value as 'month' | 'week')}>
                 <option value="month">月</option><option value="week">週</option>
-              </select>
-            </Field>
-            <Field label="表示密度">
-              <select value={density} onChange={event => {
-                const value = event.target.value as Exclude<CalendarDensity, 'detailed'>;
-                void update(s => ({ ...s, calendarDensity: { ...s.calendarDensity, [view]: value } })).catch(() => {});
-              }}>
-                <option value="compact">コンパクト</option><option value="standard">標準</option>
               </select>
             </Field>
           </div>

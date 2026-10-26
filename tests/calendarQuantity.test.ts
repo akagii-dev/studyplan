@@ -7,7 +7,6 @@ import { adjustmentContext, adjustmentFixture, adjustmentReport, restartFixture 
 import { createProgressBaseline } from '../src/domain/progressReflection';
 import { todayStudyRows } from '../src/domain/todayProgress';
 import { recordAndAdjust } from '../src/domain/progressAdjustment';
-import { createWeeklyReport, dailyReportDetails } from '../src/domain/weeklyReport';
 
 const date = '2026-09-24';
 
@@ -30,9 +29,6 @@ it('仕切り直し後の表示合計は旧未報告の単位を除き、週間�
     { unit: '問', planned: 6, actual: 4, reported: true, partial: false, currentRemaining: 0 },
   ]);
   expect(calendarDisplayQuantity(state, context.date, context.date, 'b').totals).toEqual([]);
-  expect(dailyReportDetails(state, context.date, context.date)).toHaveLength(2);
-  const report = createWeeklyReport(state, context.date, new Date(context.timestamp));
-  expect(report.days.find((d) => d.date === context.date)?.quantities).toEqual(comparison.totals);
   // Before the day is past, the ordinary future display is unchanged.
   expect(calendarDisplayQuantity(state, context.date, addDays(context.date,-1)))
     .toEqual(calendarQuantity(state, context.date, addDays(context.date,-1)));

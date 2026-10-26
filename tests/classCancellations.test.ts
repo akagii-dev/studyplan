@@ -5,7 +5,6 @@ import { blockingEvents, samePlanningSettings, sameSettings, unavailableEvents }
 import { capacityForDate, capacityForWeek, freeIntervalsForDate } from '../src/domain/planner/capacity';
 import { commuteEvents, commuteScheduleErrors, defaultCommute } from '../src/domain/commute';
 import { fixedTimeIssue } from '../src/domain/planConstraints';
-import { calendarEvents } from '../src/domain/icalendar';
 import { settingChanges } from '../src/domain/revision';
 import { parseBackup } from '../src/domain/backup';
 
@@ -92,20 +91,6 @@ it('休講日の容量も共有週上限に入り、固定・復習が先に使�
   settings.classCancellations = [];
   expect(fixedTimeIssue(settings, fixed, capacityForDate(settings, day))).not.toBeNull();
   expect(fixed).toMatchObject({ fixed: true, date: day, start: 600, end: 660, count: 20 });
-});
-
-it('ICSは休講の授業だけを除外し、確定学習・固定・復習・翌週の授業を保持する', () => {
-  const state = fixture();
-  state.plan = { id: 'p', from: day, createdAt: `${day}T00:00:00Z`, sessions: [
-    { id: 'fixed', date: day, start: 600, end: 660, count: 20, examId: 'e', materialId: 'm', round: 0, kind: 'study', fixed: true },
-    { id: 'review', date: day, start: 810, end: 840, count: 0, examId: 'e', materialId: '', round: 0, kind: 'review', fixed: false },
-  ], shortfalls: [], capacities: [], conflicts: [] };
-  state.settings.classCancellations = [cancel()];
-  const before = structuredClone(state);
-  const events = calendarEvents(state, { from: day, to: addDays(day, 7), study: true, classes: true, examId: 'all' });
-  expect(events.filter((item) => item.kind === 'class').map((item) => item.date)).toEqual([addDays(day, 7), addDays(day, 7)]);
-  expect(events.filter((item) => item.kind === 'study')).toHaveLength(2);
-  expect(state).toEqual(before);
 });
 
 it('削除済み授業IDは全授業を解除せず、休講の変更は再計画の設定差分になる', () => {

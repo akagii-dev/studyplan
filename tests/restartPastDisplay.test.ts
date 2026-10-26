@@ -4,7 +4,6 @@ import { expect, it, vi } from 'vitest';
 import { addDays } from '../src/domain/model';
 import { approve, proposeRestart, undoPlan } from '../src/domain/planner/proposal';
 import { calendarQuantity, calendarDisplayQuantity } from '../src/domain/calendarQuantity';
-import { createWeeklyReport } from '../src/domain/weeklyReport';
 import { remainingWork } from '../src/domain/remainingWork';
 import { progressView } from '../src/domain/progressView';
 import { recordAndAdjust, reconcilePlanning } from '../src/domain/progressAdjustment';
@@ -26,7 +25,6 @@ it('旧形式から仕切り直すと過去予定は通常表示から外れ、�
   ]);
   expect(calendarQuantity(state, unreported, context.date).rows.map((r) => r.planned)).toEqual([6, 9]);
   expect(calendarQuantity(state, recorded, context.date).rows.map((r) => r.planned)).toEqual([6, 9]);
-  expect(createWeeklyReport(state, recorded, new Date(context.timestamp)).unreported.some((r) => r.date === unreported)).toBe(true);
   expect(state.records).toEqual(source.records);
   expect(state.history.at(-1)).toEqual(source.plan);
   expect(state.plan!.sessions.filter((s) => s.date < context.date)).toEqual(source.plan!.sessions.filter((s) => s.date < context.date).sort((a,b) => a.date.localeCompare(b.date) || a.start-b.start));

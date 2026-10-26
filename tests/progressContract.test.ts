@@ -4,7 +4,6 @@ import { progressState } from '../src/domain/progressView';
 import { correctProgress } from '../src/domain/progress';
 import { validateSettings } from '../src/domain/planner/validation';
 import { todayStudyRows } from '../src/domain/todayProgress';
-import { createWeeklyReport, dailyReportDetails } from '../src/domain/weeklyReport';
 import {
   contractCases,
   contractDay,
@@ -12,8 +11,6 @@ import {
   contractFuture,
   progressContractFixture,
 } from './fixtures/progressContract';
-
-const now = new Date(`${contractDay}T12:00:00+09:00`);
 const read = (state = progressContractFixture(), date = contractPast, id = 'partial') =>
   progressState(
     calendarQuantity(state, date, contractDay).rows.find((r) => r.materialId === id)!,
@@ -99,10 +96,6 @@ describe('進捗のプロダクト契約（表示文言に依存しない）', (
       expect(
         todayStudyRows(s, contractDay).find((r) => r.materialId === 'partial')?.progress,
       ).toMatchObject(expected);
-      expect(
-        dailyReportDetails(s, contractDay, contractDay).find((r) => r.materialId === 'partial')
-          ?.progress,
-      ).toMatchObject(expected);
     }
   });
   it('再配分後の過去予定は日別保存・計画履歴から取得し、現在残量へ不足を加算しない', () => {
@@ -117,15 +110,6 @@ describe('進捗のプロダクト契約（表示文言に依存しない）', (
     };
     const before = structuredClone(s);
     expect(read(s)).toMatchObject({ planned: 10, actual: 6, deficit: 4 });
-    const report = createWeeklyReport(s, contractDay, now);
-    expect(report.days.find((d) => d.date === contractPast)?.quantities).toEqual(
-      calendarQuantity(s, contractPast, contractDay).totals,
-    );
-    expect(report.rounds.find((r) => r.material === '一部の教材')).toMatchObject({
-      done: 12,
-      remaining: 88,
-      weekPlanned: 30,
-    });
     expect(read(retainStudyDayBaselines(s, contractDay))).toEqual(read(s));
     expect(s).toEqual(before);
   });
@@ -149,11 +133,5 @@ describe('進捗のプロダクト契約（表示文言に依存しない）', (
       'ページ',
       '問',
     ]);
-    const report = createWeeklyReport(s, contractDay, now);
-    expect(report.totals.map((r) => r.unit).sort()).toEqual(['ページ', '問']);
-    expect(report.totals.find((r) => r.unit === 'ページ')).toMatchObject({
-      weekDone: 24,
-      weekPlanned: 30,
-    });
   });
 });

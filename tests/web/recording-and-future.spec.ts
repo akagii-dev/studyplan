@@ -646,9 +646,8 @@ test('カレンダーは週単位の7列/2列と月末の罫線を保ち、拡�
   expect(after.records).toEqual(before.records);
 });
 
-test('表示設定は歯車のそばで3選択を縦に並べ、旧詳細密度を安全に表示し保持・開閉を行う', async ({ page }, info) => {
+test('表示設定は歯車のそばで2選択を縦に並べ、開閉とキーボード操作を保つ', async ({ page }, info) => {
   const state = progressContractFixture();
-  state.calendarDensity = { month: 'detailed', week: 'detailed', list: 'detailed' };
   state.settings.exams.push({ ...state.settings.exams[0], id: 'other', name: '別の試験' });
   await page.addInitScript(() => {
     const calls: string[] = [];
@@ -667,7 +666,7 @@ test('表示設定は歯車のそばで3選択を縦に並べ、旧詳細密度�
   const gear = page.getByRole('button', { name: 'カレンダーの表示設定', exact: true });
   const popup = page.getByRole('dialog', { name: '表示設定', exact: true });
   const grid = page.locator('.calendar-grid');
-  await expect(grid).toHaveClass(/density-standard/);
+  await expect(grid).toHaveClass(/month.*density-compact/);
   await expect(page.getByRole('combobox')).toHaveCount(0);
   await expect(gear).toHaveAttribute('aria-haspopup', 'dialog');
   const todayBox = (await page.locator('.calendar-toolbar').getByRole('button', { name: '今日', exact: true }).boundingBox())!;
@@ -701,12 +700,10 @@ test('表示設定は歯車のそばで3選択を縦に並べ、旧詳細密度�
   await expect(popup.getByLabel('対象の試験', { exact: true })).toBeFocused();
   expect(await popup.getByLabel('対象の試験', { exact: true }).evaluate(e => getComputedStyle(e).outlineStyle)).not.toBe('none');
   const fields = popup.getByRole('combobox');
-  await expect(fields).toHaveCount(3);
-  expect(await popup.locator('label').allTextContents()).toEqual(['対象の試験', '表示期間', '表示密度']);
-  expect(await popup.getByLabel('表示密度', { exact: true }).locator('option').allTextContents()).toEqual(['コンパクト', '標準']);
-  await expect(popup.getByLabel('表示密度', { exact: true })).toHaveValue('standard');
+  await expect(fields).toHaveCount(2);
+  expect(await popup.locator('label').allTextContents()).toEqual(['対象の試験', '表示期間']);
   const positions = await fields.evaluateAll(elements => elements.map(e => e.getBoundingClientRect().top));
-  expect(positions[0]).toBeLessThan(positions[1]); expect(positions[1]).toBeLessThan(positions[2]);
+  expect(positions[0]).toBeLessThan(positions[1]);
   const box = (await popup.boundingBox())!;
   expect(box.x).toBeGreaterThanOrEqual(12); expect(box.y).toBeGreaterThanOrEqual(12);
   expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width - 11);
@@ -715,15 +712,10 @@ test('表示設定は歯車のそばで3選択を縦に並べ、旧詳細密度�
   expect(Math.min(Math.abs(box.y - gearBox.y - gearBox.height), Math.abs(box.y + box.height - gearBox.y))).toBeLessThanOrEqual(9);
   await page.keyboard.press('Shift+Tab');
   await expect(popup.getByRole('button', { name: '表示設定を閉じる' })).toBeFocused();
-  await page.keyboard.press('Shift+Tab'); await expect(popup.getByLabel('表示密度', { exact: true })).toBeFocused();
+  await page.keyboard.press('Shift+Tab'); await expect(popup.getByLabel('表示期間', { exact: true })).toBeFocused();
   await page.keyboard.press('Tab'); await expect(popup.getByRole('button', { name: '表示設定を閉じる' })).toBeFocused();
-  await popup.getByLabel('表示密度', { exact: true }).selectOption('compact');
-  await expect(grid).toHaveClass(/density-compact/);
   expect((await new AxeBuilder({ page }).include('.calendar-display-settings').withTags(['wcag2a','wcag2aa','wcag21aa','wcag22aa']).analyze()).violations).toEqual([]);
   await page.screenshot({ path: info.outputPath('calendar-display-settings.png'), fullPage: true });
-  await popup.getByLabel('表示密度', { exact: true }).selectOption('standard');
-  await expect(grid).toHaveClass(/density-standard/);
-  await popup.getByLabel('表示密度', { exact: true }).selectOption('compact');
   await popup.getByRole('button', { name: '表示設定を閉じる' }).press('Enter');
   await expect(popup).toHaveCount(0); await expect(gear).toBeFocused();
   expect(await page.evaluate(() => scrollY)).toBe(scroll);
@@ -736,10 +728,6 @@ test('表示設定は歯車のそばで3選択を縦に並べ、旧詳細密度�
   await expect(page.locator('.calendar-event').first()).toBeVisible();
   await popup.getByLabel('表示期間', { exact: true }).selectOption('week');
   await expect(grid).toHaveClass(/week.*density-standard/);
-  await expect(popup.getByLabel('表示密度', { exact: true })).toHaveValue('standard');
-  await popup.getByLabel('表示密度', { exact: true }).selectOption('compact');
-  await expect(grid).toHaveClass(/density-compact/);
-  await popup.getByLabel('表示密度', { exact: true }).selectOption('standard');
   await page.keyboard.press('Escape'); await expect(gear).toBeFocused();
   await gear.press('Enter');
   await page.locator('.calendar-period h2').click();
@@ -753,7 +741,8 @@ test('表示設定は歯車のそばで3選択を縦に並べ、旧詳細密度�
   await expect(grid).toHaveClass(/month.*density-compact/);
   await calendarSetting(page, '表示期間', 'week'); await expect(grid).toHaveClass(/week.*density-standard/);
   const after = await read(page);
-  expect(after.calendarDensity).toEqual({ month: 'compact', week: 'standard', list: 'detailed' });
+  // Opening and switching the calendar view never writes a display setting.
+  expect(after.calendarDensity).toBeUndefined();
   expect(after.plan).toEqual(before.plan); expect(after.records).toEqual(before.records); expect(after.settings).toEqual(before.settings);
   await expect(page.locator('.page-transition')).toHaveCSS('opacity', '1');
   await gear.press('Enter');

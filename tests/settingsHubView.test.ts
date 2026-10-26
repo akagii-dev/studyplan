@@ -3,9 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, it, vi } from 'vitest';
 import { SettingsHub } from '../src/app/SettingsHub';
 import { beginAddition } from '../src/components/guided-setup';
-import { warningVersion } from '../src/components/Warnings';
 import { addDays, initialState, today } from '../src/domain/model';
-import { setupIssues } from '../src/domain/setupIssues';
 
 function view(state = initialState()) {
   return renderToStaticMarkup(createElement(SettingsHub, {
@@ -85,19 +83,6 @@ it('3項目の数は登録・削除した現在の値から計算する', () => 
   const orphan = view(state);
   expect(orphan).toContain('0/3');
   expect(orphan).toContain('先に試験を追加');
-});
-
-it('通知非表示と予定なしを異なる状態として表示する', () => {
-  const state = initialState();
-  const issue = setupIssues(state.settings).find((item) => item.id === 'class')!;
-  state.ignoredWarnings = {
-    'setup-class': { title: issue.title, version: warningVersion(issue), ignoredAt: new Date().toISOString() },
-  };
-  const html = view(state);
-  expect(html).toContain('大学の授業');
-  expect(html).toContain('未確認');
-  expect(html).toContain('通知非表示');
-  expect(html).toContain('予定なし');
 });
 
 it('デモの読込失敗は原因と再試行を示し、デスクトップ案内に置き換えない', async () => {

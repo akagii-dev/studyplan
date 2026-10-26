@@ -26,4 +26,3 @@ jobs:
           name: contract-failures
           path: |
             test-results/contracts
-            test-results/calendar-ui

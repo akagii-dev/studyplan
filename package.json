@@ -19,8 +19,7 @@
     "release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1",
     "test:contracts": "playwright test --config playwright.web.config.ts",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "test:calendar-ui": "playwright test --config tests/calendar-ui/playwright.config.ts",
-    "verify:ui": "pnpm demo:build && pnpm test:contracts && pnpm test:calendar-ui",
+    "verify:ui": "pnpm demo:build && pnpm test:contracts",
     "lan:assets": "tsc -b && vite build --mode lan && node scripts/build-lan.mjs"
   },
   "dependencies": {

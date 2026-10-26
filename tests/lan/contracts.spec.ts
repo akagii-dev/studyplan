@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline';
 import { parseBackup, type BackupFile } from '../../src/domain/backup';
 import { calendarQuantity } from '../../src/domain/calendarQuantity';
 import { addDays, completed, type AppState, type Envelope } from '../../src/domain/model';
-import { approve, proposeRestart, proposeRemainingAdjustment, proposePastRemainingAdjustment, proposeBalancedRemaining } from '../../src/domain/planner/proposal';
+import { approve, proposeRestart } from '../../src/domain/planner/proposal';
 import {
   correctAndAdjust,
   currentProgressAdjustment,
@@ -15,17 +15,7 @@ import {
 } from '../../src/domain/progressAdjustment';
 import { activePlanWork } from '../../src/domain/progressAllocation';
 import { remainingWork } from '../../src/domain/remainingWork';
-import {
-  adjustmentContext,
-  adjustmentDay,
-  adjustmentFixture,
-  adjustmentReport,
-  multiDayRolloverFixture,
-  restartFixture,
-  remainingPlacementFixture,
-  pastPlacementFixture,
-  priorityReductionFixture,
-} from '../fixtures/adjustment';
+import { adjustmentContext, adjustmentDay, adjustmentFixture, adjustmentReport, multiDayRolloverFixture, restartFixture, pastPlacementFixture } from '../fixtures/adjustment';
 
 // The server and this direct IPC path share only this dedicated test database.
 // Direct IPC calls the same Rust db/backup functions as Tauri commands.
@@ -194,7 +184,7 @@ test.beforeEach(({ request }, info) => {
   );
 });
 
-test('LAN画面で自動繰越済みを二重配分せず、保存済みの過去一括案は今日の予定を保護して承認する', async ({ page, request }, info) => {
+test('LAN画面で自動繰越済みを二重配分しない', async ({ page, request }) => {
   const source = pastPlacementFixture();
   await seed(source);
   await page.clock.install({ time: new Date(adjustmentContext.timestamp) });
@@ -208,100 +198,10 @@ test('LAN画面で自動繰越済みを二重配分せず、保存済みの過�
   for (const name of ['カレンダー表示'])
     await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '残りの配置を調整', exact: true })).toHaveCount(0);
-  const open = page.getByRole('button', { name: /^未消化\d+件・調整する$/ });
-  await expect(open).toHaveCount(0);
-  await expect(page.getByText('昨日以前の未消化分なし', { exact: true })).toHaveCount(0);
   expect((await http<Envelope>(request, 'load_state')).data.plan).toEqual(automaticallyAdjusted.data.plan);
   expect(automaticallyAdjusted.data.records).toEqual(source.records);
 
-  const proposed = proposePastRemainingAdjustment(source, addDays(adjustmentDay, 1), adjustmentContext);
-  await seed(proposed);
-  await page.reload();
-  await page.getByRole('button', { name: '今後の予定', exact: true }).click();
-  await page.getByRole('button', { name: '計画案を確認', exact: true }).click();
-  await page.locator('details.replan-details > summary').click();
-  await expect(page.getByRole('region', { name: '選択した残量の配置案' })).toContainText('対象 5問');
-  expect((await http<Envelope>(request, 'load_state')).data.plan).toEqual(source.plan);
-  await page.screenshot({ path: info.outputPath('lan-past-proposal.png'), fullPage: true });
-  await page.getByRole('button', { name: 'この内容で更新', exact: true }).click();
-  await expect(page.getByText('計画を更新し、カレンダーに反映しました')).toBeVisible();
-  await expect(page.locator('.save-status')).toContainText('Windowsに保存済み');
-  const approved = await http<Envelope>(request, 'load_state');
-  expect(approved.data.proposal).toBeNull();
-  expect(approved.data.records).toEqual(source.records);
-  expect(approved.data.plan!.sessions.find((s) => s.id === 'b-keep')).toEqual(source.plan!.sessions.find((s) => s.id === 'b-keep'));
-  expect(approved.data.plan!.sessions.find((s) => s.id === 'a-done')).toEqual(source.plan!.sessions.find((s) => s.id === 'a-done'));
-  expect(remainingWork(approved.data, adjustmentDay).find((r) => r.materialId === 'b')).toMatchObject({ remaining: 10, allocated: 10, unplaced: 0, balanced: true });
-  expect(await direct<Envelope>('load_state')).toEqual(approved);
-  await page.reload();
-  await page.getByRole('button', { name: '今日', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '今日', exact: true })).toBeVisible();
-  expect(await http<Envelope>(request, 'load_state')).toEqual(approved);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-});
-test('対象5問の部分再配置を両保存経路で共有し、再送・競合・古い案の承認を保護する', async ({ request }) => {
-  const source = remainingPlacementFixture();
-  source.plan!.comparisonSessionIds = ['a-done'];
-  let stored = await seed(source);
-  const proposal = proposeRemainingAdjustment(stored.data, [{ kind: 'session', sessionId: 'b-target' }], adjustmentDay, adjustmentContext);
-  stored = await save(request, stored, proposal);
-  expect(stored.data.records).toEqual(source.records);
-  const approved = approve(stored.data, false, adjustmentContext);
-  const params = { expected: stored.revision, requestId: requestId(), data: approved };
-  const committed = await http<Envelope>(request, 'commit_state', params);
-  expect(await direct<Envelope>('load_state')).toEqual(committed);
-  expect(committed.data.plan!.comparisonSessionIds).toEqual(['a-done']);
-  expect(remainingWork(committed.data, adjustmentDay).find((r) => r.materialId === 'b')).toMatchObject({ remaining: 10, allocated: 10, unplaced: 0, balanced: true });
-  expect(committed.data.plan!.sessions.find((s) => s.id === 'b-keep')).toEqual(source.plan!.sessions.find((s) => s.id === 'b-keep'));
-  const changed = await save(request, committed, recordAndAdjust(committed.data, { ...adjustmentReport(2, 'after-adjustment'), materialId: 'b' }, adjustmentContext), 'direct');
-  expect(changed.data.records.find((r) => r.materialId === 'a')).toEqual(source.records[0]);
-  expect(await http<Envelope>(request, 'commit_state', params)).toEqual(committed);
-  expect(await direct<Envelope>('load_state')).toEqual(changed);
-  const conflict = await request.post(`${base}commit_state`, { headers, data: { ...params, requestId: requestId() } });
-  expect(conflict.status()).toBe(409);
-  expect(await direct<Envelope>('load_state')).toEqual(changed);
-
-  stored = await seed(source);
-  stored = await save(request, stored, proposeRemainingAdjustment(stored.data, [{ kind: 'session', sessionId: 'b-target' }], adjustmentDay, adjustmentContext));
-  stored = await save(request, stored, recordAndAdjust(stored.data, { ...adjustmentReport(1, 'while-proposed'), materialId: 'b' }, adjustmentContext), 'direct');
-  const reloaded = await http<Envelope>(request, 'load_state');
-  expect(() => approve(reloaded.data, false, adjustmentContext)).toThrow('案の作成後');
-  expect(reloaded).toEqual(stored);
-  expect(reloaded.data.records.find((r) => r.materialId === 'a')).toEqual(source.records[0]);
-});
-
-test('明示均等配分の承認・再開・再送・競合と実績訂正取消を両保存経路で共有する', async ({ request }) => {
-  const source = remainingPlacementFixture();
-  let stored = await seed(source);
-  const proposed = proposeBalancedRemaining(stored.data,['b'],addDays(adjustmentDay,1),adjustmentContext);
-  stored = await save(request,stored,proposed);
-  const params = { expected:stored.revision,requestId:requestId(),data:approve(stored.data,false,adjustmentContext) };
-  const committed = await http<Envelope>(request,'commit_state',params);
-  expect(await direct<Envelope>('load_state')).toEqual(committed);
-  expect(committed.data.plan!.dailyBalanceMaterialIds).toEqual(['b']);
-  const check = (data: AppState) => {
-    for (const row of remainingWork(data,adjustmentDay)) expect(row.allocated+row.unplaced+row.pending).toBe(row.remaining);
-    expect(data.records.find(r => r.materialId==='a')).toEqual(source.records[0]);
-  };
-  check(committed.data);
-  stored = await save(request,committed,recordAndAdjust(committed.data,{ ...adjustmentReport(2,'balance-record'),materialId:'b' },adjustmentContext),'direct');
-  check(stored.data);
-  expect(await http<Envelope>(request,'commit_state',params)).toEqual(committed);
-  expect(await direct<Envelope>('load_state')).toEqual(stored);
-  const conflict = await request.post(`${base}commit_state`,{ headers,data:{ ...params,requestId:requestId() } });
-  expect(conflict.status()).toBe(409);
-  stored = await save(request,stored,correctAndAdjust(stored.data,'balance-record',1,false,adjustmentContext));
-  check(stored.data);
-  stored = await save(request,stored,correctAndAdjust(stored.data,'balance-record',1,true,adjustmentContext),'direct');
-  check(stored.data);
-  expect(await http<Envelope>(request,'load_state')).toEqual(stored);
-  const repeated = reconcilePlanning(json(stored.data),adjustmentContext);
-  check(repeated);
-  expect(repeated.plan!.dailyBalanceMaterialIds).toEqual(['b']);
-  stored = await seed(source);
-  stored = await save(request,stored,proposeBalancedRemaining(stored.data,['b'],addDays(adjustmentDay,1),adjustmentContext));
-  stored = await save(request,stored,recordAndAdjust(stored.data,{ ...adjustmentReport(1,'stale-balance'),materialId:'b' },adjustmentContext),'direct');
-  expect(() => approve(stored.data,false,adjustmentContext)).toThrow('案の作成後');
 });
 
 test('LANとDesktop保存経路で部分・追加・超過・訂正・取消の数量を共有する', async ({ request }) => {
@@ -685,40 +585,4 @@ test('LANで保存した計画案はDesktopで実績更新後に承認できず�
   expect(loaded.data).toEqual(beforeReject);
   expect(loaded.data.plan!.sessions.find((s) => s.id === fixed.id)).toEqual(fixed);
   expect(await direct<Envelope>('load_state')).toEqual(stored);
-});
-
- test('必要最小10分削減の案・承認保存・再送・競合・訂正取消で教材ごとの総量を保つ', async ({request}, info) => {
-  test.skip(info.project.name !== 'wide', 'SQLite contract is independent of viewport.');
-  const source = priorityReductionFixture();
-  let stored = await seed(source);
-  const from = addDays(adjustmentDay,1);
-  const noLoss = proposeBalancedRemaining(stored.data,['book'],from,adjustmentContext);
-  expect(noLoss.proposal!.plan.shortfalls).toMatchObject([{materialId:'book', count:1, minutes:10}]);
-  const proposed = proposeBalancedRemaining(stored.data,['book'],from,adjustmentContext,true);
-  expect(proposed.plan).toEqual(source.plan);
-  expect(proposed.proposal!.plan.shortfalls).toMatchObject([{materialId:'other', count:1, minutes:10}]);
-  stored = await save(request,stored,proposed);
-  const params = {expected:stored.revision, requestId:requestId(), data:approve(stored.data,false,adjustmentContext)};
-  stored = await http<Envelope>(request,'commit_state',params);
-  const check = (data:AppState) => {
-    for (const row of remainingWork(data,adjustmentDay)) {
-      expect(row.completed+row.allocated+row.unplaced+row.pending).toBe(2);
-      expect(row.balanced).toBe(true);
-    }
-  };
-  check(stored.data);
-  expect(await direct<Envelope>('load_state')).toEqual(stored);
-  expect(await http<Envelope>(request,'commit_state',params)).toEqual(stored);
-  const conflict = await request.post(base+'commit_state',{headers,data:{...params,requestId:requestId()}});
-  expect(conflict.status()).toBe(409);
-  const record = {...adjustmentReport(1,'reduction-add'),round:0};
-  stored=await save(request,stored,recordAndAdjust(stored.data,record,adjustmentContext),'direct'); check(stored.data);
-  stored=await save(request,stored,correctAndAdjust(stored.data,record.id,0,false,adjustmentContext)); check(stored.data);
-  stored=await save(request,stored,correctAndAdjust(stored.data,record.id,0,true,adjustmentContext),'direct'); check(stored.data);
-  const again=proposeBalancedRemaining(stored.data,['book'],from,adjustmentContext,true);
-  const approvedAgain=approve(again,false,adjustmentContext); check(approvedAgain);
-  expect(approvedAgain.plan!.shortfalls).toMatchObject([{materialId:'other', count:1, minutes:10}]);
-  stored=await save(request,stored,approvedAgain);
-  const backup=await direct<BackupFile>('export_backup');
-  expect(parseBackup(JSON.stringify(backup)).data).toEqual(stored.data);
 });

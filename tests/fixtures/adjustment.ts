@@ -297,26 +297,6 @@ export function elapsedPlacementFixture(baseDate = adjustmentDay, otherScopes = 
   return state;
 }
 
-/** One future 30-minute slot: 20+20 minutes cannot fit; the minimum loss is 10. */
-export function priorityReductionFixture(baseDate = adjustmentDay) {
-  const state = adjustmentFixture(baseDate);
-  const next = addDays(baseDate, 1);
-  state.settings.exams = state.settings.exams.map((exam, i) => ({ ...exam, target: addDays(next, 1), priority: i === 0 ? 3 : 1 }));
-  state.settings.materials = state.settings.materials.map(m => ({ ...m, total: 2, rounds: [{ completed: 0, minutes: 10 }] }));
-  state.settings.windows = [{ ...state.settings.windows[0], from: next, to: next, start: 540, end: 570 }];
-  state.settings.block = 30; state.settings.rest = 10; state.settings.buffer = 0;
-  const base = state.plan!.sessions[0];
-  state.plan!.sessions = [
-    { ...base, id: 'high-one', date: next, start: 540, end: 550, count: 1, round: 0 },
-    { ...base, id: 'low-two', date: next, start: 550, end: 570, count: 2, round: 0, materialId: 'other', examId: 'b' },
-  ];
-  state.plan!.shortfalls = [{ materialId: 'book', round: 0, count: 1, minutes: 10, reason: '期限内の時間不足' }];
-  state.plan!.settingsSnapshot = structuredClone(state.settings);
-  state.plan!.progressBaseline = createProgressBaseline(state.plan!, state.records);
-  delete state.plan!.adjustmentBasis;
-  return state;
-}
-
 /** Three elapsed days: partial, explicit zero and cancelled reports; future fixed work remains. */
 export function multiDayRolloverFixture(baseDate = adjustmentDay) {
   const state = adjustmentFixture(baseDate);

@@ -25,12 +25,12 @@ import {
 import { calendarQuantity } from '../src/domain/calendarQuantity';
 import { generatePlan, capacityForWeek } from '../src/domain/planning';
 import { overlapsBusy } from '../src/domain/planAudit';
-import { proposeSettings, proposeRemainingAdjustment, proposeBalancedRemaining } from '../src/domain/planning';
+import { proposeSettings } from '../src/domain/planning';
 import ICAL from 'ical.js';
 import AxeBuilder from '@axe-core/playwright';
 import { startOfWeek } from '../src/domain/calendar';
 import { studentFixture } from './fixtures/student';
-import { multiDayRolloverFixture, adjustmentFixture, restartFixture, legacyRestartFixture, remainingPlacementFixture, pastPlacementFixture, priorityReductionFixture } from './fixtures/adjustment';
+import { multiDayRolloverFixture, adjustmentFixture, restartFixture, legacyRestartFixture } from './fixtures/adjustment';
 import { activePlanWork } from '../src/domain/progressAllocation';
 import { progressReceipts } from '../src/domain/progressReceipt';
 import { createProgressBaseline, reflectProgress } from '../src/domain/progressReflection';
@@ -598,97 +598,6 @@ test('実機：未消化反映の保存失敗では正本を保持し、復帰�
   });
   expect(await attempts()).toBe(1);
   expect((await storedState()).plan).toEqual(source.plan);
-});
-
-test('実機：対象5問だけの配置案を保存し、再起動後の承認でもA実績とBの非対象配置を保持する', async () => {
-  dataDir = mkdtempSync(resolve('.test-data/remaining-placement-'));
-  await launch();
-  const date = today();
-  const source = remainingPlacementFixture(date);
-  source.plan!.comparisonSessionIds = ['a-done'];
-  const proposed = proposeRemainingAdjustment(source, [{ kind: 'session', sessionId: 'b-target' }], addDays(date, 1));
-  await seedState(proposed, 'remaining-placement-source');
-  await saved();
-  await nav('今後の予定');
-  await page.getByRole('button', { name: '計画案を確認', exact: true }).click();
-  await page.locator('details.replan-details > summary').click();
-  await expect(page.getByRole('region', { name: '選択した残量の配置案' })).toContainText('対象 5問 · 配置 5問 · 未配置 0問');
-  const pending = await storedState();
-  expect(pending.plan).toEqual(source.plan);
-  expect(pending.records).toEqual(source.records);
-  await closeWindowNormally();
-  await launch();
-  await nav('今後の予定');
-  await page.getByRole('button', { name: '計画案を確認', exact: true }).click();
-  await page.getByRole('button', { name: 'この内容で更新', exact: true }).click();
-  await saved();
-  const approved = await storedState();
-  expect(approved.proposal).toBeNull();
-  expect(approved.plan!.comparisonSessionIds).toEqual(['a-done']);
-  expect(approved.records).toEqual(source.records);
-  expect(approved.plan!.sessions.find((s) => s.id === 'b-target')).toBeUndefined();
-  expect(approved.plan!.sessions.find((s) => s.id === 'b-keep')).toEqual(source.plan!.sessions.find((s) => s.id === 'b-keep'));
-  expect(activePlanWork(approved, date).filter((s) => s.materialId === 'b').reduce((sum, s) => sum + s.count, 0)).toBe(10);
-  await closeWindowNormally();
-  await launch();
-  expect((await storedState()).plan).toEqual(approved.plan);
-  expect((await storedState()).records).toEqual(source.records);
-});
-
-test('実機：狭幅で過去5問だけを一括調整し、今日の開始済み配置とA実績を再起動後も保持する', async () => {
-  dataDir = mkdtempSync(resolve('.test-data/past-placement-'));
-  await launch();
-  const date = today();
-  await page.clock.install({ time: new Date(`${date}T12:00:00+09:00`) });
-  await page.setViewportSize({ width: 320, height: 800 });
-  const source = pastPlacementFixture(date);
-  await page.addInitScript(() => {
-    const nativeFetch = window.fetch.bind(window);
-    let failed = false;
-    window.fetch = async (input, options) => {
-      if (!failed && String(input).includes('ipc.localhost/commit_state')) {
-        failed = true;
-        return new Response(JSON.stringify('専用試験：自動反映の保存を一度だけ失敗'), {
-          headers: { 'Content-Type': 'application/json', 'Tauri-Response': 'error' },
-        });
-      }
-      return nativeFetch(input, options);
-    };
-  });
-  await seedState(source, 'past-placement-source');
-  await expect(page.getByRole('alert')).toContainText('専用試験：自動反映の保存を一度だけ失敗');
-  const row = page.locator('.daily-record-row').filter({ hasText: '教材B' });
-  await expect(row.getByRole('textbox')).toBeVisible();
-  await expect(row).not.toContainText('配置先を確認');
-  await nav('今後の予定');
-  await expect(page.getByText('計画を仕切り直す', { exact: true })).toBeVisible();
-  for (const name of ['未消化1件・調整する', 'カレンダー表示'])
-    await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '残りの配置を調整', exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: /^未消化\d+件・調整する$/ }).focus();
-  await page.keyboard.press('Enter');
-  await expect(page.getByLabel('配置する開始日')).toBeFocused();
-  await expect(page.getByRole('list', { name: '調整する対象', exact: true })).toContainText('5問');
-  await expect(page.locator('.remaining-adjustment').getByRole('checkbox')).toHaveCount(0);
-  await page.getByLabel('配置する開始日').fill(addDays(date, 1));
-  await page.getByRole('button', { name: '配置案を確認', exact: true }).click();
-  await saved();
-  await page.locator('details.replan-details > summary').click();
-  await expect(page.getByRole('region', { name: '選択した残量の配置案' })).toContainText('対象 5問');
-  expect((await storedState()).plan).toEqual(source.plan);
-  expect((await storedState()).records).toEqual(source.records);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-  await page.getByRole('button', { name: 'この内容で更新', exact: true }).click();
-  await saved();
-  const approved = await storedState();
-  expect(approved.records).toEqual(source.records);
-  expect(approved.plan!.sessions.find((s) => s.id === 'b-keep')).toEqual(source.plan!.sessions.find((s) => s.id === 'b-keep'));
-  expect(approved.plan!.sessions.find((s) => s.id === 'a-done')).toEqual(source.plan!.sessions.find((s) => s.id === 'a-done'));
-  expect(activePlanWork(approved, date).filter((s) => s.materialId === 'b').reduce((sum, s) => sum + s.count, 0)).toBe(10);
-  await closeWindowNormally();
-  await launch();
-  expect((await storedState()).plan).toEqual(approved.plan);
-  expect((await storedState()).records).toEqual(source.records);
 });
 test('実機：旧未配置を含めて仕切り直し、承認・バックアップ・再起動後も開始境界を保持する', async () => {
   dataDir = mkdtempSync(resolve('.test-data/restart-plan-'));
@@ -2444,7 +2353,6 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
   ).toBe(10);
   await showTomorrow();
   await expect(tomorrowRow()).toContainText('10問');
-  await expect(page.locator('.plan-change-history')).toHaveCount(0);
   const futureQuantity = async (materialId = 'book') =>
     (await storedState())
       .plan!.sessions.filter(
@@ -4470,7 +4378,9 @@ test('実機：選択日と週内訳・月移動・授業だけの日・予定�
   await expect(page.locator('.progress-summary')).toContainText('完了 10問');
 });
 
-for (const windowMode of ['normal', 'maximize', 'minimize']) {
+// Maximize takes the same close path as normal (useCloseAfterSave has no window-state branch);
+// restoring a maximized window is covered by 実機：OSで最大化して閉じても最大化と元のサイズを復元する.
+for (const windowMode of ['normal', 'minimize']) {
   test(`実機：${windowMode}で保存済み・保存中・保存失敗の終了契約を守る`, async () => {
     await close();
     browser = undefined!;
@@ -5573,36 +5483,6 @@ test('実機：共通進捗と今日への安全な入力引継ぎ', async () =>
     .click();
   await page.locator('.day.today .date-number').click();
   await expect(page.locator('.day-panel')).toContainText('10/10問');
-});
-
- test('実機：最小削減の影響確認後に承認保存し、再起動で総量と未配置を保持する', async () => {
-  dataDir=mkdtempSync(resolve('.test-data/minimum-reduction-'));
-  await launch();
-  const date=today();
-  const source=priorityReductionFixture(date);
-  const candidate=proposeBalancedRemaining(source,['book'],addDays(date,1),true);
-  expect(candidate.proposal!.plan.shortfalls).toMatchObject([{materialId:'other',count:1,minutes:10}]);
-  await seedState(candidate,'minimum-reduction-source'); await saved();
-  await nav('今後の予定');
-  await page.getByRole('button',{name:'計画案を確認',exact:true}).click();
-  const approve=page.getByRole('button',{name:'この内容で更新',exact:true});
-  await expect(approve).toBeDisabled();
-  await expect(page.getByRole('region',{name:'量をそろえる教材と優先度'})).toContainText('1問');
-  expect((await storedState()).plan).toEqual(source.plan);
-  await page.getByLabel('削減量と期限への影響を確認した').check();
-  await approve.click(); await saved();
-  const approved=await storedState();
-  expect(approved.proposal).toBeNull();
-  expect(approved.records).toEqual(source.records);
-  expect(approved.plan!.shortfalls).toMatchObject([{materialId:'other',count:1,minutes:10}]);
-  for(const m of approved.settings.materials) {
-    const active=activePlanWork(approved,date).filter(s=>s.materialId===m.id).reduce((n,s)=>n+s.count,0);
-    const missing=approved.plan!.shortfalls.filter(s=>s.materialId===m.id).reduce((n,s)=>n+s.count,0);
-    expect(active+missing).toBe(2);
-  }
-  await closeWindowNormally(); await launch();
-  expect((await storedState()).plan).toEqual(approved.plan);
-  expect((await storedState()).settings).toEqual(source.settings);
 });
 
 

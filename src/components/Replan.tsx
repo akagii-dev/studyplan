@@ -1,9 +1,9 @@
 import { Warning } from './Warnings';
 import { useState, useEffect, useMemo, useRef, useId, useLayoutEffect } from 'react';
 import { RefreshCw, Undo2, CheckCircle2 } from 'lucide-react';
-import { Session, today, clock, priorityName } from '../domain/model';
+import { Session, today, clock } from '../domain/model';
 import { shortDate, shortDayLabel } from '../domain/calendar';
-import { approve, propose, proposeSettings, proposeBalancedRemaining, restartProposalStaleReason, undoPlan } from '../domain/planning';
+import { approve, propose, proposeSettings, restartProposalStaleReason, undoPlan } from '../domain/planning';
 import { Empty, Props, duration } from './common';
 import { SetupImpact } from './SetupImpact';
 import { PLAN_CALCULATION_VERSION } from '../domain/sessionPolicy';
@@ -28,11 +28,9 @@ import { StudyCoverageGap } from '../domain/studyCoverage';
 import { comparePlans, ScheduleChange } from '../domain/planComparison';
 import { proposalUsesCurrentProgress } from '../domain/progressReflection';
 import { materialUnit } from '../domain/calendarQuantity';
-import { remainingWork, remainingAdjustmentPreview } from '../domain/remainingWork';
+import { remainingWork } from '../domain/remainingWork';
 import { nonComparisonSessions } from '../domain/planDisplay';
 import { usePlanningClock } from '../hooks/usePlanningClock';
-import { elapsedRemainingTargets, remainingAdjustmentSourceDate, pastRemainingWork } from '../domain/remainingAllocation';
-import { reproposeRemainingAdjustment } from '../domain/planning';
 import { runBusyTask } from '../hooks/busyTask';
 import { check, statusText } from './ui';/** One decision step of the plan review, separated by a rule. */
 const decision =
@@ -45,9 +43,9 @@ const groupBy = <T,>(items: T[], key: (item: T) => string): [string, T[]][] => {
 };
 
 export function Replan({ state, update, onCalendar, onFuture }: Props & { onCalendar: () => void; onFuture: () => void }) {
-  const currentTime = usePlanningClock();
+  // Re-render as the clock moves, so the stale checks below follow the current time.
+  usePlanningClock();
   const [ack, setAck] = useState(false);
-  const [lossAck, setLossAck] = useState(false);
   const [error, err] = useState('');
   const [undo, setUndo] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -75,8 +73,6 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
   const planSessions = nonComparisonSessions(plan);
   const restart = p?.basis?.kind === 'restart';
   const partial = p?.basis?.kind === 'remaining-adjustment';
-  // Pure derivations of the saved state; checkbox and form state must not recompute them.
-  const partialPreview = useMemo(() => remainingAdjustmentPreview(state), [state, currentTime]);
   const comparisonFrom = p?.basis ? p.basis.date : (plan?.from ?? today());
   const displaySettings = plan?.settingsSnapshot ?? state.settings;
   const unitFor = (id: string) => materialUnit(
@@ -90,18 +86,6 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
   const stale = !!p?.settingsBase && !sameRevisionBase(p.settingsBase, state.settings);
   const progressStale = !!plan && !proposalUsesCurrentProgress(plan, state.records);
   const restartIssue = p?.basis ? restartProposalStaleReason(state) : undefined;
-  const basis = p?.basis?.kind === 'remaining-adjustment' ? p.basis : undefined;
-  const balanceFuture = basis?.purpose === 'balance-future';
-  const balanceMaterials = new Set(basis?.balanceMaterialIds ?? []);
-  const losses = candidateWork.flatMap(row => {
-    if (!balanceFuture || balanceMaterials.has(row.materialId)) return [];
-    const count = Math.max(0, row.unplaced - (previousUnplaced.get(`${row.materialId}/${row.round}`) ?? 0));
-    if (!count) return [];
-    const material = state.settings.materials.find(m => m.id === row.materialId)!;
-    const exam = state.settings.exams.find(e => e.id === material.examId)!;
-    return [{ ...row, count, minutes: count * material.rounds[row.round].minutes, deadline: exam.target, reviewDays: exam.reviewDays }];
-  });
-  const primaryUnplaced = candidateWork.some(row => balanceMaterials.has(row.materialId) && row.unplaced > 0);
   // The decision view shows only when each material's current and last round end.
   const roundEnd = (materialId: string, round: number) => planSessions.reduce((end, s) =>
     s.kind === 'study' && s.count > 0 && s.materialId === materialId && s.round === round && s.date > end ? s.date : end, '');
@@ -118,17 +102,8 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
       last: final === current.round ? null : { round: final, end: roundEnd(m.id, final) },
       unplaced: rows.reduce((n, row) => n + row.unplaced, 0) }];
   });
-  const extraElapsed = useMemo(() => basis && !balanceFuture ? (basis.purpose === 'past-only'
-    ? pastRemainingWork(state, currentTime.date).sessions
-    : elapsedRemainingTargets(state, currentTime, remainingAdjustmentSourceDate(state, currentTime.date)))
-    .filter((session) => !basis.targets.some((target) => target.kind === 'session' && target.sessionId === session.id)) : [],
-  [state, basis, balanceFuture, currentTime]);
-  const extraGroups = state.settings.materials.flatMap((material) => material.rounds.flatMap((_, round) => {
-    const count = extraElapsed.filter((s) => s.materialId === material.id && s.round === round).reduce((n, s) => n + s.count, 0);
-    return count ? [`${material.name} · ${round + 1}周目 · ${count}${materialUnit(material.unit)}`] : [];
-  }));
   const missingSettings = setupIssues(displaySettings).filter((i) => i.severity === 'error');
-  useEffect(() => { setAck(false); setLossAck(false); }, [plan?.id]);
+  useEffect(() => { setAck(false); }, [plan?.id]);
   const impacts = useMemo(() => plan ? comparePlans(state.plan, plan, comparisonFrom) : [], [state.plan, plan, comparisonFrom]);
   const old = new Map<string, number>();
   const next = new Map<string, number>();
@@ -297,19 +272,10 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
     ...new Set([...(plan?.conflicts ?? []), ...timeProblems.map((x) => x.message)]),
   ];
   const approvalBlocks = [
-    ...(losses.length && !lossAck ? [{ text: '他教材の配置削減が未確認です。', action: '削減量と期限への影響を確認',
-      run: () => document.getElementById('balance-loss-confirmation')?.focus() }] : []),
-    ...(partialPreview?.rows.some((row) => !row.balanced) ? [{
-      text: '選択した残量と配置案の内訳が一致していません。',
-      action: '対象の残量から案を作り直す',
-      run: () => void act((s) => refreshProposal(s)),
-    }] : []),
     ...(restartIssue ? [{
-      text: extraGroups.length ? `${restartIssue} 追加対象：${extraGroups.join('、')}。` : restartIssue,
-      action: extraElapsed.length ? '経過済みの未消化分も含めて案を作り直す' : partial ? '同じ対象で案を作り直す' : '同じ開始日から案を作り直す',
-      run: () => void act((s) => extraElapsed.length
-        ? reproposeRemainingAdjustment(s, extraElapsed.map((session) => ({ kind: 'session', sessionId: session.id })), [currentTime.date, basis!.from].sort().at(-1)!)
-        : refreshProposal(s)),
+      text: restartIssue,
+      action: partial ? '案を作り直す' : '同じ開始日から案を作り直す',
+      run: () => void act((s) => refreshProposal(s)),
     }] : []),
     ...(plan && plan.calculationVersion !== PLAN_CALCULATION_VERSION
       ? [
@@ -494,22 +460,6 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
               </li>)}
             </ul>
             {!finishes.length && <p>今後の予定はありません。</p>}
-            {balanceFuture && (primaryUnplaced || losses.length > 0) && <section aria-label="量をそろえる教材と優先度">
-              {primaryUnplaced && !basis?.allowLowerPriorityReduction && <button disabled={acting}
-                onClick={() => void act(s => proposeBalancedRemaining({ ...s, proposal: null }, basis?.balanceMaterialIds ?? [], basis!.from, true))}>
-                低優先度の変更可能枠も最小限調整する案を見る
-              </button>}
-              {primaryUnplaced && basis?.allowLowerPriorityReduction && <p>不足が残っています。安全に確認できる削減案では解消できませんでした。現在の案の未配置量と条件を確認してください。</p>}
-              {losses.length > 0 && <div className="note">
-                <h4>他教材の配置削減</h4>
-                <ul>{losses.map(row => <li key={`${row.materialId}/${row.round}`}>
-                  {row.name} · {row.round + 1}周目 · {row.count}{row.unit}（{duration(row.minutes)}）を未配置へ。
-                  試験日 {row.deadline}、復習 {row.reviewDays}日。期限内の配置が不足します。
-                </li>)}</ul>
-                <label><input id="balance-loss-confirmation" type="checkbox" checked={lossAck} onChange={event => setLossAck(event.target.checked)} />削減量と期限への影響を確認した</label>
-                <button disabled={acting} onClick={() => void act(s => proposeBalancedRemaining({ ...s, proposal: null }, basis!.balanceMaterialIds ?? [], basis!.from))}>削減しない案へ戻す</button>
-              </div>}
-            </section>}
             {(approvalBlocks.length > 0 || conflicts.length > 0 || p.unreported.length > 0) && (
               <section className={decision} aria-label="対応が必要な問題">
                 {approvalBlocks.length > 0 && !summaryBlocks.length && (
@@ -649,33 +599,6 @@ export function Replan({ state, update, onCalendar, onFuture }: Props & { onCale
             <summary className="flex min-h-11 cursor-pointer items-center font-[750] focus-visible:[outline:3px_solid_var(--accent)] focus-visible:outline-offset-[3px]">詳細</summary>
             {toolbar}
             <p>{p.reason}</p>
-            {balanceFuture && <section aria-label="対象と保存されている優先度">
-              <h3>対象と保存されている優先度</h3>
-              <ul>{state.settings.materials.filter(m => balanceMaterials.has(m.id)).map(m => {
-                const exam = state.settings.exams.find(e => e.id === m.examId)!;
-                return <li key={m.id}>{m.name} · {exam.name} · 優先度 {priorityName(exam.priority)}</li>;
-              })}</ul>
-            </section>}
-            {partialPreview && <section className="[&_ul]:ps-5" aria-label="選択した残量の配置案">
-              <h3>選択した残量の配置案</h3>
-              {partialPreview.rows.map((row) => <div key={`${row.materialId}/${row.round}`}>
-                <h4>{row.name} · {row.round + 1}周目</h4>
-                <p>対象 {row.count}{row.unit} · 配置 {row.placed}{row.unit} · 未配置 {row.unplaced}{row.unit}</p>
-                {!row.balanced && <p className="error" role="alert">対象数量と配置の内訳が一致していません。案を作り直してください。</p>}
-                {row.destinations.length > 0 && <p>{spanText(row.destinations, row.unit)}</p>}
-                {row.unplaced > 0 && row.reasons.map((reason) => <p key={reason}>{reason}</p>)}
-                {row.relatedCount > 0 && <div>
-                  <p>同じ教材・周回の関連分 {row.relatedCount}{row.unit} · 未配置 {row.relatedUnplaced}{row.unit}</p>
-                  {row.relatedDestinations.length > 0 && <p>{spanText(row.relatedDestinations, row.unit)}</p>}
-                </div>}
-              </div>)}
-              {partialPreview.affected.length > 0 && <div>
-                <h4>順序を守るために変更する関連予定</h4>
-                <ul>{groupBy(partialPreview.affected, (session) => `${session.materialId}|${session.round}`).map(([key, sessions]) => <li key={key}>
-                  {materialLabel(sessions[0].materialId)} · {sessions[0].round + 1}周目 · {spanText(sessions, unitFor(sessions[0].materialId))}
-                </li>)}</ul>
-              </div>}
-            </section>}
             {restart && (
               <p className="replan-restart-note">
                 開始日：<time dateTime={plan.allocationStart ?? plan.from}>{plan.allocationStart ?? plan.from}</time>

@@ -1,7 +1,7 @@
 import { AppState, Session, completed, remaining } from './model';
 import { materialUnit } from './calendarQuantity';
 import { activePlanWork, workKey } from './progressAllocation';
-import { isElapsedRemainingSession, remainingSourceIssue, remainingBasisIssue, remainingSessionIssue, remainingAdjustmentSourceDate } from './remainingAllocation';
+import { isElapsedRemainingSession, remainingSourceIssue, remainingBasisIssue, remainingSessionIssue } from './remainingAllocation';
 import { stalePlan } from './planAudit';
 import { currentPlanningStatus } from './progressAdjustment';
 
@@ -96,98 +96,4 @@ export function remainingWork(state: AppState, date: string, minute = 0): Remain
       };
     }),
   );
-}
-
-/** Target quantities in a partial proposal, excluding the unrelated slots that it retains. */
-export function remainingAdjustmentPreview(state: AppState) {
-  const basis = state.proposal?.basis;
-  if (basis?.kind !== 'remaining-adjustment') return undefined;
-  const plan = state.proposal!.plan;
-  const candidate = { ...state, plan };
-  const work = activePlanWork(candidate, basis.date);
-  const previousWork = activePlanWork(state, remainingAdjustmentSourceDate(state, basis.date));
-  const byTime = (a: Session, b: Session) =>
-    a.date.localeCompare(b.date) || a.start - b.start || a.id.localeCompare(b.id);
-  const portion = (session: Session, count: number, offset = 0): Session => {
-    const perUnit = (session.end - session.start) / session.count;
-    return {
-      ...session,
-      count,
-      start: session.start + offset * perUnit,
-      end: session.start + (offset + count) * perUnit,
-    };
-  };
-  const rows = basis.summary.map((target) => {
-    const material = state.settings.materials.find((m) => m.id === target.materialId);
-    const unrelated = new Set(
-      (state.plan?.sessions ?? [])
-        .filter(
-          (s) => !target.sessionIds.includes(s.id) && !basis.affectedSessionIds.includes(s.id),
-        )
-        .map((s) => s.id),
-    );
-    const candidates = work
-      .filter(
-        (s) =>
-          s.materialId === target.materialId && s.round === target.round && !unrelated.has(s.id),
-      )
-      .sort(
-        (a, b) =>
-          Number(target.sessionIds.includes(b.id)) - Number(target.sessionIds.includes(a.id)) ||
-          byTime(a, b),
-      );
-    const relatedCount = previousWork
-      .filter(
-        (s) =>
-          s.materialId === target.materialId &&
-          s.round === target.round &&
-          basis.affectedSessionIds.includes(s.id),
-      )
-      .reduce((sum, s) => sum + s.count, 0);
-    const destinations: Session[] = [];
-    const relatedDestinations: Session[] = [];
-    let targetLeft = target.count;
-    for (const session of candidates) {
-      const take = Math.min(session.count, targetLeft);
-      if (take > 0) destinations.push(portion(session, take));
-      if (take < session.count)
-        relatedDestinations.push(portion(session, session.count - take, take));
-      targetLeft -= take;
-    }
-    destinations.sort(byTime);
-    relatedDestinations.sort(byTime);
-    const placed = destinations.reduce((sum, s) => sum + s.count, 0);
-    const shortfalls = plan.shortfalls.filter(
-      (s) => s.materialId === target.materialId && s.round === target.round,
-    );
-    const retainedUnplaced = target.includeUnplaced
-      ? 0
-      : (state.plan?.shortfalls ?? [])
-          .filter((s) => s.materialId === target.materialId && s.round === target.round)
-          .reduce((sum, s) => sum + s.count, 0);
-    const availableUnplaced = shortfalls.reduce((sum, s) => sum + s.count, 0) - retainedUnplaced;
-    const unplaced = Math.min(targetLeft, Math.max(0, availableUnplaced));
-    const relatedUnplaced = availableUnplaced - unplaced;
-    const combinedPlaced = candidates.reduce((sum, s) => sum + s.count, 0);
-    return {
-      ...target,
-      name: material?.name ?? target.materialId,
-      unit: materialUnit(material?.unit),
-      destinations,
-      placed,
-      unplaced,
-      reasons: shortfalls.map((s) => s.reason),
-      relatedCount,
-      relatedDestinations,
-      relatedUnplaced,
-      balanced:
-        availableUnplaced >= 0 &&
-        target.count === placed + unplaced &&
-        combinedPlaced + availableUnplaced === target.count + relatedCount,
-    };
-  });
-  return {
-    rows,
-    affected: previousWork.filter((s) => basis.affectedSessionIds.includes(s.id)),
-  };
 }

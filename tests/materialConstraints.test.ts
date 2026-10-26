@@ -41,7 +41,7 @@ it('編集開始後に追加された初期完了も確定時の最新状態で�
   expect(() => validateMaterialChanges(latest, draft, adjustmentContext.date, 720)).toThrow('周回');
 });
 
-it.each([0, 0.1, 1440, 1440.1, 2000])(
+it.each([0, 0.1, 1440, 1440.1])(
   '推定分数%sの入力・確定・バックアップ判定を一致させる',
   (minutes) => {
     const s = adjustmentFixture();

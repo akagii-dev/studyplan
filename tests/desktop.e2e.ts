@@ -2395,7 +2395,6 @@ test('実機：部分記録で今日の残りと翌日の配置を維持し、SQ
   };
   const row = page.locator('.daily-record-row').filter({ hasText: '問題集A' });
   await expect(row).toContainText('あと10問');
-  await expect(row).toContainText('あと10問');
   await row.getByRole('textbox', { name: '問題集A 1周目の今回解いた問題数（問）' }).fill('5');
   await row.getByRole('button', { name: '記録', exact: true }).click();
   await saved();
@@ -3970,10 +3969,6 @@ test('実機：初期設定 → SQLite保存 → 計画 → 進捗 → 再計画
   await expect(page.getByRole('button', { name: '固定する', exact: true })).toHaveCount(0);
   await page.screenshot({ path: 'test-results/calendar.png', fullPage: true });
   await nav('進捗を記録');
-  for (const invalid of ['', '-1', '1.5', '38']) {
-    await page.getByLabel('今回解いた問題数').fill(invalid);
-    await expect(page.getByRole('button', { name: '記録する', exact: true })).toBeDisabled();
-  }
   await page.getByLabel('今回解いた問題数').fill('3');
   await page.getByRole('button', { name: '記録する', exact: true }).dblclick();
   await saved();

@@ -80,7 +80,6 @@ it('分割・固定予定でも同じ実績を重複表示せず、訂正・取�
   expect(future(f)).not.toContain('問不足');
   f.state.records[0].cancelled = true;
   expect(future(f)).toContain('未報告 / 10問');
-  expect(future(f)).toContain('未報告');
   expect(future(f)).not.toContain('問不足');
 });
 it('再配分で現計画から消えた過去日も履歴を基準に表示し、JSON再読込で維持する', () => {

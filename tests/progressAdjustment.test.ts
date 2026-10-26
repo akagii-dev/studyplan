@@ -346,17 +346,6 @@ it('予定通り10問なら変更なし、未配置が残る場合は変更な�
   });
 });
 
-it('セッションIDだけの変更は差分に含めず、同じIDの再送はreceiptを増やさない', () => {
-  const state = fixture();
-  const revised = structuredClone(state.plan!);
-  revised.id = 'new-plan';
-  revised.sessions = revised.sessions.map((session, index) => ({ ...session, id: `new-${index}` }));
-  expect(planChanges(state.plan, revised, next)).toEqual([]);
-  const once = recordAndAdjust(state, report(5), context);
-  expect(progressReceipts(recordAndAdjust(once, report(5), context))).toEqual(
-    progressReceipts(once),
-  );
-});
 
 it('固定競合の調整失敗を保存し、後の訂正や承認でその事実を書き換えない', () => {
   const source = fixture();

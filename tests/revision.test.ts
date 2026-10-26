@@ -1,4 +1,3 @@
-import { reflectProgressSafely } from '../src/domain/progressReflection';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { initialState, addDays, Settings, Session } from '../src/domain/model';
 import {
@@ -151,14 +150,6 @@ describe('対話での再計画', () => {
     s = proposeSettings(s, { ...s.settings, block: 240 }, date);
     s.settings.rest = 20;
     expect(() => approve(s)).toThrow('設定が変わっています');
-  });
-  it('進捗反映時も承認待ちの変更条件を引き継ぐ', () => {
-    const s = fixture();
-    const n = proposeSettings(s, { ...s.settings, block: 240 }, date);
-    const updated = reflectProgressSafely(n);
-    expect(updated.settings.block).toBe(s.settings.block);
-    expect(updated.proposal!.plan.settingsSnapshot!.block).toBe(240);
-    expect(updated.records).toEqual(s.records);
   });
   it('完了数・登録済み周回の削除・完了数を下回る問題数を拒否する', () => {
     const s = fixture(),

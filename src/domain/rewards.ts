@@ -29,6 +29,7 @@ export interface Rewards {
  * cancellation: a record earns its estimated hours at the hourly rate, a corrected count changes
  * its points and a cancelled one returns them; a day with at least one counted record keeps its
  * login bonus. The ledger starts on the first call, so only study from that day on counts.
+ * Entries whose record no longer exists (removed with a finished exam) are kept as they are.
  */
 export function settleRewards(state: AppState, date: DateKey = today()): AppState {
   const rewards = state.rewards ?? { since: date, entries: [] };
@@ -49,6 +50,13 @@ export function settleRewards(state: AppState, date: DateKey = today()): AppStat
       minutesPerUnit,
       points: counted ? Math.round((record.count * minutesPerUnit * HOURLY_POINTS) / 60) : 0,
     });
+  }
+  // Points of a record removed with its finished exam stay earned.
+  const present = new Set(state.records.map((record) => record.id));
+  for (const entry of previous.values()) {
+    if (present.has(entry.recordId!)) continue;
+    if (entry.points > 0) days.add(entry.date);
+    study.push(entry);
   }
   const login = [...days].map((day): RewardEntry => ({ kind: 'login', date: day, points: LOGIN_POINTS }));
   const entries = [...login, ...study].sort((a, b) => a.date.localeCompare(b.date) || (a.kind === b.kind ? 0 : a.kind === 'login' ? -1 : 1));

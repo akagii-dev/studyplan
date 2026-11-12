@@ -8,6 +8,7 @@ import { PlanningContext } from './planner/context';
 import { generatePlan as generate } from './planner/generate';
 import * as proposals from './planner/proposal';
 import { settleRewards } from './rewards';
+import { removeFinishedExams } from './finishedExams';
 
 export * from './planner/intervals';
 export * from './planner/capacity';
@@ -44,8 +45,10 @@ export function proposeRestart(state: AppState, from: string) {
 export function restartProposalStaleReason(state: AppState) {
   return proposals.restartProposalStaleReason(state, context());
 }
+/** Load/date boundary: finished exams leave first, then past work is settled for the rest. */
 export function reconcilePlanning(state: AppState) {
-  return reconcilePlanningWithContext(state, context());
+  const ctx = context();
+  return reconcilePlanningWithContext(removeFinishedExams(state, ctx.date), ctx);
 }
 export function proposeSettings(state: AppState, settings: Settings, from: string) {
   return proposals.proposeSettings(state, settings, from, context());

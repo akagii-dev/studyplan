@@ -47,8 +47,7 @@ export function Exams({
     <div className={form.id ? 'split' : ''}>
       {form.id && (
         <section className="card">
-          <h2>どんな試験を目指しますか？</h2>
-          <p>目標を一つずつ登録しましょう。あとから変更できます。</p>
+          <h2>試験・目標を設定してください。</h2>
           <Field label="試験名">
             <input
               data-settings-edit="exam"
@@ -65,7 +64,7 @@ export function Exams({
                 onChange={(e) => set({ ...form, start: e.target.value })}
               />
             </Field>
-            <Field label="目標日">
+            <Field label="目標日" hint="目標日を過ぎた試験は、教材・記録・予定とともに自動で削除されます。">
               <input
                 type="date"
                 value={form.target}
@@ -104,7 +103,7 @@ export function Exams({
                   aria-label={`表示色 ${c}`}
                   title={examColors.find((color) => color.value === c)?.name}
                   aria-pressed={form.color === c}
-                  className={`swatch size-8 min-w-8! rounded-[50%] border-[3px] border-white p-0 text-white! hover:enabled:border-ink ${form.color === c ? 'selected outline-2 outline-accent' : ''}`}
+                  className={`swatch size-10 shrink-0 rounded-[50%] border-[3px] border-white p-0 text-white! hover:enabled:border-ink ${form.color === c ? 'selected outline-2 outline-accent' : ''}`}
                   style={{ background: c }}
                   onClick={() => set({ ...form, color: c })}
                 >

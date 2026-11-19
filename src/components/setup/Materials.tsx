@@ -5,9 +5,10 @@ import { validateSettings } from '../../domain/planning';
 import { minimumRetainedRounds } from '../../domain/revision';
 import { MAX_MINUTES_PER_UNIT } from '../../domain/materialConstraints';
 import { inTerms, materialTermGroups } from '../../domain/terms';
+import { MAX_ROUNDS, setRoundCounts } from '../../domain/roundCounts';
 import { AnimatedProgress } from '../AnimatedProgress';
 import { Empty, Field, Props, useDraft } from '../common';
-import { badge, iconButton } from '../ui';
+import { badge, check, iconButton } from '../ui';
 export function Materials({ state, update, onAdd }: Props & { onAdd: () => void }) {
   const blank: Material = {
     id: '',
@@ -194,6 +195,7 @@ export function Materials({ state, update, onAdd }: Props & { onAdd: () => void 
           </button>
         </div>
         {state.settings.materials.length > 1 && <ParallelMaterials state={state} update={update} />}
+        {state.settings.materials.length > 1 && <BulkRounds state={state} update={update} />}
         {!state.settings.materials.length ? (
           <Empty>
             <BookOpen />
@@ -238,6 +240,69 @@ export function Materials({ state, update, onAdd }: Props & { onAdd: () => void 
           })
         )}
       </section>
+    </div>
+  );
+}
+
+/** Changes the number of rounds of the chosen materials together. */
+function BulkRounds({ state, update }: Props) {
+  const [selected, select] = useState<string[]>([]);
+  const [count, setCount] = useState(2);
+  const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
+  const materials = state.settings.materials;
+  const chosen = materials.filter((m) => selected.includes(m.id));
+  const toggle = (id: string, on: boolean) => {
+    setMessage(null);
+    select((ids) => (on ? [...ids, id] : ids.filter((x) => x !== id)));
+  };
+  async function apply() {
+    try {
+      const settings = setRoundCounts(state, selected, count);
+      await update((s) => ({ ...s, settings, proposal: null }));
+      setMessage({ error: false, text: `${chosen.map((m) => m.name).join('、')}を${count}周にしました。` });
+      select([]);
+    } catch (e) {
+      setMessage({ error: true, text: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return (
+    <div className="card compact grid gap-3">
+      <h3>周回数をまとめて変更</h3>
+      <fieldset className="m-0 grid min-w-0 gap-1 p-0 [border:0]">
+        <legend className="mb-1 p-0 text-[12px] font-[550] text-ink">変更する教材</legend>
+        {materials.map((m) => (
+          <label key={m.id} className={`${check} min-h-8 wrap-anywhere`}>
+            <input
+              type="checkbox"
+              checked={selected.includes(m.id)}
+              onChange={(e) => toggle(m.id, e.target.checked)}
+            />
+            {m.name}（{state.settings.exams.find((e) => e.id === m.examId)?.name}・{m.rounds.length}周）
+          </label>
+        ))}
+      </fieldset>
+      <div className="flex flex-wrap items-end gap-2 [&>.field]:w-28">
+        <Field label="周回数" draftKey="bulk-rounds">
+          <input
+            type="number"
+            min="1"
+            max={MAX_ROUNDS}
+            value={count}
+            onChange={(e) => {
+              setMessage(null);
+              setCount(Math.max(1, Math.min(MAX_ROUNDS, Math.round(+e.target.value) || 1)));
+            }}
+          />
+        </Field>
+        <button data-submit disabled={!chosen.length} onClick={() => void apply()}>
+          {chosen.length ? `選んだ${chosen.length}教材の周回数を変更` : '教材を選んでください'}
+        </button>
+      </div>
+      {message && (
+        <p className={message.error ? 'error' : 'hint'} role={message.error ? 'alert' : 'status'}>
+          {message.text}
+        </p>
+      )}
     </div>
   );
 }

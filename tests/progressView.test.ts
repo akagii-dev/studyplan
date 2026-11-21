@@ -217,7 +217,7 @@ it.each([
     expect(
       todayStudyRows(state, context.date).find((r) => r.materialId === 'book' && r.round === 0)
         ?.progress,
-    ).toMatchObject({ ...view, text: expected > 0 ? `あと${expected}問` : '4問を記録', supplement: '' });
+    ).toMatchObject({ ...view, text: expected > 0 ? `あと${expected}問` : '記録済み 4問', supplement: '' });
     if (offset === 1) expect(todayStudyRows(state, context.date)).toHaveLength(1);
     vi.useFakeTimers();
     vi.setSystemTime(new Date(context.timestamp));
@@ -232,7 +232,7 @@ it.each([
           onProposal: () => {},
         }),
       ])
-        expect(renderToStaticMarkup(element)).toContain(element.type === TodayRecorder || element.type === Future ? (expected > 0 ? `あと${expected}問` : '4問を記録') : view.text);
+        expect(renderToStaticMarkup(element)).toContain(element.type === TodayRecorder || element.type === Future ? (expected > 0 ? `あと${expected}問` : '記録済み 4問') : view.text);
       const filtered = calendarQuantity(state, context.date, context.date, 'a').totals[0];
       expect(filtered.currentRemaining).toBe(expected);
       expect(
@@ -374,7 +374,7 @@ for (const offset of [1]) {
           expect(html).not.toContain('未報告 · 今日の残り 0問');
           expect(html).not.toContain('未報告あり');
           expect(html).not.toContain('進捗を記録');
-          if (hasReport) expect(html).toContain(element.type === Future ? `${actual}問を記録` : `実績 ${actual}問 · 今日の残り 0問`);
+          if (hasReport) expect(html).toContain(element.type === Future ? `記録済み ${actual}問` : `実績 ${actual}問 · 今日の残り 0問`);
         }
       } finally {
         vi.useRealTimers();

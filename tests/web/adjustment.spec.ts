@@ -270,7 +270,7 @@ for (const { offset, expected } of [{ offset: 0, expected: 6 }, { offset: 1, exp
     expect(approved.plan!.shortfalls.filter((s) => s.materialId === 'book' && s.round === 0)).toEqual([]);
     expect(approved.studyDayBaselines?.[date].rows.find((r) => r.materialId === 'book' && r.round === 0)?.count).toBe(6);
     await page.getByRole('button', { name: '今日', exact: true }).click();
-    await expect(row).toContainText(expected > 0 ? `あと${expected}問` : '4問を記録');
+    await expect(row).toContainText(expected > 0 ? `あと${expected}問` : '記録済み 4問');
     await expect(row.locator('.daily-progress-ring')).toHaveCount(0);
     await page.getByRole('button', { name: '今後の予定', exact: true }).click();
     await page.getByRole('button', { name: 'カレンダー表示', exact: true }).click();
@@ -284,7 +284,7 @@ for (const { offset, expected } of [{ offset: 0, expected: 6 }, { offset: 1, exp
     expect((await read()).records).toEqual(approved.records);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await page.reload();
-    await expect(row).toContainText(expected > 0 ? `あと${expected}問` : '4問を記録');
+    await expect(row).toContainText(expected > 0 ? `あと${expected}問` : '記録済み 4問');
     expect((await read()).records).toEqual(approved.records);
   });
 }

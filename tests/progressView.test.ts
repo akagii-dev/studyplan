@@ -312,6 +312,20 @@ it.each(['unreported', 'zero', 'recorded', 'cancelled'] as const)(
   },
 );
 
+it('今日から仕切り直すとき、順序に反する経過済みの枠には今日の残りを残さない', () => {
+  // A passed slot of round 2 before an unfinished round 1 cannot keep its work today;
+  // otherwise the next record stops at the order check.
+  const context = adjustmentContext;
+  const source = adjustmentFixture();
+  source.plan!.sessions[0].round = 1;
+  const state = approve(proposeRestart(source, context.date, context), false, context);
+  expect(activePlanWork(state, context.date)
+    .filter((s) => s.date === context.date && s.start < context.minute && s.materialId === 'book')
+    .reduce((n, s) => n + s.count, 0)).toBe(0);
+  expect(state.plan!.shortfalls).toEqual([]);
+  expect(() => recordAndAdjust(state, adjustmentReport(1), context)).not.toThrow();
+});
+
 for (const offset of [1]) {
   it.each(['unreported', 'zero', 'recorded', 'cancelled'] as const)(
     `${offset}日後から仕切り直した当日の%sは有効な予定・実績だけを全予定画面に表示する`,

@@ -2,6 +2,7 @@ import { AppState, Plan, isDateKey, remaining } from './model';
 import { activePlanWork, workKey } from './progressAllocation';
 import { PlanningContext } from './planner/context';
 import { generatePlan } from './planner/generate';
+import { fixedOrderIssue } from './planConstraints';
 import { requirePlanningInputs } from './setupIssues';
 import { validateRevisedSettings } from './revision';
 
@@ -22,6 +23,13 @@ export function calculateRestart(state: AppState, from: string, context: Plannin
   const sessions = (state.plan?.sessions ?? []).filter((s) =>
     s.date < context.date || s.fixed ||
     (keepToday && s.date === context.date && s.start < notBefore && (s.kind === 'review' || s.count > 0)));
+  // A passed slot ahead of an unfinished predecessor cannot stay: the predecessor
+  // could never be placed before it, so the order would block the whole restart.
+  if (keepToday)
+    for (const s of sessions
+      .filter((s) => !s.fixed && s.kind === 'study' && s.date === context.date && s.start < notBefore)
+      .sort((a, b) => a.start - b.start))
+      if (fixedOrderIssue(state, s, sessions, context.date)) sessions.splice(sessions.indexOf(s), 1);
   const budgets = Object.fromEntries(
     state.settings.materials.flatMap((m) =>
       m.rounds.map((_, round) => [workKey(m.id, round), remaining(state, m.id, round)]),

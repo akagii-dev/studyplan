@@ -67,3 +67,16 @@ it('相殺はゲームUIの選択で、Fresh-UI（offsets=false）の今日の�
   expect(partial(false).progress.complete).toBe(false);
   expect(partial(false).offset).toBe(0);
 });
+
+it('予定外の記録は全量が追加分になり、予定の不足を相殺できる', () => {
+  const state = progressContractFixture();
+  // 'over' gives 2 extra; the unplanned 2 make the 4 that the partial row lacks.
+  state.settings.materials.push({ ...state.settings.materials[0], id: 'free', name: '予定外の教材', order: 99 });
+  state.records.push({ id: 'free-record', materialId: 'free', round: 0, count: 2, date: contractDay, cancelled: false,
+    createdAt: `${contractDay}T03:00:00.000Z`, updatedAt: `${contractDay}T03:00:00.000Z` });
+  const partial = (s: typeof state) => todayStudyRows(s, contractDay).find((r) => r.materialId === 'partial')!;
+  expect(partial(state).offsetAvailable).toBe(true);
+  const rows = todayStudyRows(setDayOffset(state, contractDay, { materialId: 'partial', round: 0 }, true), contractDay);
+  expect(rows.some((r) => r.materialId === 'free')).toBe(false);
+  expect(rows.find((r) => r.materialId === 'partial')!.progress).toMatchObject({ complete: true, text: '相殺でクリア' });
+});

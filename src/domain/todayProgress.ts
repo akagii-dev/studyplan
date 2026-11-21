@@ -19,26 +19,32 @@ export function todayStudyRows(state: AppState, date = today(), offsets = true) 
   const planned = new Set(displayPlanSessions(state, date)
     .filter(session => session.date === date && session.kind === 'study')
     .map(session => JSON.stringify([session.materialId, session.round])));
-  const rows = calendarDisplayQuantity(state, date, date)
-    .rows.filter(row => planned.has(JSON.stringify([row.materialId, row.round])) ||
-      (row.planned ?? 0) > 0 || (row.currentRemaining ?? 0) > 0)
+  const all = calendarDisplayQuantity(state, date, date).rows;
+  const shown = (row: (typeof all)[number]) => planned.has(JSON.stringify([row.materialId, row.round])) ||
+    (row.planned ?? 0) > 0 || (row.currentRemaining ?? 0) > 0;
+  // Unplanned records of the day are extra work as a whole, so they can cover a planned shortfall too.
+  const unplanned = all.filter((row) => !shown(row) && row.reported && row.actual > 0)
+    .map((row) => ({ unit: row.unit, amount: row.actual }));
+  const rows = all.filter(shown)
     .map((row) => ({
       ...row,
       materialName: row.name,
       progress: studyProgressView(state, row, date, date),
     }));
-  return applyOffsets(rows, offsets ? state.dayOffsets?.[date] ?? [] : []);
+  return applyOffsets(rows, offsets ? state.dayOffsets?.[date] ?? [] : [], unplanned);
 }
 
 /**
  * Extra work beyond a cleared row's target may cover another row's shortfall of the same unit, only
  * where the user chose so. It changes the day's clear only: records, remaining amounts and the plan
- * stay as they are, so the covered work is still owed.
+ * stay as they are, so the covered work is still owed. `unplanned` is the day's recorded work outside
+ * the rows (unplanned records), which counts as extra in full.
  */
 export function applyOffsets<Row extends { materialId: string; round: number; unit: string; progress: ReturnType<typeof studyProgressView> }>(
-  rows: Row[], chosen: DayOffset[],
+  rows: Row[], chosen: DayOffset[], unplanned: readonly { unit: string; amount: number }[] = [],
 ) {
   const pool = new Map<string, number>();
+  for (const { unit, amount } of unplanned) pool.set(unit, (pool.get(unit) ?? 0) + amount);
   for (const row of rows) {
     const { complete, recorded, target } = row.progress;
     if (complete && target !== null && recorded > target)
